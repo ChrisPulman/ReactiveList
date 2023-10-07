@@ -140,6 +140,20 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
+    /// </summary>
+    /// <param name="items">The items.</param>
+    public ReactiveList(IEnumerable<T> items)
+        : this() => AddRange(items);
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    public ReactiveList(T item)
+        : this() => Add(item);
+
+    /// <summary>
     /// Gets the added.
     /// </summary>
     /// <value>The added.</value>
