@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34031.279
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReactiveList", "ReactiveList\ReactiveList.csproj", "{47E235AA-5BD0-48C7-970E-4EACF14C8695}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionConfig", "SolutionConfig", "{7EF07444-8E55-41D3-A13D-3B8359142E5A}"
+	ProjectSection(SolutionItems) = preProject
+		..\.editorconfig = ..\.editorconfig
+		..\.gitignore = ..\.gitignore
+		..\Directory.Build.props = ..\Directory.Build.props
+		..\global.json = ..\global.json
+		..\LICENSE = ..\LICENSE
+		..\README.md = ..\README.md
+		..\stylecop.json = ..\stylecop.json
+		..\Version.json = ..\Version.json
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "..\build\_build.csproj", "{AE42333A-EEA5-4CAD-93F5-A2941D4FAFF0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AE42333A-EEA5-4CAD-93F5-A2941D4FAFF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE42333A-EEA5-4CAD-93F5-A2941D4FAFF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47E235AA-5BD0-48C7-970E-4EACF14C8695}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{47E235AA-5BD0-48C7-970E-4EACF14C8695}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{47E235AA-5BD0-48C7-970E-4EACF14C8695}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47E235AA-5BD0-48C7-970E-4EACF14C8695}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {819CD616-1F81-4F42-BA7A-417E52EDED75}
+	EndGlobalSection
+EndGlobal
