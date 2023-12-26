@@ -21,10 +21,10 @@ public class ReactiveList<T> : IReactiveList<T>
     private readonly ReplaySubject<IEnumerable<T>> _removed = new(1);
     private readonly ReplaySubject<IEnumerable<T>> _currentItems = new(1);
     private readonly ReadOnlyObservableCollection<T> _items;
-    private readonly ObservableCollection<T> _itemsAddedoc = new();
-    private readonly ObservableCollection<T> _itemsChangedoc = new();
-    private readonly ObservableCollection<T> _itemsRemovedoc = new();
-    private readonly CompositeDisposable _cleanUp = new();
+    private readonly ObservableCollection<T> _itemsAddedoc = [];
+    private readonly ObservableCollection<T> _itemsChangedoc = [];
+    private readonly ObservableCollection<T> _itemsRemovedoc = [];
+    private readonly CompositeDisposable _cleanUp = [];
     private readonly SourceList<T> _sourceList = new();
 
     /// <summary>
@@ -32,13 +32,13 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     public ReactiveList()
     {
-        _items = new(new());
+        _items = new([]);
         ItemsAdded = new(_itemsAddedoc);
         ItemsRemoved = new(_itemsRemovedoc);
         ItemsChanged = new(_itemsChangedoc);
         var srcList = _sourceList.Connect();
-        _cleanUp = new()
-        {
+        _cleanUp =
+        [
             _sourceList,
             _added,
             _removed,
@@ -136,7 +136,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
                 })
-        };
+        ];
     }
 
     /// <summary>
@@ -209,6 +209,14 @@ public class ReactiveList<T> : IReactiveList<T>
     public IObservable<IEnumerable<T>> Removed => _removed;
 
     /// <summary>
+    /// Gets the count.
+    /// </summary>
+    /// <value>
+    /// The count.
+    /// </value>
+    public int Count => _items.Count;
+
+    /// <summary>
     /// Adds the specified item.
     /// </summary>
     /// <param name="item">The item.</param>
@@ -230,6 +238,15 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <summary>
+    /// Determines whether this instance contains the object.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <returns>
+    ///   <c>true</c> if [contains] [the specified item]; otherwise, <c>false</c>.
+    /// </returns>
+    public bool Contains(T item) => _items.Contains(item);
+
+    /// <summary>
     /// Performs application-defined tasks associated with freeing, releasing, or resetting
     /// unmanaged resources.
     /// </summary>
@@ -238,6 +255,13 @@ public class ReactiveList<T> : IReactiveList<T>
         Dispose(true);
         GC.SuppressFinalize(this);
     }
+
+    /// <summary>
+    /// Indexes the of.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <returns>The zero based index of the first occurrence of item within the entire collection.</returns>
+    public int IndexOf(T item) => _items.IndexOf(item);
 
     /// <summary>
     /// Removes the specified item.

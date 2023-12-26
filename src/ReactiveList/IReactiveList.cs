@@ -10,7 +10,7 @@ namespace CP.Reactive;
 /// Interface for Reactive List.
 /// </summary>
 /// <typeparam name="T">The type stored in the list.</typeparam>
-/// <seealso cref="System.Reactive.Disposables.ICancelable" />
+/// <seealso cref="ICancelable" />
 public interface IReactiveList<T> : ICancelable
     where T : notnull
 {
@@ -37,6 +37,14 @@ public interface IReactiveList<T> : ICancelable
     /// The current items.
     /// </value>
     IObservable<IEnumerable<T>> CurrentItems { get; }
+
+    /// <summary>
+    /// Gets the count.
+    /// </summary>
+    /// <value>
+    /// The count.
+    /// </value>
+    int Count { get; }
 
     /// <summary>
     /// Gets the items.
@@ -94,6 +102,22 @@ public interface IReactiveList<T> : ICancelable
     /// Clears this instance.
     /// </summary>
     void Clear();
+
+    /// <summary>
+    /// Determines whether this instance contains the object.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <returns>
+    ///   <c>true</c> if [contains] [the specified item]; otherwise, <c>false</c>.
+    /// </returns>
+    bool Contains(T item);
+
+    /// <summary>
+    /// Indexes the of.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <returns>The zero based index of the first occurrence of item within the entire collection.</returns>
+    int IndexOf(T item);
 
     /// <summary>
     /// Removes the specified items.
