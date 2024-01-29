@@ -26,6 +26,7 @@ public class ReactiveList<T> : IReactiveList<T>
     private readonly ObservableCollection<T> _itemsRemovedoc = [];
     private readonly CompositeDisposable _cleanUp = [];
     private readonly SourceList<T> _sourceList = new();
+    private bool _replacingAll;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
@@ -76,7 +77,10 @@ public class ReactiveList<T> : IReactiveList<T>
                 {
                     _itemsAddedoc.Clear();
                     _itemsAddedoc.Add(v);
-                    _itemsRemovedoc.Clear();
+                    if (!_replacingAll)
+                    {
+                        _itemsRemovedoc.Clear();
+                    }
                 }),
 
             srcList
@@ -98,6 +102,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 .ObserveOnUIWhenNotTesting()
                 .Subscribe(v =>
                 {
+                    _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
                     _itemsAddedoc.Clear();
                 }),
@@ -130,12 +135,16 @@ public class ReactiveList<T> : IReactiveList<T>
                 .ObserveOnUIWhenNotTesting()
                 .Subscribe(v =>
                 {
-                    _itemsAddedoc.Clear();
+                    if (!_replacingAll)
+                    {
+                        _itemsAddedoc.Clear();
+                    }
+
                     _itemsChangedoc.Clear();
                     _itemsChangedoc.Add(v);
                     _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
-                })
+                }),
         ];
     }
 
@@ -262,6 +271,22 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="item">The item.</param>
     /// <returns>The zero based index of the first occurrence of item within the entire collection.</returns>
     public int IndexOf(T item) => _items.IndexOf(item);
+
+    /// <summary>
+    /// Replaces all existing items with new items.
+    /// </summary>
+    /// <param name="items">The new items.</param>
+    public void ReplaceAll(IEnumerable<T> items)
+    {
+        ClearHistoryIfCountIsZero();
+        _sourceList.Edit(l =>
+        {
+            _replacingAll = true;
+            l.Clear();
+            l.AddRange(items);
+        });
+        _replacingAll = false;
+    }
 
     /// <summary>
     /// Removes the specified item.

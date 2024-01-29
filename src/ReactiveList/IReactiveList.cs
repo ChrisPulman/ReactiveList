@@ -120,6 +120,12 @@ public interface IReactiveList<T> : ICancelable
     int IndexOf(T item);
 
     /// <summary>
+    /// Replaces all existing items with new items.
+    /// </summary>
+    /// <param name="items">The new items.</param>
+    void ReplaceAll(IEnumerable<T> items);
+
+    /// <summary>
     /// Removes the specified items.
     /// </summary>
     /// <param name="items">The items.</param>
