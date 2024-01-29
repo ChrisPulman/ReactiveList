@@ -26,6 +26,9 @@ public class ReactiveList<T> : IReactiveList<T>
     private readonly ObservableCollection<T> _itemsRemovedoc = [];
     private readonly CompositeDisposable _cleanUp = [];
     private readonly SourceList<T> _sourceList = new();
+    private readonly object _lock = new();
+    private bool _cleared;
+    private bool _addedRange;
     private bool _replacingAll;
 
     /// <summary>
@@ -80,6 +83,10 @@ public class ReactiveList<T> : IReactiveList<T>
                     if (!_replacingAll)
                     {
                         _itemsRemovedoc.Clear();
+                    }
+                    else
+                    {
+                        _addedRange = true;
                     }
                 }),
 
@@ -144,6 +151,11 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsChangedoc.Add(v);
                     _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
+
+                    if (_replacingAll)
+                    {
+                        _cleared = true;
+                    }
                 }),
         ];
     }
@@ -278,14 +290,24 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="items">The new items.</param>
     public void ReplaceAll(IEnumerable<T> items)
     {
-        ClearHistoryIfCountIsZero();
-        _sourceList.Edit(l =>
+        lock (_lock)
         {
-            _replacingAll = true;
-            l.Clear();
-            l.AddRange(items);
-        });
-        _replacingAll = false;
+            ClearHistoryIfCountIsZero();
+            _sourceList.Edit(l =>
+            {
+                _replacingAll = true;
+                l.Clear();
+                l.AddRange(items);
+            });
+            _replacingAll = false;
+            while (!_cleared && !_addedRange)
+            {
+                Thread.Sleep(1);
+            }
+
+            _cleared = false;
+            _addedRange = false;
+        }
     }
 
     /// <summary>
