@@ -199,4 +199,27 @@ public class ReactiveListAddTests
             await Task.Delay(1);
         }
     }
+
+    /// <summary>
+    /// Determines whether this instance [can replace all items].
+    /// </summary>
+    [Fact]
+    public void CanReplaceAllItems()
+    {
+        ReactiveList<string> fixture = new();
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange(new string[] { "one", "two" });
+        fixture.Count.Should().Be(2);
+        fixture.ItemsAdded.Count.Should().Be(2);
+        fixture.ItemsChanged.Count.Should().Be(2);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Should().Be("one");
+        fixture.ReplaceAll(new string[] { "three", "four", "five" });
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(2);
+        fixture.ItemsRemoved.Count.Should().Be(2);
+        fixture.Items[0].Should().Be("three");
+    }
 }
