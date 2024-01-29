@@ -222,4 +222,56 @@ public class ReactiveListAddTests
         fixture.ItemsRemoved.Count.Should().Be(2);
         fixture.Items[0].Should().Be("three");
     }
+
+    /// <summary>
+    /// Determines whether this instance [can replace all items many times].
+    /// </summary>
+    [Fact]
+    public void CanReplaceAllItemsManyTimes()
+    {
+        ReactiveList<string> fixture = new();
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange(new string[] { "one", "two" });
+        fixture.Count.Should().Be(2);
+        fixture.ItemsAdded.Count.Should().Be(2);
+        fixture.ItemsChanged.Count.Should().Be(2);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Should().Be("one");
+        fixture.ReplaceAll(new string[] { "three", "four", "five" });
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(2);
+        fixture.ItemsRemoved.Count.Should().Be(2);
+        fixture.Items[0].Should().Be("three");
+        fixture.ReplaceAll(new string[] { "six", "seven", "eight" });
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[0].Should().Be("six");
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can replace all items with complex items].
+    /// </summary>
+    [Fact]
+    public void CanReplaceAllItemsWithComplexItems()
+    {
+        ReactiveList<TestData> fixture = new();
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange(new TestData[] { new("Celine", 5), new("Clarence", 5), new("Clifford", 5) });
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.ReplaceAll(new TestData[] { new("Celine", 5), new("Clarence", 5), new("Clifford", 5) });
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[0].Name.Should().Be("Celine");
+    }
 }
