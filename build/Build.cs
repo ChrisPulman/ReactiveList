@@ -51,7 +51,7 @@ partial class Build : NukeBuild
 
     private Target Clean => _ => _
         .Before(Restore)
-        .Executes(async () =>
+        .Executes(() =>
         {
             if (IsLocalBuild)
             {
@@ -60,7 +60,7 @@ partial class Build : NukeBuild
 
             PackagesDirectory.CreateOrCleanDirectory();
             //// await this.UpdateVisualStudio();
-            await this.InstallDotNetSdk("6.x.x", "7.x.x", "8.x.x");
+            ////await this.InstallDotNetSdk("6.x.x", "7.x.x", "8.x.x");
         });
 
     private Target Restore => _ => _
