@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="DynamicData" Version="8.3.93" />
-    <PackageReference Include="ReactiveUI" Version="19.5.41" />
+    <PackageReference Include="ReactiveUI" Version="19.5.72" />
   </ItemGroup>
 
 </Project>
