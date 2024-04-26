@@ -11,7 +11,7 @@ namespace CP.Reactive;
 /// </summary>
 /// <typeparam name="T">The type stored in the list.</typeparam>
 /// <seealso cref="ICancelable" />
-public interface IReactiveList<T> : ICancelable
+public interface IReactiveList<T> : ICancelable, IList<T>
     where T : notnull
 {
     /// <summary>
@@ -37,14 +37,6 @@ public interface IReactiveList<T> : ICancelable
     /// The current items.
     /// </value>
     IObservable<IEnumerable<T>> CurrentItems { get; }
-
-    /// <summary>
-    /// Gets the count.
-    /// </summary>
-    /// <value>
-    /// The count.
-    /// </value>
-    int Count { get; }
 
     /// <summary>
     /// Gets the items.
@@ -87,37 +79,10 @@ public interface IReactiveList<T> : ICancelable
     IObservable<IEnumerable<T>> Removed { get; }
 
     /// <summary>
-    /// Adds the specified item.
-    /// </summary>
-    /// <param name="item">The item.</param>
-    void Add(T item);
-
-    /// <summary>
     /// Adds the range.
     /// </summary>
     /// <param name="items">The items.</param>
     void AddRange(IEnumerable<T> items);
-
-    /// <summary>
-    /// Clears this instance.
-    /// </summary>
-    void Clear();
-
-    /// <summary>
-    /// Determines whether this instance contains the object.
-    /// </summary>
-    /// <param name="item">The item.</param>
-    /// <returns>
-    ///   <c>true</c> if [contains] [the specified item]; otherwise, <c>false</c>.
-    /// </returns>
-    bool Contains(T item);
-
-    /// <summary>
-    /// Indexes the of.
-    /// </summary>
-    /// <param name="item">The item.</param>
-    /// <returns>The zero based index of the first occurrence of item within the entire collection.</returns>
-    int IndexOf(T item);
 
     /// <summary>
     /// Replaces all existing items with new items.
@@ -130,12 +95,6 @@ public interface IReactiveList<T> : ICancelable
     /// </summary>
     /// <param name="items">The items.</param>
     void Remove(IEnumerable<T> items);
-
-    /// <summary>
-    /// Removes the specified item.
-    /// </summary>
-    /// <param name="item">The item.</param>
-    void Remove(T item);
 
     /// <summary>
     /// Removes the range.

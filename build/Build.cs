@@ -59,8 +59,6 @@ partial class Build : NukeBuild
             }
 
             PackagesDirectory.CreateOrCleanDirectory();
-            //// await this.UpdateVisualStudio();
-            ////await this.InstallDotNetSdk("6.x.x", "7.x.x", "8.x.x");
         });
 
     private Target Restore => _ => _
