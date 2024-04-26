@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -238,24 +239,61 @@ public class ReactiveList<T> : IReactiveList<T>
     public int Count => _items.Count;
 
     /// <summary>
+    /// Gets a value indicating whether this instance is read only.
+    /// </summary>
+    /// <value>
+    ///   <c>true</c> if this instance is read only; otherwise, <c>false</c>.
+    /// </value>
+    public bool IsReadOnly => false;
+
+    /// <summary>
+    /// Gets or sets the value of T at the specified index.
+    /// </summary>
+    /// <value>
+    /// The value of T.
+    /// </value>
+    /// <param name="index">The index.</param>
+    /// <returns>An instance of T.</returns>
+    public T this[int index]
+    {
+        get => _items[index];
+        set => Insert(index, value);
+    }
+
+    /// <summary>
     /// Adds the specified item.
     /// </summary>
     /// <param name="item">The item.</param>
-    public void Add(T item) => _sourceList.Edit(l => l.Add(item));
+    public void Add(T item)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.Add(item));
+        }
+    }
 
     /// <summary>
     /// Adds the specified items.
     /// </summary>
     /// <param name="items">The items.</param>
-    public void AddRange(IEnumerable<T> items) => _sourceList.Edit(l => l.AddRange(items));
+    public void AddRange(IEnumerable<T> items)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.AddRange(items));
+        }
+    }
 
     /// <summary>
     /// Clears this instance.
     /// </summary>
     public void Clear()
     {
-        ClearHistoryIfCountIsZero();
-        _sourceList.Edit(l => l.Clear());
+        lock (_lock)
+        {
+            ClearHistoryIfCountIsZero();
+            _sourceList.Edit(l => l.Clear());
+        }
     }
 
     /// <summary>
@@ -265,7 +303,13 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <returns>
     ///   <c>true</c> if [contains] [the specified item]; otherwise, <c>false</c>.
     /// </returns>
-    public bool Contains(T item) => _items.Contains(item);
+    public bool Contains(T item)
+    {
+        lock (_lock)
+        {
+            return _items.Contains(item);
+        }
+    }
 
     /// <summary>
     /// Performs application-defined tasks associated with freeing, releasing, or resetting
@@ -282,7 +326,13 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <param name="item">The item.</param>
     /// <returns>The zero based index of the first occurrence of item within the entire collection.</returns>
-    public int IndexOf(T item) => _items.IndexOf(item);
+    public int IndexOf(T item)
+    {
+        lock (_lock)
+        {
+            return _items.IndexOf(item);
+        }
+    }
 
     /// <summary>
     /// Replaces all existing items with new items.
@@ -299,12 +349,12 @@ public class ReactiveList<T> : IReactiveList<T>
                 l.Clear();
                 l.AddRange(items);
             });
-            _replacingAll = false;
             while (!_cleared && !_addedRange)
             {
                 Thread.Sleep(1);
             }
 
+            _replacingAll = false;
             _cleared = false;
             _addedRange = false;
         }
@@ -314,20 +364,45 @@ public class ReactiveList<T> : IReactiveList<T>
     /// Removes the specified item.
     /// </summary>
     /// <param name="item">The item.</param>
-    public void Remove(T item) => _sourceList.Edit(l => l.Remove(item));
+    /// <returns>
+    /// true if item was successfully removed from the System.Collections.Generic.ICollection
+    /// otherwise, false. This method also returns false if item is not found in the
+    /// original System.Collections.Generic.ICollection.
+    /// </returns>
+    public bool Remove(T item)
+    {
+        lock (_lock)
+        {
+            var removed = false;
+            _sourceList.Edit(l => removed = l.Remove(item));
+            return removed;
+        }
+    }
 
     /// <summary>
     /// Removes the specified items.
     /// </summary>
     /// <param name="items">The items.</param>
-    public void Remove(IEnumerable<T> items) => _sourceList.Edit(l => l.Remove(items));
+    public void Remove(IEnumerable<T> items)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.Remove(items));
+        }
+    }
 
     /// <summary>
     /// Removes the range.
     /// </summary>
     /// <param name="index">The index.</param>
     /// <param name="count">The count.</param>
-    public void RemoveRange(int index, int count) => _sourceList.Edit(l => l.RemoveRange(index, count));
+    public void RemoveRange(int index, int count)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.RemoveRange(index, count));
+        }
+    }
 
     /// <summary>
     /// Updates the specified item.
@@ -335,6 +410,50 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="item">The item.</param>
     /// <param name="newValue">The new value.</param>
     public void Update(T item, T newValue) => _sourceList.Edit(l => l.Replace(item, newValue));
+
+    /// <summary>
+    /// Inserts the specified index.
+    /// </summary>
+    /// <param name="index">The index.</param>
+    /// <param name="item">The item.</param>
+    public void Insert(int index, T item)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.Insert(index, item));
+        }
+    }
+
+    /// <summary>
+    /// Removes at.
+    /// </summary>
+    /// <param name="index">The index.</param>
+    public void RemoveAt(int index)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.RemoveAt(index));
+        }
+    }
+
+    /// <summary>
+    /// Copies to.
+    /// </summary>
+    /// <param name="array">The array.</param>
+    /// <param name="arrayIndex">Index of the array.</param>
+    public void CopyTo(T[] array, int arrayIndex) => ((ICollection<T>)_items).CopyTo(array, arrayIndex);
+
+    /// <summary>
+    /// Gets the enumerator.
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the collection.</returns>
+    public IEnumerator<T> GetEnumerator() => ((IEnumerable<T>)_items).GetEnumerator();
+
+    /// <summary>
+    /// Gets the enumerator.
+    /// </summary>
+    /// <returns>An System.Collections.IEnumerator object that can be used to iterate through the collection.</returns>
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_items).GetEnumerator();
 
     /// <summary>
     /// Disposes the specified disposing.

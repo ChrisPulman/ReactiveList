@@ -21,10 +21,10 @@ public class ReactiveListAddTests
     [Fact]
     public void CanAddArrayItem()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
-        fixture.AddRange(new string[] { "one", "two" });
+        fixture.AddRange(["one", "two"]);
         fixture.Count.Should().Be(2);
     }
 
@@ -34,10 +34,10 @@ public class ReactiveListAddTests
     [Fact]
     public void CanAddComplexArrayItem()
     {
-        ReactiveList<TestData> fixture = new();
+        ReactiveList<TestData> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
-        fixture.AddRange(new TestData[] { new("Celine", 5), new("Clarence", 5), new("Clifford", 5) });
+        fixture.AddRange([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
         fixture.Count.Should().Be(3);
     }
 
@@ -47,7 +47,7 @@ public class ReactiveListAddTests
     [Fact]
     public void CanAddMultipleSingleComplexItems()
     {
-        ReactiveList<TestData> fixture = new();
+        ReactiveList<TestData> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
         fixture.Add(new TestData("Celine", 5));
@@ -64,7 +64,7 @@ public class ReactiveListAddTests
     [Fact]
     public void CanAddMultipleSingleComplexItemsAndEdit()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
         fixture.Add("Celine");
@@ -83,7 +83,7 @@ public class ReactiveListAddTests
     [Fact]
     public void CanAddMultipleSingleItems()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
         fixture.Add("one");
@@ -100,7 +100,7 @@ public class ReactiveListAddTests
     [Fact]
     public void CanAddSingleComplexItem()
     {
-        ReactiveList<TestData> fixture = new();
+        ReactiveList<TestData> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
         fixture.Add(new TestData("Chris", 44));
@@ -113,7 +113,7 @@ public class ReactiveListAddTests
     [Fact]
     public void CanAddSingleItem()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
         fixture.Add("one");
@@ -126,10 +126,10 @@ public class ReactiveListAddTests
     [Fact]
     public void CanClearAndAddItem()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
-        fixture.AddRange(new string[] { "one", "two" });
+        fixture.AddRange(["one", "two"]);
         fixture.Count.Should().Be(2);
         fixture.ItemsAdded.Count.Should().Be(2);
         fixture.ItemsChanged.Count.Should().Be(2);
@@ -160,7 +160,7 @@ public class ReactiveListAddTests
     [Fact]
     public async Task CanObserveAddArrayOfItemAsync()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         var a = false;
         fixture.Added.Subscribe(items =>
         {
@@ -168,7 +168,7 @@ public class ReactiveListAddTests
             a = true;
         });
         fixture.Count.Should().Be(0);
-        fixture.AddRange(new string[] { "one", "two" });
+        fixture.AddRange(["one", "two"]);
         fixture.Count.Should().Be(2);
         while (!a)
         {
@@ -183,7 +183,7 @@ public class ReactiveListAddTests
     [Fact]
     public async Task CanObserveAddSingleItemAsync()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         var a = false;
         fixture.Added.Subscribe(items =>
         {
@@ -206,16 +206,16 @@ public class ReactiveListAddTests
     [Fact]
     public void CanReplaceAllItems()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
-        fixture.AddRange(new string[] { "one", "two" });
+        fixture.AddRange(["one", "two"]);
         fixture.Count.Should().Be(2);
         fixture.ItemsAdded.Count.Should().Be(2);
         fixture.ItemsChanged.Count.Should().Be(2);
         fixture.ItemsRemoved.Count.Should().Be(0);
         fixture.Items[0].Should().Be("one");
-        fixture.ReplaceAll(new string[] { "three", "four", "five" });
+        fixture.ReplaceAll(["three", "four", "five"]);
         fixture.Count.Should().Be(3);
         fixture.ItemsAdded.Count.Should().Be(3);
         fixture.ItemsChanged.Count.Should().Be(2);
@@ -229,22 +229,22 @@ public class ReactiveListAddTests
     [Fact]
     public void CanReplaceAllItemsManyTimes()
     {
-        ReactiveList<string> fixture = new();
+        ReactiveList<string> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
-        fixture.AddRange(new string[] { "one", "two" });
+        fixture.AddRange(["one", "two"]);
         fixture.Count.Should().Be(2);
         fixture.ItemsAdded.Count.Should().Be(2);
         fixture.ItemsChanged.Count.Should().Be(2);
         fixture.ItemsRemoved.Count.Should().Be(0);
         fixture.Items[0].Should().Be("one");
-        fixture.ReplaceAll(new string[] { "three", "four", "five" });
+        fixture.ReplaceAll(["three", "four", "five"]);
         fixture.Count.Should().Be(3);
         fixture.ItemsAdded.Count.Should().Be(3);
         fixture.ItemsChanged.Count.Should().Be(2);
         fixture.ItemsRemoved.Count.Should().Be(2);
         fixture.Items[0].Should().Be("three");
-        fixture.ReplaceAll(new string[] { "six", "seven", "eight" });
+        fixture.ReplaceAll(["six", "seven", "eight"]);
         fixture.Count.Should().Be(3);
         fixture.ItemsAdded.Count.Should().Be(3);
         fixture.ItemsChanged.Count.Should().Be(3);
@@ -258,20 +258,217 @@ public class ReactiveListAddTests
     [Fact]
     public void CanReplaceAllItemsWithComplexItems()
     {
-        ReactiveList<TestData> fixture = new();
+        ReactiveList<TestData> fixture = [];
         fixture.Clear();
         fixture.Count.Should().Be(0);
-        fixture.AddRange(new TestData[] { new("Celine", 5), new("Clarence", 5), new("Clifford", 5) });
+        fixture.AddRange([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
         fixture.Count.Should().Be(3);
         fixture.ItemsAdded.Count.Should().Be(3);
         fixture.ItemsChanged.Count.Should().Be(3);
         fixture.ItemsRemoved.Count.Should().Be(0);
         fixture.Items[0].Name.Should().Be("Celine");
-        fixture.ReplaceAll(new TestData[] { new("Celine", 5), new("Clarence", 5), new("Clifford", 5) });
+        fixture.ReplaceAll([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
         fixture.Count.Should().Be(3);
         fixture.ItemsAdded.Count.Should().Be(3);
         fixture.ItemsChanged.Count.Should().Be(3);
         fixture.ItemsRemoved.Count.Should().Be(3);
         fixture.Items[0].Name.Should().Be("Celine");
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can replace all items with complex items and edit].
+    /// </summary>
+    [Fact]
+    public void CanReplaceAllItemsWithComplexItemsAndEdit()
+    {
+        ReactiveList<TestData> fixture = [];
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.ReplaceAll([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.Update(fixture.Items[2], new TestData("Clifford", 5));
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[2].Name.Should().Be("Clifford");
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can replace all items with complex items and edit and remove].
+    /// </summary>
+    [Fact]
+    public void CanReplaceAllItemsWithComplexItemsAndEditAndRemove()
+    {
+        ReactiveList<TestData> fixture = [];
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.ReplaceAll([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.Update(fixture.Items[2], new TestData("Clifford", 5));
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[2].Name.Should().Be("Clifford");
+        fixture.Remove(fixture.Items[2]);
+        fixture.Count.Should().Be(2);
+        fixture.ItemsAdded.Count.Should().Be(0);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can replace all items with complex items and edit and remove and add].
+    /// </summary>
+    [Fact]
+    public void CanReplaceAllItemsWithComplexItemsAndEditAndRemoveAndAdd()
+    {
+        ReactiveList<TestData> fixture = [];
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.ReplaceAll([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.Update(fixture.Items[2], new TestData("Clifford", 5));
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[2].Name.Should().Be("Clifford");
+        fixture.Remove(fixture.Items[2]);
+        fixture.Count.Should().Be(2);
+        fixture.ItemsAdded.Count.Should().Be(0);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(1);
+        fixture.Add(new TestData("Clifford", 5));
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(1);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can replace all items with complex items and edit and remove and add and clear].
+    /// </summary>
+    [Fact]
+    public void CanReplaceAllItemsWithComplexItemsAndEditAndRemoveAndAddAndClear()
+    {
+        ReactiveList<TestData> fixture = [];
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.ReplaceAll([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[0].Name.Should().Be("Celine");
+        fixture.Update(fixture.Items[2], new TestData("Clifford", 5));
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(3);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+        fixture.Items[2].Name.Should().Be("Clifford");
+        fixture.Remove(fixture.Items[2]);
+        fixture.Count.Should().Be(2);
+        fixture.ItemsAdded.Count.Should().Be(0);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(1);
+        fixture.Add(new TestData("Clifford", 5));
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(1);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.ItemsAdded.Count.Should().Be(0);
+        fixture.ItemsChanged.Count.Should().Be(3);
+        fixture.ItemsRemoved.Count.Should().Be(3);
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can add items and insert items].
+    /// </summary>
+    [Fact]
+    public void CanAddItemsAndInsertItems()
+    {
+        ReactiveList<string> fixture = [];
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange(["one", "two"]);
+        fixture.Count.Should().Be(2);
+        fixture.ItemsAdded.Count.Should().Be(2);
+        fixture.ItemsChanged.Count.Should().Be(2);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Should().Be("one");
+        fixture.Insert(1, "three");
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(1);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[1].Should().Be("three");
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can add items and insert items and remove at index].
+    /// </summary>
+    [Fact]
+    public void CanAddItemsAndInsertItemsAndRemoveAtIndex()
+    {
+        ReactiveList<string> fixture = [];
+        fixture.Clear();
+        fixture.Count.Should().Be(0);
+        fixture.AddRange(["one", "two"]);
+        fixture.Count.Should().Be(2);
+        fixture.ItemsAdded.Count.Should().Be(2);
+        fixture.ItemsChanged.Count.Should().Be(2);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[0].Should().Be("one");
+        fixture.Insert(1, "three");
+        fixture.Count.Should().Be(3);
+        fixture.ItemsAdded.Count.Should().Be(1);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(0);
+        fixture.Items[1].Should().Be("three");
+        fixture.RemoveAt(1);
+        fixture.Count.Should().Be(2);
+        fixture.ItemsAdded.Count.Should().Be(0);
+        fixture.ItemsChanged.Count.Should().Be(1);
+        fixture.ItemsRemoved.Count.Should().Be(1);
     }
 }
