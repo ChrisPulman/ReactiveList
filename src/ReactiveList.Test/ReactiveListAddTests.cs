@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CP.Reactive;
@@ -470,5 +471,58 @@ public class ReactiveListAddTests
         fixture.ItemsAdded.Count.Should().Be(0);
         fixture.ItemsChanged.Count.Should().Be(1);
         fixture.ItemsRemoved.Count.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Determines whether this instance can enumerate.
+    /// </summary>
+    [Fact]
+    public void CanEnumerate()
+    {
+        ReactiveList<string> fixture = [];
+        fixture.Clear();
+        fixture.AddRange(["one", "two"]);
+        fixture.Count.Should().Be(2);
+        foreach (var item in fixture)
+        {
+            item.Should().NotBeNullOrEmpty();
+        }
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can get an element at the index or return default].
+    /// </summary>
+    [Fact]
+    public void CanGetElementAtOrDefault()
+    {
+        ReactiveList<string> fixture = [];
+        fixture.Clear();
+        fixture.AddRange(["one", "two"]);
+        fixture.Count.Should().Be(2);
+        fixture.ElementAtOrDefault(0).Should().Be("one");
+        fixture.ElementAtOrDefault(1).Should().Be("two");
+        fixture.ElementAtOrDefault(2).Should().BeNull();
+    }
+
+    /// <summary>
+    /// Determines whether this instance [can add items to a list then add to fixture].
+    /// </summary>
+    [Fact]
+    public void CanAddItemsToAListThenAddToFixture()
+    {
+        List<string> fixture = [];
+        fixture.Clear();
+        fixture.AddRange(["one", "two"]);
+        fixture.Count.Should().Be(2);
+        fixture[0].Should().Be("one");
+        fixture[1].Should().Be("two");
+        ReactiveList<string> fixture2 = [];
+        fixture2.AddRange(fixture);
+        fixture2.Count.Should().Be(2);
+        fixture2.ItemsAdded.Count.Should().Be(2);
+        fixture2.ItemsChanged.Count.Should().Be(2);
+        fixture2.ItemsRemoved.Count.Should().Be(0);
+        fixture2.Items[0].Should().Be("one");
+        fixture2.Items[1].Should().Be("two");
     }
 }

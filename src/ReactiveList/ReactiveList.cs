@@ -3,6 +3,8 @@
 
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -50,9 +52,9 @@ public class ReactiveList<T> : IReactiveList<T>
             _changed,
             _currentItems,
             srcList
-                .ObserveOnUIWhenNotTesting()
+                .ObserveOn(Scheduler.Immediate)
                 .Bind(out _items)
-                .Subscribe(),
+                .Subscribe(_ => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace))),
 
             _sourceList
                 .CountChanged
@@ -64,7 +66,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 .WhereReasonsAre(ListChangeReason.Add)
                 .Select(t => t.Select(v => v.Item.Current))
                 .Do(_added.OnNext)
-                .ObserveOnUIWhenNotTesting()
+                .ObserveOn(Scheduler.Immediate)
                 .Subscribe(v =>
                 {
                     _itemsAddedoc.Clear();
@@ -76,7 +78,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 .WhereReasonsAre(ListChangeReason.AddRange)
                 .SelectMany(t => t.Select(v => v.Range))
                 .Do(_added.OnNext)
-                .ObserveOnUIWhenNotTesting()
+                .ObserveOn(Scheduler.Immediate)
                 .Subscribe(v =>
                 {
                     _itemsAddedoc.Clear();
@@ -95,7 +97,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 .WhereReasonsAre(ListChangeReason.Remove)
                 .Select(t => t.Select(v => v.Item.Current))
                 .Do(_removed.OnNext)
-                .ObserveOnUIWhenNotTesting()
+                .ObserveOn(Scheduler.Immediate)
                 .Subscribe(v =>
                 {
                     _itemsRemovedoc.Clear();
@@ -107,7 +109,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 .WhereReasonsAre(ListChangeReason.RemoveRange)
                 .SelectMany(t => t.Select(v => v.Range))
                 .Do(_removed.OnNext)
-                .ObserveOnUIWhenNotTesting()
+                .ObserveOn(Scheduler.Immediate)
                 .Subscribe(v =>
                 {
                     _itemsRemovedoc.Clear();
@@ -119,7 +121,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 .WhereReasonsAre(ListChangeReason.Add, ListChangeReason.Remove, ListChangeReason.Replace)
                 .Select(t => t.Select(v => v.Item.Current))
                 .Do(_changed.OnNext)
-                .ObserveOnUIWhenNotTesting()
+                .ObserveOn(Scheduler.Immediate)
                 .Subscribe(v =>
                 {
                     _itemsChangedoc.Clear();
@@ -130,7 +132,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 .WhereReasonsAre(ListChangeReason.RemoveRange, ListChangeReason.AddRange)
                 .SelectMany(t => t.Select(v => v.Range))
                 .Do(_changed.OnNext)
-                .ObserveOnUIWhenNotTesting()
+                .ObserveOn(Scheduler.Immediate)
                 .Subscribe(v =>
                 {
                     _itemsChangedoc.Clear();
@@ -140,7 +142,7 @@ public class ReactiveList<T> : IReactiveList<T>
             srcList
                 .WhereReasonsAre(ListChangeReason.Clear)
                 .SelectMany(t => t.Select(v => v.Range))
-                .ObserveOnUIWhenNotTesting()
+                .ObserveOn(Scheduler.Immediate)
                 .Subscribe(v =>
                 {
                     if (!_replacingAll)
@@ -174,6 +176,9 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="item">The item.</param>
     public ReactiveList(T item)
         : this() => Add(item);
+
+    /// <inheritdoc/>
+    public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
     /// <summary>
     /// Gets the added.
