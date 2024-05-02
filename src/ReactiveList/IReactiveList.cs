@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Reactive.Disposables;
 
 namespace CP.Reactive;
@@ -11,7 +12,7 @@ namespace CP.Reactive;
 /// </summary>
 /// <typeparam name="T">The type stored in the list.</typeparam>
 /// <seealso cref="ICancelable" />
-public interface IReactiveList<T> : ICancelable, IList<T>
+public interface IReactiveList<T> : IList<T>, INotifyCollectionChanged, ICancelable
     where T : notnull
 {
     /// <summary>
