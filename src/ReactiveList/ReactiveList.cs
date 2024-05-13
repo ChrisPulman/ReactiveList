@@ -54,7 +54,7 @@ public class ReactiveList<T> : IReactiveList<T>
             srcList
                 .ObserveOn(Scheduler.Immediate)
                 .Bind(out _items)
-                .Subscribe(_ => CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace))),
+                .Subscribe(),
 
             _sourceList
                 .CountChanged
@@ -72,6 +72,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsAddedoc.Clear();
                     _itemsAddedoc.Add(v);
                     _itemsRemovedoc.Clear();
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, v));
                 }),
 
             srcList
@@ -91,6 +92,8 @@ public class ReactiveList<T> : IReactiveList<T>
                     {
                         _addedRange = true;
                     }
+
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, v.ToList()));
                 }),
 
             srcList
@@ -103,6 +106,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
                     _itemsAddedoc.Clear();
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, v));
                 }),
 
             srcList
@@ -115,6 +119,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
                     _itemsAddedoc.Clear();
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, v.ToList()));
                 }),
 
             srcList
@@ -154,7 +159,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsChangedoc.Add(v);
                     _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
-
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset, v.ToList()));
                     if (_replacingAll)
                     {
                         _cleared = true;
