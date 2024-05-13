@@ -159,7 +159,8 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsChangedoc.Add(v);
                     _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset, v.ToList()));
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+
                     if (_replacingAll)
                     {
                         _cleared = true;
