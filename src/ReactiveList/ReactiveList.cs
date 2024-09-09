@@ -4,6 +4,7 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -131,6 +132,9 @@ public class ReactiveList<T> : IReactiveList<T>
                 {
                     _itemsChangedoc.Clear();
                     _itemsChangedoc.Add(v);
+
+                    // TODO: Confirm this is the correct action
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace));
                 }),
 
             srcList
@@ -185,6 +189,9 @@ public class ReactiveList<T> : IReactiveList<T>
 
     /// <inheritdoc/>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
     /// Gets the added.
@@ -258,6 +265,48 @@ public class ReactiveList<T> : IReactiveList<T>
     public bool IsReadOnly => false;
 
     /// <summary>
+    /// Gets a value indicating whether this instance is fixed size.
+    /// </summary>
+    /// <value>
+    ///   <c>true</c> if this instance is fixed size; otherwise, <c>false</c>.
+    /// </value>
+    public bool IsFixedSize => false;
+
+    /// <summary>
+    /// Gets a value indicating whether this instance is synchronized.
+    /// </summary>
+    /// <value>
+    ///   <c>true</c> if this instance is synchronized; otherwise, <c>false</c>.
+    /// </value>
+    public bool IsSynchronized => false;
+
+    /// <summary>
+    /// Gets the synchronize root.
+    /// </summary>
+    /// <value>
+    /// The synchronize root.
+    /// </value>
+    public object SyncRoot => this;
+
+    /// <summary>
+    /// Gets the <see cref="object"/> at the specified index.
+    /// </summary>
+    /// <value>
+    /// The <see cref="object"/>.
+    /// </value>
+    /// <param name="index">The index.</param>
+    /// <returns>An object from the specified index.</returns>
+    object? IList.this[int index]
+    {
+        get => _items[index];
+        set
+        {
+            RemoveAt(index);
+            Insert(index, (T)value!);
+        }
+    }
+
+    /// <summary>
     /// Gets or sets the value of T at the specified index.
     /// </summary>
     /// <value>
@@ -268,7 +317,11 @@ public class ReactiveList<T> : IReactiveList<T>
     public T this[int index]
     {
         get => _items[index];
-        set => Insert(index, value);
+        set
+        {
+            RemoveAt(index);
+            Insert(index, value);
+        }
     }
 
     /// <summary>
@@ -280,6 +333,8 @@ public class ReactiveList<T> : IReactiveList<T>
         lock (_lock)
         {
             _sourceList.Edit(l => l.Add(item));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
         }
     }
 
@@ -292,6 +347,8 @@ public class ReactiveList<T> : IReactiveList<T>
         lock (_lock)
         {
             _sourceList.Edit(l => l.AddRange(items));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
         }
     }
 
@@ -304,6 +361,8 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             ClearHistoryIfCountIsZero();
             _sourceList.Edit(l => l.Clear());
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
         }
     }
 
@@ -386,6 +445,8 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             var removed = false;
             _sourceList.Edit(l => removed = l.Remove(item));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
             return removed;
         }
     }
@@ -399,6 +460,8 @@ public class ReactiveList<T> : IReactiveList<T>
         lock (_lock)
         {
             _sourceList.Edit(l => l.Remove(items));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
         }
     }
 
@@ -412,6 +475,8 @@ public class ReactiveList<T> : IReactiveList<T>
         lock (_lock)
         {
             _sourceList.Edit(l => l.RemoveRange(index, count));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
         }
     }
 
@@ -420,7 +485,13 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <param name="item">The item.</param>
     /// <param name="newValue">The new value.</param>
-    public void Update(T item, T newValue) => _sourceList.Edit(l => l.Replace(item, newValue));
+    public void Update(T item, T newValue)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.Replace(item, newValue));
+        }
+    }
 
     /// <summary>
     /// Inserts the specified index.
@@ -432,6 +503,8 @@ public class ReactiveList<T> : IReactiveList<T>
         lock (_lock)
         {
             _sourceList.Edit(l => l.Insert(index, item));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
         }
     }
 
@@ -444,6 +517,8 @@ public class ReactiveList<T> : IReactiveList<T>
         lock (_lock)
         {
             _sourceList.Edit(l => l.RemoveAt(index));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
         }
     }
 
@@ -452,7 +527,11 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <param name="array">The array.</param>
     /// <param name="arrayIndex">Index of the array.</param>
-    public void CopyTo(T[] array, int arrayIndex) => ((ICollection<T>)_items).CopyTo(array, arrayIndex);
+    public void CopyTo(T[] array, int arrayIndex)
+    {
+        ((ICollection<T>)_items).CopyTo(array, arrayIndex);
+        OnPropertyChanged("Item[]");
+    }
 
     /// <summary>
     /// Gets the enumerator.
@@ -465,6 +544,155 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <returns>An System.Collections.IEnumerator object that can be used to iterate through the collection.</returns>
     IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_items).GetEnumerator();
+
+    /// <summary>
+    /// Adds the specified value.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    /// <returns>An int of the length.</returns>
+    public int Add(object? value)
+    {
+        try
+        {
+            Add((T)value!);
+        }
+        catch (InvalidCastException)
+        {
+            throw;
+        }
+
+        return Count - 1;
+    }
+
+    /// <summary>
+    /// Determines whether this instance contains the object.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    /// <returns>
+    ///   <c>true</c> if [contains] [the specified value]; otherwise, <c>false</c>.
+    /// </returns>
+    public bool Contains(object? value)
+    {
+        if (IsCompatibleObject(value))
+        {
+            return Contains((T)value!);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Indexes the of.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    /// <returns>The zero based index of the first occurrence of item within the entire collection.</returns>
+    public int IndexOf(object? value)
+    {
+        if (IsCompatibleObject(value))
+        {
+            return IndexOf((T)value!);
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Inserts the specified index.
+    /// </summary>
+    /// <param name="index">The index.</param>
+    /// <param name="value">The value.</param>
+    public void Insert(int index, object? value)
+    {
+        try
+        {
+            Insert(index, (T)value!);
+        }
+        catch (InvalidCastException)
+        {
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Removes the specified value.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    public void Remove(object? value)
+    {
+        if (IsCompatibleObject(value))
+        {
+            Remove((T)value!);
+        }
+    }
+
+    /// <summary>
+    /// Copies to.
+    /// </summary>
+    /// <param name="array">The array.</param>
+    /// <param name="index">The index.</param>
+    /// <exception cref="ArgumentNullException">nameof(array).</exception>
+    /// <exception cref="ArgumentException">
+    /// Only single dimensional arrays are supported for the requested action., nameof(array)
+    /// or
+    /// The lower bound of target array must be zero., nameof(array)
+    /// or
+    /// The number of elements in the source collection is greater than the available space from index to the end of the destination array., nameof(array)
+    /// or
+    /// Invalid array type.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">nameof(index), Index is less than zero.</exception>
+    public void CopyTo(Array array, int index)
+    {
+        if (array == null)
+        {
+            throw new ArgumentNullException(nameof(array));
+        }
+
+        if (array.Rank != 1)
+        {
+            throw new ArgumentException("Only single dimensional arrays are supported for the requested action.", nameof(array));
+        }
+
+        if (array.GetLowerBound(0) != 0)
+        {
+            throw new ArgumentException("The lower bound of target array must be zero.", nameof(array));
+        }
+
+        if (index < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), "Index is less than zero.");
+        }
+
+        if (array.Length - index < Count)
+        {
+            throw new ArgumentException("The number of elements in the source collection is greater than the available space from index to the end of the destination array.", nameof(array));
+        }
+
+        if (array is T[] tArray)
+        {
+            CopyTo(tArray, index);
+        }
+        else if (array is object[] objects)
+        {
+            try
+            {
+                foreach (var item in this)
+                {
+                    objects[index++] = item;
+                }
+            }
+            catch (ArrayTypeMismatchException)
+            {
+                throw new ArgumentException("Invalid array type.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Raises a PropertyChanged event (per <see cref="INotifyPropertyChanged" />).
+    /// </summary>
+    /// <param name="propertyName">Name of the property.</param>
+    protected virtual void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     /// <summary>
     /// Disposes the specified disposing.
@@ -482,6 +710,18 @@ public class ReactiveList<T> : IReactiveList<T>
             _cleanUp.Dispose();
         }
     }
+
+    /// <summary>
+    /// Determines whether [is compatible object] [the specified value].
+    /// Non-null values are fine.  Only accept nulls if T is a class or Nullable.
+    /// Note that default(T) is not equal to null for value types except when T is Nullable.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    /// <returns>
+    ///   <c>true</c> if [is compatible object] [the specified value]; otherwise, <c>false</c>.
+    /// </returns>
+    private static bool IsCompatibleObject(object? value) =>
+        (value is T) || (value == null && default(T) == null);
 
     private void ClearHistoryIfCountIsZero()
     {
