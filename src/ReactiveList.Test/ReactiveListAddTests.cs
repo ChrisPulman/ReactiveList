@@ -346,10 +346,16 @@ public class ReactiveListAddTests
     public void CanReplaceAllItemsWithComplexItemsAndEditAndRemoveAndAdd()
     {
         ReactiveList<TestData> fixture = [];
+        var inpcName = string.Empty;
+        fixture.PropertyChanged += (sender, args) => inpcName += args.PropertyName;
         fixture.Clear();
         fixture.Count.Should().Be(0);
+        inpcName.Should().Be("CountItem[]");
+        inpcName = string.Empty;
         fixture.AddRange([new("Celine", 5), new("Clarence", 5), new("Clifford", 5)]);
         fixture.Count.Should().Be(3);
+        inpcName.Should().Be("CountItem[]");
+        inpcName = string.Empty;
         fixture.ItemsAdded.Count.Should().Be(3);
         fixture.ItemsChanged.Count.Should().Be(3);
         fixture.ItemsRemoved.Count.Should().Be(0);

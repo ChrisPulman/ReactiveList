@@ -1,8 +1,10 @@
 ﻿// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Reactive.Disposables;
 
 namespace CP.Reactive;
@@ -12,7 +14,7 @@ namespace CP.Reactive;
 /// </summary>
 /// <typeparam name="T">The type stored in the list.</typeparam>
 /// <seealso cref="ICancelable" />
-public interface IReactiveList<T> : IList<T>, INotifyCollectionChanged, ICancelable
+public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, ICancelable
     where T : notnull
 {
     /// <summary>
