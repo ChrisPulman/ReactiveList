@@ -73,7 +73,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsAddedoc.Clear();
                     _itemsAddedoc.Add(v);
                     _itemsRemovedoc.Clear();
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, v));
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, v.ToList(), _items.Count - v.Count()));
                 }),
 
             srcList
@@ -94,7 +94,7 @@ public class ReactiveList<T> : IReactiveList<T>
                         _addedRange = true;
                     }
 
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, v.ToList()));
+                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
                 }),
 
             srcList
@@ -132,9 +132,6 @@ public class ReactiveList<T> : IReactiveList<T>
                 {
                     _itemsChangedoc.Clear();
                     _itemsChangedoc.Add(v);
-
-                    // TODO: Confirm this is the correct action
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace));
                 }),
 
             srcList
