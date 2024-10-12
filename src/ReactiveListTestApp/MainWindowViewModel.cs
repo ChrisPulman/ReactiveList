@@ -10,7 +10,7 @@ using ReactiveUI;
 
 namespace ReactiveListTestApp;
 
-internal class MainWindowViewModel : RxObject
+internal partial class MainWindowViewModel : RxObject
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class.
@@ -50,7 +50,7 @@ internal class MainWindowViewModel : RxObject
                 }
             });
 
-            var ii = 0;
+        var ii = 0;
         AddItemCommand = ReactiveCommand.Create<string>(x => Items.Add($"{x}{ii++}")).DisposeWith(Disposables);
         ClearItemsCommand = ReactiveCommand.Create(Items.Clear).DisposeWith(Disposables);
         ReplaceAllCommand = ReactiveCommand.Create(() => Items.ReplaceAll(["One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four"]))

@@ -82,12 +82,6 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IObservab
     IObservable<IEnumerable<T>> Removed { get; }
 
     /// <summary>
-    /// Removes the <see cref="T:System.Collections.Generic.IList`1"></see> item at the specified index.
-    /// </summary>
-    /// <param name="index">The zero-based index of the item to remove.</param>
-    new void RemoveAt(int index);
-
-    /// <summary>
     /// Adds the range.
     /// </summary>
     /// <param name="items">The items.</param>
@@ -99,16 +93,16 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IObservab
     new void Clear();
 
     /// <summary>
-    /// Replaces all existing items with new items.
-    /// </summary>
-    /// <param name="items">The new items.</param>
-    void ReplaceAll(IEnumerable<T> items);
-
-    /// <summary>
     /// Removes the specified items.
     /// </summary>
     /// <param name="items">The items.</param>
     void Remove(IEnumerable<T> items);
+
+    /// <summary>
+    /// Removes the <see cref="T:System.Collections.Generic.IList`1"></see> item at the specified index.
+    /// </summary>
+    /// <param name="index">The zero-based index of the item to remove.</param>
+    new void RemoveAt(int index);
 
     /// <summary>
     /// Removes the range.
@@ -116,6 +110,12 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IObservab
     /// <param name="index">The index.</param>
     /// <param name="count">The count.</param>
     void RemoveRange(int index, int count);
+
+    /// <summary>
+    /// Replaces all existing items with new items.
+    /// </summary>
+    /// <param name="items">The new items.</param>
+    void ReplaceAll(IEnumerable<T> items);
 
     /// <summary>
     /// Updates the specified item.
