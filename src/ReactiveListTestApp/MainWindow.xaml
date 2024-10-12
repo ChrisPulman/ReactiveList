@@ -8,8 +8,14 @@
     Title="MainWindow"
     Width="800"
     Height="450"
+    d:DataContext="{d:DesignInstance Type=local:MainWindowViewModel}"
     mc:Ignorable="d">
-    <Grid>
+    <StackPanel>
+        <Button
+            Command="{Binding AddItemCommand}"
+            CommandParameter="INJECTED VALUE "
+            Content="Add Item" />
+        <Button Command="{Binding ClearItemsCommand}" Content="CLear Items" />
         <ListBox ItemsSource="{Binding Items}" />
-    </Grid>
+    </StackPanel>
 </Window>
