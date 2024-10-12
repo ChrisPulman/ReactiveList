@@ -350,20 +350,6 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <summary>
-    /// Clears this instance.
-    /// </summary>
-    public void Clear()
-    {
-        lock (_lock)
-        {
-            ClearHistoryIfCountIsZero();
-            _sourceList.Edit(l => l.Clear());
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
-        }
-    }
-
-    /// <summary>
     /// Determines whether this instance contains the object.
     /// </summary>
     /// <param name="item">The item.</param>
@@ -504,6 +490,18 @@ public class ReactiveList<T> : IReactiveList<T>
             OnPropertyChanged("Item[]");
         }
     }
+
+    /// <summary>
+    /// Removes at.
+    /// </summary>
+    /// <param name="index">The index.</param>
+    void IList<T>.RemoveAt(int index) => RemoveAt(index);
+
+    /// <summary>
+    /// Removes at.
+    /// </summary>
+    /// <param name="index">The index.</param>
+    void IList.RemoveAt(int index) => RemoveAt(index);
 
     /// <summary>
     /// Removes at.
@@ -682,6 +680,29 @@ public class ReactiveList<T> : IReactiveList<T>
             {
                 throw new ArgumentException("Invalid array type.");
             }
+        }
+    }
+
+    /// <summary>
+    /// Clears this instance.
+    /// </summary>
+    void ICollection<T>.Clear() => Clear();
+    /// <summary>
+    /// Clears this instance.
+    /// </summary>
+    void IList.Clear() => Clear();
+
+    /// <summary>
+    /// Clears this instance.
+    /// </summary>
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            ClearHistoryIfCountIsZero();
+            _sourceList.Edit(l => l.Clear());
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged("Item[]");
         }
     }
 
