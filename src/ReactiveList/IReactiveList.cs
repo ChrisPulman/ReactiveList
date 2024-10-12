@@ -82,12 +82,6 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IObservab
     IObservable<IEnumerable<T>> Removed { get; }
 
     /// <summary>
-    /// Removes the <see cref="T:System.Collections.Generic.IList`1"></see> item at the specified index.
-    /// </summary>
-    /// <param name="index">The zero-based index of the item to remove.</param>
-    new void RemoveAt(int index);
-
-    /// <summary>
     /// Adds the range.
     /// </summary>
     /// <param name="items">The items.</param>
