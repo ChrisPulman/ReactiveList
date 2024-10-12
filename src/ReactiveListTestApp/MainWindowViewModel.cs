@@ -41,7 +41,10 @@ internal partial class MainWindowViewModel : RxObject
                     Items.Remove("Lets");
                     Items.Remove("Count");
                     Items.RemoveAt(0);
-                    Items.RemoveAt(0);
+
+                    var l = Items as IList<string>;
+                    l.RemoveAt(0);
+
                     Items.Add(x);
                     i++;
                 }
