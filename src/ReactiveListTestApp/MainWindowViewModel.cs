@@ -1,13 +1,16 @@
 ﻿// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using CP.Reactive;
+using CrissCross;
 using ReactiveUI;
 
 namespace ReactiveListTestApp;
 
-internal class MainWindowViewModel
+internal partial class MainWindowViewModel : RxObject
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class.
@@ -44,7 +47,7 @@ internal class MainWindowViewModel
                 }
             });
 
-            var ii = 0;
+        var ii = 0;
         AddItemCommand = ReactiveCommand.Create<string>(x => Items.Add($"{x}{ii++}")).DisposeWith(Disposables);
         ClearItemsCommand = ReactiveCommand.Create(Items.Clear).DisposeWith(Disposables);
         ReplaceAllCommand = ReactiveCommand.Create(() => Items.ReplaceAll(["One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four", "One", "Two", "Three", "Four"]))

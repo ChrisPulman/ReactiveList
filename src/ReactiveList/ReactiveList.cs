@@ -61,6 +61,7 @@ public class ReactiveList<T> : IReactiveList<T>
             _sourceList
                 .CountChanged
                 .Select(_ => _sourceList.Items)
+                .ObserveOn(Scheduler.Immediate)
                 .Do(_currentItems.OnNext)
                 .Subscribe(),
 
@@ -192,13 +193,13 @@ public class ReactiveList<T> : IReactiveList<T>
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
-    /// Gets the added as an Observeable.
+    /// Gets the added during the last change as an Observeable.
     /// </summary>
     /// <value>The added.</value>
     public IObservable<IEnumerable<T>> Added => _added;
 
     /// <summary>
-    /// Gets the changed as an Observeable.
+    /// Gets the changed during the last change as an Observeable.
     /// </summary>
     /// <value>The changed.</value>
     public IObservable<IEnumerable<T>> Changed => _changed;
@@ -212,16 +213,14 @@ public class ReactiveList<T> : IReactiveList<T>
     public int Count => _items.Count;
 
     /// <summary>
-    /// Gets the current items as an Observeable.
+    /// Gets the current items during the last change as an Observeable.
     /// </summary>
     /// <value>
     /// The current items.
     /// </value>
     public IObservable<IEnumerable<T>> CurrentItems => _currentItems;
 
-    /// <summary>
-    /// Gets a value indicating whether gets a value that indicates whether the object is disposed.
-    /// </summary>
+    /// <inheritdoc/>
     public bool IsDisposed => _cleanUp.IsDisposed;
 
     /// <inheritdoc/>
@@ -240,25 +239,25 @@ public class ReactiveList<T> : IReactiveList<T>
     public ReadOnlyObservableCollection<T> Items => _items;
 
     /// <summary>
-    /// Gets the items added.
+    /// Gets the items added during the last change.
     /// </summary>
     /// <value>The items added.</value>
     public ReadOnlyObservableCollection<T> ItemsAdded { get; }
 
     /// <summary>
-    /// Gets the items changed.
+    /// Gets the items changed during the last change.
     /// </summary>
     /// <value>The items changed.</value>
     public ReadOnlyObservableCollection<T> ItemsChanged { get; }
 
     /// <summary>
-    /// Gets the items removed.
+    /// Gets the items removed during the last change.
     /// </summary>
     /// <value>The items removed.</value>
     public ReadOnlyObservableCollection<T> ItemsRemoved { get; }
 
     /// <summary>
-    /// Gets the removed items as an Observable.
+    /// Gets the removed items during the last change as an Observable.
     /// </summary>
     /// <value>The removed.</value>
     public IObservable<IEnumerable<T>> Removed => _removed;
@@ -299,218 +298,6 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
-    /// <summary>
-    /// Adds the specified items.
-    /// </summary>
-    /// <param name="items">The items.</param>
-    public void AddRange(IEnumerable<T> items)
-    {
-        lock (_lock)
-        {
-            _sourceList.Edit(l => l.AddRange(items));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
-        }
-    }
-
-    /// <summary>
-    /// Clears this instance.
-    /// </summary>
-    public void Clear()
-    {
-        lock (_lock)
-        {
-            ClearHistoryIfCountIsZero();
-            _sourceList.Edit(l => l.Clear());
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
-        }
-    }
-
-    /// <summary>
-    /// Determines whether this instance contains the object.
-    /// </summary>
-    /// <param name="item">The item.</param>
-    /// <returns>
-    ///   <c>true</c> if [contains] [the specified item]; otherwise, <c>false</c>.
-    /// </returns>
-    public bool Contains(T item)
-    {
-        lock (_lock)
-        {
-            return _items.Contains(item);
-        }
-    }
-
-    /// <summary>
-    /// Performs application-defined tasks associated with freeing, releasing, or resetting
-    /// unmanaged resources.
-    /// </summary>
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Indexes the of.
-    /// </summary>
-    /// <param name="item">The item.</param>
-    /// <returns>The zero based index of the first occurrence of item within the entire collection.</returns>
-    public int IndexOf(T item)
-    {
-        lock (_lock)
-        {
-            return _items.IndexOf(item);
-        }
-    }
-
-    /// <summary>
-    /// Replaces all existing items with new items.
-    /// </summary>
-    /// <param name="items">The new items.</param>
-    public void ReplaceAll(IEnumerable<T> items)
-    {
-        lock (_lock)
-        {
-            ClearHistoryIfCountIsZero();
-            _sourceList.Edit(l =>
-            {
-                _replacingAll = true;
-                l.Clear();
-                l.AddRange(items);
-            });
-            while (!_cleared && !_addedRange)
-            {
-                Thread.Sleep(1);
-            }
-
-            _replacingAll = false;
-            _cleared = false;
-            _addedRange = false;
-        }
-    }
-
-    /// <summary>
-    /// Removes the specified item.
-    /// </summary>
-    /// <param name="item">The item.</param>
-    /// <returns>
-    /// true if item was successfully removed from the System.Collections.Generic.ICollection
-    /// otherwise, false. This method also returns false if item is not found in the
-    /// original System.Collections.Generic.ICollection.
-    /// </returns>
-    public bool Remove(T item)
-    {
-        lock (_lock)
-        {
-            var removed = false;
-            _sourceList.Edit(l => removed = l.Remove(item));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
-            return removed;
-        }
-    }
-
-    /// <summary>
-    /// Removes the specified items.
-    /// </summary>
-    /// <param name="items">The items.</param>
-    public void Remove(IEnumerable<T> items)
-    {
-        lock (_lock)
-        {
-            _sourceList.Edit(l => l.Remove(items));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
-        }
-    }
-
-    /// <summary>
-    /// Removes the range.
-    /// </summary>
-    /// <param name="index">The index.</param>
-    /// <param name="count">The count.</param>
-    public void RemoveRange(int index, int count)
-    {
-        lock (_lock)
-        {
-            _sourceList.Edit(l => l.RemoveRange(index, count));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
-        }
-    }
-
-    /// <summary>
-    /// Updates the specified item.
-    /// </summary>
-    /// <param name="item">The item.</param>
-    /// <param name="newValue">The new value.</param>
-    public void Update(T item, T newValue)
-    {
-        lock (_lock)
-        {
-            _sourceList.Edit(l => l.Replace(item, newValue));
-        }
-    }
-
-    /// <summary>
-    /// Inserts the specified index.
-    /// </summary>
-    /// <param name="index">The index.</param>
-    /// <param name="item">The item.</param>
-    public void Insert(int index, T item)
-    {
-        lock (_lock)
-        {
-            _sourceList.Edit(l => l.Insert(index, item));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
-        }
-    }
-
-    /// <summary>
-    /// Removes at.
-    /// </summary>
-    /// <param name="index">The index.</param>
-    public void RemoveAt(int index)
-    {
-        lock (_lock)
-        {
-            _sourceList.Edit(l => l.RemoveAt(index));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
-        }
-    }
-
-    /// <summary>
-    /// Copies to.
-    /// </summary>
-    /// <param name="array">The array.</param>
-    /// <param name="arrayIndex">Index of the array.</param>
-    public void CopyTo(T[] array, int arrayIndex)
-    {
-        ((ICollection<T>)_items).CopyTo(array, arrayIndex);
-        OnPropertyChanged("Item[]");
-    }
-
-    /// <summary>
-    /// Gets the enumerator.
-    /// </summary>
-    /// <returns>An enumerator that can be used to iterate through the collection.</returns>
-    public IEnumerator<T> GetEnumerator() => ((IEnumerable<T>)_items).GetEnumerator();
-
-    /// <summary>
-    /// Gets the enumerator.
-    /// </summary>
-    /// <returns>An System.Collections.IEnumerator object that can be used to iterate through the collection.</returns>
-    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_items).GetEnumerator();
-
-    /// <summary>
-    /// Adds the specified value.
-    /// </summary>
-    /// <param name="value">The value.</param>
-    /// <returns>An int of the length.</returns>
     /// <inheritdoc/>
     public int Add(object? value)
     {
@@ -630,8 +417,6 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
-    /// <summary>
-    /// Raises a PropertyChanged event (per <see cref="INotifyPropertyChanged" />).
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -739,11 +524,7 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
-    /// <summary>
-    /// Removes a range of elements.
-    /// </summary>
-    /// <param name="index">The index.</param>
-    /// <param name="count">The count.</param>
+    /// <inheritdoc/>
     public void RemoveRange(int index, int count)
     {
         lock (_lock)
@@ -754,10 +535,7 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
-    /// <summary>
-    /// Replaces all existing items with new items.
-    /// </summary>
-    /// <param name="items">The new items.</param>
+    /// <inheritdoc/>
     public void ReplaceAll(IEnumerable<T> items)
     {
         lock (_lock)
@@ -797,7 +575,7 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <summary>
-    /// Disposes the specified disposing.
+    /// Disposes the specified disposables.
     /// </summary>
     /// <param name="disposing">if set to <c>true</c> [disposing].</param>
     protected virtual void Dispose(bool disposing)

@@ -88,10 +88,9 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IObservab
     void AddRange(IEnumerable<T> items);
 
     /// <summary>
-    /// Replaces all existing items with new items.
+    /// Removes all items from the <see cref="T:System.Collections.Generic.ICollection`1"></see>.
     /// </summary>
-    /// <param name="items">The new items.</param>
-    void ReplaceAll(IEnumerable<T> items);
+    new void Clear();
 
     /// <summary>
     /// Removes the specified items.
@@ -100,11 +99,23 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IObservab
     void Remove(IEnumerable<T> items);
 
     /// <summary>
+    /// Removes the <see cref="T:System.Collections.Generic.IList`1"></see> item at the specified index.
+    /// </summary>
+    /// <param name="index">The zero-based index of the item to remove.</param>
+    new void RemoveAt(int index);
+
+    /// <summary>
     /// Removes the range.
     /// </summary>
     /// <param name="index">The index.</param>
     /// <param name="count">The count.</param>
     void RemoveRange(int index, int count);
+
+    /// <summary>
+    /// Replaces all existing items with new items.
+    /// </summary>
+    /// <param name="items">The new items.</param>
+    void ReplaceAll(IEnumerable<T> items);
 
     /// <summary>
     /// Updates the specified item.
