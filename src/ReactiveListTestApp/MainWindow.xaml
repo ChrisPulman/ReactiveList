@@ -9,7 +9,14 @@
     Width="800"
     Height="450"
     mc:Ignorable="d">
-    <Grid>
+    <StackPanel>
+        <Button
+            Command="{Binding AddItemCommand}"
+            CommandParameter="INJECTED VALUE "
+            Content="Add Item" />
+        <Button Command="{Binding ClearItemsCommand}" Content="Clear Items" />
+        <Button Command="{Binding ReplaceAllCommand}" Content="Replace All Items" />
+        <Button Command="{Binding PauseCommand}" Content="Pause" />
         <ListBox ItemsSource="{Binding Items}" />
-    </Grid>
+    </StackPanel>
 </Window>

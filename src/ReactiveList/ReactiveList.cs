@@ -14,25 +14,26 @@ using DynamicData;
 namespace CP.Reactive;
 
 /// <summary>
-/// Rx List.
+/// ReactiveList an Observable list with change tracking.
 /// </summary>
 /// <typeparam name="T">The Type.</typeparam>
 public class ReactiveList<T> : IReactiveList<T>
     where T : notnull
 {
+    private const string ItemArray = "Item[]";
     private readonly ReplaySubject<IEnumerable<T>> _added = new(1);
     private readonly ReplaySubject<IEnumerable<T>> _changed = new(1);
-    private readonly ReplaySubject<IEnumerable<T>> _removed = new(1);
+    private readonly CompositeDisposable _cleanUp = [];
     private readonly ReplaySubject<IEnumerable<T>> _currentItems = new(1);
     private readonly ReadOnlyObservableCollection<T> _items;
     private readonly ObservableCollection<T> _itemsAddedoc = [];
     private readonly ObservableCollection<T> _itemsChangedoc = [];
     private readonly ObservableCollection<T> _itemsRemovedoc = [];
-    private readonly CompositeDisposable _cleanUp = [];
-    private readonly SourceList<T> _sourceList = new();
     private readonly object _lock = new();
-    private bool _cleared;
+    private readonly ReplaySubject<IEnumerable<T>> _removed = new(1);
+    private readonly SourceList<T> _sourceList = new();
     private bool _addedRange;
+    private bool _cleared;
     private bool _replacingAll;
 
     /// <summary>
@@ -191,19 +192,27 @@ public class ReactiveList<T> : IReactiveList<T>
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
-    /// Gets the added.
+    /// Gets the added as an Observeable.
     /// </summary>
     /// <value>The added.</value>
     public IObservable<IEnumerable<T>> Added => _added;
 
     /// <summary>
-    /// Gets the changed.
+    /// Gets the changed as an Observeable.
     /// </summary>
     /// <value>The changed.</value>
     public IObservable<IEnumerable<T>> Changed => _changed;
 
     /// <summary>
-    /// Gets the current items.
+    /// Gets the count.
+    /// </summary>
+    /// <value>
+    /// The count.
+    /// </value>
+    public int Count => _items.Count;
+
+    /// <summary>
+    /// Gets the current items as an Observeable.
     /// </summary>
     /// <value>
     /// The current items.
@@ -214,6 +223,15 @@ public class ReactiveList<T> : IReactiveList<T>
     /// Gets a value indicating whether gets a value that indicates whether the object is disposed.
     /// </summary>
     public bool IsDisposed => _cleanUp.IsDisposed;
+
+    /// <inheritdoc/>
+    public bool IsFixedSize => false;
+
+    /// <inheritdoc/>
+    public bool IsReadOnly => false;
+
+    /// <inheritdoc/>
+    public bool IsSynchronized => false;
 
     /// <summary>
     /// Gets the items.
@@ -240,59 +258,15 @@ public class ReactiveList<T> : IReactiveList<T>
     public ReadOnlyObservableCollection<T> ItemsRemoved { get; }
 
     /// <summary>
-    /// Gets the removed.
+    /// Gets the removed items as an Observable.
     /// </summary>
     /// <value>The removed.</value>
     public IObservable<IEnumerable<T>> Removed => _removed;
 
-    /// <summary>
-    /// Gets the count.
-    /// </summary>
-    /// <value>
-    /// The count.
-    /// </value>
-    public int Count => _items.Count;
-
-    /// <summary>
-    /// Gets a value indicating whether this instance is read only.
-    /// </summary>
-    /// <value>
-    ///   <c>true</c> if this instance is read only; otherwise, <c>false</c>.
-    /// </value>
-    public bool IsReadOnly => false;
-
-    /// <summary>
-    /// Gets a value indicating whether this instance is fixed size.
-    /// </summary>
-    /// <value>
-    ///   <c>true</c> if this instance is fixed size; otherwise, <c>false</c>.
-    /// </value>
-    public bool IsFixedSize => false;
-
-    /// <summary>
-    /// Gets a value indicating whether this instance is synchronized.
-    /// </summary>
-    /// <value>
-    ///   <c>true</c> if this instance is synchronized; otherwise, <c>false</c>.
-    /// </value>
-    public bool IsSynchronized => false;
-
-    /// <summary>
-    /// Gets the synchronize root.
-    /// </summary>
-    /// <value>
-    /// The synchronize root.
-    /// </value>
+    /// <inheritdoc/>
     public object SyncRoot => this;
 
-    /// <summary>
-    /// Gets the <see cref="object"/> at the specified index.
-    /// </summary>
-    /// <value>
-    /// The <see cref="object"/>.
-    /// </value>
-    /// <param name="index">The index.</param>
-    /// <returns>An object from the specified index.</returns>
+    /// <inheritdoc/>
     object? IList.this[int index]
     {
         get => _items[index];
@@ -303,14 +277,7 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
-    /// <summary>
-    /// Gets or sets the value of T at the specified index.
-    /// </summary>
-    /// <value>
-    /// The value of T.
-    /// </value>
-    /// <param name="index">The index.</param>
-    /// <returns>An instance of T.</returns>
+    /// <inheritdoc/>
     public T this[int index]
     {
         get => _items[index];
@@ -321,17 +288,14 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
-    /// <summary>
-    /// Adds the specified item.
-    /// </summary>
-    /// <param name="item">The item.</param>
+    /// <inheritdoc/>
     public void Add(T item)
     {
         lock (_lock)
         {
             _sourceList.Edit(l => l.Add(item));
             OnPropertyChanged(nameof(Count));
-            OnPropertyChanged("Item[]");
+            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -547,6 +511,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <param name="value">The value.</param>
     /// <returns>An int of the length.</returns>
+    /// <inheritdoc/>
     public int Add(object? value)
     {
         try
@@ -561,13 +526,45 @@ public class ReactiveList<T> : IReactiveList<T>
         return Count - 1;
     }
 
-    /// <summary>
-    /// Determines whether this instance contains the object.
-    /// </summary>
-    /// <param name="value">The value.</param>
-    /// <returns>
-    ///   <c>true</c> if [contains] [the specified value]; otherwise, <c>false</c>.
-    /// </returns>
+    /// <inheritdoc/>
+    public void AddRange(IEnumerable<T> items)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.AddRange(items));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
+    /// <inheritdoc/>
+    void ICollection<T>.Clear() => Clear();
+
+    /// <inheritdoc/>
+    void IList.Clear() => Clear();
+
+    /// <inheritdoc/>
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            ClearHistoryIfCountIsZero();
+            _sourceList.Edit(l => l.Clear());
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool Contains(T item)
+    {
+        lock (_lock)
+        {
+            return _items.Contains(item);
+        }
+    }
+
+    /// <inheritdoc/>
     public bool Contains(object? value)
     {
         if (IsCompatibleObject(value))
@@ -578,66 +575,14 @@ public class ReactiveList<T> : IReactiveList<T>
         return false;
     }
 
-    /// <summary>
-    /// Indexes the of.
-    /// </summary>
-    /// <param name="value">The value.</param>
-    /// <returns>The zero based index of the first occurrence of item within the entire collection.</returns>
-    public int IndexOf(object? value)
+    /// <inheritdoc/>
+    public void CopyTo(T[] array, int arrayIndex)
     {
-        if (IsCompatibleObject(value))
-        {
-            return IndexOf((T)value!);
-        }
-
-        return -1;
+        ((ICollection<T>)_items).CopyTo(array, arrayIndex);
+        OnPropertyChanged(ItemArray);
     }
 
-    /// <summary>
-    /// Inserts the specified index.
-    /// </summary>
-    /// <param name="index">The index.</param>
-    /// <param name="value">The value.</param>
-    public void Insert(int index, object? value)
-    {
-        try
-        {
-            Insert(index, (T)value!);
-        }
-        catch (InvalidCastException)
-        {
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// Removes the specified value.
-    /// </summary>
-    /// <param name="value">The value.</param>
-    public void Remove(object? value)
-    {
-        if (IsCompatibleObject(value))
-        {
-            Remove((T)value!);
-        }
-    }
-
-    /// <summary>
-    /// Copies to.
-    /// </summary>
-    /// <param name="array">The array.</param>
-    /// <param name="index">The index.</param>
-    /// <exception cref="ArgumentNullException">nameof(array).</exception>
-    /// <exception cref="ArgumentException">
-    /// Only single dimensional arrays are supported for the requested action., nameof(array)
-    /// or
-    /// The lower bound of target array must be zero., nameof(array)
-    /// or
-    /// The number of elements in the source collection is greater than the available space from index to the end of the destination array., nameof(array)
-    /// or
-    /// Invalid array type.
-    /// </exception>
-    /// <exception cref="ArgumentOutOfRangeException">nameof(index), Index is less than zero.</exception>
+    /// <inheritdoc/>
     public void CopyTo(Array array, int index)
     {
         if (array == null)
@@ -687,9 +632,169 @@ public class ReactiveList<T> : IReactiveList<T>
 
     /// <summary>
     /// Raises a PropertyChanged event (per <see cref="INotifyPropertyChanged" />).
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <inheritdoc/>
+    public IEnumerator<T> GetEnumerator() => _items.GetEnumerator();
+
+    /// <inheritdoc/>
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_items).GetEnumerator();
+
+    /// <inheritdoc/>
+    public int IndexOf(T item)
+    {
+        lock (_lock)
+        {
+            return _items.IndexOf(item);
+        }
+    }
+
+    /// <inheritdoc/>
+    public int IndexOf(object? value)
+    {
+        if (IsCompatibleObject(value))
+        {
+            return IndexOf((T)value!);
+        }
+
+        return -1;
+    }
+
+    /// <inheritdoc/>
+    public void Insert(int index, T item)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.Insert(index, item));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Insert(int index, object? value)
+    {
+        try
+        {
+            Insert(index, (T)value!);
+        }
+        catch (InvalidCastException)
+        {
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool Remove(T item)
+    {
+        lock (_lock)
+        {
+            var removed = false;
+            _sourceList.Edit(l => removed = l.Remove(item));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+            return removed;
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Remove(IEnumerable<T> items)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.Remove(items));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Remove(object? value)
+    {
+        if (IsCompatibleObject(value))
+        {
+            Remove((T)value!);
+        }
+    }
+
+    /// <inheritdoc/>
+    void IList<T>.RemoveAt(int index) => RemoveAt(index);
+
+    /// <inheritdoc/>
+    void IList.RemoveAt(int index) => RemoveAt(index);
+
+    /// <inheritdoc/>
+    public void RemoveAt(int index)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.RemoveAt(index));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
+    /// <summary>
+    /// Removes a range of elements.
     /// </summary>
-    /// <param name="propertyName">Name of the property.</param>
-    protected virtual void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    /// <param name="index">The index.</param>
+    /// <param name="count">The count.</param>
+    public void RemoveRange(int index, int count)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.RemoveRange(index, count));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
+    /// <summary>
+    /// Replaces all existing items with new items.
+    /// </summary>
+    /// <param name="items">The new items.</param>
+    public void ReplaceAll(IEnumerable<T> items)
+    {
+        lock (_lock)
+        {
+            ClearHistoryIfCountIsZero();
+            _sourceList.Edit(l =>
+            {
+                _replacingAll = true;
+                l.Clear();
+                l.AddRange(items);
+            });
+            while (!_cleared && !_addedRange)
+            {
+                Thread.Sleep(1);
+            }
+
+            _replacingAll = false;
+            _cleared = false;
+            _addedRange = false;
+        }
+    }
+
+    /// <summary>
+    /// Subscribes the specified observer to the CurrentItems.
+    /// </summary>
+    /// <param name="observer">The observer.</param>
+    /// <returns>An IDisposable to release the subscription.</returns>
+    public IDisposable Subscribe(IObserver<IEnumerable<T>> observer) => _currentItems.Subscribe(observer);
+
+    /// <inheritdoc/>
+    public void Update(T item, T newValue)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.Replace(item, newValue));
+        }
+    }
 
     /// <summary>
     /// Disposes the specified disposing.
@@ -707,6 +812,12 @@ public class ReactiveList<T> : IReactiveList<T>
             _cleanUp.Dispose();
         }
     }
+
+    /// <summary>
+    /// Raises a PropertyChanged event (per <see cref="INotifyPropertyChanged" />).
+    /// </summary>
+    /// <param name="propertyName">Name of the property.</param>
+    protected virtual void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     /// <summary>
     /// Determines whether [is compatible object] [the specified value].
