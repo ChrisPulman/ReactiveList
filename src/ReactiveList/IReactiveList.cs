@@ -14,7 +14,7 @@ namespace CP.Reactive;
 /// </summary>
 /// <typeparam name="T">The type stored in the list.</typeparam>
 /// <seealso cref="ICancelable" />
-public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IObservable<IEnumerable<T>>, INotifyCollectionChanged, INotifyPropertyChanged, ICancelable
+public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>,  INotifyCollectionChanged, INotifyPropertyChanged, ICancelable
     where T : notnull
 {
     /// <summary>

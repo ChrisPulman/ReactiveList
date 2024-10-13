@@ -7,7 +7,6 @@ Inherits :
 - IList of T
 - IList
 - IReadOnlyList of T
-- IObservable of IEnumerable of T
 - INotifyCollectionChanged
 - INotifyPropertyChanged
 - ICancelable
