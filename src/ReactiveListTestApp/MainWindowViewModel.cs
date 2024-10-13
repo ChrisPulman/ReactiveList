@@ -46,6 +46,7 @@ internal partial class MainWindowViewModel : RxObject
                     l.RemoveAt(0);
 
                     Items.Add(x);
+                    var xx = Items.Last();
                     i++;
                 }
             });
