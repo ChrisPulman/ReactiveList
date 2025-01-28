@@ -469,6 +469,21 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
+    /// <summary>
+    /// Inserts the range.
+    /// </summary>
+    /// <param name="index">The index.</param>
+    /// <param name="items">The items.</param>
+    public void InsertRange(int index, IEnumerable<T> items)
+    {
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.InsertRange(items, index));
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
     /// <inheritdoc/>
     public bool Remove(T item)
     {
