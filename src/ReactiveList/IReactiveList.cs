@@ -93,6 +93,13 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>,  INotifyC
     new void Clear();
 
     /// <summary>
+    /// Inserts the range.
+    /// </summary>
+    /// <param name="index">The index.</param>
+    /// <param name="items">The items.</param>
+    void InsertRange(int index, IEnumerable<T> items);
+
+    /// <summary>
     /// Removes the specified items.
     /// </summary>
     /// <param name="items">The items.</param>
