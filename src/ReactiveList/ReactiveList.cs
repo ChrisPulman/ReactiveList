@@ -32,9 +32,9 @@ public class ReactiveList<T> : IReactiveList<T>
     private readonly object _lock = new();
     private readonly ReplaySubject<IEnumerable<T>> _removed = new(1);
     private readonly SourceList<T> _sourceList = new();
+    private bool _replacingAll;
     private bool _addedRange;
     private bool _cleared;
-    private bool _replacingAll;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
@@ -48,11 +48,8 @@ public class ReactiveList<T> : IReactiveList<T>
         var srcList = _sourceList.Connect();
         _cleanUp =
         [
-            _sourceList,
-            _added,
-            _removed,
-            _changed,
-            _currentItems,
+
+            // Only track subscriptions here. Owned disposables are explicitly disposed in Dispose to satisfy analyzers.
             srcList
                 .ObserveOn(Scheduler.Immediate)
                 .Bind(out _items)
@@ -65,6 +62,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 .Do(_currentItems.OnNext)
                 .Subscribe(),
 
+            // Added
             srcList
                 .WhereReasonsAre(ListChangeReason.Add)
                 .Select(t => t.Select(v => v.Item.Current))
@@ -78,6 +76,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, v.ToList(), _items.Count - v.Count()));
                 }),
 
+            // Added range
             srcList
                 .WhereReasonsAre(ListChangeReason.AddRange)
                 .SelectMany(t => t.Select(v => v.Range))
@@ -99,6 +98,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
                 }),
 
+            // Removed
             srcList
                 .WhereReasonsAre(ListChangeReason.Remove)
                 .Select(t => t.Select(v => v.Item.Current))
@@ -112,6 +112,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, v));
                 }),
 
+            // Removed range
             srcList
                 .WhereReasonsAre(ListChangeReason.RemoveRange)
                 .SelectMany(t => t.Select(v => v.Range))
@@ -125,6 +126,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, v.ToList()));
                 }),
 
+            // Changed: single item adds/removes/replaces
             srcList
                 .WhereReasonsAre(ListChangeReason.Add, ListChangeReason.Remove, ListChangeReason.Replace)
                 .Select(t => t.Select(v => v.Item.Current))
@@ -136,8 +138,26 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsChangedoc.Add(v);
                 }),
 
+            // Changed: add range -> skip updating when replacing all so Clear determines ItemsChanged
             srcList
-                .WhereReasonsAre(ListChangeReason.RemoveRange, ListChangeReason.AddRange)
+                .WhereReasonsAre(ListChangeReason.AddRange)
+                .SelectMany(t => t.Select(v => v.Range))
+                .Do(_changed.OnNext)
+                .ObserveOn(Scheduler.Immediate)
+                .Subscribe(v =>
+                {
+                    if (_replacingAll)
+                    {
+                        return;
+                    }
+
+                    _itemsChangedoc.Clear();
+                    _itemsChangedoc.Add(v);
+                }),
+
+            // Changed: remove range
+            srcList
+                .WhereReasonsAre(ListChangeReason.RemoveRange)
                 .SelectMany(t => t.Select(v => v.Range))
                 .Do(_changed.OnNext)
                 .ObserveOn(Scheduler.Immediate)
@@ -147,6 +167,7 @@ public class ReactiveList<T> : IReactiveList<T>
                     _itemsChangedoc.Add(v);
                 }),
 
+            // Clear
             srcList
                 .WhereReasonsAre(ListChangeReason.Clear)
                 .SelectMany(t => t.Select(v => v.Range))
@@ -157,17 +178,16 @@ public class ReactiveList<T> : IReactiveList<T>
                     {
                         _itemsAddedoc.Clear();
                     }
+                    else
+                    {
+                        _cleared = true;
+                    }
 
                     _itemsChangedoc.Clear();
                     _itemsChangedoc.Add(v);
                     _itemsRemovedoc.Clear();
                     _itemsRemovedoc.Add(v);
                     CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-
-                    if (_replacingAll)
-                    {
-                        _cleared = true;
-                    }
                 }),
         ];
     }
@@ -318,6 +338,11 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void AddRange(IEnumerable<T> items)
     {
+        if (items is ICollection<T> c && c.Count == 0)
+        {
+            return;
+        }
+
         lock (_lock)
         {
             _sourceList.Edit(l => l.AddRange(items));
@@ -365,11 +390,7 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <inheritdoc/>
-    public void CopyTo(T[] array, int arrayIndex)
-    {
-        ((ICollection<T>)_items).CopyTo(array, arrayIndex);
-        OnPropertyChanged(ItemArray);
-    }
+    public void CopyTo(T[] array, int arrayIndex) => ((ICollection<T>)_items).CopyTo(array, arrayIndex);
 
     /// <inheritdoc/>
     public void CopyTo(Array array, int index)
@@ -476,6 +497,11 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="items">The items.</param>
     public void InsertRange(int index, IEnumerable<T> items)
     {
+        if (items is ICollection<T> c && c.Count == 0)
+        {
+            return;
+        }
+
         lock (_lock)
         {
             _sourceList.Edit(l => l.InsertRange(items, index));
@@ -491,8 +517,12 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             var removed = false;
             _sourceList.Edit(l => removed = l.Remove(item));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
+            if (removed)
+            {
+                OnPropertyChanged(nameof(Count));
+                OnPropertyChanged(ItemArray);
+            }
+
             return removed;
         }
     }
@@ -500,6 +530,11 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void Remove(IEnumerable<T> items)
     {
+        if (items is ICollection<T> c && c.Count == 0)
+        {
+            return;
+        }
+
         lock (_lock)
         {
             _sourceList.Edit(l => l.Remove(items));
@@ -537,6 +572,11 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void RemoveRange(int index, int count)
     {
+        if (count == 0)
+        {
+            return;
+        }
+
         lock (_lock)
         {
             _sourceList.Edit(l => l.RemoveRange(index, count));
@@ -551,21 +591,26 @@ public class ReactiveList<T> : IReactiveList<T>
         lock (_lock)
         {
             ClearHistoryIfCountIsZero();
+            _replacingAll = true;
+            _addedRange = false;
+            _cleared = false;
             _sourceList.Edit(l =>
             {
-                _replacingAll = true;
                 l.Clear();
                 l.AddRange(items);
             });
-            while (!_cleared && !_addedRange)
+
+            // Wait until both Clear and AddRange have been observed
+            while (!(_cleared && _addedRange))
             {
                 Thread.Sleep(1);
             }
 
             _replacingAll = false;
-            _cleared = false;
-            _addedRange = false;
         }
+
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(ItemArray);
     }
 
     /// <summary>
@@ -592,12 +637,15 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         if (disposing)
         {
+            // First, dispose subscriptions
+            _cleanUp.Dispose();
+
+            // Then dispose owned resources
             _added.Dispose();
             _changed.Dispose();
             _removed.Dispose();
             _currentItems.Dispose();
             _sourceList.Dispose();
-            _cleanUp.Dispose();
         }
     }
 
