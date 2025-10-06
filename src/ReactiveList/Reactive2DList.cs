@@ -77,7 +77,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
 
         foreach (var item in items)
         {
-            Add(new ReactiveList<T>(item));
+            Add([.. item]);
         }
     }
 
@@ -110,7 +110,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
             return;
         }
 
-        base.Insert(index, new ReactiveList<T>(items));
+        base.Insert(index, [.. items]);
     }
 
     /// <summary>
