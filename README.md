@@ -1,4 +1,4 @@
-# ReactiveList
+Ôªø# ReactiveList
 
 A lightweight reactive list with fine-grained change tracking built on DynamicData and System.Reactive.
 
@@ -115,14 +115,14 @@ Interfaces implemented:
 - `ICancelable` (`IsDisposed`)
 
 Properties:
-- `ReadOnlyObservableCollection<T> Items` ó current items for binding.
-- `ReadOnlyObservableCollection<T> ItemsAdded` ó items added in the last change.
-- `ReadOnlyObservableCollection<T> ItemsRemoved` ó items removed in the last change.
-- `ReadOnlyObservableCollection<T> ItemsChanged` ó items changed (add/remove/replace) in the last change.
-- `IObservable<IEnumerable<T>> Added` ó stream of items added each change.
-- `IObservable<IEnumerable<T>> Removed` ó stream of items removed each change.
-- `IObservable<IEnumerable<T>> Changed` ó stream of items changed each change.
-- `IObservable<IEnumerable<T>> CurrentItems` ó current items snapshot on count changes.
+- `ReadOnlyObservableCollection<T> Items` ‚Äî current items for binding.
+- `ReadOnlyObservableCollection<T> ItemsAdded` ‚Äî items added in the last change.
+- `ReadOnlyObservableCollection<T> ItemsRemoved` ‚Äî items removed in the last change.
+- `ReadOnlyObservableCollection<T> ItemsChanged` ‚Äî items changed (add/remove/replace) in the last change.
+- `IObservable<IEnumerable<T>> Added` ‚Äî stream of items added each change.
+- `IObservable<IEnumerable<T>> Removed` ‚Äî stream of items removed each change.
+- `IObservable<IEnumerable<T>> Changed` ‚Äî stream of items changed each change.
+- `IObservable<IEnumerable<T>> CurrentItems` ‚Äî current items snapshot on count changes.
 - `int Count`, `bool IsDisposed`.
 
 Indexers:
@@ -182,13 +182,136 @@ list.AddRange([1, 2, 3]); // triggers CurrentItems
 list.Remove(2);           // triggers CurrentItems
 ```
 
+---
+
+## Reactive2DList
+
+`Reactive2DList<T>` is a reactive list of reactive lists: `Reactive2DList<T> : ReactiveList<ReactiveList<T>>`.
+Use it for grid- or table-like data structures where rows are dynamic and each row's items are also dynamic.
+All `ReactiveList` behavior applies at the outer level (rows). Each inner row is its own `ReactiveList<T>`.
+
+### Constructing a Reactive2DList
+
+```csharp
+using CP.Reactive;
+
+// Empty 2D list
+var grid = new Reactive2DList<int>();
+
+// With rows from IEnumerable<IEnumerable<T>>
+var grid2 = new Reactive2DList<int>(new[]
+{
+    new[] { 1, 2, 3 },
+    new[] { 4, 5 },
+});
+
+// With existing reactive rows
+var rowA = new ReactiveList<int>(new[] { 10, 11 });
+var rowB = new ReactiveList<int>(new[] { 12 });
+var grid3 = new Reactive2DList<int>(new[] { rowA, rowB });
+
+// With IEnumerable<T>: creates a grid with one single-element row per item
+var grid4 = new Reactive2DList<int>(new[] { 7, 8, 9 });
+// grid4 == [ [7], [8], [9] ]
+
+// With a single row
+var grid5 = new Reactive2DList<int>(new ReactiveList<int>(new[] { 1, 2, 3 }));
+
+// With a single value (one row, one item)
+var grid6 = new Reactive2DList<int>(42);
+```
+
+### Adding rows
+
+```csharp
+var grid = new Reactive2DList<string>();
+
+// Add multiple rows (each inner IEnumerable becomes a new row)
+grid.AddRange(new[]
+{
+    new[] { "a1", "a2" },
+    new[] { "b1" },
+});
+
+// Add one row per item (each item becomes a single-element row)
+grid.AddRange(new[] { "x", "y" }); // => rows: [ ["x"], ["y"] ]
+```
+
+### Inserting
+
+```csharp
+var grid = new Reactive2DList<string>(new[]
+{
+    new[] { "r0c0", "r0c1" },
+    new[] { "r1c0" },
+});
+
+// Insert a new row at index 1
+grid.Insert(1, new[] { "new", "row" });
+
+// Insert a single-element row at index 0
+grid.Insert(0, "solo");
+
+// Insert items into an existing row (index 2), starting at innerIndex 1
+grid.Insert(2, new[] { "mid1", "mid2" }, innerIndex: 1);
+```
+
+### Observing changes
+
+You can subscribe to row-level changes on the outer list, and item-level changes on each inner row.
+
+```csharp
+var grid = new Reactive2DList<string>();
+
+grid.Added.Subscribe(rows =>
+{
+    Console.WriteLine($"Rows added: {rows.Count()}");
+
+    // Subscribe to each newly added row's changes
+    foreach (var row in rows)
+    {
+        row.Added.Subscribe(items => Console.WriteLine($"Row added items: {string.Join(", ", items)}"));
+        row.Removed.Subscribe(items => Console.WriteLine($"Row removed items: {string.Join(", ", items)}"));
+        row.Changed.Subscribe(items => Console.WriteLine($"Row changed items: {string.Join(", ", items)}"));
+    }
+});
+
+// Add a row and then modify it
+var row0 = new ReactiveList<string>(new[] { "a", "b" });
+grid.Add(row0);
+row0.Add("c");
+row0.Remove("a");
+```
+
+### Binding (nested ItemsControl)
+
+```xml
+<ItemsControl ItemsSource="{Binding Grid}">
+  <ItemsControl.ItemTemplate>
+    <DataTemplate>
+      <ItemsControl ItemsSource="{Binding}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Text="{Binding}"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DataTemplate>
+  </ItemsControl.ItemTemplate>
+</ItemsControl>
+```
+
 
 ## Building locally
 
 - Open the solution and build. Projects target `netstandard2.0` (library) and modern .NET versions for tests/apps.
 - Dependencies: `DynamicData`, `System.Reactive`.
 
+---
 
 ## License
 
 MIT
+
+---
+**ReactiveList** - Empowering Industrial Automation with Reactive Technology ‚ö°üè≠
