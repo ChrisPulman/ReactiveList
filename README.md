@@ -3,7 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/ReactiveList.svg?style=flat-square)](https://www.nuget.org/packages/ReactiveList/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ReactiveList.svg?style=flat-square)](https://www.nuget.org/packages/ReactiveList/)
 [![License](https://img.shields.io/github/license/ChrisPulman/ReactiveList.svg?style=flat-square)](LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/ChrisPulman/ReactiveList/dotnet.yml?branch=main&style=flat-square)](https://github.com/ChrisPulman/ReactiveList/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/ChrisPulman/ReactiveList/BuildOnly.yml?branch=main&style=flat-square)](https://github.com/ChrisPulman/ReactiveList/actions)
 
 A lightweight, high-performance reactive list with fine-grained change tracking built on [DynamicData](https://github.com/reactivemarbles/DynamicData) and [System.Reactive](https://github.com/dotnet/reactive).
 
