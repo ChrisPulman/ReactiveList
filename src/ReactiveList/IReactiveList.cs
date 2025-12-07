@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reactive.Disposables;
+using DynamicData;
 
 namespace CP.Reactive;
 
@@ -93,11 +94,24 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>,  INotifyC
     new void Clear();
 
     /// <summary>
+    /// Executes a batch edit operation on the list.
+    /// </summary>
+    /// <param name="editAction">The action to perform on the internal list.</param>
+    void Edit(Action<IExtendedList<T>> editAction);
+
+    /// <summary>
     /// Inserts the range.
     /// </summary>
     /// <param name="index">The index.</param>
     /// <param name="items">The items.</param>
     void InsertRange(int index, IEnumerable<T> items);
+
+    /// <summary>
+    /// Moves an item from one index to another.
+    /// </summary>
+    /// <param name="oldIndex">The current index of the item.</param>
+    /// <param name="newIndex">The new index for the item.</param>
+    void Move(int oldIndex, int newIndex);
 
     /// <summary>
     /// Removes the specified items.

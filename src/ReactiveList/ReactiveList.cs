@@ -7,6 +7,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using DynamicData;
@@ -25,16 +26,16 @@ public class ReactiveList<T> : IReactiveList<T>
     private readonly ReplaySubject<IEnumerable<T>> _changed = new(1);
     private readonly CompositeDisposable _cleanUp = [];
     private readonly ReplaySubject<IEnumerable<T>> _currentItems = new(1);
-    private readonly ReadOnlyObservableCollection<T> _items;
     private readonly ObservableCollection<T> _itemsAddedoc = [];
     private readonly ObservableCollection<T> _itemsChangedoc = [];
     private readonly ObservableCollection<T> _itemsRemovedoc = [];
     private readonly object _lock = new();
     private readonly ReplaySubject<IEnumerable<T>> _removed = new(1);
     private readonly SourceList<T> _sourceList = new();
-    private bool _replacingAll;
-    private bool _addedRange;
-    private bool _cleared;
+    private readonly ManualResetEventSlim _clearedEvent = new(false);
+    private readonly ManualResetEventSlim _addedRangeEvent = new(false);
+    private ReadOnlyObservableCollection<T> _items;
+    private volatile bool _replacingAll;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
@@ -45,151 +46,8 @@ public class ReactiveList<T> : IReactiveList<T>
         ItemsAdded = new(_itemsAddedoc);
         ItemsRemoved = new(_itemsRemovedoc);
         ItemsChanged = new(_itemsChangedoc);
-        var srcList = _sourceList.Connect();
-        _cleanUp =
-        [
 
-            // Only track subscriptions here. Owned disposables are explicitly disposed in Dispose to satisfy analyzers.
-            srcList
-                .ObserveOn(Scheduler.Immediate)
-                .Bind(out _items)
-                .Subscribe(),
-
-            _sourceList
-                .CountChanged
-                .Select(_ => _sourceList.Items)
-                .ObserveOn(Scheduler.Immediate)
-                .Do(_currentItems.OnNext)
-                .Subscribe(),
-
-            // Added
-            srcList
-                .WhereReasonsAre(ListChangeReason.Add)
-                .Select(t => t.Select(v => v.Item.Current))
-                .Do(_added.OnNext)
-                .ObserveOn(Scheduler.Immediate)
-                .Subscribe(v =>
-                {
-                    _itemsAddedoc.Clear();
-                    _itemsAddedoc.Add(v);
-                    _itemsRemovedoc.Clear();
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, v.ToList(), _items.Count - v.Count()));
-                }),
-
-            // Added range
-            srcList
-                .WhereReasonsAre(ListChangeReason.AddRange)
-                .SelectMany(t => t.Select(v => v.Range))
-                .Do(_added.OnNext)
-                .ObserveOn(Scheduler.Immediate)
-                .Subscribe(v =>
-                {
-                    _itemsAddedoc.Clear();
-                    _itemsAddedoc.Add(v);
-                    if (!_replacingAll)
-                    {
-                        _itemsRemovedoc.Clear();
-                    }
-                    else
-                    {
-                        _addedRange = true;
-                    }
-
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-                }),
-
-            // Removed
-            srcList
-                .WhereReasonsAre(ListChangeReason.Remove)
-                .Select(t => t.Select(v => v.Item.Current))
-                .Do(_removed.OnNext)
-                .ObserveOn(Scheduler.Immediate)
-                .Subscribe(v =>
-                {
-                    _itemsRemovedoc.Clear();
-                    _itemsRemovedoc.Add(v);
-                    _itemsAddedoc.Clear();
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, v));
-                }),
-
-            // Removed range
-            srcList
-                .WhereReasonsAre(ListChangeReason.RemoveRange)
-                .SelectMany(t => t.Select(v => v.Range))
-                .Do(_removed.OnNext)
-                .ObserveOn(Scheduler.Immediate)
-                .Subscribe(v =>
-                {
-                    _itemsRemovedoc.Clear();
-                    _itemsRemovedoc.Add(v);
-                    _itemsAddedoc.Clear();
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, v.ToList()));
-                }),
-
-            // Changed: single item adds/removes/replaces
-            srcList
-                .WhereReasonsAre(ListChangeReason.Add, ListChangeReason.Remove, ListChangeReason.Replace)
-                .Select(t => t.Select(v => v.Item.Current))
-                .Do(_changed.OnNext)
-                .ObserveOn(Scheduler.Immediate)
-                .Subscribe(v =>
-                {
-                    _itemsChangedoc.Clear();
-                    _itemsChangedoc.Add(v);
-                }),
-
-            // Changed: add range -> skip updating when replacing all so Clear determines ItemsChanged
-            srcList
-                .WhereReasonsAre(ListChangeReason.AddRange)
-                .SelectMany(t => t.Select(v => v.Range))
-                .Do(_changed.OnNext)
-                .ObserveOn(Scheduler.Immediate)
-                .Subscribe(v =>
-                {
-                    if (_replacingAll)
-                    {
-                        return;
-                    }
-
-                    _itemsChangedoc.Clear();
-                    _itemsChangedoc.Add(v);
-                }),
-
-            // Changed: remove range
-            srcList
-                .WhereReasonsAre(ListChangeReason.RemoveRange)
-                .SelectMany(t => t.Select(v => v.Range))
-                .Do(_changed.OnNext)
-                .ObserveOn(Scheduler.Immediate)
-                .Subscribe(v =>
-                {
-                    _itemsChangedoc.Clear();
-                    _itemsChangedoc.Add(v);
-                }),
-
-            // Clear
-            srcList
-                .WhereReasonsAre(ListChangeReason.Clear)
-                .SelectMany(t => t.Select(v => v.Range))
-                .ObserveOn(Scheduler.Immediate)
-                .Subscribe(v =>
-                {
-                    if (!_replacingAll)
-                    {
-                        _itemsAddedoc.Clear();
-                    }
-                    else
-                    {
-                        _cleared = true;
-                    }
-
-                    _itemsChangedoc.Clear();
-                    _itemsChangedoc.Add(v);
-                    _itemsRemovedoc.Clear();
-                    _itemsRemovedoc.Add(v);
-                    CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-                }),
-        ];
+        SetupSubscriptions();
     }
 
     /// <summary>
@@ -440,6 +298,25 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
+    /// <summary>
+    /// Executes a batch edit operation on the list.
+    /// </summary>
+    /// <param name="editAction">The action to perform on the internal list.</param>
+    public void Edit(Action<IExtendedList<T>> editAction)
+    {
+        if (editAction == null)
+        {
+            throw new ArgumentNullException(nameof(editAction));
+        }
+
+        lock (_lock)
+        {
+            _sourceList.Edit(editAction);
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
     /// <inheritdoc/>
     public IEnumerator<T> GetEnumerator() => _items.GetEnumerator();
 
@@ -506,6 +383,35 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             _sourceList.Edit(l => l.InsertRange(items, index));
             OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
+    /// <summary>
+    /// Moves an item from one index to another.
+    /// </summary>
+    /// <param name="oldIndex">The current index of the item.</param>
+    /// <param name="newIndex">The new index for the item.</param>
+    public void Move(int oldIndex, int newIndex)
+    {
+        if (oldIndex < 0 || oldIndex >= Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(oldIndex));
+        }
+
+        if (newIndex < 0 || newIndex >= Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(newIndex));
+        }
+
+        if (oldIndex == newIndex)
+        {
+            return;
+        }
+
+        lock (_lock)
+        {
+            _sourceList.Edit(l => l.Move(oldIndex, newIndex));
             OnPropertyChanged(ItemArray);
         }
     }
@@ -592,18 +498,22 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             ClearHistoryIfCountIsZero();
             _replacingAll = true;
-            _addedRange = false;
-            _cleared = false;
+            _clearedEvent.Reset();
+            _addedRangeEvent.Reset();
+
             _sourceList.Edit(l =>
             {
                 l.Clear();
                 l.AddRange(items);
             });
 
-            // Wait until both Clear and AddRange have been observed
-            while (!(_cleared && _addedRange))
+            // Wait for both Clear and AddRange events using efficient signaling
+            var timeout = TimeSpan.FromSeconds(5);
+            if (!_clearedEvent.Wait(timeout) || !_addedRangeEvent.Wait(timeout))
             {
-                Thread.Sleep(1);
+                // Timeout occurred - events were not signaled in time
+                _replacingAll = false;
+                throw new TimeoutException("ReplaceAll operation timed out waiting for change events.");
             }
 
             _replacingAll = false;
@@ -646,6 +556,8 @@ public class ReactiveList<T> : IReactiveList<T>
             _removed.Dispose();
             _currentItems.Dispose();
             _sourceList.Dispose();
+            _clearedEvent.Dispose();
+            _addedRangeEvent.Dispose();
         }
     }
 
@@ -655,17 +567,170 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="propertyName">Name of the property.</param>
     protected virtual void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-    /// <summary>
-    /// Determines whether [is compatible object] [the specified value].
-    /// Non-null values are fine.  Only accept nulls if T is a class or Nullable.
-    /// Note that default(T) is not equal to null for value types except when T is Nullable.
-    /// </summary>
-    /// <param name="value">The value.</param>
-    /// <returns>
-    ///   <c>true</c> if [is compatible object] [the specified value]; otherwise, <c>false</c>.
-    /// </returns>
     private static bool IsCompatibleObject(object? value) =>
         (value is T) || (value == null && default(T) == null);
+
+    private static void UpdateObservableCollection(ObservableCollection<T> collection, IEnumerable<T> items)
+    {
+        collection.Clear();
+        foreach (var item in items)
+        {
+            collection.Add(item);
+        }
+    }
+
+    private void SetupSubscriptions()
+    {
+        var srcList = _sourceList.Connect();
+
+        srcList
+            .ObserveOn(Scheduler.Immediate)
+            .Bind(out _items)
+            .Subscribe()
+            .DisposeWith(_cleanUp);
+
+        _sourceList
+            .CountChanged
+            .Select(_ => _sourceList.Items)
+            .ObserveOn(Scheduler.Immediate)
+            .Do(_currentItems.OnNext)
+            .Subscribe()
+            .DisposeWith(_cleanUp);
+
+        SetupAddedSubscriptions(srcList);
+        SetupRemovedSubscriptions(srcList);
+        SetupChangedSubscriptions(srcList);
+        SetupClearSubscription(srcList);
+    }
+
+    private void SetupAddedSubscriptions(IObservable<IChangeSet<T>> srcList)
+    {
+        // Added - single items
+        srcList
+            .WhereReasonsAre(ListChangeReason.Add)
+            .Select(t => t.Select(v => v.Item.Current))
+            .Do(_added.OnNext)
+            .ObserveOn(Scheduler.Immediate)
+            .Subscribe(v =>
+            {
+                UpdateObservableCollection(_itemsAddedoc, v);
+                _itemsRemovedoc.Clear();
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, v.ToList(), _items.Count - v.Count()));
+            })
+            .DisposeWith(_cleanUp);
+
+        // Added range
+        srcList
+            .WhereReasonsAre(ListChangeReason.AddRange)
+            .SelectMany(t => t.Select(v => v.Range))
+            .Do(_added.OnNext)
+            .ObserveOn(Scheduler.Immediate)
+            .Subscribe(v =>
+            {
+                UpdateObservableCollection(_itemsAddedoc, v);
+                if (!_replacingAll)
+                {
+                    _itemsRemovedoc.Clear();
+                }
+                else
+                {
+                    _addedRangeEvent.Set();
+                }
+
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            })
+            .DisposeWith(_cleanUp);
+    }
+
+    private void SetupRemovedSubscriptions(IObservable<IChangeSet<T>> srcList)
+    {
+        // Removed - single items
+        srcList
+            .WhereReasonsAre(ListChangeReason.Remove)
+            .Select(t => t.Select(v => v.Item.Current))
+            .Do(_removed.OnNext)
+            .ObserveOn(Scheduler.Immediate)
+            .Subscribe(v =>
+            {
+                UpdateObservableCollection(_itemsRemovedoc, v);
+                _itemsAddedoc.Clear();
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, v));
+            })
+            .DisposeWith(_cleanUp);
+
+        // Removed range
+        srcList
+            .WhereReasonsAre(ListChangeReason.RemoveRange)
+            .SelectMany(t => t.Select(v => v.Range))
+            .Do(_removed.OnNext)
+            .ObserveOn(Scheduler.Immediate)
+            .Subscribe(v =>
+            {
+                UpdateObservableCollection(_itemsRemovedoc, v);
+                _itemsAddedoc.Clear();
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, v.ToList()));
+            })
+            .DisposeWith(_cleanUp);
+    }
+
+    private void SetupChangedSubscriptions(IObservable<IChangeSet<T>> srcList)
+    {
+        // Changed: single item adds/removes/replaces
+        srcList
+            .WhereReasonsAre(ListChangeReason.Add, ListChangeReason.Remove, ListChangeReason.Replace)
+            .Select(t => t.Select(v => v.Item.Current))
+            .Do(_changed.OnNext)
+            .ObserveOn(Scheduler.Immediate)
+            .Subscribe(v => UpdateObservableCollection(_itemsChangedoc, v))
+            .DisposeWith(_cleanUp);
+
+        // Changed: add range -> skip updating when replacing all so Clear determines ItemsChanged
+        srcList
+            .WhereReasonsAre(ListChangeReason.AddRange)
+            .SelectMany(t => t.Select(v => v.Range))
+            .Do(_changed.OnNext)
+            .ObserveOn(Scheduler.Immediate)
+            .Subscribe(v =>
+            {
+                if (_replacingAll)
+                {
+                    return;
+                }
+
+                UpdateObservableCollection(_itemsChangedoc, v);
+            })
+            .DisposeWith(_cleanUp);
+
+        // Changed: remove range
+        srcList
+            .WhereReasonsAre(ListChangeReason.RemoveRange)
+            .SelectMany(t => t.Select(v => v.Range))
+            .Do(_changed.OnNext)
+            .ObserveOn(Scheduler.Immediate)
+            .Subscribe(v => UpdateObservableCollection(_itemsChangedoc, v))
+            .DisposeWith(_cleanUp);
+    }
+
+    private void SetupClearSubscription(IObservable<IChangeSet<T>> srcList) => srcList
+            .WhereReasonsAre(ListChangeReason.Clear)
+            .SelectMany(t => t.Select(v => v.Range))
+            .ObserveOn(Scheduler.Immediate)
+            .Subscribe(v =>
+            {
+                if (!_replacingAll)
+                {
+                    _itemsAddedoc.Clear();
+                }
+                else
+                {
+                    _clearedEvent.Set();
+                }
+
+                UpdateObservableCollection(_itemsChangedoc, v);
+                UpdateObservableCollection(_itemsRemovedoc, v);
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            })
+            .DisposeWith(_cleanUp);
 
     private void ClearHistoryIfCountIsZero()
     {
