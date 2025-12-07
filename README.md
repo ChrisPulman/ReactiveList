@@ -12,13 +12,13 @@ A lightweight, high-performance reactive list with fine-grained change tracking 
 ## Installation
 
 ```bash
-dotnet add package CP.ReactiveList
+dotnet add package ReactiveList
 ```
 
 Or via the NuGet Package Manager:
 
 ```powershell
-Install-Package CP.ReactiveList
+Install-Package ReactiveList
 ```
 
 ---
