@@ -93,11 +93,20 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 quad.Remove(evicted);
 
                 Emit(CacheAction.Evicted, evicted);
+                foreach (var index in _indices.Values)
+                {
+                    index.OnRemoved(evicted);
+                }
             }
         }
         finally
         {
             Locks[idx].ExitWriteLock();
+        }
+
+        foreach (var index in _indices.Values)
+        {
+            index.OnAdded(item);
         }
 
         Emit(CacheAction.Added, item);
@@ -130,6 +139,11 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 {
                     Emit(CacheAction.Adding, item);
                     quad.Add(item);
+                    foreach (var index in _indices.Values)
+                    {
+                        index.OnAdded(item);
+                    }
+
                     Emit(CacheAction.Added, item);
                 }
 
@@ -138,6 +152,11 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 while ((evicted = quad.CheckEviction()) is not null)
                 {
                     quad.Remove(evicted);
+                    foreach (var index in _indices.Values)
+                    {
+                        index.OnRemoved(evicted);
+                    }
+
                     Emit(CacheAction.Evicted, evicted);
                 }
             }
@@ -173,6 +192,11 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     var success = quad.Remove(item);
                     if (success)
                     {
+                        foreach (var index in _indices.Values)
+                        {
+                            index.OnRemoved(item);
+                        }
+
                         Emit(CacheAction.Removed, item);
                     }
                 }
@@ -209,6 +233,11 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
 
         if (success)
         {
+            foreach (var index in _indices.Values)
+            {
+                index.OnRemoved(item);
+            }
+
             Emit(CacheAction.Removed, item);
         }
 
@@ -281,6 +310,11 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 Locks[i].ExitWriteLock();
             }
         });
+        foreach (var index in _indices.Values)
+        {
+            index.Clear();
+        }
+
         Emit(CacheAction.Cleared, default);
     }
 
@@ -400,23 +434,17 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     public void AddIndex<TKey>(string name, Func<T, TKey> keySelector)
         where TKey : notnull
     {
-        ////var index = new SecondaryIndex<T, TKey>(keySelector);
-        ////_indices[name] = index;
-        ////for (var i = 0; i < 4; i++)
-        ////{
-        ////    Locks[i].EnterReadLock();
-        ////    try
-        ////    {
-        ////        for (var ii = 0; i < 4; ii++)
-        ////        {
-        ////            index.OnAdded(_quadrants[ii]);
-        ////        }
-        ////    }
-        ////    finally
-        ////    {
-        ////        Locks[i].ExitReadLock();
-        ////    }
-        ////}
+        var index = new SecondaryIndex<TKey, T>(keySelector);
+        _indices[name] = index;
+
+        // Populate with existing items
+        for (var i = 0; i < 4; i++)
+        {
+            foreach (var item in _quadrants[i])
+            {
+                index.OnAdded(item);
+            }
+        }
     }
 
     /// <summary>
@@ -432,11 +460,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     public ValueTask<T?> FindByIndexAsync<TKey>(string indexName, TKey key)
         where TKey : notnull
     {
-        ////if (_indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<T, TKey> typed)
-        ////{
-        ////    typed.TryGet(key, out var item);
-        ////    return new ValueTask<T?>(item);
-        ////}
+        if (_indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<TKey, T> sidx)
+        {
+            return new ValueTask<T?>(sidx.Find(key));
+        }
 
         return new ValueTask<T?>(default(T));
     }
@@ -512,10 +539,20 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     {
         var idx = QuaternaryList<T>.GetIdx(item);
         _quadrants[idx].Add(item);
+        foreach (var index in _indices.Values)
+        {
+            index.OnAdded(item);
+        }
+
         var evicted = _quadrants[idx].CheckEviction();
         if (evicted is not null)
         {
             _quadrants[idx].Remove(evicted);
+            foreach (var index in _indices.Values)
+            {
+                index.OnRemoved(evicted);
+            }
+
             Emit(CacheAction.Evicted, evicted);
         }
     }
@@ -790,6 +827,24 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         public void Insert(int index, T item) => _list.Insert(index, item);
 
         public void RemoveAt(int index) => _list.RemoveAt(index);
+    }
+
+    private class SecondaryIndex<TKey, TItem> : IIndex<TItem>
+        where TItem : notnull
+        where TKey : notnull
+    {
+        private readonly Dictionary<TKey, TItem> _map = [];
+        private readonly Func<TItem, TKey> _keySelector;
+
+        public SecondaryIndex(Func<TItem, TKey> keySelector) => _keySelector = keySelector;
+
+        public void OnAdded(TItem item) => _map[_keySelector(item)] = item;
+
+        public void OnRemoved(TItem item) => _map.Remove(_keySelector(item));
+
+        public void Clear() => _map.Clear();
+
+        public TItem? Find(TKey key) => _map.TryGetValue(key, out var item) ? item : default;
     }
 }
 #endif

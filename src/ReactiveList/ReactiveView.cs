@@ -38,22 +38,24 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// <param name="stream">An observable sequence of cache notifications that supplies updates to the view.</param>
     /// <param name="filter">A predicate function used to determine which items from the source and updates are included in the view.</param>
     /// <param name="initialData">The initial collection of items to populate the view, filtered by the specified predicate.</param>
-    /// <param name="throttle">The time interval used to buffer incoming notifications before applying them to the view. Updates are processed
-    /// in batches at this interval.</param>
-    public ReactiveView(IObservable<CacheNotify<T>> stream, Func<T, bool> filter, IEnumerable<T> initialData, TimeSpan throttle)
+    /// <param name="throttle">The time interval used to buffer incoming notifications before applying them to the view. Updates are processedin batches at this interval.</param>
+    /// <param name="scheduler">The scheduler used to observe and apply updates to the view. This determines the context on which updates.</param>
+    public ReactiveView(IObservable<CacheNotify<T>> stream, Func<T, bool> filter, IEnumerable<T> initialData, TimeSpan throttle, IScheduler scheduler)
     {
-        Items = new ReadOnlyObservableCollection<T>(_internalCollection);
         foreach (var item in initialData.Where(filter))
         {
             _internalCollection.Add(item);
         }
 
+        Items = new ReadOnlyObservableCollection<T>(_internalCollection);
+
         _subscription = stream
             .Buffer(throttle)
             .Where(b => b.Count > 0)
-            .ObserveOn(SynchronizationContext.Current != null ? new SynchronizationContextScheduler(SynchronizationContext.Current) : Scheduler.Default)
+            .ObserveOn(scheduler)
             .Subscribe(batch =>
             {
+                _internalCollection.Clear();
                 foreach (var n in batch)
                 {
                     if (n.Batch == null)
@@ -63,10 +65,14 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
 
                     using (n.Batch)
                     {
-                        Apply(n, filter);
+                        foreach (var item in n.Batch.Items.Where(filter))
+                        {
+                            _internalCollection.Add(item);
+                        }
                     }
                 }
 
+                Items = new ReadOnlyObservableCollection<T>(_internalCollection);
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
             });
     }
@@ -86,7 +92,7 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// <remarks>The returned collection reflects changes to the underlying data and notifies observers of
     /// updates. Modifications to the collection must be performed through the instance's public methods; direct changes
     /// to the collection are not supported.</remarks>
-    public ReadOnlyObservableCollection<T> Items { get; }
+    public ReadOnlyObservableCollection<T> Items { get; private set; }
 
     /// <summary>
     /// Applies the current collection of items to the specified setter action and returns the current view instance.
@@ -135,11 +141,6 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
 
             _disposedValue = true;
         }
-    }
-
-    private void Apply(CacheNotify<T> n, Func<T, bool> filter)
-    {
-        /* logic for add/remove/batch */
     }
 }
 #endif

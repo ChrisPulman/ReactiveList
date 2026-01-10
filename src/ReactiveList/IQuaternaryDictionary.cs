@@ -7,13 +7,15 @@ using System.Diagnostics.CodeAnalysis;
 namespace CP.Reactive;
 
 /// <summary>
-/// Defines the contract for a quadrant data structure that supports key-based storage, retrieval, update, and
-/// eviction operations.
+/// Represents a dictionary collection that supports efficient add, update, removal, and eviction operations for
+/// key/value pairs.
 /// </summary>
-/// <remarks>Implementations of this interface are expected to provide efficient management of key-value
-/// pairs, including support for conditional addition, update, removal, and eviction based on capacity constraints.
-/// The interface does not specify thread safety; implementations may vary in their concurrency
-/// guarantees.</remarks>
+/// <remarks>In addition to standard dictionary operations, this interface provides methods for atomic
+/// add-or-update, removal with value retrieval, and entry eviction. Implementations may use eviction to manage capacity
+/// or support cache-like scenarios. The interface does not specify the eviction policy; consult the implementation
+/// documentation for details.</remarks>
+/// <typeparam name="TKey">The type of keys in the dictionary. Must be non-nullable.</typeparam>
+/// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
 public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>
     where TKey : notnull
 {
