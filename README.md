@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/ChrisPulman/ReactiveList.svg?style=flat-square)](LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ChrisPulman/ReactiveList/BuildOnly.yml?branch=main&style=flat-square)](https://github.com/ChrisPulman/ReactiveList/actions)
 
-A lightweight, high-performance reactive list with fine-grained change tracking built on [DynamicData](https://github.com/reactivemarbles/DynamicData) and [System.Reactive](https://github.com/dotnet/reactive).
+A lightweight, high-performance reactive list with fine-grained change tracking built on [System.Reactive](https://github.com/dotnet/reactive).
 
 **Targets:** .NET Standard 2.0 | .NET 8 | .NET 9 | .NET 10
 
@@ -64,6 +64,15 @@ Install-Package ReactiveList
 ---
 
 ## Quick Start
+
+This library provides:
+
+- A `ReactiveList<T>` implementation that allows you to observe changes in real-time.
+- A `Reactive2DList<T>` for managing a list of lists (2D structure) with reactive capabilities.
+- A `QuaternaryDictionary<TKey, TValue>` for high-performance key-value storage with reactive features.
+- A `QuaternaryList<T>` for optimized list operations at scale with reactive capabilities.
+
+Here's a quick example to get you started:
 
 ```csharp
 using CP.Reactive;
@@ -750,38 +759,6 @@ Inherits from `ReactiveList<ReactiveList<T>>` and adds:
 
 - **Disposal**: Always dispose `ReactiveList` instances to clean up subscriptions and internal resources.
 
-
----
-
-## QuaternaryList VS DynamicData SourceCache - Benchmark Results
-
-### Performance Comparison (Mean Time in nanoseconds)
-
-| Operation | Count | Before (ns) | After (ns) | Improvement |
-|-----------|-------|-------------|------------|-------------|
-| AddRange | 100 | 60,227 | 66,080 | ~same |
-| AddRange | 1,000 | 439,706 | 77,779 | **5.6x faster** |
-| AddRange | 10,000 | 3,246,674 | 98,279 | **33x faster** |
-| RemoveRange | 100 | 60,217 | 67,212 | ~same |
-| RemoveRange | 1,000 | 643,564 | 91,937 | **7x faster** |
-| RemoveRange | 10,000 | 5,734,650 | 1,292,425 | **4.4x faster** |
-| Clear | 100 | 59,980 | 66,179 | ~same |
-| Clear | 1,000 | 443,622 | 76,897 | **5.8x faster** |
-| Clear | 10,000 | 3,720,656 | 98,732 | **37x faster** |
-| Contains | 1,000 | 443,302 | 76,718 | **5.8x faster** |
-| Contains | 10,000 | 3,979,264 | 98,848 | **40x faster** |
-
-### Memory Allocation Comparison (bytes)
-
-| Operation | Count | Before (bytes) | After (bytes) | Improvement |
-|-----------|-------|----------------|---------------|-------------|
-| AddRange | 1,000 | 29,424 | 10,676 | **2.75x less** |
-| AddRange | 10,000 | 337,449 | 46,949 | **7.2x less** |
-| RemoveRange | 1,000 | 36,813 | 12,783 | **2.9x less** |
-| RemoveRange | 10,000 | 406,655 | 49,535 | **8.2x less** |
-| Clear | 1,000 | 29,452 | 10,676 | **2.76x less** |
-| Clear | 10,000 | 337,472 | 46,958 | **7.2x less** |
-
 ---
 
 ## QuaternaryDictionary vs SourceCache Benchmark Results
@@ -838,8 +815,186 @@ Inherits from `ReactiveList<ReactiveList<T>>` and adds:
 
 ---
 
+## QuaternaryDictionary and QuaternaryList
+
+High-performance, low-allocation key-value and list collections optimized for large-scale reactive applications.
+Performance benchmarks show significant advantages over traditional collections in batch operations and memory usage.
+This makes them ideal for scenarios involving large datasets, frequent updates, and real-time data processing.
+
+The Stream property exposes an observable sequence of changes, enabling reactive programming patterns.
+
+Example usage in an Address Book application:
+
+```csharp
+using System.Collections.ObjectModel;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
+using CP.Reactive;
+using ReactiveUI; // For RxApp.MainThreadScheduler
+
+public class AddressBookViewModel : IDisposable
+{
+    private readonly QuaternaryList<Contact> _contactList = [];
+    private readonly QuaternaryDictionary<Guid, Contact> _contactMap = [];
+    private readonly BehaviorSubject<string> _searchText = new(string.Empty);
+    private bool _disposedValue;
+
+    public AddressBookViewModel()
+    {
+        InitializeIndices();
+        InitializePipelines();
+    }
+
+    public ReadOnlyObservableCollection<Contact> AllContacts { get; private set; }
+
+    public ReadOnlyObservableCollection<Contact> FavoriteContacts { get; private set; }
+
+    public ReadOnlyObservableCollection<Contact> NewYorkContacts { get; private set; }
+
+    public ReadOnlyObservableCollection<Contact> SearchResults { get; private set; } // Dynamic
+
+    public string SearchQuery
+    {
+        get => _searchText.Value;
+        set => _searchText.OnNext(value ?? string.Empty);
+    }
+
+    public void BulkImport(int count)
+    {
+        var newContacts = Enumerable.Range(0, count).Select(i =>
+            new Contact(
+                Guid.NewGuid(),
+                $"User{i}",
+                $"Smith{i}",
+                $"user{i}@company.com",
+                i % 2 == 0 ? "Engineering" : "HR",
+                i % 10 == 0, // 10% are favorites
+                new Address("123 Main", i % 5 == 0 ? "New York" : "London", "10001", "USA"))).ToList();
+
+        // High-Speed Parallel Add
+        _contactList.AddRange(newContacts);
+        _contactMap.AddRange(newContacts.Select(c => new KeyValuePair<Guid, Contact>(c.Id, c)));
+    }
+
+    public void BulkRemoveInactive()
+    {
+        // Query utilizing Secondary Index for speed
+        var hrDept = _contactList.Query("ByDepartment", "HR").ToList();
+
+        // Bulk Thread-Safe Remove
+        _contactList.RemoveRange(hrDept);
+
+        // Sync Dictionary
+        foreach (var c in hrDept)
+        {
+            _contactMap.Remove(c.Id);
+        }
+    }
+
+    public void UpdateCityName(string oldCity, string newCity)
+    {
+        // 1. Find targets using Index (Fast)
+        var targets = _contactList.Query("ByCity", oldCity).ToList();
+
+        // 2. Modify and Update
+        // Since Records are immutable, we replace the object
+        var updates = new List<Contact>();
+        foreach (var c in targets)
+        {
+            updates.Add(c with { HomeAddress = c.HomeAddress with { City = newCity } });
+        }
+
+        // 3. Apply updates (Remove old, Add new) effectively performs an update
+        _contactList.RemoveRange(targets);
+        _contactList.AddRange(updates);
+    }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposedValue)
+        {
+            if (disposing)
+            {
+                _contactList.Dispose();
+                _contactMap.Dispose();
+                _searchText.Dispose();
+            }
+
+            _disposedValue = true;
+        }
+    }
+
+    private static bool Matches(Contact? c, string query)
+    {
+        if (c == null)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return true;
+        }
+
+        return c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void InitializeIndices()
+    {
+        // Add High-Speed Lookup Indices (O(1) access)
+        _contactList.AddIndex("ByCity", c => c.HomeAddress.City);
+        _contactList.AddIndex("ByDepartment", c => c.Department);
+
+        // Map Dictionary for ID-based updates
+        _contactMap.AddValueIndex("ByEmail", c => c.Email);
+    }
+
+    private void InitializePipelines()
+    {
+        // 1. ALL CONTACTS (Throttled 100ms)
+        _contactList.CreateView(c => true, RxApp.MainThreadScheduler, throttleMs: 100)
+                    .ToProperty(x => AllContacts = x);
+
+        // 2. FAVORITES (Filtered Subset)
+        _contactList.CreateView(c => c.IsFavorite, RxApp.MainThreadScheduler, throttleMs: 100)
+                    .ToProperty(x => FavoriteContacts = x);
+
+        // 3. SECONDARY KEY SUBSET (City == "New York")
+        // Uses the Stream for updates, but efficient logic for the filter
+        _contactList.CreateView(c => c.HomeAddress.City == "New York", RxApp.MainThreadScheduler, throttleMs: 200)
+                    .ToProperty(x => NewYorkContacts = x);
+
+        // 4. DYNAMIC SEARCH QUERY (Complex Pipeline)
+        // Combines the Cache Stream + Search Text Stream
+        var searchPipeline = _contactList.Stream
+            .CombineLatest(_searchText, (change, query) => new { change, query })
+            .Where(x => Matches(x.change.Item, x.query))
+            .Select(x => x.change); // Project back to notification
+
+        // Note: For a true search view, we usually rebuild the collection when query changes.
+        // This simulates a "Live Search Result" stream.
+        new ReactiveView<Contact>(
+            searchPipeline,
+            [.. _contactList], // Initial Snapshot
+            c => Matches(c, _searchText.Value),
+            TimeSpan.FromMilliseconds(50),
+            RxApp.MainThreadScheduler)
+            .ToProperty(x => SearchResults = x);
+    }
+}
+```
+
+---
+
 **Dependencies:**
-- [DynamicData](https://github.com/reactivemarbles/DynamicData)
 - [System.Reactive](https://github.com/dotnet/reactive)
 
 ---

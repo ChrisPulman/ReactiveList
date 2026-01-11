@@ -6,7 +6,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reactive.Disposables;
-using DynamicData;
 
 namespace CP.Reactive;
 
@@ -15,7 +14,7 @@ namespace CP.Reactive;
 /// </summary>
 /// <typeparam name="T">The type stored in the list.</typeparam>
 /// <seealso cref="ICancelable" />
-public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>,  INotifyCollectionChanged, INotifyPropertyChanged, ICancelable
+public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, ICancelable
     where T : notnull
 {
     /// <summary>
@@ -97,7 +96,7 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>,  INotifyC
     /// Executes a batch edit operation on the list.
     /// </summary>
     /// <param name="editAction">The action to perform on the internal list.</param>
-    void Edit(Action<IExtendedList<T>> editAction);
+    void Edit(Action<IEditableList<T>> editAction);
 
     /// <summary>
     /// Inserts the range.
