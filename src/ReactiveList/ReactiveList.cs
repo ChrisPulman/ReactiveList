@@ -5,13 +5,13 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
-using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
-using DynamicData;
+#if NET6_0_OR_GREATER
+using System.Runtime.InteropServices;
+#endif
 
 namespace CP.Reactive;
 
@@ -27,29 +27,28 @@ public class ReactiveList<T> : IReactiveList<T>
     private readonly BehaviorSubject<IEnumerable<T>> _changed;
     private readonly CompositeDisposable _cleanUp = [];
     private readonly BehaviorSubject<IEnumerable<T>> _currentItems;
-    private readonly List<T> _itemsAddedList = [];
-    private readonly List<T> _itemsChangedList = [];
-    private readonly List<T> _itemsRemovedList = [];
     private readonly object _lock = new();
     private readonly BehaviorSubject<IEnumerable<T>> _removed;
-    private readonly SourceList<T> _sourceList = new();
-    private readonly ManualResetEventSlim _clearedEvent = new(false);
-    private readonly ManualResetEventSlim _addedRangeEvent = new(false);
-    private ReadOnlyObservableCollection<T> _items;
-    private volatile bool _replacingAll;
+    private readonly List<T> _internalList = [];
+    private readonly ObservableCollection<T> _observableItems;
+    private readonly ObservableCollection<T> _itemsAddedCollection = [];
+    private readonly ObservableCollection<T> _itemsChangedCollection = [];
+    private readonly ObservableCollection<T> _itemsRemovedCollection = [];
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
     /// </summary>
     public ReactiveList()
     {
-        _items = new([]);
+        _observableItems = new(_internalList);
+        Items = new(_observableItems);
+        ItemsAdded = new(_itemsAddedCollection);
+        ItemsChanged = new(_itemsChangedCollection);
+        ItemsRemoved = new(_itemsRemovedCollection);
         _added = new(Array.Empty<T>());
         _changed = new(Array.Empty<T>());
         _removed = new(Array.Empty<T>());
         _currentItems = new(Array.Empty<T>());
-
-        SetupSubscriptions();
     }
 
     /// <summary>
@@ -85,7 +84,7 @@ public class ReactiveList<T> : IReactiveList<T>
     public IObservable<IEnumerable<T>> Changed => _changed.Skip(1);
 
     /// <inheritdoc/>
-    public int Count => _items.Count;
+    public int Count => _internalList.Count;
 
     /// <summary>
     /// Gets the current items during the last change as an Observeable.
@@ -111,25 +110,25 @@ public class ReactiveList<T> : IReactiveList<T>
     /// Gets the items.
     /// </summary>
     /// <value>The items.</value>
-    public ReadOnlyObservableCollection<T> Items => _items;
+    public ReadOnlyObservableCollection<T> Items { get; }
 
     /// <summary>
     /// Gets the items added during the last change.
     /// </summary>
     /// <value>The items added.</value>
-    public ReadOnlyObservableCollection<T> ItemsAdded { get; private set; } = new([]);
+    public ReadOnlyObservableCollection<T> ItemsAdded { get; }
 
     /// <summary>
     /// Gets the items changed during the last change.
     /// </summary>
     /// <value>The items changed.</value>
-    public ReadOnlyObservableCollection<T> ItemsChanged { get; private set; } = new([]);
+    public ReadOnlyObservableCollection<T> ItemsChanged { get; }
 
     /// <summary>
     /// Gets the items removed during the last change.
     /// </summary>
     /// <value>The items removed.</value>
-    public ReadOnlyObservableCollection<T> ItemsRemoved { get; private set; } = new([]);
+    public ReadOnlyObservableCollection<T> ItemsRemoved { get; }
 
     /// <summary>
     /// Gets the removed items during the last change as an Observable.
@@ -143,7 +142,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     object? IList.this[int index]
     {
-        get => _items[index];
+        get => _internalList[index];
         set
         {
             RemoveAt(index);
@@ -154,7 +153,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public T this[int index]
     {
-        get => _items[index];
+        get => _internalList[index];
         set
         {
             RemoveAt(index);
@@ -167,7 +166,9 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         lock (_lock)
         {
-            _sourceList.Edit(l => l.Add(item));
+            _internalList.Add(item);
+            _observableItems.Add(item);
+            NotifyAdded(item);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
         }
@@ -198,14 +199,25 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void AddRange(IEnumerable<T> items)
     {
-        if (items is ICollection<T> c && c.Count == 0)
+        var itemArray = items as T[] ?? items.ToArray();
+        if (itemArray.Length == 0)
         {
             return;
         }
 
         lock (_lock)
         {
-            _sourceList.Edit(l => l.AddRange(items));
+#if NET6_0_OR_GREATER
+            // Use AddRange with capacity hint for List
+            _internalList.EnsureCapacity(_internalList.Count + itemArray.Length);
+#endif
+            _internalList.AddRange(itemArray);
+            foreach (var item in itemArray)
+            {
+                _observableItems.Add(item);
+            }
+
+            NotifyAddedRange(itemArray);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
         }
@@ -222,19 +234,30 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         lock (_lock)
         {
-            ClearHistoryIfCountIsZero();
-            _sourceList.Edit(l => l.Clear());
+            if (_internalList.Count == 0)
+            {
+                ClearHistory();
+                OnPropertyChanged(nameof(Count));
+                OnPropertyChanged(ItemArray);
+                return;
+            }
+
+            var clearedItems = _internalList.ToArray();
+            _internalList.Clear();
+            _observableItems.Clear();
+            NotifyCleared(clearedItems);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
         }
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Contains(T item)
     {
         lock (_lock)
         {
-            return _items.Contains(item);
+            return _internalList.Contains(item);
         }
     }
 
@@ -250,7 +273,17 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <inheritdoc/>
-    public void CopyTo(T[] array, int arrayIndex) => ((ICollection<T>)_items).CopyTo(array, arrayIndex);
+    public void CopyTo(T[] array, int arrayIndex)
+    {
+        lock (_lock)
+        {
+#if NET6_0_OR_GREATER
+            CollectionsMarshal.AsSpan(_internalList).CopyTo(array.AsSpan(arrayIndex));
+#else
+            _internalList.CopyTo(array, arrayIndex);
+#endif
+        }
+    }
 
     /// <inheritdoc/>
     public void CopyTo(Array array, int index)
@@ -288,9 +321,12 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             try
             {
-                foreach (var item in this)
+                lock (_lock)
                 {
-                    objects[index++] = item;
+                    foreach (var item in _internalList)
+                    {
+                        objects[index++] = item;
+                    }
                 }
             }
             catch (ArrayTypeMismatchException)
@@ -304,7 +340,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// Executes a batch edit operation on the list.
     /// </summary>
     /// <param name="editAction">The action to perform on the internal list.</param>
-    public void Edit(Action<IExtendedList<T>> editAction)
+    public void Edit(Action<IEditableList<T>> editAction)
     {
         if (editAction == null)
         {
@@ -313,24 +349,64 @@ public class ReactiveList<T> : IReactiveList<T>
 
         lock (_lock)
         {
-            _sourceList.Edit(editAction);
+            var snapshotSet = new HashSet<T>(_internalList);
+            var wrapper = new EditableListWrapper<T>(_internalList, _observableItems);
+            editAction(wrapper);
+
+            var currentSet = new HashSet<T>(_internalList);
+            var added = new List<T>();
+            var removed = new List<T>();
+
+            foreach (var item in _internalList)
+            {
+                if (!snapshotSet.Contains(item))
+                {
+                    added.Add(item);
+                }
+            }
+
+            foreach (var item in snapshotSet)
+            {
+                if (!currentSet.Contains(item))
+                {
+                    removed.Add(item);
+                }
+            }
+
+            if (added.Count > 0)
+            {
+                NotifyAddedRange([.. added]);
+            }
+
+            if (removed.Count > 0)
+            {
+                NotifyRemovedRange([.. removed]);
+            }
+
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
         }
     }
 
     /// <inheritdoc/>
-    public IEnumerator<T> GetEnumerator() => _items.GetEnumerator();
+    public IEnumerator<T> GetEnumerator()
+    {
+        lock (_lock)
+        {
+            return _internalList.ToList().GetEnumerator();
+        }
+    }
 
     /// <inheritdoc/>
-    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_items).GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int IndexOf(T item)
     {
         lock (_lock)
         {
-            return _items.IndexOf(item);
+            return _internalList.IndexOf(item);
         }
     }
 
@@ -350,7 +426,9 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         lock (_lock)
         {
-            _sourceList.Edit(l => l.Insert(index, item));
+            _internalList.Insert(index, item);
+            _observableItems.Insert(index, item);
+            NotifyAdded(item, index);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
         }
@@ -376,14 +454,21 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="items">The items.</param>
     public void InsertRange(int index, IEnumerable<T> items)
     {
-        if (items is ICollection<T> c && c.Count == 0)
+        var itemArray = items as T[] ?? items.ToArray();
+        if (itemArray.Length == 0)
         {
             return;
         }
 
         lock (_lock)
         {
-            _sourceList.Edit(l => l.InsertRange(items, index));
+            _internalList.InsertRange(index, itemArray);
+            for (var i = 0; i < itemArray.Length; i++)
+            {
+                _observableItems.Insert(index + i, itemArray[i]);
+            }
+
+            NotifyAddedRange(itemArray, index);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
         }
@@ -413,7 +498,11 @@ public class ReactiveList<T> : IReactiveList<T>
 
         lock (_lock)
         {
-            _sourceList.Edit(l => l.Move(oldIndex, newIndex));
+            var item = _internalList[oldIndex];
+            _internalList.RemoveAt(oldIndex);
+            _internalList.Insert(newIndex, item);
+            _observableItems.Move(oldIndex, newIndex);
+            NotifyChangedSingle(item);
             OnPropertyChanged(ItemArray);
         }
     }
@@ -423,31 +512,50 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         lock (_lock)
         {
-            var removed = false;
-            _sourceList.Edit(l => removed = l.Remove(item));
-            if (removed)
+            var index = _internalList.IndexOf(item);
+            if (index < 0)
             {
-                OnPropertyChanged(nameof(Count));
-                OnPropertyChanged(ItemArray);
+                return false;
             }
 
-            return removed;
+            _internalList.RemoveAt(index);
+            _observableItems.RemoveAt(index);
+            NotifyRemoved(item, index);
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+            return true;
         }
     }
 
     /// <inheritdoc/>
     public void Remove(IEnumerable<T> items)
     {
-        if (items is ICollection<T> c && c.Count == 0)
+        var itemArray = items as T[] ?? items.ToArray();
+        if (itemArray.Length == 0)
         {
             return;
         }
 
         lock (_lock)
         {
-            _sourceList.Edit(l => l.Remove(items));
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
+            var removed = new List<T>();
+            foreach (var item in itemArray)
+            {
+                var index = _internalList.IndexOf(item);
+                if (index >= 0)
+                {
+                    _internalList.RemoveAt(index);
+                    _observableItems.RemoveAt(index);
+                    removed.Add(item);
+                }
+            }
+
+            if (removed.Count > 0)
+            {
+                NotifyRemovedRange([.. removed]);
+                OnPropertyChanged(nameof(Count));
+                OnPropertyChanged(ItemArray);
+            }
         }
     }
 
@@ -471,7 +579,15 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         lock (_lock)
         {
-            _sourceList.Edit(l => l.RemoveAt(index));
+            if (index < 0 || index >= _internalList.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            var item = _internalList[index];
+            _internalList.RemoveAt(index);
+            _observableItems.RemoveAt(index);
+            NotifyRemoved(item, index);
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
         }
@@ -487,7 +603,37 @@ public class ReactiveList<T> : IReactiveList<T>
 
         lock (_lock)
         {
-            _sourceList.Edit(l => l.RemoveRange(index, count));
+            if (index < 0 || index >= _internalList.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (index + count > _internalList.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count));
+            }
+
+#if NET6_0_OR_GREATER
+            // Use GetRange + RemoveRange for better performance
+            var removed = _internalList.GetRange(index, count).ToArray();
+            _internalList.RemoveRange(index, count);
+            for (var i = 0; i < count; i++)
+            {
+                _observableItems.RemoveAt(index);
+            }
+
+            NotifyRemovedRange(removed);
+#else
+            var removed = new T[count];
+            for (var i = 0; i < count; i++)
+            {
+                removed[i] = _internalList[index];
+                _internalList.RemoveAt(index);
+                _observableItems.RemoveAt(index);
+            }
+
+            NotifyRemovedRange(removed);
+#endif
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
         }
@@ -496,33 +642,39 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void ReplaceAll(IEnumerable<T> items)
     {
+        var itemArray = items as T[] ?? items.ToArray();
+
         lock (_lock)
         {
-            ClearHistoryIfCountIsZero();
-            _replacingAll = true;
-            _clearedEvent.Reset();
-            _addedRangeEvent.Reset();
+            var oldItems = _internalList.ToArray();
+            _internalList.Clear();
+            _observableItems.Clear();
 
-            _sourceList.Edit(l =>
+#if NET6_0_OR_GREATER
+            _internalList.EnsureCapacity(itemArray.Length);
+#endif
+            _internalList.AddRange(itemArray);
+            foreach (var item in itemArray)
             {
-                l.Clear();
-                l.AddRange(items);
-            });
-
-            // Wait for both Clear and AddRange events using efficient signaling
-            var timeout = TimeSpan.FromSeconds(5);
-            if (!_clearedEvent.Wait(timeout) || !_addedRangeEvent.Wait(timeout))
-            {
-                // Timeout occurred - events were not signaled in time
-                _replacingAll = false;
-                throw new TimeoutException("ReplaceAll operation timed out waiting for change events.");
+                _observableItems.Add(item);
             }
 
-            _replacingAll = false;
-        }
+            // Update tracking collections
+            UpdateTrackingCollection(_itemsRemovedCollection, oldItems);
+            _removed.OnNext(oldItems);
 
-        OnPropertyChanged(nameof(Count));
-        OnPropertyChanged(ItemArray);
+            UpdateTrackingCollection(_itemsAddedCollection, itemArray);
+            _added.OnNext(itemArray);
+
+            UpdateTrackingCollection(_itemsChangedCollection, oldItems);
+            _changed.OnNext(oldItems);
+
+            _currentItems.OnNext(_internalList);
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
     }
 
     /// <summary>
@@ -537,7 +689,13 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         lock (_lock)
         {
-            _sourceList.Edit(l => l.Replace(item, newValue));
+            var index = _internalList.IndexOf(item);
+            if (index >= 0)
+            {
+                _internalList[index] = newValue;
+                _observableItems[index] = newValue;
+                NotifyChangedSingle(newValue);
+            }
         }
     }
 
@@ -549,17 +707,11 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         if (disposing)
         {
-            // First, dispose subscriptions
             _cleanUp.Dispose();
-
-            // Then dispose owned resources
             _added.Dispose();
             _changed.Dispose();
             _removed.Dispose();
             _currentItems.Dispose();
-            _sourceList.Dispose();
-            _clearedEvent.Dispose();
-            _addedRangeEvent.Dispose();
         }
     }
 
@@ -574,198 +726,105 @@ public class ReactiveList<T> : IReactiveList<T>
         (value is T) || (value == null && default(T) == null);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UpdateListFromEnumerable(List<T> target, IEnumerable<T> items)
+    private static void UpdateTrackingCollection(ObservableCollection<T> target, T[] items)
     {
         target.Clear();
-        target.AddRange(items);
-    }
-
-    private void SetupSubscriptions()
-    {
-        var srcList = _sourceList.Connect();
-
-        srcList
-            .ObserveOn(Scheduler.Immediate)
-            .Bind(out _items)
-            .Subscribe()
-            .DisposeWith(_cleanUp);
-
-        _sourceList
-            .CountChanged
-            .Select(_ => _sourceList.Items)
-            .ObserveOn(Scheduler.Immediate)
-            .Do(_currentItems.OnNext)
-            .Subscribe()
-            .DisposeWith(_cleanUp);
-
-        SetupAddedSubscriptions(srcList);
-        SetupRemovedSubscriptions(srcList);
-        SetupChangedSubscriptions(srcList);
-        SetupClearSubscription(srcList);
-    }
-
-    private void SetupAddedSubscriptions(IObservable<IChangeSet<T>> srcList)
-    {
-        // Added - single items
-        srcList
-            .WhereReasonsAre(ListChangeReason.Add)
-            .Select(t => t.Select(v => v.Item.Current))
-            .Do(_added.OnNext)
-            .ObserveOn(Scheduler.Immediate)
-            .Subscribe(v =>
-            {
-                var items = v as T[] ?? v.ToArray();
-                UpdateListFromEnumerable(_itemsAddedList, items);
-                ItemsAdded = new(new ObservableCollection<T>(_itemsAddedList));
-                _itemsRemovedList.Clear();
-                ItemsRemoved = new(new ObservableCollection<T>());
-                var itemCount = _items.Count;
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, _itemsAddedList, itemCount - items.Length));
-            })
-            .DisposeWith(_cleanUp);
-
-        // Added range
-        srcList
-            .WhereReasonsAre(ListChangeReason.AddRange)
-            .SelectMany(t => t.Select(v => v.Range))
-            .Do(_added.OnNext)
-            .ObserveOn(Scheduler.Immediate)
-            .Subscribe(v =>
-            {
-                UpdateListFromEnumerable(_itemsAddedList, v);
-                ItemsAdded = new(new ObservableCollection<T>(_itemsAddedList));
-                if (!_replacingAll)
-                {
-                    _itemsRemovedList.Clear();
-                    ItemsRemoved = new(new ObservableCollection<T>());
-                }
-                else
-                {
-                    _addedRangeEvent.Set();
-                }
-
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-            })
-            .DisposeWith(_cleanUp);
-    }
-
-    private void SetupRemovedSubscriptions(IObservable<IChangeSet<T>> srcList)
-    {
-        // Removed - single items
-        srcList
-            .WhereReasonsAre(ListChangeReason.Remove)
-            .Select(t => t.Select(v => v.Item.Current))
-            .Do(_removed.OnNext)
-            .ObserveOn(Scheduler.Immediate)
-            .Subscribe(v =>
-            {
-                var items = v as T[] ?? v.ToArray();
-                UpdateListFromEnumerable(_itemsRemovedList, items);
-                ItemsRemoved = new(new ObservableCollection<T>(_itemsRemovedList));
-                _itemsAddedList.Clear();
-                ItemsAdded = new(new ObservableCollection<T>());
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, _itemsRemovedList));
-            })
-            .DisposeWith(_cleanUp);
-
-        // Removed range
-        srcList
-            .WhereReasonsAre(ListChangeReason.RemoveRange)
-            .SelectMany(t => t.Select(v => v.Range))
-            .Do(_removed.OnNext)
-            .ObserveOn(Scheduler.Immediate)
-            .Subscribe(v =>
-            {
-                UpdateListFromEnumerable(_itemsRemovedList, v);
-                ItemsRemoved = new(new ObservableCollection<T>(_itemsRemovedList));
-                _itemsAddedList.Clear();
-                ItemsAdded = new(new ObservableCollection<T>());
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, _itemsRemovedList));
-            })
-            .DisposeWith(_cleanUp);
-    }
-
-    private void SetupChangedSubscriptions(IObservable<IChangeSet<T>> srcList)
-    {
-        // Changed: single item adds/removes/replaces
-        srcList
-            .WhereReasonsAre(ListChangeReason.Add, ListChangeReason.Remove, ListChangeReason.Replace)
-            .Select(t => t.Select(v => v.Item.Current))
-            .Do(_changed.OnNext)
-            .ObserveOn(Scheduler.Immediate)
-            .Subscribe(v =>
-            {
-                UpdateListFromEnumerable(_itemsChangedList, v);
-                ItemsChanged = new(new ObservableCollection<T>(_itemsChangedList));
-            })
-            .DisposeWith(_cleanUp);
-
-        // Changed: add range -> skip updating when replacing all so Clear determines ItemsChanged
-        srcList
-            .WhereReasonsAre(ListChangeReason.AddRange)
-            .SelectMany(t => t.Select(v => v.Range))
-            .Do(_changed.OnNext)
-            .ObserveOn(Scheduler.Immediate)
-            .Subscribe(v =>
-            {
-                if (_replacingAll)
-                {
-                    return;
-                }
-
-                UpdateListFromEnumerable(_itemsChangedList, v);
-                ItemsChanged = new(new ObservableCollection<T>(_itemsChangedList));
-            })
-            .DisposeWith(_cleanUp);
-
-        // Changed: remove range
-        srcList
-            .WhereReasonsAre(ListChangeReason.RemoveRange)
-            .SelectMany(t => t.Select(v => v.Range))
-            .Do(_changed.OnNext)
-            .ObserveOn(Scheduler.Immediate)
-            .Subscribe(v =>
-            {
-                UpdateListFromEnumerable(_itemsChangedList, v);
-                ItemsChanged = new(new ObservableCollection<T>(_itemsChangedList));
-            })
-            .DisposeWith(_cleanUp);
-    }
-
-    private void SetupClearSubscription(IObservable<IChangeSet<T>> srcList) => srcList
-            .WhereReasonsAre(ListChangeReason.Clear)
-            .SelectMany(t => t.Select(v => v.Range))
-            .ObserveOn(Scheduler.Immediate)
-            .Subscribe(v =>
-            {
-                if (!_replacingAll)
-                {
-                    _itemsAddedList.Clear();
-                    ItemsAdded = new(new ObservableCollection<T>());
-                }
-                else
-                {
-                    _clearedEvent.Set();
-                }
-
-                UpdateListFromEnumerable(_itemsChangedList, v);
-                ItemsChanged = new(new ObservableCollection<T>(_itemsChangedList));
-                UpdateListFromEnumerable(_itemsRemovedList, v);
-                ItemsRemoved = new(new ObservableCollection<T>(_itemsRemovedList));
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-            })
-            .DisposeWith(_cleanUp);
-
-    private void ClearHistoryIfCountIsZero()
-    {
-        if (_sourceList.Count == 0)
+        foreach (var item in items)
         {
-            _itemsAddedList.Clear();
-            _itemsChangedList.Clear();
-            _itemsRemovedList.Clear();
-            ItemsAdded = new(new ObservableCollection<T>());
-            ItemsChanged = new(new ObservableCollection<T>());
-            ItemsRemoved = new(new ObservableCollection<T>());
+            target.Add(item);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void NotifyAdded(T item, int index = -1)
+    {
+        _itemsAddedCollection.Clear();
+        _itemsAddedCollection.Add(item);
+        _itemsRemovedCollection.Clear();
+        _itemsChangedCollection.Clear();
+        _itemsChangedCollection.Add(item);
+
+        _added.OnNext([item]);
+        _changed.OnNext([item]);
+        _currentItems.OnNext(_internalList);
+
+        var startIndex = index >= 0 ? index : _internalList.Count - 1;
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, startIndex));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void NotifyAddedRange(T[] items, int index = -1)
+    {
+        UpdateTrackingCollection(_itemsAddedCollection, items);
+        _itemsRemovedCollection.Clear();
+        UpdateTrackingCollection(_itemsChangedCollection, items);
+
+        _added.OnNext(items);
+        _changed.OnNext(items);
+        _currentItems.OnNext(_internalList);
+
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void NotifyRemoved(T item, int index)
+    {
+        _itemsRemovedCollection.Clear();
+        _itemsRemovedCollection.Add(item);
+        _itemsAddedCollection.Clear();
+        _itemsChangedCollection.Clear();
+        _itemsChangedCollection.Add(item);
+
+        _removed.OnNext([item]);
+        _changed.OnNext([item]);
+        _currentItems.OnNext(_internalList);
+
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void NotifyRemovedRange(T[] items)
+    {
+        UpdateTrackingCollection(_itemsRemovedCollection, items);
+        _itemsAddedCollection.Clear();
+        UpdateTrackingCollection(_itemsChangedCollection, items);
+
+        _removed.OnNext(items);
+        _changed.OnNext(items);
+        _currentItems.OnNext(_internalList);
+
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void NotifyCleared(T[] clearedItems)
+    {
+        _itemsAddedCollection.Clear();
+        UpdateTrackingCollection(_itemsChangedCollection, clearedItems);
+        UpdateTrackingCollection(_itemsRemovedCollection, clearedItems);
+
+        _removed.OnNext(clearedItems);
+        _changed.OnNext(clearedItems);
+        _currentItems.OnNext(_internalList);
+
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void NotifyChangedSingle(T item)
+    {
+        _itemsChangedCollection.Clear();
+        _itemsChangedCollection.Add(item);
+
+        _changed.OnNext([item]);
+        _currentItems.OnNext(_internalList);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ClearHistory()
+    {
+        _itemsAddedCollection.Clear();
+        _itemsChangedCollection.Clear();
+        _itemsRemovedCollection.Clear();
     }
 }
