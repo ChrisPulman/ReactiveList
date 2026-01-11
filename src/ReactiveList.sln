@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# 17
-VisualStudioVersion = 17.7.34031.279
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11312.151 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReactiveList", "ReactiveList\ReactiveList.csproj", "{47E235AA-5BD0-48C7-970E-4EACF14C8695}"
 EndProject
@@ -23,6 +23,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReactiveList.Tests", "React
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReactiveListTestApp", "ReactiveListTestApp\ReactiveListTestApp.csproj", "{4C37F5C0-5E55-4336-BA2C-13B07F134D28}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReactiveList.Benchmarks", "ReactiveList.Benchmarks\ReactiveList.Benchmarks.csproj", "{1623F2C8-9A4B-5356-4F36-8BC5B391EAD6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,10 @@ Global
 		{4C37F5C0-5E55-4336-BA2C-13B07F134D28}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4C37F5C0-5E55-4336-BA2C-13B07F134D28}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4C37F5C0-5E55-4336-BA2C-13B07F134D28}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1623F2C8-9A4B-5356-4F36-8BC5B391EAD6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1623F2C8-9A4B-5356-4F36-8BC5B391EAD6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1623F2C8-9A4B-5356-4F36-8BC5B391EAD6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1623F2C8-9A4B-5356-4F36-8BC5B391EAD6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

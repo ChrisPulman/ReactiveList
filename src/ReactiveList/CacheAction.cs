@@ -1,6 +1,5 @@
 ﻿// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-#if NET6_0_OR_GREATER
 
 namespace CP.Reactive;
 
@@ -13,10 +12,6 @@ namespace CP.Reactive;
 public enum CacheAction
 {
     /// <summary>
-    /// Specifies that the associated operation represents an addition.
-    /// </summary>
-    Adding,
-    /// <summary>
     /// Gets or sets the date and time when the entity was added.
     /// </summary>
     Added,
@@ -25,25 +20,13 @@ public enum CacheAction
     /// </summary>
     Removed,
     /// <summary>
-    /// Represents the state or process of updating an object or resource.
-    /// </summary>
-    Updating,
-    /// <summary>
     /// Gets or sets the date and time when the entity was last updated.
     /// </summary>
     Updated,
     /// <summary>
-    /// Represents a clearing operation or status within the application domain.
-    /// </summary>
-    Clearing,
-    /// <summary>
     /// Indicates that the item has been cleared and is no longer in use.
     /// </summary>
     Cleared,
-    /// <summary>
-    /// Indicates that the item has been removed from the cache due to an eviction policy or resource constraints.
-    /// </summary>
-    Evicted,
     /// <summary>
     /// Represents an operation that can be executed as part of a batch process.
     /// </summary>
@@ -52,4 +35,3 @@ public enum CacheAction
     /// on the implementation.</remarks>
     BatchOperation
 }
-#endif
