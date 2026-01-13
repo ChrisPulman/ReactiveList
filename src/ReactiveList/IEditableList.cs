@@ -4,8 +4,11 @@
 namespace CP.Reactive;
 
 /// <summary>
-/// Provides an extended list interface with additional batch operations.
+/// Represents a generic list that supports batch addition and item reordering operations.
 /// </summary>
+/// <remarks>In addition to standard list operations, this interface provides methods for adding multiple items at
+/// once and for moving items within the list. Implementations may vary in thread safety and performance
+/// characteristics.</remarks>
 /// <typeparam name="T">The type of elements in the list.</typeparam>
 public interface IEditableList<T> : IList<T>
 {

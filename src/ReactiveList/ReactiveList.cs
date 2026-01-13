@@ -16,9 +16,16 @@ using System.Runtime.InteropServices;
 namespace CP.Reactive;
 
 /// <summary>
-/// ReactiveList an Observable list with change tracking.
+/// Represents a thread-safe, observable list that provides reactive notifications for item additions, removals, and
+/// changes.
 /// </summary>
-/// <typeparam name="T">The Type.</typeparam>
+/// <remarks><see cref="ReactiveList{T}"/> combines the features of a standard list with reactive extensions, allowing consumers
+/// to observe changes to the collection in real time. It implements standard collection interfaces and supports batch
+/// operations, making it suitable for scenarios where both collection manipulation and change tracking are required.
+/// The class raises collection and property change notifications, and exposes observables for added, removed, and
+/// changed items. All public methods are thread-safe. This type is not read-only or fixed-size, and supports dynamic
+/// modification.</remarks>
+/// <typeparam name="T">The type of elements in the list. Must be non-nullable.</typeparam>
 public class ReactiveList<T> : IReactiveList<T>
     where T : notnull
 {

@@ -1,6 +1,6 @@
 ﻿// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
 
 using System.Collections.Specialized;
 using System.Reactive.Linq;
@@ -39,13 +39,18 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
 
     private readonly Subject<CacheNotify<TItem>> _pipeline = new();
     private readonly CancellationTokenSource _cts = new();
+    private readonly SynchronizationContext? _syncContext;
     private volatile bool _hasSubscribers;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="QuaternaryBase{TItem}"/> class.
     /// </summary>
-    protected QuaternaryBase() =>
+    protected QuaternaryBase()
+    {
+        // Capture the current synchronization context (UI thread context in WPF/WinForms)
+        _syncContext = SynchronizationContext.Current;
         Task.Factory.StartNew(ProcessEventsAsync, _cts.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+    }
 
     /// <summary>
     /// Occurs when the collection changes.
@@ -147,17 +152,53 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
 
     private void InvokeLegacyINCC(CacheNotify<TItem> evt)
     {
-        var action = evt.Action switch
+        var handler = CollectionChanged;
+        if (handler == null)
         {
-            CacheAction.Added => NotifyCollectionChangedAction.Add,
-            CacheAction.Removed => NotifyCollectionChangedAction.Remove,
-            CacheAction.Cleared => NotifyCollectionChangedAction.Reset,
-            _ => NotifyCollectionChangedAction.Reset
-        };
+            evt.Batch?.Dispose();
+            return;
+        }
 
-        if (evt.Batch == null)
+        NotifyCollectionChangedEventArgs args;
+
+        if (evt.Batch != null)
         {
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, evt.Item));
+            // Batch operations use Reset to avoid index issues with sharded collections
+            args = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset);
+            evt.Batch.Dispose();
+        }
+        else
+        {
+            var action = evt.Action switch
+            {
+                CacheAction.Added => NotifyCollectionChangedAction.Add,
+                CacheAction.Removed => NotifyCollectionChangedAction.Remove,
+                CacheAction.Cleared => NotifyCollectionChangedAction.Reset,
+                CacheAction.Updated => NotifyCollectionChangedAction.Replace,
+                _ => NotifyCollectionChangedAction.Reset
+            };
+
+            // For Add/Remove with single items, we can't provide index in sharded collection
+            // Use Reset for safety to ensure UI updates correctly
+            if (action == NotifyCollectionChangedAction.Add || action == NotifyCollectionChangedAction.Remove)
+            {
+                args = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset);
+            }
+            else
+            {
+                args = new NotifyCollectionChangedEventArgs(action);
+            }
+        }
+
+        // Dispatch to the captured synchronization context (UI thread)
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => handler.Invoke(this, args), null);
+        }
+        else
+        {
+            // Fallback: invoke directly if no sync context was captured
+            handler.Invoke(this, args);
         }
     }
 }
