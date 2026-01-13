@@ -13,7 +13,7 @@
     <Nullable>enable</Nullable>
     <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Compatability with Net 6 / 7 and netstandard2.0</PackageReleaseNotes>
+    <PackageReleaseNotes>Compatability with Net 8 / 9 / 10 and netstandard2.0</PackageReleaseNotes>
     <PackageTags>list;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
@@ -28,6 +28,11 @@
     <!-- Include PDB in the built .nupkg -->
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <IncludePackageReferencesDuringMarkupCompilation>true</IncludePackageReferencesDuringMarkupCompilation>
+    <CoreTargetFrameworks>net8.0;net9.0;net10.0</CoreTargetFrameworks>
+    <WinTargetFrameworks>net472;net48;net8.0-windows10.0.19041.0;net9.0-windows10.0.19041.0;net10.0-windows10.0.19041.0</WinTargetFrameworks>
+  </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::IsOsPlatform('Windows'))">
+    <CoreTargetFrameworks>$(CoreTargetFrameworks);$(WinTargetFrameworks)</CoreTargetFrameworks>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
