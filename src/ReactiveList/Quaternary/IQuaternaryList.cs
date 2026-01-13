@@ -56,3 +56,4 @@ public interface IQuaternaryList<T> : IList<T>
     /// be null.</param>
     void RemoveRange(IEnumerable<T> collection);
 }
+#endif

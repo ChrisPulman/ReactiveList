@@ -10,10 +10,14 @@ using System.Reactive.Disposables;
 namespace CP.Reactive;
 
 /// <summary>
-/// Interface for Reactive List.
+/// Represents a reactive, observable list that notifies subscribers of changes to its items and supports batch
+/// operations and advanced collection manipulation.
 /// </summary>
-/// <typeparam name="T">The type stored in the list.</typeparam>
-/// <seealso cref="ICancelable" />
+/// <remarks>IReactiveList{T} extends standard list and collection interfaces with reactive capabilities, allowing
+/// consumers to observe additions, removals, and changes to the list in real time. It is designed for scenarios where
+/// changes to the collection need to be tracked and responded to, such as in data-binding or reactive programming
+/// contexts. Implementations are expected to be thread-safe only if explicitly documented.</remarks>
+/// <typeparam name="T">The type of elements contained in the list. Must be non-nullable.</typeparam>
 public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, ICancelable
     where T : notnull
 {

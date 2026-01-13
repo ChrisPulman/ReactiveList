@@ -7,27 +7,23 @@ using System.Collections.ObjectModel;
 namespace CP.Reactive;
 
 /// <summary>
-/// A wrapper around a List that provides IEditableList functionality.
+/// Provides a wrapper around a generic list that supports editable operations and optional synchronization with an
+/// observable collection.
 /// </summary>
+/// <remarks>This class enables editing operations such as adding, removing, and moving items in the underlying
+/// list. If an observable collection is provided, all changes made through this wrapper are also applied to the
+/// observable collection, keeping both collections in sync. This is useful when you need to maintain consistency
+/// between a standard list and an observable collection, such as for data binding scenarios.</remarks>
 /// <typeparam name="T">The type of elements in the list.</typeparam>
-internal sealed class EditableListWrapper<T> : IEditableList<T>
+/// <remarks>
+/// Initializes a new instance of the <see cref="EditableListWrapper{T}"/> class.
+/// </remarks>
+/// <param name="list">The underlying list to wrap.</param>
+/// <param name="observableCollection">The observable collection to keep in sync (optional).</param>
+internal sealed class EditableListWrapper<T>(List<T> list, ObservableCollection<T>? observableCollection = null) : IEditableList<T>
 {
-    private readonly List<T> _list;
-    private readonly ObservableCollection<T>? _observableCollection;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="EditableListWrapper{T}"/> class.
-    /// </summary>
-    /// <param name="list">The underlying list to wrap.</param>
-    /// <param name="observableCollection">The observable collection to keep in sync (optional).</param>
-    public EditableListWrapper(List<T> list, ObservableCollection<T>? observableCollection = null)
-    {
-        _list = list;
-        _observableCollection = observableCollection;
-    }
-
     /// <inheritdoc/>
-    public int Count => _list.Count;
+    public int Count => list.Count;
 
     /// <inheritdoc/>
     public bool IsReadOnly => false;
@@ -35,13 +31,13 @@ internal sealed class EditableListWrapper<T> : IEditableList<T>
     /// <inheritdoc/>
     public T this[int index]
     {
-        get => _list[index];
+        get => list[index];
         set
         {
-            _list[index] = value;
-            if (_observableCollection != null)
+            list[index] = value;
+            if (observableCollection != null)
             {
-                _observableCollection[index] = value;
+                observableCollection[index] = value;
             }
         }
     }
@@ -49,20 +45,20 @@ internal sealed class EditableListWrapper<T> : IEditableList<T>
     /// <inheritdoc/>
     public void Add(T item)
     {
-        _list.Add(item);
-        _observableCollection?.Add(item);
+        list.Add(item);
+        observableCollection?.Add(item);
     }
 
     /// <inheritdoc/>
     public void AddRange(IEnumerable<T> items)
     {
         var itemArray = items as T[] ?? items.ToArray();
-        _list.AddRange(itemArray);
-        if (_observableCollection != null)
+        list.AddRange(itemArray);
+        if (observableCollection != null)
         {
             foreach (var item in itemArray)
             {
-                _observableCollection.Add(item);
+                observableCollection.Add(item);
             }
         }
     }
@@ -70,41 +66,41 @@ internal sealed class EditableListWrapper<T> : IEditableList<T>
     /// <inheritdoc/>
     public void Clear()
     {
-        _list.Clear();
-        _observableCollection?.Clear();
+        list.Clear();
+        observableCollection?.Clear();
     }
 
     /// <inheritdoc/>
-    public bool Contains(T item) => _list.Contains(item);
+    public bool Contains(T item) => list.Contains(item);
 
     /// <inheritdoc/>
-    public void CopyTo(T[] array, int arrayIndex) => _list.CopyTo(array, arrayIndex);
+    public void CopyTo(T[] array, int arrayIndex) => list.CopyTo(array, arrayIndex);
 
     /// <inheritdoc/>
-    public IEnumerator<T> GetEnumerator() => _list.GetEnumerator();
+    public IEnumerator<T> GetEnumerator() => list.GetEnumerator();
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <inheritdoc/>
-    public int IndexOf(T item) => _list.IndexOf(item);
+    public int IndexOf(T item) => list.IndexOf(item);
 
     /// <inheritdoc/>
     public void Insert(int index, T item)
     {
-        _list.Insert(index, item);
-        _observableCollection?.Insert(index, item);
+        list.Insert(index, item);
+        observableCollection?.Insert(index, item);
     }
 
     /// <inheritdoc/>
     public void Move(int oldIndex, int newIndex)
     {
-        if (oldIndex < 0 || oldIndex >= _list.Count)
+        if (oldIndex < 0 || oldIndex >= list.Count)
         {
             throw new ArgumentOutOfRangeException(nameof(oldIndex));
         }
 
-        if (newIndex < 0 || newIndex >= _list.Count)
+        if (newIndex < 0 || newIndex >= list.Count)
         {
             throw new ArgumentOutOfRangeException(nameof(newIndex));
         }
@@ -114,30 +110,30 @@ internal sealed class EditableListWrapper<T> : IEditableList<T>
             return;
         }
 
-        var item = _list[oldIndex];
-        _list.RemoveAt(oldIndex);
-        _list.Insert(newIndex, item);
-        _observableCollection?.Move(oldIndex, newIndex);
+        var item = list[oldIndex];
+        list.RemoveAt(oldIndex);
+        list.Insert(newIndex, item);
+        observableCollection?.Move(oldIndex, newIndex);
     }
 
     /// <inheritdoc/>
     public bool Remove(T item)
     {
-        var index = _list.IndexOf(item);
+        var index = list.IndexOf(item);
         if (index < 0)
         {
             return false;
         }
 
-        _list.RemoveAt(index);
-        _observableCollection?.RemoveAt(index);
+        list.RemoveAt(index);
+        observableCollection?.RemoveAt(index);
         return true;
     }
 
     /// <inheritdoc/>
     public void RemoveAt(int index)
     {
-        _list.RemoveAt(index);
-        _observableCollection?.RemoveAt(index);
+        list.RemoveAt(index);
+        observableCollection?.RemoveAt(index);
     }
 }
