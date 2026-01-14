@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CrissCross.WPF" Version="3.0.2" />
+    <PackageReference Include="CrissCross.WPF" Version="3.1.4" />
   </ItemGroup>
 
   <ItemGroup>
