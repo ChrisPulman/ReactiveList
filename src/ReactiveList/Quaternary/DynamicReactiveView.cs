@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 
 namespace CP.Reactive;
@@ -26,7 +27,7 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
     where T : notnull
 {
     private readonly ObservableCollection<T> _target = [];
-    private readonly QuaternaryList<T> _source;
+    private readonly IQuaternarySource<T> _source;
     private readonly CompositeDisposable _disposables = [];
     private readonly IScheduler _scheduler;
     private readonly TimeSpan _throttle;
@@ -36,19 +37,19 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DynamicReactiveView{T}"/> class, providing a filtered, observable,
-    /// and throttled view over a quaternary list that can respond to dynamically changing filter predicates.
+    /// and throttled view over a quaternary source that can respond to dynamically changing filter predicates.
     /// </summary>
-    /// <remarks>The view is populated with items from the source list that satisfy the initial filter (all items
-    /// by default), and then kept up to date by subscribing to the list's change stream. When the filter observable
+    /// <remarks>The view is populated with items from the source that satisfy the initial filter (all items
+    /// by default), and then kept up to date by subscribing to the source's change stream. When the filter observable
     /// emits a new predicate, the view completely rebuilds its contents. Notifications are buffered according to the
     /// specified throttle interval and processed on the given scheduler.</remarks>
-    /// <param name="source">The quaternary list to observe for changes. Cannot be null.</param>
+    /// <param name="source">The quaternary source to observe for changes. Cannot be null.</param>
     /// <param name="filterObservable">An observable sequence of filter predicates. When a new predicate is emitted, the view rebuilds its contents.</param>
     /// <param name="throttle">The time interval used to batch incoming notifications from the stream before processing.</param>
     /// <param name="scheduler">The scheduler on which to observe and process batched notifications, typically used to marshal updates to the
     /// appropriate thread (such as the UI thread).</param>
     /// <exception cref="ArgumentNullException">Thrown if source, filterObservable, or scheduler is null.</exception>
-    public DynamicReactiveView(QuaternaryList<T> source, IObservable<Func<T, bool>> filterObservable, in TimeSpan throttle, IScheduler scheduler)
+    public DynamicReactiveView(IQuaternarySource<T> source, IObservable<Func<T, bool>> filterObservable, in TimeSpan throttle, IScheduler scheduler)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(filterObservable);
@@ -60,16 +61,14 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
         Items = new ReadOnlyObservableCollection<T>(_target);
 
         // Subscribe to filter changes - this rebuilds the view
-        var filterSub = filterObservable
+        filterObservable
             .ObserveOn(scheduler)
             .Subscribe(newFilter =>
             {
                 _currentFilter = newFilter ?? (static _ => true);
                 RebuildView();
                 SubscribeToStream();
-            });
-
-        _disposables.Add(filterSub);
+            }).DisposeWith(_disposables);
 
         // Initial population
         RebuildView();
@@ -107,6 +106,18 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
+    /// Returns the current instance and provides a read-only observable collection of items contained in the view.
+    /// </summary>
+    /// <param name="collection">When this method returns, contains a read-only observable collection of items of type <typeparamref name="T"/>
+    /// managed by the view.</param>
+    /// <returns>The current <see cref="DynamicReactiveView{T}"/> instance.</returns>
+    public DynamicReactiveView<T> ToProperty(out ReadOnlyObservableCollection<T> collection)
+    {
+        collection = Items;
+        return this;
+    }
+
+    /// <summary>
     /// Releases all resources used by the current instance of the class.
     /// </summary>
     /// <remarks>Call this method when you are finished using the object to release unmanaged resources and
@@ -138,21 +149,30 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    /// Refreshes the view by reapplying the current filter to the source collection and updating the target collection
+    /// accordingly.
+    /// </summary>
+    /// <remarks>Call this method to ensure that the target collection reflects the latest state of the source
+    /// collection and filter. This method also raises the PropertyChanged event for the Items property to notify
+    /// listeners of the update.</remarks>
     private void RebuildView()
     {
         _target.Clear();
-
-        foreach (var item in _source)
+        foreach (var item in _source.Where(item => _currentFilter(item)))
         {
-            if (_currentFilter(item))
-            {
-                _target.Add(item);
-            }
+            _target.Add(item);
         }
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
     }
 
+    /// <summary>
+    /// Subscribes to the data stream and updates the collection when new items are received.
+    /// </summary>
+    /// <remarks>Disposes any existing stream subscription before creating a new one. Updates to the
+    /// collection are batched and processed on the specified scheduler. Raises the PropertyChanged event for the Items
+    /// property after each batch is applied.</remarks>
     private void SubscribeToStream()
     {
         // Dispose previous subscription
@@ -175,6 +195,14 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
             });
     }
 
+    /// <summary>
+    /// Applies the specified cache change notification to the target collection, updating its contents based on the
+    /// action described.
+    /// </summary>
+    /// <remarks>Supported actions include adding, removing, or clearing items, as well as batch operations.
+    /// Items are only added if they satisfy the current filter criteria. Batch operations process each item in the
+    /// batch individually according to the action.</remarks>
+    /// <param name="n">A cache notification describing the action to apply and the affected item or batch. Cannot be null.</param>
     private void ApplyChange(CacheNotify<T> n)
     {
         switch (n.Action)

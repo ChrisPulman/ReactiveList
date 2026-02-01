@@ -965,14 +965,39 @@ var engineers = list.GetItemsBySecondaryIndex("ByDepartment", "Engineering");
 | `AddRange(IEnumerable<KeyValuePair<TKey, TValue>> items)` | Bulk add/update |
 | `Remove(TKey key)` | Remove by key |
 | `RemoveKeys(IEnumerable<TKey> keys)` | Bulk remove by keys |
-| `RemoveMany(Func<TValue, bool> predicate)` | Remove values matching predicate |
+| `RemoveMany(Func<KeyValuePair<TKey, TValue>, bool> predicate)` | Remove entries matching predicate |
 | `Clear()` | Remove all entries |
 | `TryGetValue(TKey key, out TValue value)` | Try get value by key |
-| `Lookup(TKey key)` | Get `Optional<TValue>` by key |
+| `Lookup(TKey key)` | Get `(bool HasValue, TValue? Value)` tuple by key |
 | `ContainsKey(TKey key)` | Check if key exists |
 | `Edit(Action<IDictionary<TKey, TValue>> editAction)` | Batch operations |
 | `AddValueIndex<TIndexKey>(string name, Func<TValue, TIndexKey> keySelector)` | Add secondary value index |
-| `QueryByValue<TIndexKey>(string indexName, TIndexKey key)` | Query by value index |
+| `GetValuesBySecondaryIndex<TIndexKey>(string indexName, TIndexKey key)` | Query values by secondary index key |
+| `ValueMatchesSecondaryIndex<TIndexKey>(string indexName, TValue value, TIndexKey key)` | Check if value matches a secondary index key |
+
+### QuaternaryDictionary Extension Methods
+
+Extension methods for creating reactive views over `QuaternaryDictionary`:
+
+| Method | Description |
+|--------|-------------|
+| `CreateView(scheduler, throttleMs)` | Creates an unfiltered reactive view |
+| `CreateView(filter, scheduler, throttleMs)` | Creates a filtered reactive view |
+| `CreateView(filterObservable, scheduler, throttleMs)` | Creates a dynamic view with changing filter |
+| `CreateView<TQuery>(queryObservable, filter, scheduler, throttleMs)` | Creates a dynamic view with query-based filter |
+| `CreateViewBySecondaryIndex<TIndexKey>(indexName, key, scheduler, throttleMs)` | Creates a view filtered by secondary value index |
+| `CreateViewBySecondaryIndex<TIndexKey>(indexName, keys[], scheduler, throttleMs)` | Creates a view filtered by multiple secondary index keys |
+| `CreateViewBySecondaryIndex<TIndexKey>(indexName, keysObservable, scheduler, throttleMs)` | Creates a dynamic view with changing secondary index keys |
+
+### Stream Filter Extensions
+
+Extension methods for filtering cache notification streams:
+
+| Method | Description |
+|--------|-------------|
+| `FilterBySecondaryIndex<TIndexKey>(stream, dict, indexName, key)` | Filters stream by secondary value index key |
+| `FilterBySecondaryIndex<TIndexKey>(stream, dict, indexName, keys[])` | Filters stream by multiple secondary index keys |
+| `FilterDynamic(stream, filterObservable)` | Filters stream with dynamically changing predicate |
 
 ---
 
@@ -1105,6 +1130,61 @@ var favoritesView = contacts.CreateView(
 
 // Bind to UI
 favoritesView.ToProperty(x => FavoriteContacts = x);
+```
+
+### QuaternaryDictionary Reactive Views
+
+```csharp
+using CP.Reactive;
+using ReactiveUI;
+using System.Reactive.Subjects;
+
+// Create dictionary with secondary value index
+var userCache = new QuaternaryDictionary<Guid, User>();
+userCache.AddValueIndex("ByDepartment", u => u.Department);
+
+// Create a simple reactive view (all items)
+var allUsersView = userCache.CreateView(
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Create a filtered view
+var activeUsersView = userCache.CreateView(
+    kvp => kvp.Value.IsActive,
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Create a view filtered by secondary value index
+var engineeringView = userCache.CreateViewBySecondaryIndex<Guid, User, string>(
+    "ByDepartment", 
+    "Engineering",
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Create a view filtered by multiple departments
+var techDeptView = userCache.CreateViewBySecondaryIndex<Guid, User, string>(
+    "ByDepartment",
+    new[] { "Engineering", "QA", "DevOps" },
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Dynamic filtering with observable
+var departmentFilter = new BehaviorSubject<string[]>(new[] { "Engineering" });
+var dynamicDeptView = userCache.CreateViewBySecondaryIndex<Guid, User, string>(
+    "ByDepartment",
+    departmentFilter,
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Change filter dynamically - view automatically rebuilds
+departmentFilter.OnNext(new[] { "HR", "Finance" });
+
+// Query values by secondary index
+var engineeringUsers = userCache.GetValuesBySecondaryIndex("ByDepartment", "Engineering");
+
+// Check if a value matches a secondary index key
+var user = new User("Alice", "Engineering");
+bool isEngineer = userCache.ValueMatchesSecondaryIndex("ByDepartment", user, "Engineering");
 ```
 
 ---

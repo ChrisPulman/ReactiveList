@@ -4,7 +4,6 @@
 
 using System.Buffers;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Quaternary;
 
@@ -20,51 +19,11 @@ namespace CP.Reactive;
 /// efficient lookups by arbitrary keys, which is useful for advanced querying scenarios. All public methods are
 /// thread-safe. Direct index-based operations (such as Insert, RemoveAt, or setting by index) are not supported and
 /// will throw exceptions; use Add, Remove, or batch methods instead.</remarks>
-/// <typeparam name="T">The type of elements stored in the list.</typeparam>
-public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
+/// <typeparam name="T">The type of elements stored in the list. Must be non-nullable.</typeparam>
+public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryList<T>
+    where T : notnull
 {
     private const int ParallelThreshold = 256; // Only parallelize for larger datasets
-
-    private readonly QuadList<T>[] _quads =
-    [
-        new QuadList<T>(),
-        new QuadList<T>(),
-        new QuadList<T>(),
-        new QuadList<T>()
-    ];
-
-    private readonly ConcurrentDictionary<string, ISecondaryIndex<T>> _indices = new();
-
-    /// <summary>
-    /// Gets the total number of items contained in all quads.
-    /// </summary>
-    public int Count
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get
-        {
-            var count = 0;
-            for (var i = 0; i < ShardCount; i++)
-            {
-                Locks[i].EnterReadLock();
-                try
-                {
-                    count += _quads[i].Count;
-                }
-                finally
-                {
-                    Locks[i].ExitReadLock();
-                }
-            }
-
-            return count;
-        }
-    }
-
-    /// <summary>
-    /// Gets a value indicating whether the collection is read-only.
-    /// </summary>
-    public bool IsReadOnly => false;
 
     /// <summary>
     /// Gets or sets the element at the specified index.
@@ -89,7 +48,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         Locks[idx].EnterWriteLock();
         try
         {
-            _quads[idx].Add(item);
+            Quads[idx].Add(item);
             NotifyIndicesAdded(item);
         }
         finally
@@ -113,7 +72,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         Locks[idx].EnterWriteLock();
         try
         {
-            removed = _quads[idx].Remove(item);
+            removed = Quads[idx].Remove(item);
             if (removed)
             {
                 NotifyIndicesRemoved(item);
@@ -181,44 +140,6 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     }
 
     /// <summary>
-    /// Removes all items from the cache.
-    /// </summary>
-    public void Clear()
-    {
-        // Acquire all locks first to ensure consistency
-        for (var i = 0; i < ShardCount; i++)
-        {
-            Locks[i].EnterWriteLock();
-        }
-
-        try
-        {
-            for (var i = 0; i < ShardCount; i++)
-            {
-                _quads[i].Clear();
-            }
-        }
-        finally
-        {
-            for (var i = ShardCount - 1; i >= 0; i--)
-            {
-                Locks[i].ExitWriteLock();
-            }
-        }
-
-        // Clear indices outside of locks
-        if (!_indices.IsEmpty)
-        {
-            foreach (var idx in _indices.Values)
-            {
-                idx.Clear();
-            }
-        }
-
-        Emit(CacheAction.Cleared, default);
-    }
-
-    /// <summary>
     /// Removes all elements that match the specified predicate from the collection.
     /// </summary>
     /// <param name="predicate">A function that returns true for elements that should be removed.</param>
@@ -235,7 +156,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             Locks[i].EnterWriteLock();
             try
             {
-                var quad = _quads[i];
+                var quad = Quads[i];
                 for (var j = quad.Count - 1; j >= 0; j--)
                 {
                     var item = quad[j];
@@ -310,7 +231,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             Locks[i].EnterReadLock();
             try
             {
-                var quad = _quads[i];
+                var quad = Quads[i];
                 foreach (var item in quad)
                 {
                     index.OnAdded(item);
@@ -322,7 +243,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             }
         }
 
-        _indices[name] = index;
+        Indices[name] = index;
     }
 
     /// <summary>
@@ -335,7 +256,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     public IEnumerable<T> GetItemsBySecondaryIndex<TKey>(string indexName, TKey key)
         where TKey : notnull
     {
-        if (_indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<T, TKey> typedIdx)
+        if (Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<T, TKey> typedIdx)
         {
             return typedIdx.Lookup(key);
         }
@@ -354,7 +275,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     public bool ItemMatchesSecondaryIndex<TKey>(string indexName, T item, TKey key)
         where TKey : notnull
     {
-        if (_indices.TryGetValue(indexName, out var idx))
+        if (Indices.TryGetValue(indexName, out var idx))
         {
             return idx.MatchesKey(item, key);
         }
@@ -375,7 +296,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         try
         {
             // Use Span for faster iteration without enumerator allocation
-            var span = _quads[idx].AsSpan();
+            var span = Quads[idx].AsSpan();
             var comparer = EqualityComparer<T>.Default;
             for (var i = 0; i < span.Length; i++)
             {
@@ -405,7 +326,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             Locks[i].EnterReadLock();
             try
             {
-                var sourceSpan = _quads[i].AsSpan();
+                var sourceSpan = Quads[i].AsSpan();
                 var destSpan = array.AsSpan(arrayIndex, sourceSpan.Length);
                 sourceSpan.CopyTo(destSpan);
                 arrayIndex += sourceSpan.Length;
@@ -421,14 +342,14 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     /// Returns an enumerator that iterates through the collection.
     /// </summary>
     /// <returns>An enumerator for the collection.</returns>
-    public IEnumerator<T> GetEnumerator()
+    public override IEnumerator<T> GetEnumerator()
     {
         for (var i = 0; i < ShardCount; i++)
         {
             Locks[i].EnterReadLock();
             try
             {
-                foreach (var item in _quads[i])
+                foreach (var item in Quads[i])
                 {
                     yield return item;
                 }
@@ -441,12 +362,6 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     }
 
     /// <summary>
-    /// Returns an enumerator that iterates through the collection.
-    /// </summary>
-    /// <returns>An <see cref="IEnumerator"/> that can be used to iterate through the collection.</returns>
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-    /// <summary>
     /// Calculates the shard index for the specified item based on its hash code.
     /// </summary>
     /// <remarks>The shard index is determined by applying a hash function to the item. If the item is null, a
@@ -454,7 +369,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     /// <param name="item">The item for which to compute the shard index. Can be null.</param>
     /// <returns>An integer representing the zero-based index of the shard to which the item is assigned.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetShardIndex(T? item) => ((item?.GetHashCode() ?? 0) & 0x7FFFFFFF) & (ShardCount - 1);
+    private static int GetShardIndex(T? item) => (item?.GetHashCode() ?? 0) & 0x7FFFFFFF & (ShardCount - 1);
 
     /// <summary>
     /// Retrieves the element at the specified global index across all shards.
@@ -470,10 +385,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             Locks[i].EnterReadLock();
             try
             {
-                var quadCount = _quads[i].Count;
+                var quadCount = Quads[i].Count;
                 if (index < quadCount)
                 {
-                    return _quads[i][index];
+                    return Quads[i][index];
                 }
 
                 index -= quadCount;
@@ -485,42 +400,6 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
 
         throw new IndexOutOfRangeException();
-    }
-
-    /// <summary>
-    /// Notifies all registered indices that a new item has been added.
-    /// </summary>
-    /// <param name="item">The item that was added and should be communicated to all indices.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyIndicesAdded(T item)
-    {
-        if (_indices.IsEmpty)
-        {
-            return;
-        }
-
-        foreach (var kvp in _indices)
-        {
-            kvp.Value.OnAdded(item);
-        }
-    }
-
-    /// <summary>
-    /// Notifies all registered index listeners that the specified item has been removed.
-    /// </summary>
-    /// <param name="item">The item that was removed and for which index listeners should be notified.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyIndicesRemoved(T item)
-    {
-        if (_indices.IsEmpty)
-        {
-            return;
-        }
-
-        foreach (var kvp in _indices)
-        {
-            kvp.Value.OnRemoved(item);
-        }
     }
 
     /// <summary>
@@ -583,10 +462,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var quad = _quads[sIdx];
+                        var quad = Quads[sIdx];
                         quad.AddRange(bucket);
 
-                        if (!_indices.IsEmpty)
+                        if (!Indices.IsEmpty)
                         {
                             for (var i = 0; i < bucketCount; i++)
                             {
@@ -614,10 +493,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var quad = _quads[sIdx];
+                        var quad = Quads[sIdx];
                         quad.AddRange(bucket);
 
-                        if (!_indices.IsEmpty)
+                        if (!Indices.IsEmpty)
                         {
                             for (var i = 0; i < bucketCount; i++)
                             {
@@ -632,7 +511,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 }
             }
 
-            EmitBatchDirect(items, count);
+            EmitBatchAddedDirect(items, count);
         }
         finally
         {
@@ -702,10 +581,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var quad = _quads[sIdx];
+                        var quad = Quads[sIdx];
                         quad.AddRange(bucket);
 
-                        if (!_indices.IsEmpty)
+                        if (!Indices.IsEmpty)
                         {
                             for (var i = 0; i < bucketCount; i++)
                             {
@@ -733,10 +612,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var quad = _quads[sIdx];
+                        var quad = Quads[sIdx];
                         quad.AddRange(bucket);
 
-                        if (!_indices.IsEmpty)
+                        if (!Indices.IsEmpty)
                         {
                             for (var i = 0; i < bucketCount; i++)
                             {
@@ -751,7 +630,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 }
             }
 
-            EmitBatchFromList(items, count);
+            EmitBatchAddedFromList(items, count);
         }
         finally
         {
@@ -821,8 +700,8 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var quad = _quads[sIdx];
-                        var hasIndices = !_indices.IsEmpty;
+                        var quad = Quads[sIdx];
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var item = bucket[i];
@@ -852,8 +731,8 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var quad = _quads[sIdx];
-                        var hasIndices = !_indices.IsEmpty;
+                        var quad = Quads[sIdx];
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var item = bucket[i];
@@ -884,6 +763,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
     }
 
+    /// <summary>
+    /// Removes the specified collection of items from the data structure in a batch operation.
+    /// </summary>
+    /// <remarks>This method performs removals in a sharded and potentially parallelized manner for improved
+    /// performance with large collections. Removal notifications are triggered for each item that is successfully
+    /// removed. The operation is thread-safe.</remarks>
+    /// <param name="items">The list of items to remove. Cannot be null. Items that are not present in the data structure are ignored.</param>
     private void RemoveRangeCore(IList<T> items)
     {
         var count = items.Count;
@@ -931,8 +817,8 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var quad = _quads[sIdx];
-                        var hasIndices = !_indices.IsEmpty;
+                        var quad = Quads[sIdx];
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var item = bucket[i];
@@ -962,8 +848,8 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var quad = _quads[sIdx];
-                        var hasIndices = !_indices.IsEmpty;
+                        var quad = Quads[sIdx];
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var item = bucket[i];
@@ -994,46 +880,6 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EmitBatchDirect(T[] items, int count)
-    {
-        var pool = ArrayPool<T>.Shared.Rent(count);
-        Array.Copy(items, pool, count);
-        Emit(CacheAction.BatchAdded, default, new PooledBatch<T>(pool, count));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EmitBatchFromList(IList<T> items, int count)
-    {
-        var pool = ArrayPool<T>.Shared.Rent(count);
-        for (var i = 0; i < count; i++)
-        {
-            pool[i] = items[i];
-        }
-
-        Emit(CacheAction.BatchAdded, default, new PooledBatch<T>(pool, count));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EmitBatchRemoved(T[] items, int count)
-    {
-        var pool = ArrayPool<T>.Shared.Rent(count);
-        Array.Copy(items, pool, count);
-        Emit(CacheAction.BatchRemoved, default, new PooledBatch<T>(pool, count));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EmitBatchRemovedFromList(IList<T> items, int count)
-    {
-        var pool = ArrayPool<T>.Shared.Rent(count);
-        for (var i = 0; i < count; i++)
-        {
-            pool[i] = items[i];
-        }
-
-        Emit(CacheAction.BatchRemoved, default, new PooledBatch<T>(pool, count));
-    }
-
     /// <summary>
     /// Internal wrapper for Edit operations that bypasses locking and notifications.
     /// </summary>
@@ -1045,9 +891,12 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         internal QuaternaryEditWrapper(QuaternaryList<T> parent)
         {
             _parent = parent;
-            _hasIndices = !parent._indices.IsEmpty;
+            _hasIndices = !parent.Indices.IsEmpty;
         }
 
+        /// <summary>
+        /// Gets the total number of items contained in all shards.
+        /// </summary>
         public int Count
         {
             get
@@ -1055,25 +904,40 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 var count = 0;
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    count += _parent._quads[i].Count;
+                    count += _parent.Quads[i].Count;
                 }
 
                 return count;
             }
         }
 
+        /// <summary>
+        /// Gets a value indicating whether the collection is read-only.
+        /// </summary>
         public bool IsReadOnly => false;
 
+        /// <summary>
+        /// Gets the element at the specified index across all shards.
+        /// </summary>
+        /// <remarks>This indexer provides read-only access to elements as if the sharded collection were
+        /// a single contiguous list. Setting elements by index is not supported and will throw an exception.</remarks>
+        /// <param name="index">The zero-based index of the element to get. Must be greater than or equal to 0 and less than the total
+        /// number of elements in all shards.</param>
+        /// <returns>The element at the specified index in the combined sharded collection.</returns>
+        /// <exception cref="IndexOutOfRangeException">Thrown when <paramref name="index"/> is less than 0 or greater than or equal to the total number of elements
+        /// in all shards.</exception>
+        /// <exception cref="NotSupportedException">Thrown when attempting to set an element by index, as direct replacement is not supported in the sharded
+        /// list.</exception>
         public T this[int index]
         {
             get
             {
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    var quadCount = _parent._quads[i].Count;
+                    var quadCount = _parent.Quads[i].Count;
                     if (index < quadCount)
                     {
-                        return _parent._quads[i][index];
+                        return _parent.Quads[i][index];
                     }
 
                     index -= quadCount;
@@ -1085,17 +949,28 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             set => throw new NotSupportedException("Direct index replacement in sharded list is unstable.");
         }
 
+        /// <summary>
+        /// Adds the specified item to the collection.
+        /// </summary>
+        /// <param name="item">The item to add to the collection.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(T item)
         {
             var idx = GetShardIndex(item);
-            _parent._quads[idx].Add(item);
+            _parent.Quads[idx].Add(item);
             if (_hasIndices)
             {
                 _parent.NotifyIndicesAdded(item);
             }
         }
 
+        /// <summary>
+        /// Adds the elements of the specified collection to the end of the collection.
+        /// </summary>
+        /// <remarks>The order of the elements in the input collection is preserved. If any element in the
+        /// input collection is invalid for the collection, an exception may be thrown when adding that
+        /// element.</remarks>
+        /// <param name="items">The collection whose elements should be added to the end of the collection. Cannot be null.</param>
         public void AddRange(IEnumerable<T> items)
         {
             foreach (var item in items)
@@ -1104,10 +979,15 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             }
         }
 
+        /// <summary>
+        /// Removes the specified item from the collection.
+        /// </summary>
+        /// <param name="item">The item to remove from the collection.</param>
+        /// <returns>true if the item was successfully removed; otherwise, false.</returns>
         public bool Remove(T item)
         {
             var idx = GetShardIndex(item);
-            if (_parent._quads[idx].Remove(item))
+            if (_parent.Quads[idx].Remove(item))
             {
                 if (_hasIndices)
                 {
@@ -1120,49 +1000,78 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             return false;
         }
 
+        /// <summary>
+        /// Removes all items from the collection, including all shards and associated indices.
+        /// </summary>
+        /// <remarks>After calling this method, the collection will be empty and any indices will also be
+        /// cleared. This operation affects all shards managed by the parent object.</remarks>
         public void Clear()
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                _parent._quads[i].Clear();
+                _parent.Quads[i].Clear();
             }
 
             if (_hasIndices)
             {
-                foreach (var idx in _parent._indices.Values)
+                foreach (var idx in _parent.Indices.Values)
                 {
                     idx.Clear();
                 }
             }
         }
 
+        /// <summary>
+        /// Determines whether the collection contains a specific value.
+        /// </summary>
+        /// <param name="item">The value to locate in the collection.</param>
+        /// <returns>true if the item is found in the collection; otherwise, false.</returns>
         public bool Contains(T item)
         {
             var idx = GetShardIndex(item);
-            return _parent._quads[idx].Contains(item);
+            return _parent.Quads[idx].Contains(item);
         }
 
+        /// <summary>
+        /// Copies the elements of the collection to the specified array, starting at the specified array index.
+        /// </summary>
+        /// <remarks>The destination array must be large enough to contain all the elements of the
+        /// collection starting at the specified index. If the array is not large enough, an exception will be
+        /// thrown.</remarks>
+        /// <param name="array">The one-dimensional array that is the destination of the elements copied from the collection. The array must
+        /// have zero-based indexing.</param>
+        /// <param name="arrayIndex">The zero-based index in the destination array at which copying begins.</param>
         public void CopyTo(T[] array, int arrayIndex)
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                var quad = _parent._quads[i];
+                var quad = _parent.Quads[i];
                 quad.CopyTo(array, arrayIndex);
                 arrayIndex += quad.Count;
             }
         }
 
+        /// <summary>
+        /// Returns an enumerator that iterates through the collection of items contained in all shards.
+        /// </summary>
+        /// <remarks>The enumeration traverses the items in each shard in order, starting from the first
+        /// shard to the last. The order of items within each shard is preserved.</remarks>
+        /// <returns>An enumerator that can be used to iterate through the items in the collection.</returns>
         public IEnumerator<T> GetEnumerator()
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                foreach (var item in _parent._quads[i])
+                foreach (var item in _parent.Quads[i])
                 {
                     yield return item;
                 }
             }
         }
 
+        /// <summary>
+        /// Returns an enumerator that iterates through the collection.
+        /// </summary>
+        /// <returns>An <see cref="IEnumerator"/> object that can be used to iterate through the collection.</returns>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

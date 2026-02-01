@@ -21,7 +21,7 @@ namespace CP.Reactive.Quaternary;
 /// Dispose to return internal arrays to the pool when the dictionary is no longer needed.</remarks>
 /// <typeparam name="TKey">The type of keys in the dictionary. Can be null if the comparer supports it.</typeparam>
 /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
-internal sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyValuePair<TKey, TValue>>
+public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyValuePair<TKey, TValue>>, IQuad<KeyValuePair<TKey, TValue>>
 {
     private const int MinimumSize = 16; // minimum arraypool size(power of 2)
     private const double LoadFactor = 0.72;
@@ -37,6 +37,16 @@ internal sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<Ke
     private int _resizeThreshold;
     private int _freeList; // head of free list, -1 if none
     private int _freeCount;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="QuadDictionary{TKey, TValue}"/> class with default settings.
+    /// </summary>
+    /// <remarks>This constructor creates an empty QuadDictionary using default configuration values. Use this
+    /// overload when no custom comparer or options are required.</remarks>
+    public QuadDictionary()
+        : this(null)
+    {
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="QuadDictionary{TKey, TValue}"/> class.
@@ -356,6 +366,11 @@ internal sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<Ke
     /// <param name="list">The list to copy to.</param>
     public void CopyTo(List<KeyValuePair<TKey, TValue>> list)
     {
+        if (list is null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
         for (var i = 0; i < _entryIndex; i++)
         {
             ref var entry = ref _entries[i];
@@ -499,7 +514,7 @@ internal sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<Ke
     /// <summary>
     /// Enumerates the elements of a <see cref="QuadDictionary{TKey, TValue}"/>.
     /// </summary>
-    public struct Enumerator
+    public record struct Enumerator
     {
         private readonly QuadDictionary<TKey, TValue> _dictionary;
         private int _index;

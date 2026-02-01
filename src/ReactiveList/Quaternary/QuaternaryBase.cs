@@ -2,25 +2,45 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
+using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using CP.Reactive.Quaternary;
 
 namespace CP.Reactive;
 
 /// <summary>
-/// Provides a base class for cache collections that support change notifications, concurrent access, and event
-/// streaming for cache operations.
+/// Provides a base class for partitioned, observable collections that support quaternary (four-way) sharding and cache
+/// change notifications.
 /// </summary>
-/// <typeparam name="TItem">The type of items stored in the cache collection.</typeparam>
-public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChanged
+/// <remarks>This class implements partitioning logic using four shards to improve concurrency and scalability for
+/// collections that require frequent updates and notifications. It provides observable change tracking via both
+/// INotifyCollectionChanged and IObservable patterns, making it suitable for use in UI-bound or reactive scenarios.
+/// Derived classes should implement enumeration and may extend synchronization or notification behavior as needed.
+/// Thread safety is managed internally using per-shard locks and a background event processing pipeline.</remarks>
+/// <typeparam name="TItem">The type of items stored in the collection. Must be non-nullable.</typeparam>
+/// <typeparam name="TQuad">The type representing a quad (shard) within the collection. Must implement <see cref="IQuad{TItem}"/>.</typeparam>
+/// <typeparam name="TValue">The type used for secondary indexing within the collection.</typeparam>
+public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<TItem>
+    where TItem : notnull
+    where TQuad : IQuad<TItem>, new()
 {
     /// <summary>
     /// The number of shards used for partitioning.
     /// </summary>
     protected const int ShardCount = 4;
+
+    /// <summary>
+    /// Provides thread-safe access to the collection of secondary indices associated with the current instance.
+    /// </summary>
+    /// <remarks>Each entry maps a unique index name to its corresponding secondary index. This dictionary
+    /// enables efficient retrieval and management of secondary indices in concurrent scenarios.</remarks>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Intended for use in derived classes.")]
+    protected readonly ConcurrentDictionary<string, ISecondaryIndex<TValue>> Indices = new();
 
     /// <summary>
     /// Provides an array of ReaderWriterLockSlim instances used to synchronize access to shared resources.
@@ -34,6 +54,21 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
         new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion)
     ];
 
+    /// <summary>
+    /// Represents the collection of four quadrants used by the containing type.
+    /// </summary>
+    /// <remarks>Each element in the array corresponds to a quadrant and is initialized to a new instance of
+    /// <typeparamref name="TQuad"/>. The array is intended for use by derived types to manage or access
+    /// quadrant-specific data.</remarks>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Intended for use in derived classes.")]
+    protected readonly TQuad[] Quads =
+    [
+        new TQuad(),
+        new TQuad(),
+        new TQuad(),
+        new TQuad()
+    ];
+
     private readonly Channel<CacheNotify<TItem>> _eventChannel = Channel.CreateUnbounded<CacheNotify<TItem>>(
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = false, AllowSynchronousContinuations = false });
 
@@ -43,8 +78,12 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
     private volatile bool _hasSubscribers;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="QuaternaryBase{TItem}"/> class.
+    /// Initializes a new instance of the <see cref="QuaternaryBase{TItem, TQuad, TValue}"/> class.
     /// </summary>
+    /// <remarks>This constructor captures the current synchronization context, which is typically associated
+    /// with the UI thread in WPF or Windows Forms applications. It also initiates a background task to process events
+    /// asynchronously. Derived classes can rely on the synchronization context being set for thread-safe operations
+    /// that require marshaling to the original context.</remarks>
     protected QuaternaryBase()
     {
         // Capture the current synchronization context (UI thread context in WPF/WinForms)
@@ -56,6 +95,37 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
     /// Occurs when the collection changes.
     /// </summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
+
+    /// <summary>
+    /// Gets the total number of items contained in all quads.
+    /// </summary>
+    public int Count
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            var count = 0;
+            for (var i = 0; i < ShardCount; i++)
+            {
+                Locks[i].EnterReadLock();
+                try
+                {
+                    count += Quads[i].Count;
+                }
+                finally
+                {
+                    Locks[i].ExitReadLock();
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether the collection is read-only.
+    /// </summary>
+    public bool IsReadOnly => false;
 
     /// <summary>
     /// Gets an observable sequence that emits cache change notifications as they occur.
@@ -75,6 +145,44 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
     public bool IsDisposed { get; private set; }
 
     /// <summary>
+    /// Removes all items from the cache.
+    /// </summary>
+    public void Clear()
+    {
+        // Acquire all locks first to ensure consistency
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Locks[i].EnterWriteLock();
+        }
+
+        try
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                Quads[i].Clear();
+            }
+        }
+        finally
+        {
+            for (var i = ShardCount - 1; i >= 0; i--)
+            {
+                Locks[i].ExitWriteLock();
+            }
+        }
+
+        // Clear indices outside of locks
+        if (!Indices.IsEmpty)
+        {
+            foreach (var idx in Indices.Values)
+            {
+                idx.Clear();
+            }
+        }
+
+        Emit(CacheAction.Cleared, default);
+    }
+
+    /// <summary>
     /// Releases all resources used by the current instance.
     /// </summary>
     public void Dispose()
@@ -82,6 +190,18 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection.
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the collection.</returns>
+    public abstract IEnumerator<TItem> GetEnumerator();
+
+    /// <summary>
+    /// Returns an enumerator that iterates through a collection.
+    /// </summary>
+    /// <returns>An <see cref="System.Collections.IEnumerator"/> object that can be used to iterate through the collection.</returns>
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>
     /// Attempts to enqueue a cache event for processing.
@@ -100,6 +220,143 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
         }
 
         _eventChannel.Writer.TryWrite(new(action, item, batch));
+    }
+
+    /// <summary>
+    /// Emits a batch operation using the specified items and count without additional validation or copying.
+    /// </summary>
+    /// <remarks>This method is intended for scenarios where the caller can guarantee the validity of the
+    /// input parameters. No parameter validation is performed. The method may rent temporary arrays from the shared
+    /// pool for performance reasons.</remarks>
+    /// <param name="items">The array of items to include in the batch operation. Must contain at least <paramref name="count"/> elements.</param>
+    /// <param name="count">The number of items from <paramref name="items"/> to include in the batch operation. Must be greater than or
+    /// equal to zero and less than or equal to the length of <paramref name="items"/>.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void EmitBatchDirect(TItem[] items, int count)
+    {
+        var pool = ArrayPool<TItem>.Shared.Rent(count);
+        Array.Copy(items, pool, count);
+        Emit(CacheAction.BatchOperation, default, new PooledBatch<TItem>(pool, count));
+    }
+
+    /// <summary>
+    /// Emits a batch added notification using the specified items and count without additional validation or copying.
+    /// </summary>
+    /// <remarks>This method is intended for scenarios where the caller can guarantee the validity of the
+    /// input parameters. No parameter validation is performed. The method may rent temporary arrays from the shared
+    /// pool for performance reasons.</remarks>
+    /// <param name="items">The array of items to include in the batch operation. Must contain at least <paramref name="count"/> elements.</param>
+    /// <param name="count">The number of items from <paramref name="items"/> to include in the batch operation. Must be greater than or
+    /// equal to zero and less than or equal to the length of <paramref name="items"/>.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void EmitBatchAddedDirect(TItem[] items, int count)
+    {
+        var pool = ArrayPool<TItem>.Shared.Rent(count);
+        Array.Copy(items, pool, count);
+        Emit(CacheAction.BatchAdded, default, new PooledBatch<TItem>(pool, count));
+    }
+
+    /// <summary>
+    /// Emits a batch added notification using the specified number of items from the provided list.
+    /// </summary>
+    /// <remarks>The method copies the specified number of items from the list into a pooled array before
+    /// emitting the batch added notification. The caller is responsible for ensuring that the list contains at least the
+    /// specified number of items.</remarks>
+    /// <param name="items">The list of items to include in the batch operation. Items are taken from the start of the list.</param>
+    /// <param name="count">The number of items from the list to include in the batch. Must be less than or equal to the number of items in
+    /// the list and greater than or equal to zero.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void EmitBatchAddedFromList(IList<TItem> items, int count)
+    {
+        if (items == null)
+        {
+            throw new ArgumentNullException(nameof(items));
+        }
+
+        var pool = ArrayPool<TItem>.Shared.Rent(count);
+        for (var i = 0; i < count; i++)
+        {
+            pool[i] = items[i];
+        }
+
+        Emit(CacheAction.BatchAdded, default, new PooledBatch<TItem>(pool, count));
+    }
+
+    /// <summary>
+    /// Raises a batch removed event for the specified items.
+    /// </summary>
+    /// <remarks>This method uses a pooled array to optimize memory usage when emitting the batch removed
+    /// event. The caller should ensure that the <paramref name="items"/> array contains at least <paramref
+    /// name="count"/> elements.</remarks>
+    /// <param name="items">The array of items that have been removed. Only the first <paramref name="count"/> elements are considered.</param>
+    /// <param name="count">The number of items to include from the <paramref name="items"/> array. Must be less than or equal to the length
+    /// of <paramref name="items"/>.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void EmitBatchRemoved(TItem[] items, int count)
+    {
+        var pool = ArrayPool<TItem>.Shared.Rent(count);
+        Array.Copy(items, pool, count);
+        Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(pool, count));
+    }
+
+    /// <summary>
+    /// Emits a notification that a batch of items has been removed from the list.
+    /// </summary>
+    /// <param name="items">The list containing the items that were removed. The first <paramref name="count"/> elements are considered
+    /// removed.</param>
+    /// <param name="count">The number of items removed from the list. Must be greater than or equal to 0 and less than or equal to the
+    /// number of items in <paramref name="items"/>.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void EmitBatchRemovedFromList(IList<TItem> items, int count)
+    {
+        if (items == null)
+        {
+            throw new ArgumentNullException(nameof(items));
+        }
+
+        var pool = ArrayPool<TItem>.Shared.Rent(count);
+        for (var i = 0; i < count; i++)
+        {
+            pool[i] = items[i];
+        }
+
+        Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(pool, count));
+    }
+
+    /// <summary>
+    /// Notifies all registered indices that a new item has been added.
+    /// </summary>
+    /// <param name="item">The item that was added and should be communicated to all indices.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void NotifyIndicesAdded(TValue item)
+    {
+        if (Indices.IsEmpty)
+        {
+            return;
+        }
+
+        foreach (var kvp in Indices)
+        {
+            kvp.Value.OnAdded(item);
+        }
+    }
+
+    /// <summary>
+    /// Notifies all registered index listeners that the specified item has been removed.
+    /// </summary>
+    /// <param name="item">The item that was removed and for which index listeners should be notified.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void NotifyIndicesRemoved(TValue item)
+    {
+        if (Indices.IsEmpty)
+        {
+            return;
+        }
+
+        foreach (var kvp in Indices)
+        {
+            kvp.Value.OnRemoved(item);
+        }
     }
 
     /// <summary>

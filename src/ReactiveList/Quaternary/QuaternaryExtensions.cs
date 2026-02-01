@@ -31,7 +31,7 @@ public static class QuaternaryExtensions
     /// default is 50 milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the current state of the list and updates when the list changes, subject to the
     /// specified throttling.</returns>
-    public static ReactiveView<T> CreateView<T>(this QuaternaryList<T> list, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<T> CreateView<T>(this IQuaternarySource<T> list, IScheduler scheduler, int throttleMs = 50)
         where T : notnull
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -57,7 +57,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the source list and updates reactively as
     /// the list changes.</returns>
-    public static ReactiveView<T> CreateView<T>(this QuaternaryList<T> list, Func<T, bool> filter, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<T> CreateView<T>(this IQuaternarySource<T> list, Func<T, bool> filter, IScheduler scheduler, int throttleMs = 50)
         where T : notnull
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -80,7 +80,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="DynamicReactiveView{T}"/> that reflects the filtered contents of the source list and updates reactively
     /// as the list changes or the filter predicate changes.</returns>
-    public static DynamicReactiveView<T> CreateView<T>(this QuaternaryList<T> list, IObservable<Func<T, bool>> filterObservable, IScheduler scheduler, int throttleMs = 50)
+    public static DynamicReactiveView<T> CreateView<T>(this IQuaternarySource<T> list, IObservable<Func<T, bool>> filterObservable, IScheduler scheduler, int throttleMs = 50)
         where T : notnull
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -108,7 +108,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="DynamicReactiveView{T}"/> that reflects the filtered view of the list and updates automatically as
     /// the query observable emits new values.</returns>
-    public static DynamicReactiveView<T> CreateView<T, TQuery>(this QuaternaryList<T> list, IObservable<TQuery> queryObservable, Func<TQuery, T, bool> filter, IScheduler scheduler, int throttleMs = 50)
+    public static DynamicReactiveView<T> CreateView<T, TQuery>(this IQuaternarySource<T> list, IObservable<TQuery> queryObservable, Func<TQuery, T, bool> filter, IScheduler scheduler, int throttleMs = 50)
         where T : notnull
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -328,28 +328,223 @@ public static class QuaternaryExtensions
     }
 
     /// <summary>
-    /// Creates a reactive view of the dictionary that emits filtered key-value pairs as the dictionary changes.
+    /// Creates a reactive view filtered by a secondary value index key.
     /// </summary>
-    /// <remarks>The returned view reflects changes to the source dictionary in real time, subject to the
-    /// specified filter and throttle interval. Use this method to create dynamic, filtered projections of the
-    /// dictionary that update automatically as the underlying data changes.</remarks>
+    /// <remarks>The view uses the specified secondary value index for efficient filtering. The index must have been
+    /// previously added using <see cref="QuaternaryDictionary{TKey, TValue}.AddValueIndex{TIndexKey}"/>.</remarks>
     /// <typeparam name="TKey">The type of keys in the dictionary. Must not be null.</typeparam>
     /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
+    /// <typeparam name="TIndexKey">The type of the secondary index key.</typeparam>
     /// <param name="dict">The source dictionary to observe for changes.</param>
-    /// <param name="filter">A predicate used to filter which key-value pairs are included in the view. Only pairs for which the predicate
-    /// returns <see langword="true"/> are included.</param>
-    /// <param name="scheduler">The scheduler used to dispatch notifications of changes to the view.</param>
-    /// <param name="throttleMs">The minimum time, in milliseconds, to wait before emitting updates after a change. Defaults to 50 milliseconds.</param>
-    /// <returns>A ReactiveView{KeyValuePair{TKey, TValue}} that provides a filtered, observable view of the dictionary's
-    /// contents.</returns>
-    public static ReactiveView<KeyValuePair<TKey, TValue>> CreateView<TKey, TValue>(this QuaternaryDictionary<TKey, TValue> dict, Func<KeyValuePair<TKey, TValue>, bool> filter, IScheduler scheduler, int throttleMs = 50)
+    /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
+    /// <param name="indexKey">The key value to filter by.</param>
+    /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+    /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
+    /// milliseconds.</param>
+    /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the dictionary matching the specified
+    /// secondary index key.</returns>
+    public static ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, TIndexKey indexKey, IScheduler scheduler, int throttleMs = 50)
         where TKey : notnull
+        where TIndexKey : notnull
     {
         ArgumentNullException.ThrowIfNull(dict);
+        ArgumentNullException.ThrowIfNull(indexName);
 
-        // Thread-safe snapshot
-        var snapshot = dict.ToArray();
-        return new ReactiveView<KeyValuePair<TKey, TValue>>(dict.Stream, snapshot, filter, TimeSpan.FromMilliseconds(throttleMs), scheduler);
+        // Get initial snapshot from the secondary index - map values back to key-value pairs
+        var matchingValues = dict.GetValuesBySecondaryIndex(indexName, indexKey).ToHashSet();
+        var snapshot = dict.Where(kvp => matchingValues.Contains(kvp.Value));
+
+        // Create a filter that dynamically checks against the secondary index
+        return new ReactiveView<KeyValuePair<TKey, TValue>>(
+            dict.Stream,
+            snapshot,
+            kvp => dict.ValueMatchesSecondaryIndex(indexName, kvp.Value, indexKey),
+            TimeSpan.FromMilliseconds(throttleMs),
+            scheduler);
+    }
+
+    /// <summary>
+    /// Creates a reactive view filtered by multiple secondary value index keys.
+    /// </summary>
+    /// <remarks>The view includes items whose values match any of the specified keys (OR logic). The index must have
+    /// been previously added using <see cref="QuaternaryDictionary{TKey, TValue}.AddValueIndex{TIndexKey}"/>.</remarks>
+    /// <typeparam name="TKey">The type of keys in the dictionary. Must not be null.</typeparam>
+    /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
+    /// <typeparam name="TIndexKey">The type of the secondary index key.</typeparam>
+    /// <param name="dict">The source dictionary to observe for changes.</param>
+    /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
+    /// <param name="indexKeys">The key values to filter by. Items whose values match any of these keys are included.</param>
+    /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+    /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
+    /// milliseconds.</param>
+    /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the dictionary matching any of the
+    /// specified secondary index keys.</returns>
+    public static ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, TIndexKey[] indexKeys, IScheduler scheduler, int throttleMs = 50)
+        where TKey : notnull
+        where TIndexKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(dict);
+        ArgumentNullException.ThrowIfNull(indexName);
+        ArgumentNullException.ThrowIfNull(indexKeys);
+
+        // Get initial snapshot from the secondary index for all keys
+        var matchingValues = indexKeys.SelectMany(k => dict.GetValuesBySecondaryIndex(indexName, k)).ToHashSet();
+        var snapshot = dict.Where(kvp => matchingValues.Contains(kvp.Value));
+
+        // Create a filter that dynamically checks against any of the keys
+        var keySet = new HashSet<TIndexKey>(indexKeys);
+        return new ReactiveView<KeyValuePair<TKey, TValue>>(
+            dict.Stream,
+            snapshot,
+            kvp => keySet.Any(k => dict.ValueMatchesSecondaryIndex(indexName, kvp.Value, k)),
+            TimeSpan.FromMilliseconds(throttleMs),
+            scheduler);
+    }
+
+    /// <summary>
+    /// Creates a reactive view with a dynamic secondary value index key filter that rebuilds when the key observable emits new keys.
+    /// </summary>
+    /// <remarks>The view automatically rebuilds its contents when the key observable emits new key values.
+    /// This is useful for implementing dynamic filtering where the filter criteria can change over time.</remarks>
+    /// <typeparam name="TKey">The type of keys in the dictionary. Must not be null.</typeparam>
+    /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
+    /// <typeparam name="TIndexKey">The type of the secondary index key.</typeparam>
+    /// <param name="dict">The source dictionary to observe for changes.</param>
+    /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
+    /// <param name="keysObservable">An observable that emits arrays of key values. When new keys are emitted, the view rebuilds its contents.</param>
+    /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+    /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
+    /// milliseconds.</param>
+    /// <returns>A <see cref="DynamicReactiveView{T}"/> that reflects the filtered contents of the dictionary matching the
+    /// specified secondary index keys and updates when the keys change.</returns>
+    public static DynamicReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, IObservable<TIndexKey[]> keysObservable, IScheduler scheduler, int throttleMs = 50)
+        where TKey : notnull
+        where TIndexKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(dict);
+        ArgumentNullException.ThrowIfNull(indexName);
+        ArgumentNullException.ThrowIfNull(keysObservable);
+
+        // Convert keys observable to a filter observable
+        var filterObservable = keysObservable.Select<TIndexKey[], Func<KeyValuePair<TKey, TValue>, bool>>(keys =>
+        {
+            // Build a hashset of values matching the keys for efficient lookup
+            var matchingValues = new HashSet<TValue>(keys.SelectMany(key => dict.GetValuesBySecondaryIndex(indexName, key)));
+
+            return kvp => matchingValues.Contains(kvp.Value);
+        });
+
+        return new DynamicReactiveView<KeyValuePair<TKey, TValue>>(dict, filterObservable, TimeSpan.FromMilliseconds(throttleMs), scheduler);
+    }
+
+    /// <summary>
+    /// Filters the cache notification stream to only include key-value pairs whose values match the specified secondary index key.
+    /// </summary>
+    /// <remarks>This extension method enables efficient stream filtering using a pre-configured secondary value index.
+    /// The returned observable emits filtered cache notifications that only contain items whose values match the specified key.</remarks>
+    /// <typeparam name="TKey">The type of keys in the dictionary. Must not be null.</typeparam>
+    /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
+    /// <typeparam name="TIndexKey">The type of the secondary index key.</typeparam>
+    /// <param name="stream">The source cache notification stream to filter.</param>
+    /// <param name="dict">The quaternary dictionary containing the secondary value index definition.</param>
+    /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
+    /// <param name="indexKey">The key value to filter by.</param>
+    /// <returns>An observable sequence of cache notifications that only includes items whose values match the specified secondary index key.</returns>
+    public static IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> FilterBySecondaryIndex<TKey, TValue, TIndexKey>(this IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> stream, QuaternaryDictionary<TKey, TValue> dict, string indexName, TIndexKey indexKey)
+        where TKey : notnull
+        where TIndexKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(dict);
+        ArgumentNullException.ThrowIfNull(indexName);
+
+        return stream.Select(notification =>
+        {
+            // Get the current set of values matching the key from the secondary index
+            var matchingValues = new HashSet<TValue>(dict.GetValuesBySecondaryIndex(indexName, indexKey));
+
+            return notification.Action switch
+            {
+                CacheAction.Added when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
+                CacheAction.Removed when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
+                CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
+                    FilterBatch(notification, new HashSet<KeyValuePair<TKey, TValue>>(dict.Where(kvp => matchingValues.Contains(kvp.Value)))),
+                CacheAction.Cleared => notification,
+                _ => null
+            };
+        }).Where(n => n != null).Select(n => n!);
+    }
+
+    /// <summary>
+    /// Filters the cache notification stream to only include key-value pairs whose values match any of the specified secondary index keys.
+    /// </summary>
+    /// <remarks>This extension method enables efficient stream filtering using a pre-configured secondary value index
+    /// with multiple keys (OR logic). The returned observable emits filtered cache notifications that only contain
+    /// items whose values match any of the specified keys.</remarks>
+    /// <typeparam name="TKey">The type of keys in the dictionary. Must not be null.</typeparam>
+    /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
+    /// <typeparam name="TIndexKey">The type of the secondary index key.</typeparam>
+    /// <param name="stream">The source cache notification stream to filter.</param>
+    /// <param name="dict">The quaternary dictionary containing the secondary value index definition.</param>
+    /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
+    /// <param name="indexKeys">The key values to filter by. Items whose values match any of these keys are included.</param>
+    /// <returns>An observable sequence of cache notifications that only includes items whose values match any of the specified
+    /// secondary index keys.</returns>
+    public static IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> FilterBySecondaryIndex<TKey, TValue, TIndexKey>(this IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> stream, QuaternaryDictionary<TKey, TValue> dict, string indexName, params TIndexKey[] indexKeys)
+        where TKey : notnull
+        where TIndexKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(dict);
+        ArgumentNullException.ThrowIfNull(indexName);
+        ArgumentNullException.ThrowIfNull(indexKeys);
+
+        return stream.Select(notification =>
+        {
+            // Get the current set of values matching all keys from the secondary index
+            var matchingValues = new HashSet<TValue>(indexKeys.SelectMany(key => dict.GetValuesBySecondaryIndex(indexName, key)));
+
+            return notification.Action switch
+            {
+                CacheAction.Added when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
+                CacheAction.Removed when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
+                CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
+                    FilterBatch(notification, new HashSet<KeyValuePair<TKey, TValue>>(dict.Where(kvp => matchingValues.Contains(kvp.Value)))),
+                CacheAction.Cleared => notification,
+                _ => null
+            };
+        }).Where(n => n != null).Select(n => n!);
+    }
+
+    /// <summary>
+    /// Creates a filtered observable sequence where notifications are transformed based on a custom predicate that
+    /// re-evaluates on each emission.
+    /// </summary>
+    /// <remarks>This extension provides dynamic filtering capabilities where the filter predicate is provided by
+    /// an observable. When a new filter is emitted, subsequent cache notifications are filtered using that predicate.</remarks>
+    /// <typeparam name="TKey">The type of keys in the dictionary. Must not be null.</typeparam>
+    /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
+    /// <param name="stream">The source cache notification stream to filter.</param>
+    /// <param name="filterObservable">An observable that emits filter predicates. Each new predicate is used to filter subsequent notifications.</param>
+    /// <returns>An observable sequence of cache notifications filtered by the most recent predicate.</returns>
+    public static IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> FilterDynamic<TKey, TValue>(this IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> stream, IObservable<Func<KeyValuePair<TKey, TValue>, bool>> filterObservable)
+        where TKey : notnull
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(filterObservable);
+
+        return filterObservable
+            .StartWith(static _ => true) // Default to include all items
+            .Select(filter => stream.Select(notification => notification.Action switch
+                {
+                    CacheAction.Added when filter(notification.Item) => notification,
+                    CacheAction.Removed => notification, // Always pass removed items
+                    CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
+                        FilterBatchByPredicate(notification, filter),
+                    CacheAction.Cleared => notification,
+                    _ => null
+                }).Where(n => n != null).Select(n => n!))
+            .Switch();
     }
 
     /// <summary>

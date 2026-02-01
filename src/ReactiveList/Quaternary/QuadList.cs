@@ -17,7 +17,7 @@ namespace CP.Reactive.Quaternary;
 /// be accessed concurrently from multiple threads. Call Dispose to return internal arrays to the pool.
 /// </remarks>
 /// <typeparam name="T">The type of elements in the list.</typeparam>
-internal sealed class QuadList<T> : IDisposable, IEnumerable<T>
+public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
 {
     private const int MinimumSize = 16;
 
@@ -265,7 +265,7 @@ internal sealed class QuadList<T> : IDisposable, IEnumerable<T>
     /// <summary>
     /// Enumerates the elements of a <see cref="QuadList{T}"/>.
     /// </summary>
-    public struct Enumerator
+    public record struct Enumerator
     {
         private readonly QuadList<T> _list;
         private int _index;
