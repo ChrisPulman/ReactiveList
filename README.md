@@ -770,7 +770,7 @@ High-performance, thread-safe, sharded collections optimized for large-scale rea
 - **Thread-safe**: Uses `ReaderWriterLockSlim` with fine-grained locking per shard
 - **Reactive streams**: `Stream` property exposes `IObservable<CacheNotification<T>>` for change notifications
 - **Secondary indices**: O(1) lookup support via custom key selectors
-- **Low allocation**: Optimized with `ArrayPool<T>`, `Span<T>`, and `CollectionsMarshal`
+- **Low allocation**: Optimized with `ArrayPool<T>`, `Span<T>`, and custom pooled collections (`QuadList<T>`)
 - **Batch operations**: Efficient bulk add/remove with parallel processing for large datasets
 
 ---
@@ -781,18 +781,55 @@ High-performance, thread-safe, sharded collections optimized for large-scale rea
 
 | Operation | Count | QuaternaryList | SourceList | Winner |
 |-----------|-------|----------------|------------|--------|
-| Edit (batch) | 100 | 91.5 μs | 1.3 μs | SourceList |
-| Edit (batch) | 1,000 | 302.2 μs | 9.3 μs | SourceList |
-| Edit (batch) | 10,000 | 2,188.9 μs | 99.5 μs | SourceList |
+| AddRange | 100 | 75.0 μs | 2.2 μs | SourceList |
+| AddRange | 1,000 | 78.3 μs | 21.3 μs | SourceList |
+| AddRange | 10,000 | 92.9 μs | 75.0 μs | SourceList (1.2x) |
+| RemoveRange | 100 | 106.3 μs | 201.5 μs | **QuaternaryList 1.9x** |
+| RemoveRange | 1,000 | 282.9 μs | 2,341.7 μs | **QuaternaryList 8.3x** |
+| RemoveRange | 10,000 | **1,300.5 μs** | 22,886.7 μs | **QuaternaryList 17.6x** |
+| Clear | 100 | 75.9 μs | 2.5 μs | SourceList |
+| Clear | 1,000 | 79.1 μs | 22.7 μs | SourceList |
+| Clear | 10,000 | **94.7 μs** | 150.9 μs | **QuaternaryList 1.6x** |
+| Stream (Add) | 100 | 74.5 μs | 2.4 μs | SourceList |
+| Stream (Add) | 1,000 | 78.9 μs | 7.8 μs | SourceList |
+| Stream (Add) | 10,000 | 96.8 μs | 74.6 μs | SourceList (1.3x) |
+| Edit (batch) | 100 | 79.9 μs | 1.4 μs | SourceList |
+| Edit (batch) | 1,000 | 79.6 μs | 14.2 μs | SourceList |
+| Edit (batch) | 10,000 | **107.3 μs** | 153.6 μs | **QuaternaryList 1.4x** |
+| RemoveMany | 100 | 105.4 μs | 6.1 μs | SourceList |
+| RemoveMany | 1,000 | 182.9 μs | 80.4 μs | SourceList |
+| RemoveMany | 10,000 | **1,221.0 μs** | 10,353.3 μs | **QuaternaryList 8.5x** |
 
 ### Memory Allocation Comparison
 
 | Operation | Count | QuaternaryList | SourceList | Winner |
 |-----------|-------|----------------|------------|--------|
-| Edit | 100 | 5.7 KB | 4.4 KB | SourceList |
-| Edit | 1,000 | **14.4 KB** | 25.6 KB | **QuaternaryList 1.8x** |
-| Edit | 10,000 | **84.9 KB** | 336.1 KB | **QuaternaryList 4x** |
+| AddRange | 1,000 | **15.6 KB** | 26.8 KB | **QuaternaryList 1.7x** |
+| AddRange | 10,000 | **72.3 KB** | 172.3 KB | **QuaternaryList 2.4x** |
+| RemoveRange | 1,000 | **17.9 KB** | 234.9 KB | **QuaternaryList 13.1x** |
+| RemoveRange | 10,000 | **75.0 KB** | 2,373.3 KB | **QuaternaryList 31.6x** |
+| Clear | 1,000 | **15.6 KB** | 26.8 KB | **QuaternaryList 1.7x** |
+| Clear | 10,000 | **72.3 KB** | 253.0 KB | **QuaternaryList 3.5x** |
+| Stream (Add) | 1,000 | **15.6 KB** | 13.9 KB | SourceList |
+| Stream (Add) | 10,000 | **138.6 KB** | 172.8 KB | **QuaternaryList 1.2x** |
+| Edit (batch) | 1,000 | **12.9 KB** | 26.2 KB | **QuaternaryList 2.0x** |
+| Edit (batch) | 10,000 | **105.0 KB** | 344.2 KB | **QuaternaryList 3.3x** |
+| RemoveMany | 1,000 | **15.1 KB** | 253.7 KB | **QuaternaryList 16.8x** |
+| RemoveMany | 10,000 | **138.2 KB** | 2,758.6 KB | **QuaternaryList 20.0x** |
 
+### Key Takeaways
+
+**QuaternaryList excels at (10,000 items):**
+- **RemoveRange**: 17.6x faster than SourceList
+- **RemoveMany**: 8.5x faster than SourceList  
+- **Edit (batch)**: 1.4x faster than SourceList
+- **Clear**: 1.6x faster than SourceList
+- **Memory**: Uses 2-32x less memory depending on operation
+
+**SourceList is better for:**
+- Small datasets (<500 items)
+- Individual add operations
+- Simple single-item workflows
 
 ---
 
@@ -830,10 +867,11 @@ High-performance, thread-safe, sharded collections optimized for large-scale rea
 
 ### Choose QuaternaryDictionary/QuaternaryList when:
 1. **Large datasets (>1,000 items)** - Performance advantage kicks in at scale
-2. **Memory-constrained environments** - 4-7x less allocation than DynamicData
-3. **Batch operations** - Optimized for AddRange, RemoveRange, Clear
-4. **High-concurrency scenarios** - Sharded design reduces lock contention
-5. **Real-time data feeds** - Efficient streaming with low allocation
+2. **Bulk removal operations** - Up to 17x faster RemoveRange, 8x faster RemoveMany
+3. **Memory-constrained environments** - 2-32x less allocation than DynamicData
+4. **Batch edit operations at scale** - 1.4x faster Edit at 10,000+ items
+5. **High-concurrency scenarios** - Sharded design reduces lock contention
+6. **Real-time data feeds** - Efficient streaming with low allocation
 
 ### Choose DynamicData (SourceCache/SourceList) when:
 1. **Small datasets (<500 items)** - Lower fixed overhead

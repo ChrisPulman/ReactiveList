@@ -6,7 +6,7 @@ using System.Buffers;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using CP.Reactive.Quaternary;
 
 namespace CP.Reactive;
 
@@ -19,12 +19,12 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
 {
     private const int ParallelThreshold = 256; // Only parallelize for larger datasets
 
-    private readonly List<T>[] _quads =
+    private readonly QuadList<T>[] _quads =
     [
-        new List<T>(),
-        new List<T>(),
-        new List<T>(),
-        new List<T>()
+        new QuadList<T>(),
+        new QuadList<T>(),
+        new QuadList<T>(),
+        new QuadList<T>()
     ];
 
     private readonly ConcurrentDictionary<string, ISecondaryIndex<T>> _indices = new();
@@ -373,7 +373,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         try
         {
             // Use Span for faster iteration without enumerator allocation
-            var span = CollectionsMarshal.AsSpan(_quads[idx]);
+            var span = _quads[idx].AsSpan();
             var comparer = EqualityComparer<T>.Default;
             for (var i = 0; i < span.Length; i++)
             {
@@ -403,7 +403,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             Locks[i].EnterReadLock();
             try
             {
-                var sourceSpan = CollectionsMarshal.AsSpan(_quads[i]);
+                var sourceSpan = _quads[i].AsSpan();
                 var destSpan = array.AsSpan(arrayIndex, sourceSpan.Length);
                 sourceSpan.CopyTo(destSpan);
                 arrayIndex += sourceSpan.Length;
@@ -442,7 +442,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetShardIndex(T? item) => (item?.GetHashCode() ?? 0) & 0x7FFFFFFF % ShardCount;
+    private static int GetShardIndex(T? item) => ((item?.GetHashCode() ?? 0) & 0x7FFFFFFF) & (ShardCount - 1);
 
     private T GetAtGlobalIndex(int index)
     {
@@ -548,16 +548,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     try
                     {
                         var quad = _quads[sIdx];
-                        quad.EnsureCapacity(quad.Count + bucketCount);
+                        quad.AddRange(bucket);
 
-                        var hasIndices = !_indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
+                        if (!_indices.IsEmpty)
                         {
-                            var item = bucket[i];
-                            quad.Add(item);
-                            if (hasIndices)
+                            for (var i = 0; i < bucketCount; i++)
                             {
-                                NotifyIndicesAdded(item);
+                                NotifyIndicesAdded(bucket[i]);
                             }
                         }
                     }
@@ -582,16 +579,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     try
                     {
                         var quad = _quads[sIdx];
-                        quad.EnsureCapacity(quad.Count + bucketCount);
+                        quad.AddRange(bucket);
 
-                        var hasIndices = !_indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
+                        if (!_indices.IsEmpty)
                         {
-                            var item = bucket[i];
-                            quad.Add(item);
-                            if (hasIndices)
+                            for (var i = 0; i < bucketCount; i++)
                             {
-                                NotifyIndicesAdded(item);
+                                NotifyIndicesAdded(bucket[i]);
                             }
                         }
                     }
@@ -664,16 +658,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     try
                     {
                         var quad = _quads[sIdx];
-                        quad.EnsureCapacity(quad.Count + bucketCount);
+                        quad.AddRange(bucket);
 
-                        var hasIndices = !_indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
+                        if (!_indices.IsEmpty)
                         {
-                            var item = bucket[i];
-                            quad.Add(item);
-                            if (hasIndices)
+                            for (var i = 0; i < bucketCount; i++)
                             {
-                                NotifyIndicesAdded(item);
+                                NotifyIndicesAdded(bucket[i]);
                             }
                         }
                     }
@@ -698,16 +689,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                     try
                     {
                         var quad = _quads[sIdx];
-                        quad.EnsureCapacity(quad.Count + bucketCount);
+                        quad.AddRange(bucket);
 
-                        var hasIndices = !_indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
+                        if (!_indices.IsEmpty)
                         {
-                            var item = bucket[i];
-                            quad.Add(item);
-                            if (hasIndices)
+                            for (var i = 0; i < bucketCount; i++)
                             {
-                                NotifyIndicesAdded(item);
+                                NotifyIndicesAdded(bucket[i]);
                             }
                         }
                     }
@@ -979,8 +967,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     private sealed class QuaternaryEditWrapper : IList<T>
     {
         private readonly QuaternaryList<T> _parent;
+        private readonly bool _hasIndices;
 
-        internal QuaternaryEditWrapper(QuaternaryList<T> parent) => _parent = parent;
+        internal QuaternaryEditWrapper(QuaternaryList<T> parent)
+        {
+            _parent = parent;
+            _hasIndices = !parent._indices.IsEmpty;
+        }
 
         public int Count
         {
@@ -1019,11 +1012,15 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             set => throw new NotSupportedException("Direct index replacement in sharded list is unstable.");
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(T item)
         {
             var idx = GetShardIndex(item);
             _parent._quads[idx].Add(item);
-            _parent.NotifyIndicesAdded(item);
+            if (_hasIndices)
+            {
+                _parent.NotifyIndicesAdded(item);
+            }
         }
 
         public void AddRange(IEnumerable<T> items)
@@ -1039,7 +1036,11 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             var idx = GetShardIndex(item);
             if (_parent._quads[idx].Remove(item))
             {
-                _parent.NotifyIndicesRemoved(item);
+                if (_hasIndices)
+                {
+                    _parent.NotifyIndicesRemoved(item);
+                }
+
                 return true;
             }
 
@@ -1053,7 +1054,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 _parent._quads[i].Clear();
             }
 
-            if (!_parent._indices.IsEmpty)
+            if (_hasIndices)
             {
                 foreach (var idx in _parent._indices.Values)
                 {
