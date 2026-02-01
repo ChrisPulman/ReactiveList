@@ -367,6 +367,129 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     }
 
     /// <summary>
+    /// Looks up the value associated with the specified key.
+    /// </summary>
+    /// <param name="key">The key to look up.</param>
+    /// <returns>A tuple containing a boolean indicating if the key was found and the value if present.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public (bool HasValue, TValue? Value) Lookup(TKey key)
+    {
+        if (TryGetValue(key, out var value))
+        {
+            return (true, value);
+        }
+
+        return (false, default);
+    }
+
+    /// <summary>
+    /// Removes all entries with keys in the specified collection from the dictionary.
+    /// </summary>
+    /// <param name="keys">The collection of keys to remove.</param>
+    public void RemoveKeys(IEnumerable<TKey> keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+
+        // Fast path for arrays
+        if (keys is TKey[] array)
+        {
+            RemoveKeysCore(array);
+            return;
+        }
+
+        // Fast path for IList<TKey>
+        if (keys is IList<TKey> list)
+        {
+            RemoveKeysCore(list);
+            return;
+        }
+
+        // Slow path: materialize
+        RemoveKeysCore(keys.ToArray());
+    }
+
+    /// <summary>
+    /// Removes all entries that match the specified predicate from the dictionary.
+    /// </summary>
+    /// <param name="predicate">A function that returns true for entries that should be removed.</param>
+    /// <returns>The number of entries removed from the dictionary.</returns>
+    public int RemoveMany(Func<KeyValuePair<TKey, TValue>, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        var totalRemoved = 0;
+
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Locks[i].EnterWriteLock();
+            try
+            {
+                var dict = _quads[i];
+                var keysToRemove = new List<TKey>();
+
+                foreach (var kvp in dict)
+                {
+                    if (predicate(kvp))
+                    {
+                        keysToRemove.Add(kvp.Key);
+                    }
+                }
+
+                foreach (var key in keysToRemove)
+                {
+                    if (dict.Remove(key, out var val))
+                    {
+                        NotifyIndicesRemoved(val);
+                        totalRemoved++;
+                    }
+                }
+            }
+            finally
+            {
+                Locks[i].ExitWriteLock();
+            }
+        }
+
+        if (totalRemoved > 0)
+        {
+            Emit(CacheAction.BatchOperation, default);
+        }
+
+        return totalRemoved;
+    }
+
+    /// <summary>
+    /// Performs a batch edit operation on the dictionary, ensuring only a single change notification is emitted.
+    /// </summary>
+    /// <param name="editAction">An action that receives the dictionary interface to perform modifications.</param>
+    public void Edit(Action<IDictionary<TKey, TValue>> editAction)
+    {
+        ArgumentNullException.ThrowIfNull(editAction);
+
+        // Acquire all locks for the edit operation
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Locks[i].EnterWriteLock();
+        }
+
+        try
+        {
+            var wrapper = new QuaternaryDictEditWrapper(this);
+            editAction(wrapper);
+        }
+        finally
+        {
+            for (var i = ShardCount - 1; i >= 0; i--)
+            {
+                Locks[i].ExitWriteLock();
+            }
+        }
+
+        // Emit single batch notification after all changes
+        Emit(CacheAction.BatchOperation, default);
+    }
+
+    /// <summary>
     /// Copies the elements of the collection to an array.
     /// </summary>
     /// <param name="array">The destination array.</param>
@@ -708,6 +831,380 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
 
         Emit(CacheAction.BatchOperation, default, new PooledBatch<KeyValuePair<TKey, TValue>>(pool, count));
+    }
+
+    private void RemoveKeysCore(TKey[] keys)
+    {
+        var count = keys.Length;
+        if (count == 0)
+        {
+            return;
+        }
+
+        var bucketCounts = new int[ShardCount];
+
+        for (var i = 0; i < count; i++)
+        {
+            var shardIdx = GetShard(keys[i]);
+            bucketCounts[shardIdx]++;
+        }
+
+        var bucketArrays = new TKey[ShardCount][];
+        var bucketIndices = new int[ShardCount];
+
+        for (var i = 0; i < ShardCount; i++)
+        {
+            bucketArrays[i] = bucketCounts[i] > 0 ? ArrayPool<TKey>.Shared.Rent(bucketCounts[i]) : [];
+        }
+
+        try
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var key = keys[i];
+                var shardIdx = GetShard(key);
+                bucketArrays[shardIdx][bucketIndices[shardIdx]++] = key;
+            }
+
+            if (count >= ParallelThreshold)
+            {
+                Parallel.For(0, ShardCount, sIdx =>
+                {
+                    var bucketCount = bucketCounts[sIdx];
+                    if (bucketCount == 0)
+                    {
+                        return;
+                    }
+
+                    var bucket = bucketArrays[sIdx];
+                    Locks[sIdx].EnterWriteLock();
+                    try
+                    {
+                        var dict = _quads[sIdx];
+                        var hasIndices = !_valueIndices.IsEmpty;
+                        for (var i = 0; i < bucketCount; i++)
+                        {
+                            var key = bucket[i];
+                            if (dict.Remove(key, out var val) && hasIndices)
+                            {
+                                NotifyIndicesRemoved(val);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        Locks[sIdx].ExitWriteLock();
+                    }
+                });
+            }
+            else
+            {
+                for (var sIdx = 0; sIdx < ShardCount; sIdx++)
+                {
+                    var bucketCount = bucketCounts[sIdx];
+                    if (bucketCount == 0)
+                    {
+                        continue;
+                    }
+
+                    var bucket = bucketArrays[sIdx];
+                    Locks[sIdx].EnterWriteLock();
+                    try
+                    {
+                        var dict = _quads[sIdx];
+                        var hasIndices = !_valueIndices.IsEmpty;
+                        for (var i = 0; i < bucketCount; i++)
+                        {
+                            var key = bucket[i];
+                            if (dict.Remove(key, out var val) && hasIndices)
+                            {
+                                NotifyIndicesRemoved(val);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        Locks[sIdx].ExitWriteLock();
+                    }
+                }
+            }
+
+            Emit(CacheAction.BatchOperation, default);
+        }
+        finally
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                if (bucketCounts[i] > 0)
+                {
+                    ArrayPool<TKey>.Shared.Return(bucketArrays[i], clearArray: true);
+                }
+            }
+        }
+    }
+
+    private void RemoveKeysCore(IList<TKey> keys)
+    {
+        var count = keys.Count;
+        if (count == 0)
+        {
+            return;
+        }
+
+        var bucketCounts = new int[ShardCount];
+
+        for (var i = 0; i < count; i++)
+        {
+            var shardIdx = GetShard(keys[i]);
+            bucketCounts[shardIdx]++;
+        }
+
+        var bucketArrays = new TKey[ShardCount][];
+        var bucketIndices = new int[ShardCount];
+
+        for (var i = 0; i < ShardCount; i++)
+        {
+            bucketArrays[i] = bucketCounts[i] > 0 ? ArrayPool<TKey>.Shared.Rent(bucketCounts[i]) : [];
+        }
+
+        try
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var key = keys[i];
+                var shardIdx = GetShard(key);
+                bucketArrays[shardIdx][bucketIndices[shardIdx]++] = key;
+            }
+
+            if (count >= ParallelThreshold)
+            {
+                Parallel.For(0, ShardCount, sIdx =>
+                {
+                    var bucketCount = bucketCounts[sIdx];
+                    if (bucketCount == 0)
+                    {
+                        return;
+                    }
+
+                    var bucket = bucketArrays[sIdx];
+                    Locks[sIdx].EnterWriteLock();
+                    try
+                    {
+                        var dict = _quads[sIdx];
+                        var hasIndices = !_valueIndices.IsEmpty;
+                        for (var i = 0; i < bucketCount; i++)
+                        {
+                            var key = bucket[i];
+                            if (dict.Remove(key, out var val) && hasIndices)
+                            {
+                                NotifyIndicesRemoved(val);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        Locks[sIdx].ExitWriteLock();
+                    }
+                });
+            }
+            else
+            {
+                for (var sIdx = 0; sIdx < ShardCount; sIdx++)
+                {
+                    var bucketCount = bucketCounts[sIdx];
+                    if (bucketCount == 0)
+                    {
+                        continue;
+                    }
+
+                    var bucket = bucketArrays[sIdx];
+                    Locks[sIdx].EnterWriteLock();
+                    try
+                    {
+                        var dict = _quads[sIdx];
+                        var hasIndices = !_valueIndices.IsEmpty;
+                        for (var i = 0; i < bucketCount; i++)
+                        {
+                            var key = bucket[i];
+                            if (dict.Remove(key, out var val) && hasIndices)
+                            {
+                                NotifyIndicesRemoved(val);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        Locks[sIdx].ExitWriteLock();
+                    }
+                }
+            }
+
+            Emit(CacheAction.BatchOperation, default);
+        }
+        finally
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                if (bucketCounts[i] > 0)
+                {
+                    ArrayPool<TKey>.Shared.Return(bucketArrays[i], clearArray: true);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Internal wrapper for Edit operations that bypasses locking and notifications.
+    /// </summary>
+    private sealed class QuaternaryDictEditWrapper : IDictionary<TKey, TValue>
+    {
+        private readonly QuaternaryDictionary<TKey, TValue> _parent;
+
+        internal QuaternaryDictEditWrapper(QuaternaryDictionary<TKey, TValue> parent) => _parent = parent;
+
+        public ICollection<TKey> Keys
+        {
+            get
+            {
+                var result = new List<TKey>();
+                for (var i = 0; i < ShardCount; i++)
+                {
+                    result.AddRange(_parent._quads[i].Keys);
+                }
+
+                return result;
+            }
+        }
+
+        public ICollection<TValue> Values
+        {
+            get
+            {
+                var result = new List<TValue>();
+                for (var i = 0; i < ShardCount; i++)
+                {
+                    result.AddRange(_parent._quads[i].Values);
+                }
+
+                return result;
+            }
+        }
+
+        public int Count
+        {
+            get
+            {
+                var count = 0;
+                for (var i = 0; i < ShardCount; i++)
+                {
+                    count += _parent._quads[i].Count;
+                }
+
+                return count;
+            }
+        }
+
+        public bool IsReadOnly => false;
+
+        public TValue this[TKey key]
+        {
+            get
+            {
+                var idx = GetShard(key);
+                return _parent._quads[idx][key];
+            }
+
+            set
+            {
+                var idx = GetShard(key);
+                var dict = _parent._quads[idx];
+                if (dict.TryGetValue(key, out var oldVal))
+                {
+                    _parent.NotifyIndicesRemoved(oldVal);
+                }
+
+                dict[key] = value;
+                _parent.NotifyIndicesAdded(value);
+            }
+        }
+
+        public void Add(TKey key, TValue value)
+        {
+            var idx = GetShard(key);
+            _parent._quads[idx].Add(key, value);
+            _parent.NotifyIndicesAdded(value);
+        }
+
+        public bool ContainsKey(TKey key)
+        {
+            var idx = GetShard(key);
+            return _parent._quads[idx].ContainsKey(key);
+        }
+
+        public bool Remove(TKey key)
+        {
+            var idx = GetShard(key);
+            if (_parent._quads[idx].Remove(key, out var val))
+            {
+                _parent.NotifyIndicesRemoved(val);
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+        {
+            var idx = GetShard(key);
+            return _parent._quads[idx].TryGetValue(key, out value);
+        }
+
+        public void Add(KeyValuePair<TKey, TValue> item) => Add(item.Key, item.Value);
+
+        public void Clear()
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                _parent._quads[i].Clear();
+            }
+
+            if (!_parent._valueIndices.IsEmpty)
+            {
+                foreach (var idx in _parent._valueIndices.Values)
+                {
+                    idx.Clear();
+                }
+            }
+        }
+
+        public bool Contains(KeyValuePair<TKey, TValue> item) =>
+            TryGetValue(item.Key, out var v) && EqualityComparer<TValue>.Default.Equals(v, item.Value);
+
+        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                foreach (var kvp in _parent._quads[i])
+                {
+                    array[arrayIndex++] = kvp;
+                }
+            }
+        }
+
+        public bool Remove(KeyValuePair<TKey, TValue> item) => Contains(item) && Remove(item.Key);
+
+        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                foreach (var kvp in _parent._quads[i])
+                {
+                    yield return kvp;
+                }
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }
 #endif
