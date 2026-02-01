@@ -642,7 +642,7 @@ internal sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<Ke
         /// <remarks>Call this method when you are finished using the object to free unmanaged resources
         /// and perform other cleanup operations. After calling <see cref="Dispose"/>, the object should not be
         /// used.</remarks>
-        public void Dispose()
+        public readonly void Dispose()
         {
         }
     }

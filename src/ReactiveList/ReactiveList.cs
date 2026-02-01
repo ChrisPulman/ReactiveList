@@ -758,10 +758,23 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="propertyName">Name of the property.</param>
     protected virtual void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
+    /// <summary>
+    /// Determines whether the specified object is compatible with the generic type parameter T.
+    /// </summary>
+    /// <param name="value">The object to test for compatibility with type T. May be null.</param>
+    /// <returns>true if the object is of type T, or if both the object and the default value of T are null; otherwise, false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsCompatibleObject(object? value) =>
         (value is T) || (value == null && default(T) == null);
 
+    /// <summary>
+    /// Replaces all items in the specified observable collection with the elements from the provided array.
+    /// </summary>
+    /// <remarks>The method clears the target collection before adding the new items. The order of items in
+    /// the collection will match the order in the provided array.</remarks>
+    /// <param name="target">The observable collection to update. All existing items in this collection will be removed and replaced.</param>
+    /// <param name="items">The array of items to add to the collection. The collection will contain these items after the operation
+    /// completes.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void UpdateTrackingCollection(ObservableCollection<T> target, T[] items)
     {
@@ -772,9 +785,22 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
+    /// <summary>
+    /// Handles post-deserialization processing to restore the object's state after deserialization is complete.
+    /// </summary>
+    /// <remarks>This method is automatically invoked by the deserialization infrastructure after the object
+    /// has been deserialized. It is used to reinitialize fields or properties that are not serialized.</remarks>
+    /// <param name="context">The streaming context for the deserialization operation. Provides contextual information about the source or
+    /// destination of the serialization stream.</param>
     [OnDeserialized]
     private void OnDeserialized(StreamingContext context) => InitializeNonSerializedFields();
 
+    /// <summary>
+    /// Initializes fields that are not serialized during deserialization or object construction.
+    /// </summary>
+    /// <remarks>Call this method after deserialization to ensure that all non-serialized fields are properly
+    /// initialized and the object is in a valid state. This method is intended for internal use and should not be
+    /// called directly in normal application code.</remarks>
     private void InitializeNonSerializedFields()
     {
 #if NET9_0_OR_GREATER
@@ -797,6 +823,13 @@ public class ReactiveList<T> : IReactiveList<T>
         _currentItems = new(Array.Empty<T>());
     }
 
+    /// <summary>
+    /// Notifies subscribers that an item has been added to the collection and raises the appropriate collection changed
+    /// event.
+    /// </summary>
+    /// <param name="item">The item that was added to the collection.</param>
+    /// <param name="index">The zero-based index at which the item was added, or -1 to indicate the item was added at the end of the
+    /// collection.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyAdded(T item, int index = -1)
     {
@@ -814,6 +847,12 @@ public class ReactiveList<T> : IReactiveList<T>
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, startIndex));
     }
 
+    /// <summary>
+    /// Notifies observers that a range of items has been added to the collection and updates tracking collections
+    /// accordingly.
+    /// </summary>
+    /// <param name="items">The array of items that were added to the collection. Cannot be null.</param>
+    /// <param name="index">The zero-based index at which the items were added, or -1 if the index is not specified.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyAddedRange(T[] items, int index = -1)
     {
@@ -828,6 +867,11 @@ public class ReactiveList<T> : IReactiveList<T>
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
+    /// <summary>
+    /// Notifies subscribers that an item has been removed from the collection at the specified index.
+    /// </summary>
+    /// <param name="item">The item that was removed from the collection.</param>
+    /// <param name="index">The zero-based index at which the item was removed.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyRemoved(T item, int index)
     {
@@ -844,6 +888,13 @@ public class ReactiveList<T> : IReactiveList<T>
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
     }
 
+    /// <summary>
+    /// Notifies observers that a range of items has been removed from the collection.
+    /// </summary>
+    /// <remarks>This method updates internal tracking collections and raises collection change notifications
+    /// to observers. It should be called after items have been removed to ensure that all observers receive the
+    /// appropriate notifications.</remarks>
+    /// <param name="items">The array of items that were removed from the collection. Cannot be null.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyRemovedRange(T[] items)
     {
@@ -858,6 +909,13 @@ public class ReactiveList<T> : IReactiveList<T>
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
+    /// <summary>
+    /// Notifies subscribers that the collection has been cleared and provides the items that were removed.
+    /// </summary>
+    /// <remarks>This method raises collection change notifications and updates internal tracking collections
+    /// to reflect the cleared state. It should be called after the collection is cleared to ensure that observers
+    /// receive accurate updates.</remarks>
+    /// <param name="clearedItems">An array containing the items that were removed from the collection when it was cleared. Cannot be null.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyCleared(T[] clearedItems)
     {
@@ -872,6 +930,14 @@ public class ReactiveList<T> : IReactiveList<T>
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
+    /// <summary>
+    /// Notifies observers that a single item has changed by updating the change collection and publishing the change
+    /// event.
+    /// </summary>
+    /// <remarks>This method is intended for scenarios where only one item has changed and should be
+    /// communicated as such to subscribers. It clears any previous change notifications before reporting the new
+    /// change.</remarks>
+    /// <param name="item">The item that has changed and should be reported to observers.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyChangedSingle(T item)
     {
@@ -882,6 +948,11 @@ public class ReactiveList<T> : IReactiveList<T>
         _currentItems!.OnNext(_internalList);
     }
 
+    /// <summary>
+    /// Clears all tracked item history, removing records of added, changed, and removed items.
+    /// </summary>
+    /// <remarks>Call this method to reset the internal collections that track item changes. After calling
+    /// this method, any previous history of item additions, modifications, or removals will be lost.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ClearHistory()
     {

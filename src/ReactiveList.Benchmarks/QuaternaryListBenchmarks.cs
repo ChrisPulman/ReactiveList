@@ -114,7 +114,7 @@ public class QuaternaryListBenchmarks
         using var list = new QuaternaryList<int>();
         list.AddIndex("Mod2", x => x % 2);
         list.AddRange(_data);
-        return list.Query("Mod2", 0).Count();
+        return list.GetItemsBySecondaryIndex("Mod2", 0).Count();
     }
 
     [Benchmark]

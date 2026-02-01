@@ -1,23 +1,37 @@
-﻿<Window
+﻿<ccui:FluentNavigationWindow
     x:Class="ReactiveListTestApp.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ccui="https://github.com/reactivemarbles/CrissCross.ui"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:ReactiveListTestApp"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="MainWindow"
-    Width="800"
-    Height="450"
+    x:Name="mainWindow"
+    Title="ReactiveList Test App"
+    Width="900"
+    Height="600"
     d:DataContext="{d:DesignInstance Type=local:MainWindowViewModel}"
+    x:TypeArguments="local:MainWindowViewModel"
     mc:Ignorable="d">
-    <StackPanel>
-        <Button
-            Command="{Binding AddItemCommand}"
-            CommandParameter="INJECTED VALUE "
-            Content="Add Item" />
-        <Button Command="{Binding ClearItemsCommand}" Content="Clear Items" />
-        <Button Command="{Binding ReplaceAllCommand}" Content="Replace All Items" />
-        <Button Command="{Binding PauseCommand}" Content="Pause" />
-        <ListBox ItemsSource="{Binding Items}" />
-    </StackPanel>
-</Window>
+    <ccui:FluentNavigationWindow.TopContent>
+
+        <!--  Navigation Bar  -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <Button
+                x:Name="NavBack"
+                Margin="5"
+                Padding="10,5"
+                Content="← Back" />
+            <Button
+                Margin="5"
+                Padding="10,5"
+                Command="{Binding NavigateToMainCommand}"
+                Content="Reactive List" />
+            <Button
+                Margin="5"
+                Padding="10,5"
+                Command="{Binding NavigateToAddressBookCommand}"
+                Content="Address Book" />
+        </StackPanel>
+    </ccui:FluentNavigationWindow.TopContent>
+</ccui:FluentNavigationWindow>

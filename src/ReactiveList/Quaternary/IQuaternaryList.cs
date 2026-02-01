@@ -2,6 +2,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
+using System.Collections.Specialized;
+
 namespace CP.Reactive;
 
 /// <summary>
@@ -13,7 +15,7 @@ namespace CP.Reactive;
 /// explicitly added before they can be used for querying. This interface is suitable for scenarios where frequent
 /// lookups by specific keys are required in addition to sequential access.</remarks>
 /// <typeparam name="T">The type of elements contained in the list.</typeparam>
-public interface IQuaternaryList<T> : IList<T>
+public interface IQuaternaryList<T> : ICollection<T>, INotifyCollectionChanged, IDisposable
 {
     /// <summary>
     /// Adds an index to the collection using the specified name and key selector.
@@ -44,7 +46,7 @@ public interface IQuaternaryList<T> : IList<T>
     /// <param name="key">The key value to search for within the specified index. Must not be null.</param>
     /// <returns>An enumerable collection of entities of type T that match the specified key. The collection is empty if no
     /// matching entities are found.</returns>
-    IEnumerable<T> Query<TKey>(string indexName, TKey key)
+    IEnumerable<T> GetItemsBySecondaryIndex<TKey>(string indexName, TKey key)
         where TKey : notnull;
 
     /// <summary>
@@ -71,6 +73,6 @@ public interface IQuaternaryList<T> : IList<T>
     /// <remarks>Use this method when making multiple modifications to the collection to improve efficiency
     /// by reducing the number of change notifications. All operations within the edit action are applied atomically.</remarks>
     /// <param name="editAction">An action that receives an editable list interface to perform modifications.</param>
-    void Edit(Action<IList<T>> editAction);
+    void Edit(Action<ICollection<T>> editAction);
 }
 #endif

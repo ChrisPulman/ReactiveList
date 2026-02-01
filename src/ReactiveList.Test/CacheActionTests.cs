@@ -25,6 +25,8 @@ public class CacheActionTests
         ((int)CacheAction.Updated).Should().Be(2);
         ((int)CacheAction.Cleared).Should().Be(3);
         ((int)CacheAction.BatchOperation).Should().Be(4);
+        ((int)CacheAction.BatchAdded).Should().Be(5);
+        ((int)CacheAction.BatchRemoved).Should().Be(6);
     }
 
     /// <summary>
@@ -35,12 +37,14 @@ public class CacheActionTests
     {
         var values = Enum.GetValues<CacheAction>();
 
-        values.Should().HaveCount(5);
+        values.Should().HaveCount(7);
         values.Should().Contain(CacheAction.Added);
         values.Should().Contain(CacheAction.Removed);
         values.Should().Contain(CacheAction.Updated);
         values.Should().Contain(CacheAction.Cleared);
         values.Should().Contain(CacheAction.BatchOperation);
+        values.Should().Contain(CacheAction.BatchAdded);
+        values.Should().Contain(CacheAction.BatchRemoved);
     }
 }
 #endif

@@ -156,7 +156,7 @@ internal sealed class QuadList<T> : IDisposable, IEnumerable<T>
     /// Adds the elements of the specified span to the end of the list.
     /// </summary>
     /// <param name="items">The span of items to add.</param>
-    public void AddRange(ReadOnlySpan<T> items)
+    public void AddRange(in ReadOnlySpan<T> items)
     {
         var count = items.Length;
         if (count == 0)
@@ -215,10 +215,10 @@ internal sealed class QuadList<T> : IDisposable, IEnumerable<T>
     public Enumerator GetEnumerator() => new(this);
 
     /// <inheritdoc/>
-    IEnumerator<T> IEnumerable<T>.GetEnumerator() => new EnumeratorWrapper(this);
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() => new QuadListEnumerator(this);
 
     /// <inheritdoc/>
-    IEnumerator IEnumerable.GetEnumerator() => new EnumeratorWrapper(this);
+    IEnumerator IEnumerable.GetEnumerator() => new QuadListEnumerator(this);
 
     /// <summary>
     /// Returns the internal array to the pool and releases resources.
@@ -306,12 +306,12 @@ internal sealed class QuadList<T> : IDisposable, IEnumerable<T>
     /// <summary>
     /// Wrapper to implement IEnumerator for foreach support.
     /// </summary>
-    private struct EnumeratorWrapper : IEnumerator<T>
+    private struct QuadListEnumerator : IEnumerator<T>
     {
         private readonly QuadList<T> _list;
         private int _index;
 
-        internal EnumeratorWrapper(QuadList<T> list)
+        internal QuadListEnumerator(QuadList<T> list)
         {
             _list = list;
             _index = -1;
@@ -351,7 +351,7 @@ internal sealed class QuadList<T> : IDisposable, IEnumerable<T>
         /// <summary>
         /// Disposes the enumerator.
         /// </summary>
-        public void Dispose()
+        public readonly void Dispose()
         {
         }
     }

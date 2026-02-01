@@ -113,6 +113,29 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         }
     }
 
+    /// <summary>
+    /// Determines whether the specified item's key matches the provided key object.
+    /// </summary>
+    /// <param name="item">The item whose key should be compared.</param>
+    /// <param name="key">The key to compare against. Must be of type <typeparamref name="TKey"/>.</param>
+    /// <returns><see langword="true"/> if the item's key matches the specified key; otherwise, <see langword="false"/>.</returns>
+    public bool MatchesKey(T item, object key)
+    {
+        if (key is not TKey typedKey)
+        {
+            return false;
+        }
+
+        var itemKey = selector(item);
+        return EqualityComparer<TKey>.Default.Equals(itemKey, typedKey);
+    }
+
+    /// <summary>
+    /// Calculates the shard index for the specified key.
+    /// </summary>
+    /// <param name="item">The key for which to compute the shard index.</param>
+    /// <returns>An integer representing the zero-based index of the shard to which the key is assigned. The value ranges from 0
+    /// to 3.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int GetShardIndex(TKey item) => (item.GetHashCode() & 0x7FFFFFFF) % 4;
 }

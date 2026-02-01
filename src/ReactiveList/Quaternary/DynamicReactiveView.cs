@@ -1,92 +1,79 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
+// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Reactive.Concurrency;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 namespace CP.Reactive;
 
 /// <summary>
 /// Represents a dynamic, filtered, and observable view over a collection that updates in response to changes from an
-/// observable data stream.
+/// observable data stream and supports dynamically changing filter predicates.
 /// </summary>
-/// <remarks>ReactiveView of T maintains a live, read-only collection that reflects both an initial snapshot and
-/// ongoing changes from an observable source. The view automatically applies a filter to all items and batches updates
-/// to optimize UI responsiveness. This class is designed for scenarios where a UI or other consumer needs to observe a
-/// collection that changes over time, such as in MVVM applications. The view raises property change notifications when
-/// its contents are updated. Thread safety is provided for UI-bound scenarios by observing updates on the current
-/// synchronization context.</remarks>
+/// <remarks>DynamicReactiveView of T maintains a live, read-only collection that reflects both an initial snapshot
+/// and ongoing changes from an observable source. The view automatically rebuilds when the filter predicate changes,
+/// and applies the current filter to all incoming items. Updates are batched to optimize UI responsiveness. This class
+/// is designed for scenarios where a UI or other consumer needs to observe a collection that changes over time with
+/// dynamic filtering, such as search functionality in MVVM applications. The view raises property change notifications
+/// when its contents are updated. Thread safety is provided for UI-bound scenarios by observing updates on the
+/// specified scheduler.</remarks>
 /// <typeparam name="T">The type of items contained in the view. Must be non-nullable.</typeparam>
-public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
+public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
     where T : notnull
 {
     private readonly ObservableCollection<T> _target = [];
-    private readonly IDisposable? _sub;
+    private readonly QuaternaryList<T> _source;
+    private readonly CompositeDisposable _disposables = [];
+    private readonly IScheduler _scheduler;
+    private readonly TimeSpan _throttle;
+    private Func<T, bool> _currentFilter = static _ => true;
+    private IDisposable? _streamSubscription;
     private bool _disposedValue;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ReactiveView{T}"/> class, providing a filtered, observable, and throttled view over.
-    /// a stream of cache notifications and an optional initial snapshot.
+    /// Initializes a new instance of the <see cref="DynamicReactiveView{T}"/> class, providing a filtered, observable,
+    /// and throttled view over a quaternary list that can respond to dynamically changing filter predicates.
     /// </summary>
-    /// <remarks>The view is populated with items from the initial snapshot that satisfy the filter, and then
-    /// kept up to date by subscribing to the provided stream. Notifications from the stream are buffered according to
-    /// the specified throttle interval and processed on the given scheduler. This design helps reduce UI update
-    /// frequency and ensures thread-safe updates when used with UI frameworks.</remarks>
-    /// <param name="stream">An observable sequence of cache notifications to monitor for changes. Cannot be null.</param>
-    /// <param name="snapshot">An optional initial collection of items to populate the view before processing the stream. Only items matching
-    /// the filter are included.</param>
-    /// <param name="filter">A predicate used to determine which items from the snapshot and stream are included in the view. Cannot be null.</param>
+    /// <remarks>The view is populated with items from the source list that satisfy the initial filter (all items
+    /// by default), and then kept up to date by subscribing to the list's change stream. When the filter observable
+    /// emits a new predicate, the view completely rebuilds its contents. Notifications are buffered according to the
+    /// specified throttle interval and processed on the given scheduler.</remarks>
+    /// <param name="source">The quaternary list to observe for changes. Cannot be null.</param>
+    /// <param name="filterObservable">An observable sequence of filter predicates. When a new predicate is emitted, the view rebuilds its contents.</param>
     /// <param name="throttle">The time interval used to batch incoming notifications from the stream before processing.</param>
-    /// <param name="sheduler">The scheduler on which to observe and process batched notifications, typically used to marshal updates to the
+    /// <param name="scheduler">The scheduler on which to observe and process batched notifications, typically used to marshal updates to the
     /// appropriate thread (such as the UI thread).</param>
-    /// <exception cref="ArgumentNullException">Thrown if stream or filter is null.</exception>
-    public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T> snapshot, Func<T, bool> filter, in TimeSpan throttle, IScheduler sheduler)
+    /// <exception cref="ArgumentNullException">Thrown if source, filterObservable, or scheduler is null.</exception>
+    public DynamicReactiveView(QuaternaryList<T> source, IObservable<Func<T, bool>> filterObservable, in TimeSpan throttle, IScheduler scheduler)
     {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(filterObservable);
+        ArgumentNullException.ThrowIfNull(scheduler);
+
+        _source = source;
+        _throttle = throttle;
+        _scheduler = scheduler;
         Items = new ReadOnlyObservableCollection<T>(_target);
 
-        if (stream == null)
-        {
-            throw new ArgumentNullException(nameof(stream));
-        }
-
-        if (filter == null)
-        {
-            throw new ArgumentNullException(nameof(filter));
-        }
-
-        if (snapshot != null)
-        {
-            // 1. Load Initial State (Snapshot)
-            foreach (var item in snapshot)
+        // Subscribe to filter changes - this rebuilds the view
+        var filterSub = filterObservable
+            .ObserveOn(scheduler)
+            .Subscribe(newFilter =>
             {
-                if (filter(item))
-                {
-                    _target.Add(item);
-                }
-            }
-        }
-
-        // 2. Subscribe to Stream with Throttling
-        _sub = stream
-            .Buffer(throttle) // Batch changes by time
-            .Where(b => b.Count > 0)
-            .ObserveOn(sheduler) // Jump to UI Thread
-            .Subscribe(batch =>
-            {
-                foreach (var notify in batch)
-                {
-                    ApplyChange(notify, filter);
-
-                    // Critical: Return array to pool
-                    notify.Batch?.Dispose();
-                }
-
-                // Signal UI to refresh
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
+                _currentFilter = newFilter ?? (static _ => true);
+                RebuildView();
+                SubscribeToStream();
             });
+
+        _disposables.Add(filterSub);
+
+        // Initial population
+        RebuildView();
+        SubscribeToStream();
     }
 
     /// <summary>
@@ -110,15 +97,11 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// <remarks>This method is typically used to bind the internal collection to an external property, such
     /// as a view model property, in a reactive UI pattern.</remarks>
     /// <param name="propertySetter">An action that sets a property to the current read-only observable collection of items. Cannot be null.</param>
-    /// <returns>The current instance of <see cref="ReactiveView{T}"/> to enable method chaining.</returns>
+    /// <returns>The current instance of <see cref="DynamicReactiveView{T}"/> to enable method chaining.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
-    public ReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
+    public DynamicReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
     {
-        if (propertySetter == null)
-        {
-            throw new ArgumentNullException(nameof(propertySetter));
-        }
-
+        ArgumentNullException.ThrowIfNull(propertySetter);
         propertySetter(Items);
         return this;
     }
@@ -130,7 +113,6 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// perform other cleanup operations. After calling Dispose, the object should not be used further.</remarks>
     public void Dispose()
     {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
@@ -148,27 +130,57 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
         {
             if (disposing)
             {
-                _sub?.Dispose();
+                _streamSubscription?.Dispose();
+                _disposables.Dispose();
             }
 
             _disposedValue = true;
         }
     }
 
-    /// <summary>
-    /// Applies the specified cache notification to the target collection, optionally filtering items to be added.
-    /// </summary>
-    /// <remarks>Depending on the action specified in the notification, this method may add, remove, or clear
-    /// items in the target collection. When adding items, only those for which the filter returns <see
-    /// langword="true"/> are included.</remarks>
-    /// <param name="n">The cache notification describing the action to apply and the item or batch of items affected. Cannot be null.</param>
-    /// <param name="filter">A predicate used to determine whether an item should be added to the target collection. Cannot be null.</param>
-    private void ApplyChange(CacheNotify<T> n, Func<T, bool> filter)
+    private void RebuildView()
+    {
+        _target.Clear();
+
+        foreach (var item in _source)
+        {
+            if (_currentFilter(item))
+            {
+                _target.Add(item);
+            }
+        }
+
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
+    }
+
+    private void SubscribeToStream()
+    {
+        // Dispose previous subscription
+        _streamSubscription?.Dispose();
+
+        // Subscribe to stream with current filter
+        _streamSubscription = _source.Stream
+            .Buffer(_throttle)
+            .Where(b => b.Count > 0)
+            .ObserveOn(_scheduler)
+            .Subscribe(batch =>
+            {
+                foreach (var notify in batch)
+                {
+                    ApplyChange(notify);
+                    notify.Batch?.Dispose();
+                }
+
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
+            });
+    }
+
+    private void ApplyChange(CacheNotify<T> n)
     {
         switch (n.Action)
         {
             case CacheAction.Added:
-                if (n.Item != null && filter(n.Item))
+                if (n.Item != null && _currentFilter(n.Item))
                 {
                     _target.Add(n.Item);
                 }
@@ -188,7 +200,7 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
                     for (var i = 0; i < n.Batch.Count; i++)
                     {
                         var item = n.Batch.Items[i];
-                        if (filter(item))
+                        if (_currentFilter(item))
                         {
                             _target.Add(item);
                         }

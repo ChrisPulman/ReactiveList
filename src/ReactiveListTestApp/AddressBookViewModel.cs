@@ -2,9 +2,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.ObjectModel;
+using System.Reactive;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using CP.Reactive;
+using CrissCross;
 using ReactiveUI;
 
 namespace ReactiveListTestApp;
@@ -17,13 +20,12 @@ namespace ReactiveListTestApp;
 /// York, and dynamic search results, enabling data binding in UI scenarios. It supports efficient bulk operations and
 /// high-speed lookups using internal indices. The view model is designed for use in reactive or MVVM-based applications
 /// and should be disposed when no longer needed to release resources.</remarks>
-public class AddressBookViewModel : IDisposable
+public class AddressBookViewModel : RxObject
 {
     // --- The Data Stores ---
     private readonly QuaternaryList<Contact> _contactList = [];
     private readonly QuaternaryDictionary<Guid, Contact> _contactMap = [];
     private readonly BehaviorSubject<string> _searchText = new(string.Empty);
-    private bool _disposedValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AddressBookViewModel"/> class.
@@ -35,6 +37,7 @@ public class AddressBookViewModel : IDisposable
     {
         InitializeIndices();
         InitializePipelines();
+        InitializeCommands();
     }
 
     /// <summary>
@@ -42,7 +45,7 @@ public class AddressBookViewModel : IDisposable
     /// </summary>
     /// <remarks>The collection reflects real-time changes to the underlying contacts. Subscribers to the
     /// collection's change events are notified when contacts are added, removed, or updated.</remarks>
-    public ReadOnlyObservableCollection<Contact> AllContacts { get; private set; }
+    public ReadOnlyObservableCollection<Contact> AllContacts { get; private set; } = null!;
 
     /// <summary>
     /// Gets the collection of contacts marked as favorites by the user.
@@ -50,12 +53,12 @@ public class AddressBookViewModel : IDisposable
     /// <remarks>The returned collection is read-only and reflects changes to the underlying favorites list in
     /// real time. Items in this collection are automatically updated when contacts are added to or removed from the
     /// user's favorites.</remarks>
-    public ReadOnlyObservableCollection<Contact> FavoriteContacts { get; private set; }
+    public ReadOnlyObservableCollection<Contact> FavoriteContacts { get; private set; } = null!;
 
     /// <summary>
     /// Gets a read-only collection of contacts located in New York.
     /// </summary>
-    public ReadOnlyObservableCollection<Contact> NewYorkContacts { get; private set; }
+    public ReadOnlyObservableCollection<Contact> NewYorkContacts { get; private set; } = null!;
 
     /// <summary>
     /// Gets a read-only, observable collection of contacts that match the current search criteria.
@@ -63,7 +66,7 @@ public class AddressBookViewModel : IDisposable
     /// <remarks>The contents of the collection are updated automatically when the search criteria change or
     /// when the underlying data changes. Subscribers can monitor collection changes by handling the CollectionChanged
     /// event.</remarks>
-    public ReadOnlyObservableCollection<Contact> SearchResults { get; private set; } // Dynamic
+    public ReadOnlyObservableCollection<Contact> SearchResults { get; private set; } = null!;
 
     /// <summary>
     /// Gets or sets the current search query text.
@@ -73,6 +76,16 @@ public class AddressBookViewModel : IDisposable
         get => _searchText.Value;
         set => _searchText.OnNext(value ?? string.Empty);
     }
+
+    /// <summary>
+    /// Gets the command to bulk import contacts.
+    /// </summary>
+    public ReactiveCommand<int, Unit> BulkImportCommand { get; private set; } = null!;
+
+    /// <summary>
+    /// Gets the command to remove inactive HR contacts.
+    /// </summary>
+    public ReactiveCommand<Unit, Unit> BulkRemoveInactiveCommand { get; private set; } = null!;
 
     /// <summary>
     /// Adds the specified number of new contacts to the collection in bulk.
@@ -107,16 +120,13 @@ public class AddressBookViewModel : IDisposable
     public void BulkRemoveInactive()
     {
         // Query utilizing Secondary Index for speed
-        var hrDept = _contactList.Query("ByDepartment", "HR").ToList();
+        var hrDept = _contactList.GetItemsBySecondaryIndex("ByDepartment", "HR").ToArray();
 
         // Bulk Thread-Safe Remove
         _contactList.RemoveRange(hrDept);
 
         // Sync Dictionary
-        foreach (var c in hrDept)
-        {
-            _contactMap.Remove(c.Id);
-        }
+        _contactMap.RemoveKeys(hrDept.Select(c => c.Id));
     }
 
     /// <summary>
@@ -130,53 +140,28 @@ public class AddressBookViewModel : IDisposable
     public void UpdateCityName(string oldCity, string newCity)
     {
         // 1. Find targets using Index (Fast)
-        var targets = _contactList.Query("ByCity", oldCity).ToList();
+        var targets = _contactList.GetItemsBySecondaryIndex("ByCity", oldCity).ToArray();
 
         // 2. Modify and Update
         // Since Records are immutable, we replace the object
-        var updates = new List<Contact>();
-        foreach (var c in targets)
-        {
-            updates.Add(c with { HomeAddress = c.HomeAddress with { City = newCity } });
-        }
+        var updates = targets.Select(c => c with { HomeAddress = c.HomeAddress with { City = newCity } }).ToArray();
 
         // 3. Apply updates (Remove old, Add new) effectively performs an update
         _contactList.RemoveRange(targets);
         _contactList.AddRange(updates);
     }
 
-    /// <summary>
-    /// Releases all resources used by the current instance of the class.
-    /// </summary>
-    /// <remarks>Call this method when you are finished using the object to release unmanaged resources and
-    /// perform other cleanup operations. After calling Dispose, the object should not be used further.</remarks>
-    public void Dispose()
+    /// <inheritdoc/>
+    protected override void Dispose(bool disposing)
     {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Releases the unmanaged resources used by the object and optionally releases the managed resources.
-    /// </summary>
-    /// <remarks>This method is called by public Dispose methods and the finalizer. When disposing is true,
-    /// this method disposes all managed resources referenced by the object. Override this method to release additional
-    /// resources in a derived class.</remarks>
-    /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!_disposedValue)
+        if (disposing)
         {
-            if (disposing)
-            {
-                _contactList.Dispose();
-                _contactMap.Dispose();
-                _searchText.Dispose();
-            }
-
-            _disposedValue = true;
+            _contactList.Dispose();
+            _contactMap.Dispose();
+            _searchText.Dispose();
         }
+
+        base.Dispose(disposing);
     }
 
     private static bool Matches(Contact? c, string query)
@@ -195,6 +180,12 @@ public class AddressBookViewModel : IDisposable
                c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
+    private void InitializeCommands()
+    {
+        BulkImportCommand = ReactiveCommand.Create<int>(BulkImport);
+        BulkRemoveInactiveCommand = ReactiveCommand.Create(BulkRemoveInactive);
+    }
+
     private void InitializeIndices()
     {
         // Add High-Speed Lookup Indices (O(1) access)
@@ -208,33 +199,25 @@ public class AddressBookViewModel : IDisposable
     private void InitializePipelines()
     {
         // 1. ALL CONTACTS (Throttled 100ms)
-        _contactList.CreateView(c => true, RxApp.MainThreadScheduler, throttleMs: 100)
-                    .ToProperty(x => AllContacts = x);
+        _contactList.CreateView(RxSchedulers.MainThreadScheduler, throttleMs: 100)
+                    .ToProperty(x => AllContacts = x)
+                    .DisposeWith(Disposables);
 
         // 2. FAVORITES (Filtered Subset)
-        _contactList.CreateView(c => c.IsFavorite, RxApp.MainThreadScheduler, throttleMs: 100)
-                    .ToProperty(x => FavoriteContacts = x);
+        _contactList.CreateView(c => c.IsFavorite, RxSchedulers.MainThreadScheduler, throttleMs: 100)
+                    .ToProperty(x => FavoriteContacts = x)
+                    .DisposeWith(Disposables);
 
         // 3. SECONDARY KEY SUBSET (City == "New York")
-        // Uses the Stream for updates, but efficient logic for the filter
-        _contactList.CreateView(c => c.HomeAddress.City == "New York", RxApp.MainThreadScheduler, throttleMs: 200)
-                    .ToProperty(x => NewYorkContacts = x);
+        // Using CreateViewBySecondaryIndex for efficient secondary key filtering
+        _contactList.CreateViewBySecondaryIndex("ByCity", "New York", RxSchedulers.MainThreadScheduler, throttleMs: 200)
+                    .ToProperty(x => NewYorkContacts = x)
+                    .DisposeWith(Disposables);
 
-        // 4. DYNAMIC SEARCH QUERY (Complex Pipeline)
-        // Combines the Cache Stream + Search Text Stream
-        var searchPipeline = _contactList.Stream
-            .CombineLatest(_searchText, (change, query) => new { change, query })
-            .Where(x => Matches(x.change.Item, x.query))
-            .Select(x => x.change); // Project back to notification
-
-        // Note: For a true search view, we usually rebuild the collection when query changes.
-        // This simulates a "Live Search Result" stream.
-        new ReactiveView<Contact>(
-            searchPipeline,
-            [.. _contactList], // Initial Snapshot
-            c => Matches(c, _searchText.Value),
-            TimeSpan.FromMilliseconds(50),
-            RxApp.MainThreadScheduler)
-            .ToProperty(x => SearchResults = x);
+        // 4. DYNAMIC SEARCH QUERY
+        // Using CreateView with IObservable for dynamic filter that rebuilds on search text change
+        _contactList.CreateView(_searchText.Throttle(TimeSpan.FromMilliseconds(100)), (query, c) => Matches(c, query), RxSchedulers.MainThreadScheduler, throttleMs: 100)
+                    .ToProperty(x => SearchResults = x)
+                    .DisposeWith(Disposables);
     }
 }
