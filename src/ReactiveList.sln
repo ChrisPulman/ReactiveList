@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.1.11312.151 d18.0
+VisualStudioVersion = 18.1.11312.151
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReactiveList", "ReactiveList\ReactiveList.csproj", "{47E235AA-5BD0-48C7-970E-4EACF14C8695}"
 EndProject
@@ -10,7 +10,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionConfig", "SolutionC
 		..\.editorconfig = ..\.editorconfig
 		..\.gitignore = ..\.gitignore
 		..\Directory.Build.props = ..\Directory.Build.props
-		..\global.json = ..\global.json
 		..\LICENSE = ..\LICENSE
 		..\README.md = ..\README.md
 		..\stylecop.json = ..\stylecop.json

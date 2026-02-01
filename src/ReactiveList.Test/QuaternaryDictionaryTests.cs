@@ -201,6 +201,147 @@ public class QuaternaryDictionaryTests
         GetLookup(dict, "ByLength", 9).Should().BeEmpty();
     }
 
+    /// <summary>
+    /// Verifies that the Lookup method returns the correct result for existing and non-existing keys.
+    /// </summary>
+    [Fact]
+    public void Lookup_ShouldReturnCorrectResult()
+    {
+        using var dict = new QuaternaryDictionary<int, string>();
+        dict.Add(1, "one");
+        dict.Add(2, "two");
+
+        var result1 = dict.Lookup(1);
+        result1.HasValue.Should().BeTrue();
+        result1.Value.Should().Be("one");
+
+        var result2 = dict.Lookup(99);
+        result2.HasValue.Should().BeFalse();
+        result2.Value.Should().BeNull();
+    }
+
+    /// <summary>
+    /// Verifies that RemoveKeys removes multiple keys in a batch operation.
+    /// </summary>
+    [Fact]
+    public void RemoveKeys_ShouldRemoveMultipleKeysAndEmitBatch()
+    {
+        using var dict = new QuaternaryDictionary<int, string>();
+        dict.AddRange([
+            new KeyValuePair<int, string>(1, "one"),
+            new KeyValuePair<int, string>(2, "two"),
+            new KeyValuePair<int, string>(3, "three"),
+            new KeyValuePair<int, string>(4, "four")
+        ]);
+
+        CacheNotify<KeyValuePair<int, string>>? notification = null;
+        using var reset = new ManualResetEventSlim(false);
+        using var subscription = dict.Stream.Subscribe(evt =>
+        {
+            if (evt.Action == CacheAction.BatchOperation)
+            {
+                notification = evt;
+                reset.Set();
+            }
+        });
+
+        dict.RemoveKeys([2, 4]);
+
+        reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        notification.Should().NotBeNull();
+        dict.Count.Should().Be(2);
+        dict.ContainsKey(2).Should().BeFalse();
+        dict.ContainsKey(4).Should().BeFalse();
+        dict.ContainsKey(1).Should().BeTrue();
+        dict.ContainsKey(3).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Verifies that RemoveMany with a predicate removes matching entries.
+    /// </summary>
+    [Fact]
+    public void RemoveMany_WithPredicate_ShouldRemoveMatchingEntries()
+    {
+        using var dict = new QuaternaryDictionary<int, string>();
+        dict.AddRange([
+            new KeyValuePair<int, string>(1, "tiny"),
+            new KeyValuePair<int, string>(2, "medium"),
+            new KeyValuePair<int, string>(3, "verylongvalue")
+        ]);
+
+        var removedCount = dict.RemoveMany(kvp => kvp.Value.Length > 5);
+
+        removedCount.Should().Be(2);
+        dict.Count.Should().Be(1);
+        dict.ContainsKey(1).Should().BeTrue();
+        dict.ContainsKey(2).Should().BeFalse();
+        dict.ContainsKey(3).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Verifies that the Edit method allows batch modifications with a single notification.
+    /// </summary>
+    [Fact]
+    public void Edit_ShouldPerformBatchModificationsWithSingleNotification()
+    {
+        using var dict = new QuaternaryDictionary<int, string>();
+        dict.AddRange([
+            new KeyValuePair<int, string>(1, "one"),
+            new KeyValuePair<int, string>(2, "two")
+        ]);
+
+        var notifications = new List<CacheAction>();
+        using var reset = new ManualResetEventSlim(false);
+        using var subscription = dict.Stream.Subscribe(evt =>
+        {
+            notifications.Add(evt.Action);
+            if (evt.Action == CacheAction.BatchOperation)
+            {
+                reset.Set();
+            }
+        });
+
+        dict.Edit(innerDict =>
+        {
+            innerDict.Clear();
+            innerDict.Add(10, "ten");
+            innerDict.Add(20, "twenty");
+        });
+
+        reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        notifications.Should().ContainSingle().Which.Should().Be(CacheAction.BatchOperation);
+        dict.Count.Should().Be(2);
+        dict.ContainsKey(10).Should().BeTrue();
+        dict.ContainsKey(20).Should().BeTrue();
+        dict.ContainsKey(1).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Verifies that Edit updates value indices correctly.
+    /// </summary>
+    [Fact]
+    public void Edit_ShouldUpdateValueIndicesCorrectly()
+    {
+        using var dict = new QuaternaryDictionary<int, string>();
+        dict.AddValueIndex("ByLength", v => v.Length);
+
+        dict.AddRange([
+            new KeyValuePair<int, string>(1, "short"),
+            new KeyValuePair<int, string>(2, "longvalue")
+        ]);
+
+        dict.Edit(innerDict =>
+        {
+            innerDict.Clear();
+            innerDict.Add(3, "tiny");
+            innerDict.Add(4, "biggervalue");
+        });
+
+        GetLookup(dict, "ByLength", 5).Should().BeEmpty();
+        GetLookup(dict, "ByLength", 4).Should().ContainSingle().Which.Should().Be("tiny");
+        GetLookup(dict, "ByLength", 11).Should().ContainSingle().Which.Should().Be("biggervalue");
+    }
+
     private static IEnumerable<TValue> GetLookup<TKey, TValue>(QuaternaryDictionary<TKey, TValue> dictionary, string indexName, object key)
         where TKey : notnull
     {

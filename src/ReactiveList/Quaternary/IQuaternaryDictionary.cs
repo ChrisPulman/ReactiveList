@@ -53,5 +53,35 @@ public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>
     /// <returns>true if the key and value were added successfully; otherwise, false. Returns false if an element with the
     /// same key already exists.</returns>
     bool TryAdd(TKey key, TValue value);
+
+    /// <summary>
+    /// Looks up the value associated with the specified key.
+    /// </summary>
+    /// <remarks>This method provides an optional-style lookup pattern, returning a tuple indicating
+    /// whether the key was found and the associated value.</remarks>
+    /// <param name="key">The key to look up.</param>
+    /// <returns>A tuple containing a boolean indicating if the key was found and the value if present.</returns>
+    (bool HasValue, TValue? Value) Lookup(TKey key);
+
+    /// <summary>
+    /// Removes all entries with keys in the specified collection from the dictionary.
+    /// </summary>
+    /// <param name="keys">The collection of keys to remove.</param>
+    void RemoveKeys(IEnumerable<TKey> keys);
+
+    /// <summary>
+    /// Removes all entries that match the specified predicate from the dictionary.
+    /// </summary>
+    /// <param name="predicate">A function that returns true for entries that should be removed.</param>
+    /// <returns>The number of entries removed from the dictionary.</returns>
+    int RemoveMany(Func<KeyValuePair<TKey, TValue>, bool> predicate);
+
+    /// <summary>
+    /// Performs a batch edit operation on the dictionary, ensuring only a single change notification is emitted.
+    /// </summary>
+    /// <remarks>Use this method when making multiple modifications to the dictionary to improve efficiency
+    /// by reducing the number of change notifications.</remarks>
+    /// <param name="editAction">An action that receives the dictionary interface to perform modifications.</param>
+    void Edit(Action<IDictionary<TKey, TValue>> editAction);
 }
 #endif

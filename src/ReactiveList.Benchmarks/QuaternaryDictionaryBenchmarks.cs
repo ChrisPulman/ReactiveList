@@ -85,6 +85,15 @@ public class QuaternaryDictionaryBenchmarks
     }
 
     [Benchmark]
+    public int QuaternaryDictionary_RemoveKeys()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        dict.RemoveKeys(Enumerable.Range(0, Count / 2));
+        return dict.Count;
+    }
+
+    [Benchmark]
     public int Dictionary_Clear()
     {
         var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
@@ -126,6 +135,14 @@ public class QuaternaryDictionaryBenchmarks
     }
 
     [Benchmark]
+    public bool QuaternaryDictionary_Lookup()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        return dict.Lookup(Count - 1).HasValue;
+    }
+
+    [Benchmark]
     public bool SourceCache_Lookup()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
@@ -141,6 +158,56 @@ public class QuaternaryDictionaryBenchmarks
         using var sub = dict.Stream.Subscribe(_ => events++);
         dict.AddRange(_kvps);
         return events;
+    }
+
+    [Benchmark]
+    public int SourceCache_Stream_Add()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        var events = 0;
+        using var sub = cache.Connect().Subscribe(_ => events++);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        return events;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_Edit()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        dict.Edit(innerDict =>
+        {
+            innerDict.Clear();
+            for (var i = 0; i < Count; i++)
+            {
+                innerDict.Add(i, i * 2);
+            }
+        });
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_Edit()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.Edit(innerCache =>
+        {
+            innerCache.Clear();
+            for (var i = 0; i < Count; i++)
+            {
+                innerCache.AddOrUpdate(new Item(i, i * 2));
+            }
+        });
+        return cache.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_RemoveMany()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        return dict.RemoveMany(kvp => kvp.Key % 2 == 0);
     }
 
     private record Item(int Id, int Value);

@@ -3,6 +3,7 @@
 
 #if NET6_0_OR_GREATER
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using CP.Reactive;
 using FluentAssertions;
@@ -191,6 +192,100 @@ public class QuaternaryListTests
         list.Count.Should().Be(2);
         list.Contains(2).Should().BeFalse();
         list.Contains(4).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Verifies that RemoveMany with a predicate removes matching items and emits a batch notification.
+    /// </summary>
+    [Fact]
+    public void RemoveMany_WithPredicate_ShouldRemoveMatchingItems()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+        CacheNotify<int>? notification = null;
+        using var reset = new ManualResetEventSlim(false);
+        using var subscription = list.Stream.Subscribe(evt =>
+        {
+            if (evt.Action == CacheAction.BatchOperation)
+            {
+                notification = evt;
+                reset.Set();
+            }
+        });
+
+        var removedCount = list.RemoveMany(x => x % 2 == 0);
+
+        reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        removedCount.Should().Be(5);
+        list.Count.Should().Be(5);
+        list.Contains(2).Should().BeFalse();
+        list.Contains(4).Should().BeFalse();
+        list.Contains(1).Should().BeTrue();
+        list.Contains(3).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Verifies that the Edit method allows batch modifications with a single notification.
+    /// </summary>
+    [Fact]
+    public void Edit_ShouldPerformBatchModificationsWithSingleNotification()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3]);
+
+        var notifications = new List<CacheAction>();
+        using var reset = new ManualResetEventSlim(false);
+        using var subscription = list.Stream.Subscribe(evt =>
+        {
+            notifications.Add(evt.Action);
+            if (evt.Action == CacheAction.BatchOperation)
+            {
+                reset.Set();
+            }
+        });
+
+        list.Edit(innerList =>
+        {
+            innerList.Clear();
+            innerList.Add(10);
+            innerList.Add(20);
+            innerList.Add(30);
+        });
+
+        reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        notifications.Should().ContainSingle().Which.Should().Be(CacheAction.BatchOperation);
+        list.Count.Should().Be(3);
+        list.Contains(10).Should().BeTrue();
+        list.Contains(20).Should().BeTrue();
+        list.Contains(30).Should().BeTrue();
+        list.Contains(1).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Verifies that Edit updates indices correctly.
+    /// </summary>
+    [Fact]
+    public void Edit_ShouldUpdateIndicesCorrectly()
+    {
+        using var list = new QuaternaryList<TestPerson>();
+        list.AddIndex("ByCity", p => p.City);
+
+        list.AddRange([
+            new TestPerson("Alice", "NYC"),
+            new TestPerson("Bob", "LA")
+        ]);
+
+        list.Edit(innerList =>
+        {
+            innerList.Clear();
+            innerList.Add(new TestPerson("Charlie", "NYC"));
+            innerList.Add(new TestPerson("Diana", "Chicago"));
+        });
+
+        list.Query("ByCity", "NYC").Should().ContainSingle().Which.Name.Should().Be("Charlie");
+        list.Query("ByCity", "LA").Should().BeEmpty();
+        list.Query("ByCity", "Chicago").Should().ContainSingle().Which.Name.Should().Be("Diana");
     }
 
     private record TestPerson(string Name, string City);

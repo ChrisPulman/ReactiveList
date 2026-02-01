@@ -55,5 +55,22 @@ public interface IQuaternaryList<T> : IList<T>
     /// <param name="collection">The collection of elements to remove from the current collection. All matching elements will be removed. Cannot
     /// be null.</param>
     void RemoveRange(IEnumerable<T> collection);
+
+    /// <summary>
+    /// Removes all elements that match the specified predicate from the collection.
+    /// </summary>
+    /// <remarks>This method provides an efficient way to remove multiple items based on a condition
+    /// without having to enumerate the collection separately.</remarks>
+    /// <param name="predicate">A function that returns true for elements that should be removed.</param>
+    /// <returns>The number of elements removed from the collection.</returns>
+    int RemoveMany(Func<T, bool> predicate);
+
+    /// <summary>
+    /// Performs a batch edit operation on the collection, ensuring only a single change notification is emitted.
+    /// </summary>
+    /// <remarks>Use this method when making multiple modifications to the collection to improve efficiency
+    /// by reducing the number of change notifications. All operations within the edit action are applied atomically.</remarks>
+    /// <param name="editAction">An action that receives an editable list interface to perform modifications.</param>
+    void Edit(Action<IList<T>> editAction);
 }
 #endif

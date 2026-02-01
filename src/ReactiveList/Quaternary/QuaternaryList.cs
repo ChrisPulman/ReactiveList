@@ -212,6 +212,81 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     }
 
     /// <summary>
+    /// Removes all elements that match the specified predicate from the collection.
+    /// </summary>
+    /// <param name="predicate">A function that returns true for elements that should be removed.</param>
+    /// <returns>The number of elements removed from the collection.</returns>
+    public int RemoveMany(Func<T, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        var totalRemoved = 0;
+        var removedItems = new List<T>();
+
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Locks[i].EnterWriteLock();
+            try
+            {
+                var quad = _quads[i];
+                for (var j = quad.Count - 1; j >= 0; j--)
+                {
+                    var item = quad[j];
+                    if (predicate(item))
+                    {
+                        quad.RemoveAt(j);
+                        NotifyIndicesRemoved(item);
+                        removedItems.Add(item);
+                        totalRemoved++;
+                    }
+                }
+            }
+            finally
+            {
+                Locks[i].ExitWriteLock();
+            }
+        }
+
+        if (totalRemoved > 0)
+        {
+            Emit(CacheAction.BatchOperation, default);
+        }
+
+        return totalRemoved;
+    }
+
+    /// <summary>
+    /// Performs a batch edit operation on the collection, ensuring only a single change notification is emitted.
+    /// </summary>
+    /// <param name="editAction">An action that receives an editable list interface to perform modifications.</param>
+    public void Edit(Action<IList<T>> editAction)
+    {
+        ArgumentNullException.ThrowIfNull(editAction);
+
+        // Acquire all locks for the edit operation
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Locks[i].EnterWriteLock();
+        }
+
+        try
+        {
+            var wrapper = new QuaternaryEditWrapper(this);
+            editAction(wrapper);
+        }
+        finally
+        {
+            for (var i = ShardCount - 1; i >= 0; i--)
+            {
+                Locks[i].ExitWriteLock();
+            }
+        }
+
+        // Emit single batch notification after all changes
+        Emit(CacheAction.BatchOperation, default);
+    }
+
+    /// <summary>
     /// Adds a secondary index to enable efficient lookups based on a specified key selector.
     /// </summary>
     /// <typeparam name="TKey">The type of the key used for indexing.</typeparam>
@@ -880,6 +955,131 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
 
         Emit(CacheAction.BatchOperation, default, new PooledBatch<T>(pool, count));
+    }
+
+    /// <summary>
+    /// Internal wrapper for Edit operations that bypasses locking and notifications.
+    /// </summary>
+    private sealed class QuaternaryEditWrapper : IList<T>
+    {
+        private readonly QuaternaryList<T> _parent;
+
+        internal QuaternaryEditWrapper(QuaternaryList<T> parent) => _parent = parent;
+
+        public int Count
+        {
+            get
+            {
+                var count = 0;
+                for (var i = 0; i < ShardCount; i++)
+                {
+                    count += _parent._quads[i].Count;
+                }
+
+                return count;
+            }
+        }
+
+        public bool IsReadOnly => false;
+
+        public T this[int index]
+        {
+            get
+            {
+                for (var i = 0; i < ShardCount; i++)
+                {
+                    var quadCount = _parent._quads[i].Count;
+                    if (index < quadCount)
+                    {
+                        return _parent._quads[i][index];
+                    }
+
+                    index -= quadCount;
+                }
+
+                throw new IndexOutOfRangeException();
+            }
+
+            set => throw new NotSupportedException("Direct index replacement in sharded list is unstable.");
+        }
+
+        public void Add(T item)
+        {
+            var idx = GetShardIndex(item);
+            _parent._quads[idx].Add(item);
+            _parent.NotifyIndicesAdded(item);
+        }
+
+        public void AddRange(IEnumerable<T> items)
+        {
+            foreach (var item in items)
+            {
+                Add(item);
+            }
+        }
+
+        public bool Remove(T item)
+        {
+            var idx = GetShardIndex(item);
+            if (_parent._quads[idx].Remove(item))
+            {
+                _parent.NotifyIndicesRemoved(item);
+                return true;
+            }
+
+            return false;
+        }
+
+        public void Clear()
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                _parent._quads[i].Clear();
+            }
+
+            if (!_parent._indices.IsEmpty)
+            {
+                foreach (var idx in _parent._indices.Values)
+                {
+                    idx.Clear();
+                }
+            }
+        }
+
+        public bool Contains(T item)
+        {
+            var idx = GetShardIndex(item);
+            return _parent._quads[idx].Contains(item);
+        }
+
+        public void CopyTo(T[] array, int arrayIndex)
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                var quad = _parent._quads[i];
+                quad.CopyTo(array, arrayIndex);
+                arrayIndex += quad.Count;
+            }
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                foreach (var item in _parent._quads[i])
+                {
+                    yield return item;
+                }
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public int IndexOf(T item) => throw new NotSupportedException("Global IndexOf is not supported.");
+
+        public void Insert(int index, T item) => throw new NotSupportedException("Use Add instead.");
+
+        public void RemoveAt(int index) => throw new NotSupportedException("Use Remove(item) instead.");
     }
 }
 #endif

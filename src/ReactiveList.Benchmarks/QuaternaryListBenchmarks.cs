@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
 using CP.Reactive;
+using DynamicData;
 
 namespace ReactiveList.Benchmarks;
 
@@ -33,6 +34,14 @@ public class QuaternaryListBenchmarks
     }
 
     [Benchmark]
+    public int SourceList_AddRange()
+    {
+        using var list = new SourceList<int>();
+        list.AddRange(_data);
+        return list.Count;
+    }
+
+    [Benchmark]
     public int List_RemoveRange()
     {
         var list = new List<int>(_data);
@@ -50,6 +59,15 @@ public class QuaternaryListBenchmarks
     }
 
     [Benchmark]
+    public int SourceList_RemoveRange()
+    {
+        using var list = new SourceList<int>();
+        list.AddRange(_data);
+        list.RemoveMany(_data.Take(Count / 2));
+        return list.Count;
+    }
+
+    [Benchmark]
     public int List_Clear()
     {
         var list = new List<int>(_data);
@@ -61,6 +79,15 @@ public class QuaternaryListBenchmarks
     public int QuaternaryList_Clear()
     {
         using var list = new QuaternaryList<int>();
+        list.AddRange(_data);
+        list.Clear();
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int SourceList_Clear()
+    {
+        using var list = new SourceList<int>();
         list.AddRange(_data);
         list.Clear();
         return list.Count;
@@ -98,5 +125,64 @@ public class QuaternaryListBenchmarks
         using var sub = list.Stream.Subscribe(_ => events++);
         list.AddRange(_data);
         return events;
+    }
+
+    [Benchmark]
+    public int SourceList_Stream_Add()
+    {
+        using var list = new SourceList<int>();
+        var events = 0;
+        using var sub = list.Connect().Subscribe(_ => events++);
+        list.AddRange(_data);
+        return events;
+    }
+
+    [Benchmark]
+    public int QuaternaryList_Edit()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange(_data);
+        list.Edit(innerList =>
+        {
+            innerList.Clear();
+            for (var i = 0; i < Count; i++)
+            {
+                innerList.Add(i * 2);
+            }
+        });
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int SourceList_Edit()
+    {
+        using var list = new SourceList<int>();
+        list.AddRange(_data);
+        list.Edit(innerList =>
+        {
+            innerList.Clear();
+            for (var i = 0; i < Count; i++)
+            {
+                innerList.Add(i * 2);
+            }
+        });
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryList_RemoveMany()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange(_data);
+        return list.RemoveMany(x => x % 2 == 0);
+    }
+
+    [Benchmark]
+    public int SourceList_RemoveMany()
+    {
+        using var list = new SourceList<int>();
+        list.AddRange(_data);
+        list.RemoveMany(list.Items.Where(x => x % 2 == 0));
+        return list.Count;
     }
 }
