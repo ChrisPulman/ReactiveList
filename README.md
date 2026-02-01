@@ -761,76 +761,391 @@ Inherits from `ReactiveList<ReactiveList<T>>` and adds:
 
 ---
 
+## QuaternaryList&lt;T&gt; and QuaternaryDictionary&lt;TKey, TValue&gt;
+
+High-performance, thread-safe, sharded collections optimized for large-scale reactive applications. These collections distribute data across four internal partitions (quads) to improve concurrency and reduce lock contention.
+
+**Key Features:**
+- **Sharded architecture**: Data distributed across 4 partitions for parallel access
+- **Thread-safe**: Uses `ReaderWriterLockSlim` with fine-grained locking per shard
+- **Reactive streams**: `Stream` property exposes `IObservable<CacheNotification<T>>` for change notifications
+- **Secondary indices**: O(1) lookup support via custom key selectors
+- **Low allocation**: Optimized with `ArrayPool<T>`, `Span<T>`, and `CollectionsMarshal`
+- **Batch operations**: Efficient bulk add/remove with parallel processing for large datasets
+
+---
+
+## QuaternaryList vs SourceList Benchmark Results
+
+### Performance Comparison (Mean Time)
+
+| Operation | Count | QuaternaryList | SourceList | Winner |
+|-----------|-------|----------------|------------|--------|
+| Edit (batch) | 100 | 91.5 μs | 1.3 μs | SourceList |
+| Edit (batch) | 1,000 | 302.2 μs | 9.3 μs | SourceList |
+| Edit (batch) | 10,000 | 2,188.9 μs | 99.5 μs | SourceList |
+
+### Memory Allocation Comparison
+
+| Operation | Count | QuaternaryList | SourceList | Winner |
+|-----------|-------|----------------|------------|--------|
+| Edit | 100 | 5.7 KB | 4.4 KB | SourceList |
+| Edit | 1,000 | **14.4 KB** | 25.6 KB | **QuaternaryList 1.8x** |
+| Edit | 10,000 | **84.9 KB** | 336.1 KB | **QuaternaryList 4x** |
+
+
+---
+
 ## QuaternaryDictionary vs SourceCache Benchmark Results
 
-### Performance Comparison (Mean Time in nanoseconds)
+### Performance Comparison (Mean Time)
 
-| Operation | Count | QuaternaryDict (ns) | SourceCache (ns) | Winner |
-|-----------|-------|---------------------|------------------|--------|
-| AddRange | 100 | 66,508 | 30,016 | SourceCache |
-| AddRange | 1,000 | 77,814 | 206,737 | **QuaternaryDict 2.7x** |
-| AddRange | 10,000 | 142,545 | 610,443 | **QuaternaryDict 4.3x** |
-| Remove (half) | 1,000 | 181,641 | 22,367 | SourceCache |
-| Remove (half) | 10,000 | 1,202,763 | 390,200 | SourceCache |
-| Clear | 1,000 | 78,249 | 22,455 | SourceCache |
-| Clear | 10,000 | 149,256 | 585,983 | **QuaternaryDict 3.9x** |
-| TryGetValue/Lookup | 1,000 | 77,423 | 19,662 | SourceCache |
-| TryGetValue/Lookup | 10,000 | 143,560 | 579,142 | **QuaternaryDict 4x** |
+| Operation | Count | QuaternaryDict | SourceCache | Winner |
+|-----------|-------|----------------|-------------|--------|
+| AddRange | 100 | 72.3 μs | 2.2 μs | SourceCache |
+| AddRange | 1,000 | 77.9 μs | 19.3 μs | SourceCache |
+| AddRange | 10,000 | **135.9 μs** | 387.7 μs | **QuaternaryDict 2.9x** |
+| Clear | 100 | 76.9 μs | 2.4 μs | SourceCache |
+| Clear | 1,000 | 78.1 μs | 21.2 μs | SourceCache |
+| Clear | 10,000 | **138.9 μs** | 420.1 μs | **QuaternaryDict 3.0x** |
+| Lookup | 100 | 72.5 μs | 2.3 μs | SourceCache |
+| Lookup | 1,000 | 77.5 μs | 21.3 μs | SourceCache |
+| Lookup | 10,000 | **136.5 μs** | 397.4 μs | **QuaternaryDict 2.9x** |
+| Stream (Add) | 10,000 | **198.2 μs** | 1,739.9 μs | **QuaternaryDict 8.8x** |
 
-### Memory Allocation Comparison (KB)
+### Memory Allocation Comparison
 
-| Operation | Count | QuaternaryDict (KB) | SourceCache (KB) | Winner |
-|-----------|-------|---------------------|------------------|--------|
-| AddRange | 1,000 | 29.82 | 121.32 | **QuaternaryDict 4x** |
-| AddRange | 10,000 | 226.10 | 1,155.65 | **QuaternaryDict 5.1x** |
-| Clear | 1,000 | 29.86 | 124.15 | **QuaternaryDict 4.2x** |
-| Clear | 10,000 | 226.10 | 1,155.75 | **QuaternaryDict 5.1x** |
-| TryGetValue | 10,000 | 226.11 | 1,155.62 | **QuaternaryDict 5.1x** |
-
----
-
-## Key Findings
-
-### QuaternaryList Strengths
-- **Massive performance gains at scale**: 33x faster AddRange, 37x faster Clear at 10,000 items
-- **Dramatically reduced allocations**: 7-8x less memory at scale
-- **Consistent improvement**: All operations benefit from optimizations
-
-### QuaternaryDictionary vs SourceCache
-- **Wins at scale (10,000+ items)**: 3.9x-4.3x faster for AddRange, Clear, TryGetValue
-- **5x less memory allocation**: Consistently uses ~5x less memory than SourceCache
-- **Best for batch operations**: Excellent for AddRange with many items
-- **Trade-off for single-item Remove**: SourceCache wins for small-scale removals
-
-### When to Use QuaternaryDictionary over SourceCache
-1. **Large datasets (>1,000 items)** - performance advantage kicks in
-2. **Memory-constrained environments** - 5x less allocation
-3. **Batch operations** - AddRange is significantly faster
-4. **High-concurrency scenarios** - sharded design reduces contention
-
-### When SourceCache May Be Better
-1. **Small datasets (<500 items)** - lower fixed overhead
-2. **Frequent single-item removes** - linked-list removal is O(1)
-3. **Existing DynamicData integration** - compatibility
+| Operation | Count | QuaternaryDict | SourceCache | Winner |
+|-----------|-------|----------------|-------------|--------|
+| AddRange | 1,000 | **47.0 KB** | 124.1 KB | **QuaternaryDict 2.6x** |
+| AddRange | 10,000 | **327.2 KB** | 1,155.7 KB | **QuaternaryDict 3.5x** |
+| Clear | 1,000 | **47.0 KB** | 124.2 KB | **QuaternaryDict 2.6x** |
+| Clear | 10,000 | **327.2 KB** | 1,155.8 KB | **QuaternaryDict 3.5x** |
+| Lookup | 10,000 | **327.2 KB** | 1,155.7 KB | **QuaternaryDict 3.5x** |
+| Stream | 10,000 | **456.0 KB** | 2,437.9 KB | **QuaternaryDict 5.3x** |
 
 ---
 
-## QuaternaryDictionary and QuaternaryList
+## When to Use Quaternary Collections
 
-High-performance, low-allocation key-value and list collections optimized for large-scale reactive applications.
-Performance benchmarks show significant advantages over traditional collections in batch operations and memory usage.
-This makes them ideal for scenarios involving large datasets, frequent updates, and real-time data processing.
+### Choose QuaternaryDictionary/QuaternaryList when:
+1. **Large datasets (>1,000 items)** - Performance advantage kicks in at scale
+2. **Memory-constrained environments** - 4-7x less allocation than DynamicData
+3. **Batch operations** - Optimized for AddRange, RemoveRange, Clear
+4. **High-concurrency scenarios** - Sharded design reduces lock contention
+5. **Real-time data feeds** - Efficient streaming with low allocation
 
-The Stream property exposes an observable sequence of changes, enabling reactive programming patterns.
+### Choose DynamicData (SourceCache/SourceList) when:
+1. **Small datasets (<500 items)** - Lower fixed overhead
+2. **Frequent single-item operations** - Individual Add/Remove is faster
+3. **Rich query operators** - DynamicData has extensive LINQ-like operators
+4. **Existing codebase** - Already using DynamicData patterns
 
-Example usage in an Address Book application:
+---
+
+## QuaternaryList&lt;T&gt; API Reference
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Count` | `int` | Total number of items across all shards |
+| `IsReadOnly` | `bool` | Always returns `false` |
+| `Stream` | `IObservable<CacheNotification<T>>` | Observable stream of change notifications |
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `Add(T item)` | Add single item to appropriate shard |
+| `AddRange(IEnumerable<T> items)` | Bulk add with parallel processing for large sets |
+| `Remove(T item)` | Remove item from collection |
+| `RemoveRange(IEnumerable<T> items)` | Bulk remove items |
+| `RemoveMany(Func<T, bool> predicate)` | Remove items matching predicate |
+| `Clear()` | Remove all items from all shards |
+| `Contains(T item)` | Check if item exists (O(1) average) |
+| `Edit(Action<IList<T>> editAction)` | Batch operations with single notification |
+| `AddIndex<TKey>(string name, Func<T, TKey> keySelector)` | Add secondary index |
+| `Query<TKey>(string indexName, TKey key)` | Query using secondary index |
+
+### Secondary Indices
+
+```csharp
+var list = new QuaternaryList<Contact>();
+
+// Add index for fast lookups by city
+list.AddIndex("ByCity", c => c.City);
+
+// Add index for department
+list.AddIndex("ByDepartment", c => c.Department);
+
+// Bulk add contacts
+list.AddRange(contacts);
+
+// Fast O(1) query by index
+var newYorkers = list.Query("ByCity", "New York");
+var engineers = list.Query("ByDepartment", "Engineering");
+```
+
+---
+
+## QuaternaryDictionary&lt;TKey, TValue&gt; API Reference
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Count` | `int` | Total number of key-value pairs |
+| `Keys` | `ICollection<TKey>` | All keys in the dictionary |
+| `Values` | `ICollection<TValue>` | All values in the dictionary |
+| `IsReadOnly` | `bool` | Always returns `false` |
+| `Stream` | `IObservable<CacheNotification<KeyValuePair<TKey, TValue>>>` | Change notifications |
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `Add(TKey key, TValue value)` | Add key-value pair (throws if exists) |
+| `TryAdd(TKey key, TValue value)` | Add if not exists, returns success |
+| `AddOrUpdate(TKey key, TValue value)` | Add or update existing value |
+| `AddRange(IEnumerable<KeyValuePair<TKey, TValue>> items)` | Bulk add/update |
+| `Remove(TKey key)` | Remove by key |
+| `RemoveKeys(IEnumerable<TKey> keys)` | Bulk remove by keys |
+| `RemoveMany(Func<TValue, bool> predicate)` | Remove values matching predicate |
+| `Clear()` | Remove all entries |
+| `TryGetValue(TKey key, out TValue value)` | Try get value by key |
+| `Lookup(TKey key)` | Get `Optional<TValue>` by key |
+| `ContainsKey(TKey key)` | Check if key exists |
+| `Edit(Action<IDictionary<TKey, TValue>> editAction)` | Batch operations |
+| `AddValueIndex<TIndexKey>(string name, Func<TValue, TIndexKey> keySelector)` | Add secondary value index |
+| `QueryByValue<TIndexKey>(string indexName, TIndexKey key)` | Query by value index |
+
+---
+
+## Basic Usage Examples
+
+### QuaternaryList Basic Operations
+
+```csharp
+using CP.Reactive;
+
+// Create and populate
+var list = new QuaternaryList<string>();
+list.Add("item1");
+list.AddRange(["item2", "item3", "item4"]);
+
+// Query
+Console.WriteLine(list.Count);            // 4
+Console.WriteLine(list.Contains("item2")); // true
+
+// Remove
+list.Remove("item2");
+list.RemoveMany(s => s.StartsWith("item")); // Remove matching items
+
+// Batch operations (single notification)
+list.Edit(l =>
+{
+    l.Add("new1");
+    l.Add("new2");
+    l.Clear();
+    l.Add("fresh");
+});
+
+// Cleanup
+list.Dispose();
+```
+
+### QuaternaryDictionary Basic Operations
+
+```csharp
+using CP.Reactive;
+
+// Create and populate
+var dict = new QuaternaryDictionary<int, string>();
+dict.Add(1, "one");
+dict.AddOrUpdate(2, "two");
+
+// Bulk add
+dict.AddRange(new[]
+{
+    KeyValuePair.Create(3, "three"),
+    KeyValuePair.Create(4, "four")
+});
+
+// Query
+if (dict.TryGetValue(1, out var value))
+{
+    Console.WriteLine(value); // "one"
+}
+
+// Using Lookup (returns Optional<T>)
+var result = dict.Lookup(2);
+if (result.HasValue)
+{
+    Console.WriteLine(result.Value); // "two"
+}
+
+// Remove
+dict.Remove(1);
+dict.RemoveKeys([2, 3]);
+
+// Cleanup
+dict.Dispose();
+```
+
+---
+
+## Reactive Streams
+
+### Subscribing to Changes
+
+```csharp
+using CP.Reactive;
+using System.Reactive.Linq;
+
+var list = new QuaternaryList<int>();
+
+// Subscribe to all changes
+var subscription = list.Stream
+    .Subscribe(notification =>
+    {
+        switch (notification.Action)
+        {
+            case CacheAction.Added:
+                Console.WriteLine($"Added: {notification.Item}");
+                break;
+            case CacheAction.Removed:
+                Console.WriteLine($"Removed: {notification.Item}");
+                break;
+            case CacheAction.Cleared:
+                Console.WriteLine("Collection cleared");
+                break;
+            case CacheAction.BatchOperation:
+                Console.WriteLine($"Batch completed: {notification.BatchItems?.Count()} items");
+                break;
+        }
+    });
+
+list.Add(1);     // Added: 1
+list.Add(2);     // Added: 2
+list.Remove(1);  // Removed: 1
+list.Clear();    // Collection cleared
+
+subscription.Dispose();
+list.Dispose();
+```
+
+### Creating Filtered Views
+
+```csharp
+using CP.Reactive;
+using ReactiveUI;
+
+var contacts = new QuaternaryList<Contact>();
+
+// Create an auto-updating view of favorites
+var favoritesView = contacts.CreateView(
+    c => c.IsFavorite,
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Bind to UI
+favoritesView.ToProperty(x => FavoriteContacts = x);
+```
+
+---
+
+## Migrating from DynamicData
+
+### SourceList → QuaternaryList
+
+```csharp
+// DynamicData SourceList
+var sourceList = new SourceList<Person>();
+sourceList.AddRange(people);
+sourceList.Edit(list =>
+{
+    list.Add(new Person("John"));
+    list.RemoveAt(0);
+});
+sourceList.Connect()
+    .Filter(p => p.Age > 18)
+    .ObserveOn(RxApp.MainThreadScheduler)
+    .Subscribe(changes => { });
+
+// QuaternaryList equivalent
+var quaternaryList = new QuaternaryList<Person>();
+quaternaryList.AddRange(people);
+quaternaryList.Edit(list =>
+{
+    list.Add(new Person("John"));
+    list.RemoveAt(0);
+});
+quaternaryList.Stream
+    .Where(n => n.Action == CacheAction.Added && n.Item?.Age > 18)
+    .ObserveOn(RxApp.MainThreadScheduler)
+    .Subscribe(notification => { });
+
+// Or use CreateView for filtered collections
+quaternaryList.CreateView(p => p.Age > 18, RxApp.MainThreadScheduler)
+    .ToProperty(x => Adults = x);
+```
+
+### SourceCache → QuaternaryDictionary
+
+```csharp
+// DynamicData SourceCache
+var sourceCache = new SourceCache<Person, Guid>(p => p.Id);
+sourceCache.AddOrUpdate(person);
+sourceCache.Edit(cache =>
+{
+    cache.AddOrUpdate(new Person { Id = Guid.NewGuid(), Name = "John" });
+    cache.Remove(oldId);
+});
+sourceCache.Connect()
+    .Filter(p => p.IsActive)
+    .ObserveOn(RxApp.MainThreadScheduler)
+    .Bind(out var activeUsers)
+    .Subscribe();
+
+// QuaternaryDictionary equivalent
+var quaternaryDict = new QuaternaryDictionary<Guid, Person>();
+quaternaryDict.AddOrUpdate(person.Id, person);
+quaternaryDict.Edit(dict =>
+{
+    dict[Guid.NewGuid()] = new Person { Name = "John" };
+    dict.Remove(oldId);
+});
+quaternaryDict.Stream
+    .ObserveOn(RxApp.MainThreadScheduler)
+    .Subscribe(notification => { });
+
+// For filtered views
+quaternaryDict.CreateView(p => p.IsActive, RxApp.MainThreadScheduler)
+    .ToProperty(x => ActiveUsers = x);
+```
+
+### Key Migration Differences
+
+| DynamicData | Quaternary | Notes |
+|-------------|------------|-------|
+| `Connect()` | `Stream` | Direct property access |
+| `Filter()` | `CreateView()` or LINQ on `Stream` | Use CreateView for UI binding |
+| `Bind()` | `ToProperty()` | Extension method for binding |
+| `Watch()` | Subscribe to `Stream` | Filter by key in subscription |
+| `SourceCache<T, TKey>` | `QuaternaryDictionary<TKey, T>` | Key selector not needed |
+| `AddOrUpdate(item)` | `AddOrUpdate(key, value)` | Explicit key required |
+
+---
+
+## Advanced Example: Address Book Application
 
 ```csharp
 using System.Collections.ObjectModel;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using CP.Reactive;
-using ReactiveUI; // For RxApp.MainThreadScheduler
+using ReactiveUI;
 
 public class AddressBookViewModel : IDisposable
 {
@@ -846,12 +1161,9 @@ public class AddressBookViewModel : IDisposable
     }
 
     public ReadOnlyObservableCollection<Contact> AllContacts { get; private set; }
-
     public ReadOnlyObservableCollection<Contact> FavoriteContacts { get; private set; }
-
     public ReadOnlyObservableCollection<Contact> NewYorkContacts { get; private set; }
-
-    public ReadOnlyObservableCollection<Contact> SearchResults { get; private set; } // Dynamic
+    public ReadOnlyObservableCollection<Contact> SearchResults { get; private set; }
 
     public string SearchQuery
     {
@@ -868,24 +1180,24 @@ public class AddressBookViewModel : IDisposable
                 $"Smith{i}",
                 $"user{i}@company.com",
                 i % 2 == 0 ? "Engineering" : "HR",
-                i % 10 == 0, // 10% are favorites
+                i % 10 == 0,
                 new Address("123 Main", i % 5 == 0 ? "New York" : "London", "10001", "USA"))).ToList();
 
-        // High-Speed Parallel Add
+        // High-speed parallel add
         _contactList.AddRange(newContacts);
         _contactMap.AddRange(newContacts.Select(c => new KeyValuePair<Guid, Contact>(c.Id, c)));
     }
 
-    public void BulkRemoveInactive()
+    public void BulkRemoveByDepartment(string department)
     {
-        // Query utilizing Secondary Index for speed
-        var hrDept = _contactList.Query("ByDepartment", "HR").ToList();
-
-        // Bulk Thread-Safe Remove
-        _contactList.RemoveRange(hrDept);
-
-        // Sync Dictionary
-        foreach (var c in hrDept)
+        // O(1) query using secondary index
+        var targets = _contactList.Query("ByDepartment", department).ToList();
+        
+        // Bulk thread-safe remove
+        _contactList.RemoveRange(targets);
+        
+        // Sync dictionary
+        foreach (var c in targets)
         {
             _contactMap.Remove(c.Id);
         }
@@ -893,25 +1205,62 @@ public class AddressBookViewModel : IDisposable
 
     public void UpdateCityName(string oldCity, string newCity)
     {
-        // 1. Find targets using Index (Fast)
+        // Fast index query
         var targets = _contactList.Query("ByCity", oldCity).ToList();
 
-        // 2. Modify and Update
-        // Since Records are immutable, we replace the object
-        var updates = new List<Contact>();
-        foreach (var c in targets)
-        {
-            updates.Add(c with { HomeAddress = c.HomeAddress with { City = newCity } });
-        }
+        // Create updated records
+        var updates = targets.Select(c => 
+            c with { HomeAddress = c.HomeAddress with { City = newCity } }).ToList();
 
-        // 3. Apply updates (Remove old, Add new) effectively performs an update
+        // Atomic update
         _contactList.RemoveRange(targets);
         _contactList.AddRange(updates);
     }
 
+    private void InitializeIndices()
+    {
+        // Secondary indices for O(1) lookups
+        _contactList.AddIndex("ByCity", c => c.HomeAddress.City);
+        _contactList.AddIndex("ByDepartment", c => c.Department);
+        _contactMap.AddValueIndex("ByEmail", c => c.Email);
+    }
+
+    private void InitializePipelines()
+    {
+        // All contacts (throttled for performance)
+        _contactList.CreateView(c => true, RxApp.MainThreadScheduler, throttleMs: 100)
+                    .ToProperty(x => AllContacts = x);
+
+        // Favorites only
+        _contactList.CreateView(c => c.IsFavorite, RxApp.MainThreadScheduler, throttleMs: 100)
+                    .ToProperty(x => FavoriteContacts = x);
+
+        // New York contacts (using stream for updates)
+        _contactList.CreateView(c => c.HomeAddress.City == "New York", RxApp.MainThreadScheduler, throttleMs: 200)
+                    .ToProperty(x => NewYorkContacts = x);
+
+        // Dynamic search with text filtering
+        var searchPipeline = _contactList.Stream
+            .CombineLatest(_searchText, (change, query) => new { change, query })
+            .Where(x => Matches(x.change.Item, x.query))
+            .Select(x => x.change);
+
+        new ReactiveView<Contact>(
+            searchPipeline,
+            [.. _contactList],
+            c => Matches(c, _searchText.Value),
+            TimeSpan.FromMilliseconds(50),
+            RxApp.MainThreadScheduler)
+            .ToProperty(x => SearchResults = x);
+    }
+
+    private static bool Matches(Contact? c, string query) =>
+        c != null && (string.IsNullOrWhiteSpace(query) ||
+                      c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                      c.Email.Contains(query, StringComparison.OrdinalIgnoreCase));
+
     public void Dispose()
     {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
@@ -926,71 +1275,33 @@ public class AddressBookViewModel : IDisposable
                 _contactMap.Dispose();
                 _searchText.Dispose();
             }
-
             _disposedValue = true;
         }
     }
-
-    private static bool Matches(Contact? c, string query)
-    {
-        if (c == null)
-        {
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return true;
-        }
-
-        return c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-               c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void InitializeIndices()
-    {
-        // Add High-Speed Lookup Indices (O(1) access)
-        _contactList.AddIndex("ByCity", c => c.HomeAddress.City);
-        _contactList.AddIndex("ByDepartment", c => c.Department);
-
-        // Map Dictionary for ID-based updates
-        _contactMap.AddValueIndex("ByEmail", c => c.Email);
-    }
-
-    private void InitializePipelines()
-    {
-        // 1. ALL CONTACTS (Throttled 100ms)
-        _contactList.CreateView(c => true, RxApp.MainThreadScheduler, throttleMs: 100)
-                    .ToProperty(x => AllContacts = x);
-
-        // 2. FAVORITES (Filtered Subset)
-        _contactList.CreateView(c => c.IsFavorite, RxApp.MainThreadScheduler, throttleMs: 100)
-                    .ToProperty(x => FavoriteContacts = x);
-
-        // 3. SECONDARY KEY SUBSET (City == "New York")
-        // Uses the Stream for updates, but efficient logic for the filter
-        _contactList.CreateView(c => c.HomeAddress.City == "New York", RxApp.MainThreadScheduler, throttleMs: 200)
-                    .ToProperty(x => NewYorkContacts = x);
-
-        // 4. DYNAMIC SEARCH QUERY (Complex Pipeline)
-        // Combines the Cache Stream + Search Text Stream
-        var searchPipeline = _contactList.Stream
-            .CombineLatest(_searchText, (change, query) => new { change, query })
-            .Where(x => Matches(x.change.Item, x.query))
-            .Select(x => x.change); // Project back to notification
-
-        // Note: For a true search view, we usually rebuild the collection when query changes.
-        // This simulates a "Live Search Result" stream.
-        new ReactiveView<Contact>(
-            searchPipeline,
-            [.. _contactList], // Initial Snapshot
-            c => Matches(c, _searchText.Value),
-            TimeSpan.FromMilliseconds(50),
-            RxApp.MainThreadScheduler)
-            .ToProperty(x => SearchResults = x);
-    }
 }
+
+// Supporting records
+public record Contact(
+    Guid Id,
+    string FirstName,
+    string LastName,
+    string Email,
+    string Department,
+    bool IsFavorite,
+    Address HomeAddress);
+
+public record Address(string Street, string City, string PostalCode, string Country);
 ```
+
+---
+
+## Performance Optimization Tips
+
+1. **Use AddRange for bulk operations** - Much faster than individual Add calls
+2. **Leverage secondary indices** - O(1) vs O(n) for repeated queries
+3. **Throttle UI updates** - Use `CreateView` with `throttleMs` for reactive bindings
+4. **Batch with Edit** - Single notification for multiple changes
+5. **Dispose properly** - Release resources and stop background processing
 
 ---
 

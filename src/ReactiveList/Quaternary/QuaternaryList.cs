@@ -6,6 +6,7 @@ using System.Buffers;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace CP.Reactive;
 
@@ -371,7 +372,18 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         Locks[idx].EnterReadLock();
         try
         {
-            return _quads[idx].Contains(item);
+            // Use Span for faster iteration without enumerator allocation
+            var span = CollectionsMarshal.AsSpan(_quads[idx]);
+            var comparer = EqualityComparer<T>.Default;
+            for (var i = 0; i < span.Length; i++)
+            {
+                if (comparer.Equals(span[i], item))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
         finally
         {
@@ -391,9 +403,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             Locks[i].EnterReadLock();
             try
             {
-                var quad = _quads[i];
-                quad.CopyTo(array, arrayIndex);
-                arrayIndex += quad.Count;
+                var sourceSpan = CollectionsMarshal.AsSpan(_quads[i]);
+                var destSpan = array.AsSpan(arrayIndex, sourceSpan.Length);
+                sourceSpan.CopyTo(destSpan);
+                arrayIndex += sourceSpan.Length;
             }
             finally
             {
@@ -491,30 +504,32 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             return;
         }
 
-        // Use array instead of Span for compatibility with lambdas
-        var bucketCounts = new int[ShardCount];
+        // Use stack-allocated spans for small counts to avoid heap allocations (non-parallel path)
+        // For parallel path, copy to array since Span cannot be captured in lambdas
+        var bucketCountsArray = new int[ShardCount];
+        var bucketIndicesArray = new int[ShardCount];
+        var itemsSpan = items.AsSpan();
 
         for (var i = 0; i < count; i++)
         {
-            var shardIdx = GetShardIndex(items[i]);
-            bucketCounts[shardIdx]++;
+            var shardIdx = GetShardIndex(itemsSpan[i]);
+            bucketCountsArray[shardIdx]++;
         }
 
         var bucketArrays = new T[ShardCount][];
-        var bucketIndices = new int[ShardCount];
 
         for (var i = 0; i < ShardCount; i++)
         {
-            bucketArrays[i] = bucketCounts[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCounts[i]) : Array.Empty<T>();
+            bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : Array.Empty<T>();
         }
 
         try
         {
             for (var i = 0; i < count; i++)
             {
-                var item = items[i];
+                var item = itemsSpan[i];
                 var shardIdx = GetShardIndex(item);
-                bucketArrays[shardIdx][bucketIndices[shardIdx]++] = item;
+                bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = item;
             }
 
             // Insert into shards - use parallel only for large datasets
@@ -522,13 +537,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             {
                 Parallel.For(0, ShardCount, sIdx =>
                 {
-                    var bucketCount = bucketCounts[sIdx];
+                    var bucketCount = bucketCountsArray[sIdx];
                     if (bucketCount == 0)
                     {
                         return;
                     }
 
-                    var bucket = bucketArrays[sIdx];
+                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
@@ -556,13 +571,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             {
                 for (var sIdx = 0; sIdx < ShardCount; sIdx++)
                 {
-                    var bucketCount = bucketCounts[sIdx];
+                    var bucketCount = bucketCountsArray[sIdx];
                     if (bucketCount == 0)
                     {
                         continue;
                     }
 
-                    var bucket = bucketArrays[sIdx];
+                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
@@ -593,7 +608,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                if (bucketCounts[i] > 0)
+                if (bucketCountsArray[i] > 0)
                 {
                     ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: true);
                 }
@@ -609,20 +624,20 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             return;
         }
 
-        var bucketCounts = new int[ShardCount];
+        var bucketCountsArray = new int[ShardCount];
+        var bucketIndicesArray = new int[ShardCount];
 
         for (var i = 0; i < count; i++)
         {
             var shardIdx = GetShardIndex(items[i]);
-            bucketCounts[shardIdx]++;
+            bucketCountsArray[shardIdx]++;
         }
 
         var bucketArrays = new T[ShardCount][];
-        var bucketIndices = new int[ShardCount];
 
         for (var i = 0; i < ShardCount; i++)
         {
-            bucketArrays[i] = bucketCounts[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCounts[i]) : Array.Empty<T>();
+            bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : Array.Empty<T>();
         }
 
         try
@@ -631,20 +646,20 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             {
                 var item = items[i];
                 var shardIdx = GetShardIndex(item);
-                bucketArrays[shardIdx][bucketIndices[shardIdx]++] = item;
+                bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = item;
             }
 
             if (count >= ParallelThreshold)
             {
                 Parallel.For(0, ShardCount, sIdx =>
                 {
-                    var bucketCount = bucketCounts[sIdx];
+                    var bucketCount = bucketCountsArray[sIdx];
                     if (bucketCount == 0)
                     {
                         return;
                     }
 
-                    var bucket = bucketArrays[sIdx];
+                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
@@ -672,13 +687,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             {
                 for (var sIdx = 0; sIdx < ShardCount; sIdx++)
                 {
-                    var bucketCount = bucketCounts[sIdx];
+                    var bucketCount = bucketCountsArray[sIdx];
                     if (bucketCount == 0)
                     {
                         continue;
                     }
 
-                    var bucket = bucketArrays[sIdx];
+                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
@@ -709,7 +724,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                if (bucketCounts[i] > 0)
+                if (bucketCountsArray[i] > 0)
                 {
                     ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: true);
                 }
@@ -725,42 +740,43 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             return;
         }
 
-        var bucketCounts = new int[ShardCount];
+        var bucketCountsArray = new int[ShardCount];
+        var bucketIndicesArray = new int[ShardCount];
+        var itemsSpan = items.AsSpan();
 
         for (var i = 0; i < count; i++)
         {
-            var shardIdx = GetShardIndex(items[i]);
-            bucketCounts[shardIdx]++;
+            var shardIdx = GetShardIndex(itemsSpan[i]);
+            bucketCountsArray[shardIdx]++;
         }
 
         var bucketArrays = new T[ShardCount][];
-        var bucketIndices = new int[ShardCount];
 
         for (var i = 0; i < ShardCount; i++)
         {
-            bucketArrays[i] = bucketCounts[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCounts[i]) : Array.Empty<T>();
+            bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : Array.Empty<T>();
         }
 
         try
         {
             for (var i = 0; i < count; i++)
             {
-                var item = items[i];
+                var item = itemsSpan[i];
                 var shardIdx = GetShardIndex(item);
-                bucketArrays[shardIdx][bucketIndices[shardIdx]++] = item;
+                bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = item;
             }
 
             if (count >= ParallelThreshold)
             {
                 Parallel.For(0, ShardCount, sIdx =>
                 {
-                    var bucketCount = bucketCounts[sIdx];
+                    var bucketCount = bucketCountsArray[sIdx];
                     if (bucketCount == 0)
                     {
                         return;
                     }
 
-                    var bucket = bucketArrays[sIdx];
+                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
@@ -785,13 +801,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             {
                 for (var sIdx = 0; sIdx < ShardCount; sIdx++)
                 {
-                    var bucketCount = bucketCounts[sIdx];
+                    var bucketCount = bucketCountsArray[sIdx];
                     if (bucketCount == 0)
                     {
                         continue;
                     }
 
-                    var bucket = bucketArrays[sIdx];
+                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
@@ -819,7 +835,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                if (bucketCounts[i] > 0)
+                if (bucketCountsArray[i] > 0)
                 {
                     ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: true);
                 }
@@ -835,20 +851,20 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             return;
         }
 
-        var bucketCounts = new int[ShardCount];
+        var bucketCountsArray = new int[ShardCount];
+        var bucketIndicesArray = new int[ShardCount];
 
         for (var i = 0; i < count; i++)
         {
             var shardIdx = GetShardIndex(items[i]);
-            bucketCounts[shardIdx]++;
+            bucketCountsArray[shardIdx]++;
         }
 
         var bucketArrays = new T[ShardCount][];
-        var bucketIndices = new int[ShardCount];
 
         for (var i = 0; i < ShardCount; i++)
         {
-            bucketArrays[i] = bucketCounts[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCounts[i]) : Array.Empty<T>();
+            bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : Array.Empty<T>();
         }
 
         try
@@ -857,20 +873,20 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             {
                 var item = items[i];
                 var shardIdx = GetShardIndex(item);
-                bucketArrays[shardIdx][bucketIndices[shardIdx]++] = item;
+                bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = item;
             }
 
             if (count >= ParallelThreshold)
             {
                 Parallel.For(0, ShardCount, sIdx =>
                 {
-                    var bucketCount = bucketCounts[sIdx];
+                    var bucketCount = bucketCountsArray[sIdx];
                     if (bucketCount == 0)
                     {
                         return;
                     }
 
-                    var bucket = bucketArrays[sIdx];
+                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
@@ -895,13 +911,13 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             {
                 for (var sIdx = 0; sIdx < ShardCount; sIdx++)
                 {
-                    var bucketCount = bucketCounts[sIdx];
+                    var bucketCount = bucketCountsArray[sIdx];
                     if (bucketCount == 0)
                     {
                         continue;
                     }
 
-                    var bucket = bucketArrays[sIdx];
+                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
@@ -929,7 +945,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                if (bucketCounts[i] > 0)
+                if (bucketCountsArray[i] > 0)
                 {
                     ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: true);
                 }
