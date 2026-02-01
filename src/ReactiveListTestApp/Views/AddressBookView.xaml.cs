@@ -1,7 +1,6 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Windows.Controls;
 using ReactiveUI;
@@ -27,6 +26,11 @@ public partial class AddressBookView : UserControl, IViewFor<AddressBookViewMode
         {
             d(this.BindCommand(ViewModel, vm => vm.BulkImportCommand, v => v.BulkImportButton, Observable.Return(100)));
             d(this.BindCommand(ViewModel, vm => vm.BulkRemoveInactiveCommand, v => v.BulkRemoveButton));
+            d(this.Bind(ViewModel, vm => vm.SearchQuery, v => v.SearchTextBox.Text));
+            d(this.OneWayBind(ViewModel, vm => vm.AllContacts, v => v.AllContactsListBox.ItemsSource));
+            d(this.OneWayBind(ViewModel, vm => vm.FavoriteContacts, v => v.FavoritesListBox.ItemsSource));
+            d(this.OneWayBind(ViewModel, vm => vm.NewYorkContacts, v => v.NewYorkListBox.ItemsSource));
+            d(this.OneWayBind(ViewModel, vm => vm.SearchResults, v => v.SearchResultsListBox.ItemsSource));
         });
     }
 

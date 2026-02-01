@@ -3,6 +3,7 @@
 
 using System.Collections.ObjectModel;
 using System.Reactive;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using CP.Reactive;
@@ -25,7 +26,6 @@ public class AddressBookViewModel : RxObject
     private readonly QuaternaryList<Contact> _contactList = [];
     private readonly QuaternaryDictionary<Guid, Contact> _contactMap = [];
     private readonly BehaviorSubject<string> _searchText = new(string.Empty);
-    private DynamicReactiveView<Contact>? _searchView;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AddressBookViewModel"/> class.
@@ -120,16 +120,13 @@ public class AddressBookViewModel : RxObject
     public void BulkRemoveInactive()
     {
         // Query utilizing Secondary Index for speed
-        var hrDept = _contactList.GetItemsBySecondaryIndex("ByDepartment", "HR").ToList();
+        var hrDept = _contactList.GetItemsBySecondaryIndex("ByDepartment", "HR").ToArray();
 
         // Bulk Thread-Safe Remove
         _contactList.RemoveRange(hrDept);
 
         // Sync Dictionary
-        foreach (var c in hrDept)
-        {
-            _contactMap.Remove(c.Id);
-        }
+        _contactMap.RemoveKeys(hrDept.Select(c => c.Id));
     }
 
     /// <summary>
@@ -143,15 +140,11 @@ public class AddressBookViewModel : RxObject
     public void UpdateCityName(string oldCity, string newCity)
     {
         // 1. Find targets using Index (Fast)
-        var targets = _contactList.GetItemsBySecondaryIndex("ByCity", oldCity).ToList();
+        var targets = _contactList.GetItemsBySecondaryIndex("ByCity", oldCity).ToArray();
 
         // 2. Modify and Update
         // Since Records are immutable, we replace the object
-        var updates = new List<Contact>();
-        foreach (var c in targets)
-        {
-            updates.Add(c with { HomeAddress = c.HomeAddress with { City = newCity } });
-        }
+        var updates = targets.Select(c => c with { HomeAddress = c.HomeAddress with { City = newCity } }).ToArray();
 
         // 3. Apply updates (Remove old, Add new) effectively performs an update
         _contactList.RemoveRange(targets);
@@ -163,7 +156,6 @@ public class AddressBookViewModel : RxObject
     {
         if (disposing)
         {
-            _searchView?.Dispose();
             _contactList.Dispose();
             _contactMap.Dispose();
             _searchText.Dispose();
@@ -190,7 +182,7 @@ public class AddressBookViewModel : RxObject
 
     private void InitializeCommands()
     {
-        BulkImportCommand = ReactiveCommand.Create<int>(count => BulkImport(count));
+        BulkImportCommand = ReactiveCommand.Create<int>(BulkImport);
         BulkRemoveInactiveCommand = ReactiveCommand.Create(BulkRemoveInactive);
     }
 
@@ -208,20 +200,24 @@ public class AddressBookViewModel : RxObject
     {
         // 1. ALL CONTACTS (Throttled 100ms)
         _contactList.CreateView(RxSchedulers.MainThreadScheduler, throttleMs: 100)
-                    .ToProperty(x => AllContacts = x);
+                    .ToProperty(x => AllContacts = x)
+                    .DisposeWith(Disposables);
 
         // 2. FAVORITES (Filtered Subset)
         _contactList.CreateView(c => c.IsFavorite, RxSchedulers.MainThreadScheduler, throttleMs: 100)
-                    .ToProperty(x => FavoriteContacts = x);
+                    .ToProperty(x => FavoriteContacts = x)
+                    .DisposeWith(Disposables);
 
         // 3. SECONDARY KEY SUBSET (City == "New York")
         // Using CreateViewBySecondaryIndex for efficient secondary key filtering
         _contactList.CreateViewBySecondaryIndex("ByCity", "New York", RxSchedulers.MainThreadScheduler, throttleMs: 200)
-                    .ToProperty(x => NewYorkContacts = x);
+                    .ToProperty(x => NewYorkContacts = x)
+                    .DisposeWith(Disposables);
 
         // 4. DYNAMIC SEARCH QUERY
         // Using CreateView with IObservable for dynamic filter that rebuilds on search text change
-        _searchView = _contactList.CreateView(_searchText.Throttle(TimeSpan.FromMilliseconds(100)), (query, c) => Matches(c, query), RxSchedulers.MainThreadScheduler, throttleMs: 100)
-                                   .ToProperty(x => SearchResults = x);
+        _contactList.CreateView(_searchText.Throttle(TimeSpan.FromMilliseconds(100)), (query, c) => Matches(c, query), RxSchedulers.MainThreadScheduler, throttleMs: 100)
+                    .ToProperty(x => SearchResults = x)
+                    .DisposeWith(Disposables);
     }
 }

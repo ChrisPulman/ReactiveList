@@ -194,6 +194,7 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
 
                 break;
             case CacheAction.BatchOperation:
+            case CacheAction.BatchAdded:
                 if (n.Batch != null)
                 {
                     for (var i = 0; i < n.Batch.Count; i++)
@@ -203,6 +204,17 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
                         {
                             _target.Add(item);
                         }
+                    }
+                }
+
+                break;
+            case CacheAction.BatchRemoved:
+                if (n.Batch != null)
+                {
+                    for (var i = 0; i < n.Batch.Count; i++)
+                    {
+                        var item = n.Batch.Items[i];
+                        _target.Remove(item);
                     }
                 }
 

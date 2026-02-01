@@ -1,12 +1,13 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reactive.Linq;
 using System.Threading;
 using CP.Reactive;
-using FluentAssertions;
 using Xunit;
 
 namespace ReactiveList.Test;
@@ -22,8 +23,6 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that adding an item to a QuaternaryList increases the count and that the item is present in the list.
     /// </summary>
-    /// <remarks>This unit test ensures that the Add method correctly updates the Count property and that the
-    /// added item can be found using the Contains method.</remarks>
     [Fact]
     public void Add_ShouldIncreaseCountAndContainItem()
     {
@@ -31,17 +30,14 @@ public class QuaternaryListTests
 
         list.Add(42);
 
-        list.Count.Should().Be(1);
-        list.Contains(42).Should().BeTrue();
+        Assert.Single(list);
+        Assert.Contains(42, list);
     }
 
     /// <summary>
     /// Verifies that the AddRange method emits a batch notification and correctly copies the added items to the
     /// underlying collection.
     /// </summary>
-    /// <remarks>This test ensures that when multiple items are added to the QuaternaryList using AddRange, a
-    /// batch CacheNotify event is emitted, the batch contains all added items, and the items are correctly stored and
-    /// retrievable via CopyTo.</remarks>
     [Fact]
     public void AddRange_ShouldEmitBatchAndCopyItems()
     {
@@ -56,25 +52,26 @@ public class QuaternaryListTests
 
         list.AddRange([0, 1, 2, 3, 4]);
 
-        reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        notification.Should().NotBeNull();
-        notification!.Action.Should().Be(CacheAction.BatchOperation);
-        notification.Batch.Should().NotBeNull();
-        notification.Batch!.Count.Should().Be(5);
+        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
+        Assert.NotNull(notification);
+        Assert.Equal(CacheAction.BatchAdded, notification!.Action);
+        Assert.NotNull(notification.Batch);
+        Assert.Equal(5, notification.Batch!.Count);
         notification.Batch.Dispose();
 
-        list.Count.Should().Be(5);
+        Assert.Equal(5, list.Count);
         var buffer = new int[5];
         list.CopyTo(buffer, 0);
-        buffer.Should().BeEquivalentTo([0, 1, 2, 3, 4]);
+        Assert.Contains(0, buffer);
+        Assert.Contains(1, buffer);
+        Assert.Contains(2, buffer);
+        Assert.Contains(3, buffer);
+        Assert.Contains(4, buffer);
     }
 
     /// <summary>
-    /// Verifies that the indexer of the QuaternaryList of T returns the correct items across multiple shards.
+    /// Verifies that the indexer of the QuaternaryList returns the correct items across multiple shards.
     /// </summary>
-    /// <remarks>This test ensures that items added to a QuaternaryList of int can be accessed by their index,
-    /// even when the underlying storage spans multiple shards. It validates that the indexer retrieves the expected
-    /// values for each position.</remarks>
     [Fact]
     public void Indexer_ShouldReturnItemsAcrossShards()
     {
@@ -84,39 +81,26 @@ public class QuaternaryListTests
         list.Add(4);
         list.Add(8);
 
-        list[0].Should().Be(0);
-        list[1].Should().Be(4);
-        list[2].Should().Be(8);
+        Assert.Equal(0, list[0]);
+        Assert.Equal(4, list[1]);
+        Assert.Equal(8, list[2]);
     }
 
     /// <summary>
-    /// Verifies that unsupported modification operations on a QuaternaryList throw a NotSupportedException.
+    /// Verifies that setting an item via the indexer throws NotSupportedException.
     /// </summary>
-    /// <remarks>This test ensures that attempting to set an item via the indexer, call IndexOf, insert an
-    /// item, or remove an item by index on a QuaternaryList results in a NotSupportedException, indicating that these
-    /// operations are not supported by the collection.</remarks>
     [Fact]
-    public void UnsupportedOperations_ShouldThrow()
+    public void IndexerSetter_ShouldThrowNotSupportedException()
     {
         using var list = new QuaternaryList<int> { 1, 2, 3 };
 
-        Action indexerSetter = () => list[0] = 5;
-        Action indexOf = () => list.IndexOf(1);
-        Action insert = () => list.Insert(0, 1);
-        Action removeAt = () => list.RemoveAt(0);
-
-        indexerSetter.Should().Throw<NotSupportedException>();
-        indexOf.Should().Throw<NotSupportedException>();
-        insert.Should().Throw<NotSupportedException>();
-        removeAt.Should().Throw<NotSupportedException>();
+        Assert.Throws<NotSupportedException>(() => list[0] = 5);
     }
 
     /// <summary>
     /// Verifies that adding an index to a QuaternaryList and querying by that index correctly tracks and updates
     /// results as items are added and removed.
     /// </summary>
-    /// <remarks>This test ensures that the index remains consistent with the underlying collection, returning
-    /// accurate query results after modifications such as additions and removals.</remarks>
     [Fact]
     public void AddIndexAndQuery_ShouldTrackAndUpdate()
     {
@@ -129,20 +113,25 @@ public class QuaternaryListTests
 
         list.AddRange([ny, la, ny2]);
 
-        list.GetItemsBySecondaryIndex("ByCity", "New York").Should().BeEquivalentTo([ny, ny2]);
-        list.GetItemsBySecondaryIndex("ByCity", "Los Angeles").Should().ContainSingle().Which.Should().Be(la);
+        var nyResults = list.GetItemsBySecondaryIndex("ByCity", "New York").ToList();
+        Assert.Equal(2, nyResults.Count);
+        Assert.Contains(ny, nyResults);
+        Assert.Contains(ny2, nyResults);
+
+        var laResults = list.GetItemsBySecondaryIndex("ByCity", "Los Angeles").ToList();
+        Assert.Single(laResults);
+        Assert.Equal(la, laResults[0]);
 
         list.Remove(ny);
 
-        list.GetItemsBySecondaryIndex("ByCity", "New York").Should().ContainSingle().Which.Should().Be(ny2);
+        var nyResultsAfterRemove = list.GetItemsBySecondaryIndex("ByCity", "New York").ToList();
+        Assert.Single(nyResultsAfterRemove);
+        Assert.Equal(ny2, nyResultsAfterRemove[0]);
     }
 
     /// <summary>
     /// Verifies that calling Clear on a QuaternaryList resets the item collection and all associated indices.
     /// </summary>
-    /// <remarks>This test ensures that after invoking Clear, the list contains no items and all defined
-    /// indices return empty results. It validates that both the primary data and any secondary indices are properly
-    /// cleared.</remarks>
     [Fact]
     public void Clear_ShouldResetItemsAndIndices()
     {
@@ -156,20 +145,15 @@ public class QuaternaryListTests
 
         list.Clear();
 
-        list.Count.Should().Be(0);
-        list.GetItemsBySecondaryIndex("ByCity", "New York").Should().BeEmpty();
+        Assert.Empty(list);
+        Assert.Empty(list.GetItemsBySecondaryIndex("ByCity", "New York"));
     }
 
     /// <summary>
-    /// Verifies that the RemoveRange method removes the specified items from the list and emits a batch notification
-    /// event.
+    /// Verifies that the RemoveRange method removes the specified items from the list and emits a batch removed notification.
     /// </summary>
-    /// <remarks>This test ensures that when multiple items are removed using RemoveRange, the list updates
-    /// its contents accordingly and a batch operation notification is published to subscribers of the Stream. The test
-    /// also checks that the removed items are no longer present in the list and that the notification is received
-    /// within a reasonable time frame.</remarks>
     [Fact]
-    public void RemoveRange_ShouldRemoveItemsAndEmitBatch()
+    public void RemoveRange_ShouldRemoveItemsAndEmitBatchRemoved()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, 2, 3, 4]);
@@ -178,7 +162,7 @@ public class QuaternaryListTests
         using var reset = new ManualResetEventSlim(false);
         using var subscription = list.Stream.Subscribe(evt =>
         {
-            if (evt.Action == CacheAction.BatchOperation)
+            if (evt.Action == CacheAction.BatchRemoved)
             {
                 notification = evt;
                 reset.Set();
@@ -187,15 +171,22 @@ public class QuaternaryListTests
 
         list.RemoveRange([2, 4]);
 
-        reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        notification.Should().NotBeNull();
-        list.Count.Should().Be(2);
-        list.Contains(2).Should().BeFalse();
-        list.Contains(4).Should().BeFalse();
+        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
+        Assert.NotNull(notification);
+        Assert.Equal(CacheAction.BatchRemoved, notification!.Action);
+        Assert.NotNull(notification.Batch);
+        Assert.Equal(2, notification.Batch!.Count);
+        notification.Batch.Dispose();
+
+        Assert.Equal(2, list.Count);
+        Assert.DoesNotContain(2, list);
+        Assert.DoesNotContain(4, list);
+        Assert.Contains(1, list);
+        Assert.Contains(3, list);
     }
 
     /// <summary>
-    /// Verifies that RemoveMany with a predicate removes matching items and emits a batch notification.
+    /// Verifies that RemoveMany with a predicate removes matching items and emits a batch removed notification.
     /// </summary>
     [Fact]
     public void RemoveMany_WithPredicate_ShouldRemoveMatchingItems()
@@ -207,7 +198,7 @@ public class QuaternaryListTests
         using var reset = new ManualResetEventSlim(false);
         using var subscription = list.Stream.Subscribe(evt =>
         {
-            if (evt.Action == CacheAction.BatchOperation)
+            if (evt.Action == CacheAction.BatchRemoved)
             {
                 notification = evt;
                 reset.Set();
@@ -216,13 +207,13 @@ public class QuaternaryListTests
 
         var removedCount = list.RemoveMany(x => x % 2 == 0);
 
-        reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        removedCount.Should().Be(5);
-        list.Count.Should().Be(5);
-        list.Contains(2).Should().BeFalse();
-        list.Contains(4).Should().BeFalse();
-        list.Contains(1).Should().BeTrue();
-        list.Contains(3).Should().BeTrue();
+        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
+        Assert.Equal(5, removedCount);
+        Assert.Equal(5, list.Count);
+        Assert.DoesNotContain(2, list);
+        Assert.DoesNotContain(4, list);
+        Assert.Contains(1, list);
+        Assert.Contains(3, list);
     }
 
     /// <summary>
@@ -253,13 +244,14 @@ public class QuaternaryListTests
             innerList.Add(30);
         });
 
-        reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        notifications.Should().ContainSingle().Which.Should().Be(CacheAction.BatchOperation);
-        list.Count.Should().Be(3);
-        list.Contains(10).Should().BeTrue();
-        list.Contains(20).Should().BeTrue();
-        list.Contains(30).Should().BeTrue();
-        list.Contains(1).Should().BeFalse();
+        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
+        Assert.Single(notifications);
+        Assert.Equal(CacheAction.BatchOperation, notifications[0]);
+        Assert.Equal(3, list.Count);
+        Assert.Contains(10, list);
+        Assert.Contains(20, list);
+        Assert.Contains(30, list);
+        Assert.DoesNotContain(1, list);
     }
 
     /// <summary>
@@ -283,9 +275,197 @@ public class QuaternaryListTests
             innerList.Add(new TestPerson("Diana", "Chicago"));
         });
 
-        list.GetItemsBySecondaryIndex("ByCity", "NYC").Should().ContainSingle().Which.Name.Should().Be("Charlie");
-        list.GetItemsBySecondaryIndex("ByCity", "LA").Should().BeEmpty();
-        list.GetItemsBySecondaryIndex("ByCity", "Chicago").Should().ContainSingle().Which.Name.Should().Be("Diana");
+        var nycResults = list.GetItemsBySecondaryIndex("ByCity", "NYC").ToList();
+        Assert.Single(nycResults);
+        Assert.Equal("Charlie", nycResults[0].Name);
+        Assert.Empty(list.GetItemsBySecondaryIndex("ByCity", "LA"));
+        var chicagoResults = list.GetItemsBySecondaryIndex("ByCity", "Chicago").ToList();
+        Assert.Single(chicagoResults);
+        Assert.Equal("Diana", chicagoResults[0].Name);
+    }
+
+    /// <summary>
+    /// Verifies that Remove returns true when item exists and false when it doesn't.
+    /// </summary>
+    [Fact]
+    public void Remove_ShouldReturnCorrectResult()
+    {
+        using var list = new QuaternaryList<int>();
+        list.Add(42);
+
+        Assert.True(list.Remove(42));
+        Assert.False(list.Remove(42));
+        Assert.Empty(list);
+    }
+
+    /// <summary>
+    /// Verifies that Contains returns correct results.
+    /// </summary>
+    [Fact]
+    public void Contains_ShouldReturnCorrectResult()
+    {
+        using var list = new QuaternaryList<int>();
+        list.Add(42);
+
+        Assert.Contains(42, list);
+        Assert.DoesNotContain(99, list);
+    }
+
+    /// <summary>
+    /// Verifies that CopyTo copies all items to the target array.
+    /// </summary>
+    [Fact]
+    public void CopyTo_ShouldCopyAllItems()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3, 4, 5]);
+
+        var buffer = new int[5];
+        list.CopyTo(buffer, 0);
+
+        Assert.Equal(5, buffer.Length);
+        Assert.Contains(1, buffer);
+        Assert.Contains(2, buffer);
+        Assert.Contains(3, buffer);
+        Assert.Contains(4, buffer);
+        Assert.Contains(5, buffer);
+    }
+
+    /// <summary>
+    /// Verifies that GetEnumerator iterates over all items.
+    /// </summary>
+    [Fact]
+    public void GetEnumerator_ShouldIterateAllItems()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3, 4, 5]);
+
+        var items = list.ToList();
+
+        Assert.Equal(5, items.Count);
+        Assert.Contains(1, items);
+        Assert.Contains(2, items);
+        Assert.Contains(3, items);
+        Assert.Contains(4, items);
+        Assert.Contains(5, items);
+    }
+
+    /// <summary>
+    /// Verifies that IsReadOnly returns false.
+    /// </summary>
+    [Fact]
+    public void IsReadOnly_ShouldReturnFalse()
+    {
+        using var list = new QuaternaryList<int>();
+        Assert.False(list.IsReadOnly);
+    }
+
+    /// <summary>
+    /// Verifies that ItemMatchesSecondaryIndex returns correct results.
+    /// </summary>
+    [Fact]
+    public void ItemMatchesSecondaryIndex_ShouldReturnCorrectResult()
+    {
+        using var list = new QuaternaryList<TestPerson>();
+        list.AddIndex("ByCity", p => p.City);
+
+        var ny = new TestPerson("A", "New York");
+        var la = new TestPerson("B", "Los Angeles");
+        list.AddRange([ny, la]);
+
+        Assert.True(list.ItemMatchesSecondaryIndex("ByCity", ny, "New York"));
+        Assert.False(list.ItemMatchesSecondaryIndex("ByCity", ny, "Los Angeles"));
+        Assert.True(list.ItemMatchesSecondaryIndex("ByCity", la, "Los Angeles"));
+        Assert.False(list.ItemMatchesSecondaryIndex("NonExistent", ny, "New York"));
+    }
+
+    /// <summary>
+    /// Verifies that GetItemsBySecondaryIndex returns empty when index doesn't exist.
+    /// </summary>
+    [Fact]
+    public void GetItemsBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
+    {
+        using var list = new QuaternaryList<TestPerson>();
+        var result = list.GetItemsBySecondaryIndex("NonExistent", "SomeKey");
+        Assert.Empty(result);
+    }
+
+    /// <summary>
+    /// Verifies that Stream emits Added notification for single item add.
+    /// </summary>
+    [Fact]
+    public void Stream_ShouldEmitAddedNotification()
+    {
+        using var list = new QuaternaryList<int>();
+        CacheNotify<int>? notification = null;
+        using var reset = new ManualResetEventSlim(false);
+        using var subscription = list.Stream.Subscribe(evt =>
+        {
+            notification = evt;
+            reset.Set();
+        });
+
+        list.Add(42);
+
+        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
+        Assert.NotNull(notification);
+        Assert.Equal(CacheAction.Added, notification!.Action);
+        Assert.Equal(42, notification.Item);
+    }
+
+    /// <summary>
+    /// Verifies that Stream emits Removed notification for single item remove.
+    /// </summary>
+    [Fact]
+    public void Stream_ShouldEmitRemovedNotification()
+    {
+        using var list = new QuaternaryList<int>();
+        list.Add(42);
+
+        CacheNotify<int>? notification = null;
+        using var reset = new ManualResetEventSlim(false);
+        using var subscription = list.Stream.Subscribe(evt =>
+        {
+            if (evt.Action == CacheAction.Removed)
+            {
+                notification = evt;
+                reset.Set();
+            }
+        });
+
+        list.Remove(42);
+
+        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
+        Assert.NotNull(notification);
+        Assert.Equal(CacheAction.Removed, notification!.Action);
+        Assert.Equal(42, notification.Item);
+    }
+
+    /// <summary>
+    /// Verifies that Stream emits Cleared notification.
+    /// </summary>
+    [Fact]
+    public void Stream_ShouldEmitClearedNotification()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3]);
+
+        CacheNotify<int>? notification = null;
+        using var reset = new ManualResetEventSlim(false);
+        using var subscription = list.Stream.Subscribe(evt =>
+        {
+            if (evt.Action == CacheAction.Cleared)
+            {
+                notification = evt;
+                reset.Set();
+            }
+        });
+
+        list.Clear();
+
+        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
+        Assert.NotNull(notification);
+        Assert.Equal(CacheAction.Cleared, notification!.Action);
     }
 
     private record TestPerson(string Name, string City);

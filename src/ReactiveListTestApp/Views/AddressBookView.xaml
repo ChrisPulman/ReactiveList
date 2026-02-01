@@ -27,9 +27,9 @@
             Margin="0,0,0,10"
             Orientation="Horizontal">
             <TextBox
+                x:Name="SearchTextBox"
                 Width="200"
-                Margin="5"
-                Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" />
+                Margin="5" />
             <Button
                 x:Name="BulkImportButton"
                 Margin="5"
@@ -47,9 +47,9 @@
             Margin="5"
             Header="All Contacts">
             <ListBox
+                x:Name="AllContactsListBox"
                 Height="150"
-                DisplayMemberPath="Email"
-                ItemsSource="{Binding AllContacts}" />
+                DisplayMemberPath="Email" />
         </GroupBox>
 
         <!--  Favorites  -->
@@ -59,9 +59,9 @@
             Margin="5"
             Header="Favorites">
             <ListBox
+                x:Name="FavoritesListBox"
                 Height="150"
-                DisplayMemberPath="Email"
-                ItemsSource="{Binding FavoriteContacts}" />
+                DisplayMemberPath="Email" />
         </GroupBox>
 
         <!--  New York Contacts  -->
@@ -70,7 +70,7 @@
             Grid.Column="0"
             Margin="5"
             Header="New York Contacts">
-            <ListBox DisplayMemberPath="Email" ItemsSource="{Binding NewYorkContacts}" />
+            <ListBox x:Name="NewYorkListBox" DisplayMemberPath="Email" />
         </GroupBox>
 
         <!--  Search Results  -->
@@ -79,7 +79,7 @@
             Grid.Column="1"
             Margin="5"
             Header="Search Results">
-            <ListBox DisplayMemberPath="Email" ItemsSource="{Binding SearchResults}" />
+            <ListBox x:Name="SearchResultsListBox" DisplayMemberPath="Email" />
         </GroupBox>
     </Grid>
 </UserControl>

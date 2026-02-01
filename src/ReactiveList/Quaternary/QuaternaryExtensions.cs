@@ -37,7 +37,7 @@ public static class QuaternaryExtensions
         ArgumentNullException.ThrowIfNull(list);
 
         // Thread-safe snapshot
-        var snapshot = list.ToList();
+        var snapshot = list.ToArray();
         return new ReactiveView<T>(list.Stream, snapshot, _ => true, TimeSpan.FromMilliseconds(throttleMs), scheduler);
     }
 
@@ -63,7 +63,7 @@ public static class QuaternaryExtensions
         ArgumentNullException.ThrowIfNull(list);
 
         // Thread-safe snapshot
-        var snapshot = list.ToList();
+        var snapshot = list.ToArray();
         return new ReactiveView<T>(list.Stream, snapshot, filter, TimeSpan.FromMilliseconds(throttleMs), scheduler);
     }
 
@@ -144,12 +144,11 @@ public static class QuaternaryExtensions
         ArgumentNullException.ThrowIfNull(indexName);
 
         // Get initial snapshot from the secondary index
-        var snapshot = list.GetItemsBySecondaryIndex(indexName, key).ToList();
+        var snapshot = list.GetItemsBySecondaryIndex(indexName, key);
 
-        // Create a filter that uses the secondary index for the predicate
-        // Note: The filter validates items match the key during stream processing
-        var keySet = new HashSet<T>(snapshot);
-        return new ReactiveView<T>(list.Stream, snapshot, item => keySet.Contains(item), TimeSpan.FromMilliseconds(throttleMs), scheduler);
+        // Create a filter that dynamically checks against the secondary index
+        // This ensures new items are properly filtered based on their key value
+        return new ReactiveView<T>(list.Stream, snapshot, item => list.ItemMatchesSecondaryIndex(indexName, item, key), TimeSpan.FromMilliseconds(throttleMs), scheduler);
     }
 
     /// <summary>
@@ -176,15 +175,16 @@ public static class QuaternaryExtensions
         ArgumentNullException.ThrowIfNull(keys);
 
         // Get initial snapshot from the secondary index for all keys
-        var snapshot = new List<T>();
-        foreach (var key in keys)
-        {
-            snapshot.AddRange(list.GetItemsBySecondaryIndex(indexName, key));
-        }
+        var snapshot = keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key));
 
-        // Create a set for efficient lookup
-        var keySet = new HashSet<T>(snapshot);
-        return new ReactiveView<T>(list.Stream, snapshot, item => keySet.Contains(item), TimeSpan.FromMilliseconds(throttleMs), scheduler);
+        // Create a filter that dynamically checks against any of the keys
+        var keySet = new HashSet<TKey>(keys);
+        return new ReactiveView<T>(
+            list.Stream,
+            snapshot,
+            item => keySet.Any(key => list.ItemMatchesSecondaryIndex(indexName, item, key)),
+            TimeSpan.FromMilliseconds(throttleMs),
+            scheduler);
     }
 
     /// <summary>
@@ -214,14 +214,7 @@ public static class QuaternaryExtensions
         var filterObservable = keysObservable.Select<TKey[], Func<T, bool>>(keys =>
         {
             // Build a hashset of items matching the keys for efficient lookup
-            var matchingItems = new HashSet<T>();
-            foreach (var key in keys)
-            {
-                foreach (var item in list.GetItemsBySecondaryIndex(indexName, key))
-                {
-                    matchingItems.Add(item);
-                }
-            }
+            var matchingItems = new HashSet<T>(keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key)));
 
             return item => matchingItems.Contains(item);
         });
@@ -292,14 +285,7 @@ public static class QuaternaryExtensions
         return stream.Select(notification =>
         {
             // Get the current set of items matching all keys from the secondary index
-            var matchingItems = new HashSet<T>();
-            foreach (var key in keys)
-            {
-                foreach (var item in list.GetItemsBySecondaryIndex(indexName, key))
-                {
-                    matchingItems.Add(item);
-                }
-            }
+            var matchingItems = new HashSet<T>(keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key)));
 
             return notification.Action switch
             {
@@ -330,17 +316,14 @@ public static class QuaternaryExtensions
 
         return filterObservable
             .StartWith(static _ => true) // Default to include all items
-            .Select(filter => stream.Select(notification =>
-            {
-                return notification.Action switch
+            .Select(filter => stream.Select(notification => notification.Action switch
                 {
                     CacheAction.Added when notification.Item != null && filter(notification.Item) => notification,
                     CacheAction.Removed when notification.Item != null => notification, // Always pass removed items
                     CacheAction.BatchOperation when notification.Batch != null => FilterBatchByPredicate(notification, filter),
                     CacheAction.Cleared => notification,
                     _ => null
-                };
-            }).Where(n => n != null).Select(n => n!))
+                }).Where(n => n != null).Select(n => n!))
             .Switch();
     }
 
@@ -365,7 +348,7 @@ public static class QuaternaryExtensions
         ArgumentNullException.ThrowIfNull(dict);
 
         // Thread-safe snapshot
-        var snapshot = dict.ToList();
+        var snapshot = dict.ToArray();
         return new ReactiveView<KeyValuePair<TKey, TValue>>(dict.Stream, snapshot, filter, TimeSpan.FromMilliseconds(throttleMs), scheduler);
     }
 

@@ -256,7 +256,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
 
         if (totalRemoved > 0)
         {
-            Emit(CacheAction.BatchOperation, default);
+            EmitBatchRemovedFromList(removedItems, removedItems.Count);
         }
 
         return totalRemoved;
@@ -344,27 +344,23 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     }
 
     /// <summary>
-    /// Returns the zero-based index of the first occurrence of the specified item.
+    /// Determines whether the specified item matches the given key in the specified secondary index.
     /// </summary>
-    /// <param name="item">The item to locate.</param>
-    /// <returns>The index of the item, or -1 if not found.</returns>
-    /// <exception cref="NotSupportedException">This method is not supported.</exception>
-    public int IndexOf(T item) => throw new NotSupportedException("Global IndexOf is slow. Use Contains.");
+    /// <typeparam name="TKey">The type of the key used in the secondary index.</typeparam>
+    /// <param name="indexName">The name of the secondary index to use for matching.</param>
+    /// <param name="item">The item to check.</param>
+    /// <param name="key">The key value to match against.</param>
+    /// <returns><see langword="true"/> if the item's indexed value matches the specified key; otherwise, <see langword="false"/>.</returns>
+    public bool ItemMatchesSecondaryIndex<TKey>(string indexName, T item, TKey key)
+        where TKey : notnull
+    {
+        if (_indices.TryGetValue(indexName, out var idx))
+        {
+            return idx.MatchesKey(item, key);
+        }
 
-    /// <summary>
-    /// Inserts an item at the specified index.
-    /// </summary>
-    /// <param name="index">The index at which to insert.</param>
-    /// <param name="item">The item to insert.</param>
-    /// <exception cref="NotSupportedException">This method is not supported.</exception>
-    public void Insert(int index, T item) => throw new NotSupportedException("Use Add.");
-
-    /// <summary>
-    /// Removes the item at the specified index.
-    /// </summary>
-    /// <param name="index">The index of the item to remove.</param>
-    /// <exception cref="NotSupportedException">This method is not supported.</exception>
-    public void RemoveAt(int index) => throw new NotSupportedException("Use Remove(item).");
+        return false;
+    }
 
     /// <summary>
     /// Determines whether the collection contains a specific value.
@@ -874,7 +870,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 }
             }
 
-            Emit(CacheAction.BatchOperation, default);
+            EmitBatchRemoved(items, count);
         }
         finally
         {
@@ -984,7 +980,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
                 }
             }
 
-            Emit(CacheAction.BatchOperation, default);
+            EmitBatchRemovedFromList(items, count);
         }
         finally
         {
@@ -1003,7 +999,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     {
         var pool = ArrayPool<T>.Shared.Rent(count);
         Array.Copy(items, pool, count);
-        Emit(CacheAction.BatchOperation, default, new PooledBatch<T>(pool, count));
+        Emit(CacheAction.BatchAdded, default, new PooledBatch<T>(pool, count));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1015,7 +1011,27 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
             pool[i] = items[i];
         }
 
-        Emit(CacheAction.BatchOperation, default, new PooledBatch<T>(pool, count));
+        Emit(CacheAction.BatchAdded, default, new PooledBatch<T>(pool, count));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void EmitBatchRemoved(T[] items, int count)
+    {
+        var pool = ArrayPool<T>.Shared.Rent(count);
+        Array.Copy(items, pool, count);
+        Emit(CacheAction.BatchRemoved, default, new PooledBatch<T>(pool, count));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void EmitBatchRemovedFromList(IList<T> items, int count)
+    {
+        var pool = ArrayPool<T>.Shared.Rent(count);
+        for (var i = 0; i < count; i++)
+        {
+            pool[i] = items[i];
+        }
+
+        Emit(CacheAction.BatchRemoved, default, new PooledBatch<T>(pool, count));
     }
 
     /// <summary>

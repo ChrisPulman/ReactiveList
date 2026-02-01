@@ -36,5 +36,13 @@ public interface ISecondaryIndex<T>
     /// Removes all items from the collection.
     /// </summary>
     void Clear();
+
+    /// <summary>
+    /// Determines whether the specified item's key matches the provided key object.
+    /// </summary>
+    /// <param name="item">The item whose key should be compared.</param>
+    /// <param name="key">The key to compare against. Must be of the correct type for this index.</param>
+    /// <returns><see langword="true"/> if the item's key matches the specified key; otherwise, <see langword="false"/>.</returns>
+    bool MatchesKey(T item, object key);
 }
 #endif

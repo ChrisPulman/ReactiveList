@@ -16,24 +16,38 @@ public enum CacheAction
     /// Gets or sets the date and time when the entity was added.
     /// </summary>
     Added,
+
     /// <summary>
     /// Gets or sets a value indicating whether the item has been removed.
     /// </summary>
     Removed,
+
     /// <summary>
     /// Gets or sets the date and time when the entity was last updated.
     /// </summary>
     Updated,
+
     /// <summary>
     /// Indicates that the item has been cleared and is no longer in use.
     /// </summary>
     Cleared,
+
     /// <summary>
     /// Represents an operation that can be executed as part of a batch process.
     /// </summary>
     /// <remarks>Use this type to group multiple operations together for collective execution, which can
     /// improve performance and ensure consistency. The specific behavior and requirements of a batch operation depend
     /// on the implementation.</remarks>
-    BatchOperation
+    BatchOperation,
+
+    /// <summary>
+    /// Represents a batch addition operation where multiple items are added at once.
+    /// </summary>
+    BatchAdded,
+
+    /// <summary>
+    /// Represents a batch removal operation where multiple items are removed at once.
+    /// </summary>
+    BatchRemoved
 }
 #endif

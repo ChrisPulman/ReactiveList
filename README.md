@@ -69,8 +69,10 @@ This library provides:
 
 - A `ReactiveList<T>` implementation that allows you to observe changes in real-time.
 - A `Reactive2DList<T>` for managing a list of lists (2D structure) with reactive capabilities.
+
+> Net 8 and above also includes:
 - A `QuaternaryDictionary<TKey, TValue>` for high-performance key-value storage with reactive features.
-- A `QuaternaryList<T>` for optimized list operations at scale with reactive capabilities.
+- A `QuaternaryList<T>` for optimized list like operations at scale with reactive capabilities.
 
 Here's a quick example to get you started:
 
