@@ -113,6 +113,12 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         }
     }
 
+    /// <summary>
+    /// Calculates the shard index for the specified key.
+    /// </summary>
+    /// <param name="item">The key for which to compute the shard index.</param>
+    /// <returns>An integer representing the zero-based index of the shard to which the key is assigned. The value ranges from 0
+    /// to 3.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int GetShardIndex(TKey item) => (item.GetHashCode() & 0x7FFFFFFF) % 4;
 }

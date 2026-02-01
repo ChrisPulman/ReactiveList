@@ -883,6 +883,7 @@ High-performance, thread-safe, sharded collections optimized for large-scale rea
 
 ## QuaternaryList&lt;T&gt; API Reference
 
+
 ### Properties
 
 | Property | Type | Description |
@@ -904,7 +905,20 @@ High-performance, thread-safe, sharded collections optimized for large-scale rea
 | `Contains(T item)` | Check if item exists (O(1) average) |
 | `Edit(Action<IList<T>> editAction)` | Batch operations with single notification |
 | `AddIndex<TKey>(string name, Func<T, TKey> keySelector)` | Add secondary index |
-| `Query<TKey>(string indexName, TKey key)` | Query using secondary index |
+| `GetItemsBySecondaryIndex<TKey>(string indexName, TKey key)` | Query using secondary index |
+| `CopyTo(T[] array, int arrayIndex)` | Copy all items to an array |
+| `GetEnumerator()` | Enumerate all items across shards |
+
+### Unsupported Methods (Due to Sharded Architecture)
+
+| Method | Alternative |
+|--------|-------------|
+| `IndexOf(T item)` | Use `Contains(item)` to check existence |
+| `Insert(int index, T item)` | Use `Add(item)` - sharding determines placement |
+| `RemoveAt(int index)` | Use `Remove(item)` or `RemoveMany(predicate)` |
+| `this[int index] { set; }` | Use `Remove` + `Add` for updates |
+
+> **Note**: QuaternaryList distributes items across 4 shards based on hash code. Index-based operations would be misleading since item order is determined by the sharding algorithm, not insertion order.
 
 ### Secondary Indices
 
@@ -921,8 +935,8 @@ list.AddIndex("ByDepartment", c => c.Department);
 list.AddRange(contacts);
 
 // Fast O(1) query by index
-var newYorkers = list.Query("ByCity", "New York");
-var engineers = list.Query("ByDepartment", "Engineering");
+var newYorkers = list.GetItemsBySecondaryIndex("ByCity", "New York");
+var engineers = list.GetItemsBySecondaryIndex("ByDepartment", "Engineering");
 ```
 
 ---
@@ -1104,7 +1118,7 @@ sourceList.AddRange(people);
 sourceList.Edit(list =>
 {
     list.Add(new Person("John"));
-    list.RemoveAt(0);
+    list.RemoveAt(0);  // SourceList supports index-based removal
 });
 sourceList.Connect()
     .Filter(p => p.Age > 18)
@@ -1112,12 +1126,19 @@ sourceList.Connect()
     .Subscribe(changes => { });
 
 // QuaternaryList equivalent
+// Note: QuaternaryList is sharded, so index-based operations are not supported.
+// Use item-based Remove() or RemoveMany() instead of RemoveAt().
 var quaternaryList = new QuaternaryList<Person>();
 quaternaryList.AddRange(people);
 quaternaryList.Edit(list =>
 {
     list.Add(new Person("John"));
-    list.RemoveAt(0);
+    // Use Remove(item) instead of RemoveAt(index)
+    var firstItem = list.FirstOrDefault();
+    if (firstItem != null)
+    {
+        list.Remove(firstItem);
+    }
 });
 quaternaryList.Stream
     .Where(n => n.Action == CacheAction.Added && n.Item?.Age > 18)
@@ -1146,6 +1167,7 @@ sourceCache.Connect()
     .Bind(out var activeUsers)
     .Subscribe();
 
+
 // QuaternaryDictionary equivalent
 var quaternaryDict = new QuaternaryDictionary<Guid, Person>();
 quaternaryDict.AddOrUpdate(person.Id, person);
@@ -1173,8 +1195,12 @@ quaternaryDict.CreateView(p => p.IsActive, RxApp.MainThreadScheduler)
 | `Watch()` | Subscribe to `Stream` | Filter by key in subscription |
 | `SourceCache<T, TKey>` | `QuaternaryDictionary<TKey, T>` | Key selector not needed |
 | `AddOrUpdate(item)` | `AddOrUpdate(key, value)` | Explicit key required |
+| `RemoveAt(index)` | `Remove(item)` | Index-based ops not supported (sharded) |
+| `Insert(index, item)` | `Add(item)` | Index-based ops not supported (sharded) |
+| `IndexOf(item)` | `Contains(item)` | Use Contains for existence check |
 
 ---
+
 
 ## Advanced Example: Address Book Application
 
@@ -1229,7 +1255,7 @@ public class AddressBookViewModel : IDisposable
     public void BulkRemoveByDepartment(string department)
     {
         // O(1) query using secondary index
-        var targets = _contactList.Query("ByDepartment", department).ToList();
+        var targets = _contactList.GetItemsBySecondaryIndex("ByDepartment", department).ToList();
         
         // Bulk thread-safe remove
         _contactList.RemoveRange(targets);
@@ -1244,7 +1270,7 @@ public class AddressBookViewModel : IDisposable
     public void UpdateCityName(string oldCity, string newCity)
     {
         // Fast index query
-        var targets = _contactList.Query("ByCity", oldCity).ToList();
+        var targets = _contactList.GetItemsBySecondaryIndex("ByCity", oldCity).ToList();
 
         // Create updated records
         var updates = targets.Select(c => 

@@ -129,12 +129,12 @@ public class QuaternaryListTests
 
         list.AddRange([ny, la, ny2]);
 
-        list.Query("ByCity", "New York").Should().BeEquivalentTo([ny, ny2]);
-        list.Query("ByCity", "Los Angeles").Should().ContainSingle().Which.Should().Be(la);
+        list.GetItemsBySecondaryIndex("ByCity", "New York").Should().BeEquivalentTo([ny, ny2]);
+        list.GetItemsBySecondaryIndex("ByCity", "Los Angeles").Should().ContainSingle().Which.Should().Be(la);
 
         list.Remove(ny);
 
-        list.Query("ByCity", "New York").Should().ContainSingle().Which.Should().Be(ny2);
+        list.GetItemsBySecondaryIndex("ByCity", "New York").Should().ContainSingle().Which.Should().Be(ny2);
     }
 
     /// <summary>
@@ -157,7 +157,7 @@ public class QuaternaryListTests
         list.Clear();
 
         list.Count.Should().Be(0);
-        list.Query("ByCity", "New York").Should().BeEmpty();
+        list.GetItemsBySecondaryIndex("ByCity", "New York").Should().BeEmpty();
     }
 
     /// <summary>
@@ -283,9 +283,9 @@ public class QuaternaryListTests
             innerList.Add(new TestPerson("Diana", "Chicago"));
         });
 
-        list.Query("ByCity", "NYC").Should().ContainSingle().Which.Name.Should().Be("Charlie");
-        list.Query("ByCity", "LA").Should().BeEmpty();
-        list.Query("ByCity", "Chicago").Should().ContainSingle().Which.Name.Should().Be("Diana");
+        list.GetItemsBySecondaryIndex("ByCity", "NYC").Should().ContainSingle().Which.Name.Should().Be("Charlie");
+        list.GetItemsBySecondaryIndex("ByCity", "LA").Should().BeEmpty();
+        list.GetItemsBySecondaryIndex("ByCity", "Chicago").Should().ContainSingle().Which.Name.Should().Be("Diana");
     }
 
     private record TestPerson(string Name, string City);

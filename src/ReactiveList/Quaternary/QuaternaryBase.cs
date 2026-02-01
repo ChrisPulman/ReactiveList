@@ -127,6 +127,13 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
         }
     }
 
+    /// <summary>
+    /// Asynchronously processes events from the event channel until cancellation is requested.
+    /// </summary>
+    /// <remarks>This method reads events from the internal event channel and processes them through the
+    /// pipeline. The operation continues until the associated cancellation token is triggered. If a legacy collection
+    /// changed handler is registered, it is invoked for each event.</remarks>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task ProcessEventsAsync()
     {
         var reader = _eventChannel.Reader;
@@ -150,6 +157,15 @@ public abstract class QuaternaryBase<TItem> : IDisposable, INotifyCollectionChan
         }
     }
 
+    /// <summary>
+    /// Raises the CollectionChanged event to notify subscribers of changes to the collection, using legacy
+    /// INotifyCollectionChanged semantics.
+    /// </summary>
+    /// <remarks>This method adapts cache change events to the INotifyCollectionChanged pattern, using the
+    /// Reset action for batch or ambiguous operations to ensure correct UI updates, especially in sharded or
+    /// partitioned collections. The event is dispatched on the captured synchronization context if available, which is
+    /// typically required for UI thread updates.</remarks>
+    /// <param name="evt">The cache notification event containing information about the collection change to be propagated.</param>
     private void InvokeLegacyINCC(CacheNotify<TItem> evt)
     {
         var handler = CollectionChanged;

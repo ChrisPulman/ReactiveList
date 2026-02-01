@@ -11,9 +11,15 @@ using CP.Reactive.Quaternary;
 namespace CP.Reactive;
 
 /// <summary>
-/// Represents a thread-safe, sharded list that partitions elements across four internal lists to improve concurrency
-/// and scalability.
+/// Represents a high-performance, thread-safe list that partitions its elements across four internal shards for
+/// efficient concurrent access and batch operations. Supports secondary indexing for fast lookups by custom keys.
 /// </summary>
+/// <remarks>QuaternaryList{T} is optimized for scenarios involving frequent additions, removals, and batch
+/// operations on large datasets. Internally, items are distributed across four shards to reduce contention and improve
+/// parallelism. The collection is not read-only and supports dynamic growth. Secondary indices can be added to enable
+/// efficient lookups by arbitrary keys, which is useful for advanced querying scenarios. All public methods are
+/// thread-safe. Direct index-based operations (such as Insert, RemoveAt, or setting by index) are not supported and
+/// will throw exceptions; use Add, Remove, or batch methods instead.</remarks>
 /// <typeparam name="T">The type of elements stored in the list.</typeparam>
 public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
 {
@@ -260,7 +266,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     /// Performs a batch edit operation on the collection, ensuring only a single change notification is emitted.
     /// </summary>
     /// <param name="editAction">An action that receives an editable list interface to perform modifications.</param>
-    public void Edit(Action<IList<T>> editAction)
+    public void Edit(Action<ICollection<T>> editAction)
     {
         ArgumentNullException.ThrowIfNull(editAction);
 
@@ -326,7 +332,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     /// <param name="indexName">The name of the secondary index to query.</param>
     /// <param name="key">The key value to search for within the specified index.</param>
     /// <returns>An enumerable collection of entities that match the specified key.</returns>
-    public IEnumerable<T> Query<TKey>(string indexName, TKey key)
+    public IEnumerable<T> GetItemsBySecondaryIndex<TKey>(string indexName, TKey key)
         where TKey : notnull
     {
         if (_indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<T, TKey> typedIdx)
@@ -438,12 +444,29 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection.
+    /// </summary>
+    /// <returns>An <see cref="IEnumerator"/> that can be used to iterate through the collection.</returns>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+    /// <summary>
+    /// Calculates the shard index for the specified item based on its hash code.
+    /// </summary>
+    /// <remarks>The shard index is determined by applying a hash function to the item. If the item is null, a
+    /// default hash code of 0 is used. The result is always a non-negative integer less than ShardCount.</remarks>
+    /// <param name="item">The item for which to compute the shard index. Can be null.</param>
+    /// <returns>An integer representing the zero-based index of the shard to which the item is assigned.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int GetShardIndex(T? item) => ((item?.GetHashCode() ?? 0) & 0x7FFFFFFF) & (ShardCount - 1);
 
+    /// <summary>
+    /// Retrieves the element at the specified global index across all shards.
+    /// </summary>
+    /// <param name="index">The zero-based global index of the element to retrieve. Must be greater than or equal to 0 and less than the
+    /// total number of elements.</param>
+    /// <returns>The element of type T located at the specified global index.</returns>
+    /// <exception cref="IndexOutOfRangeException">Thrown when the specified index is less than 0 or greater than or equal to the total number of elements.</exception>
     private T GetAtGlobalIndex(int index)
     {
         for (var i = 0; i < ShardCount; i++)
@@ -468,6 +491,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         throw new IndexOutOfRangeException();
     }
 
+    /// <summary>
+    /// Notifies all registered indices that a new item has been added.
+    /// </summary>
+    /// <param name="item">The item that was added and should be communicated to all indices.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyIndicesAdded(T item)
     {
@@ -482,6 +509,10 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
     }
 
+    /// <summary>
+    /// Notifies all registered index listeners that the specified item has been removed.
+    /// </summary>
+    /// <param name="item">The item that was removed and for which index listeners should be notified.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyIndicesRemoved(T item)
     {
@@ -496,6 +527,15 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
     }
 
+    /// <summary>
+    /// Adds the specified array of items to the collection, distributing them across internal shards as appropriate.
+    /// </summary>
+    /// <remarks>This method optimizes insertion by batching items and distributing them to shards in parallel
+    /// when the number of items exceeds a predefined threshold. For smaller batches, insertion is performed
+    /// sequentially. The method is intended for internal use and does not perform input validation; callers must ensure
+    /// that the input array is not null.</remarks>
+    /// <param name="items">The array of items to add to the collection. Cannot be null. Items are assigned to shards based on their shard
+    /// index.</param>
     private void AddRangeCore(T[] items)
     {
         var count = items.Length;
@@ -610,6 +650,15 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
     }
 
+    /// <summary>
+    /// Adds the elements of the specified list to the collection, distributing them across internal shards as
+    /// appropriate.
+    /// </summary>
+    /// <remarks>This method optimizes batch addition by grouping items per shard and may perform the
+    /// operation in parallel if the number of items meets a configured threshold. The method is not thread-safe and
+    /// should be called only when appropriate synchronization is ensured by the caller.</remarks>
+    /// <param name="items">The list of items to add to the collection. Cannot be null. Items are assigned to shards based on their shard
+    /// index.</param>
     private void AddRangeCore(IList<T> items)
     {
         var count = items.Count;
@@ -720,6 +769,14 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
     }
 
+    /// <summary>
+    /// Removes the specified items from the collection, processing them in batches for efficiency.
+    /// </summary>
+    /// <remarks>This method distributes removal operations across internal shards and may perform removals in
+    /// parallel for large input arrays to improve performance. Removal is performed in batch, and any associated
+    /// indices are updated accordingly. The method is not thread-safe and should be called only when appropriate
+    /// synchronization is ensured by the caller.</remarks>
+    /// <param name="items">An array of items to remove from the collection. The array must not be null, but may be empty.</param>
     private void RemoveRangeCore(T[] items)
     {
         var count = items.Length;
@@ -964,7 +1021,7 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
     /// <summary>
     /// Internal wrapper for Edit operations that bypasses locking and notifications.
     /// </summary>
-    private sealed class QuaternaryEditWrapper : IList<T>
+    private sealed class QuaternaryEditWrapper : ICollection<T>
     {
         private readonly QuaternaryList<T> _parent;
         private readonly bool _hasIndices;
@@ -1091,12 +1148,6 @@ public class QuaternaryList<T> : QuaternaryBase<T>, IQuaternaryList<T>
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public int IndexOf(T item) => throw new NotSupportedException("Global IndexOf is not supported.");
-
-        public void Insert(int index, T item) => throw new NotSupportedException("Use Add instead.");
-
-        public void RemoveAt(int index) => throw new NotSupportedException("Use Remove(item) instead.");
     }
 }
 #endif
