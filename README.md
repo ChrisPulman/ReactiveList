@@ -793,6 +793,7 @@ High-performance, thread-safe, sharded collections optimized for large-scale rea
 | Edit | 1,000 | **14.4 KB** | 25.6 KB | **QuaternaryList 1.8x** |
 | Edit | 10,000 | **84.9 KB** | 336.1 KB | **QuaternaryList 4x** |
 
+
 ---
 
 ## QuaternaryDictionary vs SourceCache Benchmark Results
@@ -801,27 +802,27 @@ High-performance, thread-safe, sharded collections optimized for large-scale rea
 
 | Operation | Count | QuaternaryDict | SourceCache | Winner |
 |-----------|-------|----------------|-------------|--------|
-| AddRange | 100 | 69.5 μs | 2.2 μs | SourceCache |
-| AddRange | 1,000 | 77.5 μs | 19.3 μs | SourceCache |
-| AddRange | 10,000 | **138.9 μs** | 636.1 μs | **QuaternaryDict 4.6x** |
-| Clear | 100 | 72.0 μs | 2.4 μs | SourceCache |
-| Clear | 1,000 | 78.5 μs | 21.2 μs | SourceCache |
-| Clear | 10,000 | **148.6 μs** | 702.3 μs | **QuaternaryDict 4.7x** |
-| Lookup | 100 | 69.8 μs | 2.3 μs | SourceCache |
-| Lookup | 1,000 | 76.5 μs | 21.3 μs | SourceCache |
-| Lookup | 10,000 | **140.0 μs** | 410.0 μs | **QuaternaryDict 2.9x** |
-| Stream (Add) | 10,000 | **226.9 μs** | 886.7 μs | **QuaternaryDict 3.9x** |
+| AddRange | 100 | 72.3 μs | 2.2 μs | SourceCache |
+| AddRange | 1,000 | 77.9 μs | 19.3 μs | SourceCache |
+| AddRange | 10,000 | **135.9 μs** | 387.7 μs | **QuaternaryDict 2.9x** |
+| Clear | 100 | 76.9 μs | 2.4 μs | SourceCache |
+| Clear | 1,000 | 78.1 μs | 21.2 μs | SourceCache |
+| Clear | 10,000 | **138.9 μs** | 420.1 μs | **QuaternaryDict 3.0x** |
+| Lookup | 100 | 72.5 μs | 2.3 μs | SourceCache |
+| Lookup | 1,000 | 77.5 μs | 21.3 μs | SourceCache |
+| Lookup | 10,000 | **136.5 μs** | 397.4 μs | **QuaternaryDict 2.9x** |
+| Stream (Add) | 10,000 | **198.2 μs** | 1,739.9 μs | **QuaternaryDict 8.8x** |
 
 ### Memory Allocation Comparison
 
 | Operation | Count | QuaternaryDict | SourceCache | Winner |
 |-----------|-------|----------------|-------------|--------|
-| AddRange | 1,000 | **29.8 KB** | 124.1 KB | **QuaternaryDict 4.2x** |
-| AddRange | 10,000 | **226.2 KB** | 1,155.7 KB | **QuaternaryDict 5.1x** |
-| Clear | 1,000 | **29.8 KB** | 124.2 KB | **QuaternaryDict 4.2x** |
-| Clear | 10,000 | **226.2 KB** | 1,155.7 KB | **QuaternaryDict 5.1x** |
-| Lookup | 10,000 | **226.1 KB** | 1,155.6 KB | **QuaternaryDict 5.1x** |
-| Stream | 10,000 | **355.4 KB** | 2,437.9 KB | **QuaternaryDict 6.9x** |
+| AddRange | 1,000 | **47.0 KB** | 124.1 KB | **QuaternaryDict 2.6x** |
+| AddRange | 10,000 | **327.2 KB** | 1,155.7 KB | **QuaternaryDict 3.5x** |
+| Clear | 1,000 | **47.0 KB** | 124.2 KB | **QuaternaryDict 2.6x** |
+| Clear | 10,000 | **327.2 KB** | 1,155.8 KB | **QuaternaryDict 3.5x** |
+| Lookup | 10,000 | **327.2 KB** | 1,155.7 KB | **QuaternaryDict 3.5x** |
+| Stream | 10,000 | **456.0 KB** | 2,437.9 KB | **QuaternaryDict 5.3x** |
 
 ---
 

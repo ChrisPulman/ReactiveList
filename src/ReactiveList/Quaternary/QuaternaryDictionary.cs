@@ -7,7 +7,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using CP.Reactive.Quaternary;
 
 namespace CP.Reactive;
 
@@ -22,12 +22,12 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
 {
     private const int ParallelThreshold = 256;
 
-    private readonly Dictionary<TKey, TValue>[] _quads =
+    private readonly QuadDictionary<TKey, TValue>[] _quads =
     [
-        new Dictionary<TKey, TValue>(),
-        new Dictionary<TKey, TValue>(),
-        new Dictionary<TKey, TValue>(),
-        new Dictionary<TKey, TValue>()
+        new QuadDictionary<TKey, TValue>(),
+        new QuadDictionary<TKey, TValue>(),
+        new QuadDictionary<TKey, TValue>(),
+        new QuadDictionary<TKey, TValue>()
     ];
 
     private readonly ConcurrentDictionary<string, ISecondaryIndex<TValue>> _valueIndices = new();
@@ -45,7 +45,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 Locks[i].EnterReadLock();
                 try
                 {
-                    result.AddRange(_quads[i].Keys);
+                    result.AddRange(_quads[i].GetKeys());
                 }
                 finally
                 {
@@ -70,7 +70,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 Locks[i].EnterReadLock();
                 try
                 {
-                    result.AddRange(_quads[i].Values);
+                    result.AddRange(_quads[i].GetValues());
                 }
                 finally
                 {
@@ -192,8 +192,8 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         {
             var dict = _quads[idx];
 
-            // Use CollectionsMarshal for direct ref access - avoids double lookup
-            ref var valueRef = ref CollectionsMarshal.GetValueRefOrAddDefault(dict, key, out var exists);
+            // Use direct ref access - avoids double lookup
+            ref var valueRef = ref dict.GetValueRefOrAddDefault(key, out var exists);
 
             if (exists)
             {
@@ -300,7 +300,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             Locks[i].EnterReadLock();
             try
             {
-                foreach (var val in _quads[i].Values)
+                foreach (var val in _quads[i].GetValues())
                 {
                     index.OnAdded(val);
                 }
@@ -641,7 +641,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var kvp = bucket[i];
-                            ref var valueRef = ref CollectionsMarshal.GetValueRefOrAddDefault(dict, kvp.Key, out _);
+                            ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out _);
                             valueRef = kvp.Value;
                             if (hasIndices)
                             {
@@ -676,7 +676,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var kvp = bucket[i];
-                            ref var valueRef = ref CollectionsMarshal.GetValueRefOrAddDefault(dict, kvp.Key, out _);
+                            ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out _);
                             valueRef = kvp.Value;
                             if (hasIndices)
                             {
@@ -759,7 +759,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var kvp = bucket[i];
-                            ref var valueRef = ref CollectionsMarshal.GetValueRefOrAddDefault(dict, kvp.Key, out _);
+                            ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out _);
                             valueRef = kvp.Value;
                             if (hasIndices)
                             {
@@ -794,7 +794,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var kvp = bucket[i];
-                            ref var valueRef = ref CollectionsMarshal.GetValueRefOrAddDefault(dict, kvp.Key, out _);
+                            ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out _);
                             valueRef = kvp.Value;
                             if (hasIndices)
                             {
@@ -1080,7 +1080,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 var result = new List<TKey>();
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    result.AddRange(_parent._quads[i].Keys);
+                    result.AddRange(_parent._quads[i].GetKeys());
                 }
 
                 return result;
@@ -1094,7 +1094,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 var result = new List<TValue>();
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    result.AddRange(_parent._quads[i].Values);
+                    result.AddRange(_parent._quads[i].GetValues());
                 }
 
                 return result;
