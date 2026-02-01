@@ -124,6 +124,20 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
+    /// Returns the current instance and assigns the underlying items collection to the specified output parameter.
+    /// </summary>
+    /// <remarks>This method provides direct access to the underlying items collection without modifying the
+    /// state of the view. The returned collection reflects the current contents and updates automatically as the view
+    /// changes.</remarks>
+    /// <param name="collection">When the method returns, contains a read-only observable collection of items managed by this view.</param>
+    /// <returns>The current instance of <see cref="ReactiveView{T}"/>.</returns>
+    public ReactiveView<T> ToProperty(out ReadOnlyObservableCollection<T> collection)
+    {
+        collection = Items;
+        return this;
+    }
+
+    /// <summary>
     /// Releases all resources used by the current instance of the class.
     /// </summary>
     /// <remarks>Call this method when you are finished using the object to release unmanaged resources and

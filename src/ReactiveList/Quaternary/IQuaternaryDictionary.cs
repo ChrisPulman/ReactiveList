@@ -14,7 +14,7 @@ namespace CP.Reactive;
 /// required beyond those provided by typical dictionary implementations.</remarks>
 /// <typeparam name="TKey">The type of keys in the dictionary. Must be non-nullable.</typeparam>
 /// <typeparam name="TValue">The type of values stored in the dictionary.</typeparam>
-public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>
+public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IQuaternarySource<KeyValuePair<TKey, TValue>>
     where TKey : notnull
 {
     /// <summary>
@@ -83,5 +83,26 @@ public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>
     /// by reducing the number of change notifications.</remarks>
     /// <param name="editAction">An action that receives the dictionary interface to perform modifications.</param>
     void Edit(Action<IDictionary<TKey, TValue>> editAction);
+
+    /// <summary>
+    /// Retrieves all values that match the specified key in the given secondary value index.
+    /// </summary>
+    /// <typeparam name="TIndexKey">The type of the key used to query the secondary index.</typeparam>
+    /// <param name="indexName">The name of the secondary index to query.</param>
+    /// <param name="key">The key value to search for within the specified index.</param>
+    /// <returns>An enumerable collection of values that match the specified key.</returns>
+    IEnumerable<TValue> GetValuesBySecondaryIndex<TIndexKey>(string indexName, TIndexKey key)
+        where TIndexKey : notnull;
+
+    /// <summary>
+    /// Determines whether the specified value matches the given key in the specified secondary index.
+    /// </summary>
+    /// <typeparam name="TIndexKey">The type of the key used in the secondary index.</typeparam>
+    /// <param name="indexName">The name of the secondary index to use for matching.</param>
+    /// <param name="value">The value to check.</param>
+    /// <param name="key">The key value to match against.</param>
+    /// <returns><see langword="true"/> if the value's indexed property matches the specified key; otherwise, <see langword="false"/>.</returns>
+    bool ValueMatchesSecondaryIndex<TIndexKey>(string indexName, TValue value, TIndexKey key)
+        where TIndexKey : notnull;
 }
 #endif

@@ -4,7 +4,6 @@
 
 using System.Buffers;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Quaternary;
@@ -17,20 +16,10 @@ namespace CP.Reactive;
 /// </summary>
 /// <typeparam name="TKey">The type of keys in the dictionary. Must be non-nullable.</typeparam>
 /// <typeparam name="TValue">The type of values stored in the dictionary.</typeparam>
-public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TKey, TValue>>, IQuaternaryDictionary<TKey, TValue>
+public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TKey, TValue>, QuadDictionary<TKey, TValue>, TValue>, IQuaternaryDictionary<TKey, TValue>
     where TKey : notnull
 {
     private const int ParallelThreshold = 256;
-
-    private readonly QuadDictionary<TKey, TValue>[] _quads =
-    [
-        new QuadDictionary<TKey, TValue>(),
-        new QuadDictionary<TKey, TValue>(),
-        new QuadDictionary<TKey, TValue>(),
-        new QuadDictionary<TKey, TValue>()
-    ];
-
-    private readonly ConcurrentDictionary<string, ISecondaryIndex<TValue>> _valueIndices = new();
 
     /// <summary>
     /// Gets a collection containing all keys from the underlying quads.
@@ -45,7 +34,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 Locks[i].EnterReadLock();
                 try
                 {
-                    result.AddRange(_quads[i].GetKeys());
+                    result.AddRange(Quads[i].GetKeys());
                 }
                 finally
                 {
@@ -70,7 +59,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 Locks[i].EnterReadLock();
                 try
                 {
-                    result.AddRange(_quads[i].GetValues());
+                    result.AddRange(Quads[i].GetValues());
                 }
                 finally
                 {
@@ -81,37 +70,6 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             return result;
         }
     }
-
-    /// <summary>
-    /// Gets the total number of items contained in all quads.
-    /// </summary>
-    public int Count
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get
-        {
-            var count = 0;
-            for (var i = 0; i < ShardCount; i++)
-            {
-                Locks[i].EnterReadLock();
-                try
-                {
-                    count += _quads[i].Count;
-                }
-                finally
-                {
-                    Locks[i].ExitReadLock();
-                }
-            }
-
-            return count;
-        }
-    }
-
-    /// <summary>
-    /// Gets a value indicating whether the collection is read-only.
-    /// </summary>
-    public bool IsReadOnly => false;
 
     /// <summary>
     /// Gets or sets the value associated with the specified key.
@@ -163,7 +121,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         Locks[idx].EnterWriteLock();
         try
         {
-            if (_quads[idx].TryAdd(key, value))
+            if (Quads[idx].TryAdd(key, value))
             {
                 NotifyIndicesAdded(value);
                 Emit(CacheAction.Added, new(key, value));
@@ -190,7 +148,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         Locks[idx].EnterWriteLock();
         try
         {
-            var dict = _quads[idx];
+            var dict = Quads[idx];
 
             // Use direct ref access - avoids double lookup
             ref var valueRef = ref dict.GetValueRefOrAddDefault(key, out var exists);
@@ -227,7 +185,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         Locks[idx].EnterWriteLock();
         try
         {
-            if (_quads[idx].Remove(key, out var val))
+            if (Quads[idx].Remove(key, out var val))
             {
                 NotifyIndicesRemoved(val);
                 Emit(CacheAction.Removed, new(key, val));
@@ -255,7 +213,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         Locks[idx].EnterReadLock();
         try
         {
-            return _quads[idx].TryGetValue(key, out value);
+            return Quads[idx].TryGetValue(key, out value);
         }
         finally
         {
@@ -300,7 +258,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             Locks[i].EnterReadLock();
             try
             {
-                foreach (var val in _quads[i].GetValues())
+                foreach (var val in Quads[i].GetValues())
                 {
                     index.OnAdded(val);
                 }
@@ -311,7 +269,44 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             }
         }
 
-        _valueIndices[name] = index;
+        Indices[name] = index;
+    }
+
+    /// <summary>
+    /// Retrieves all values that match the specified key in the given secondary value index.
+    /// </summary>
+    /// <typeparam name="TIndexKey">The type of the key used to query the secondary index.</typeparam>
+    /// <param name="indexName">The name of the secondary index to query.</param>
+    /// <param name="key">The key value to search for within the specified index.</param>
+    /// <returns>An enumerable collection of values that match the specified key.</returns>
+    public IEnumerable<TValue> GetValuesBySecondaryIndex<TIndexKey>(string indexName, TIndexKey key)
+        where TIndexKey : notnull
+    {
+        if (Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<TValue, TIndexKey> typedIdx)
+        {
+            return typedIdx.Lookup(key);
+        }
+
+        return [];
+    }
+
+    /// <summary>
+    /// Determines whether the specified value matches the given key in the specified secondary index.
+    /// </summary>
+    /// <typeparam name="TIndexKey">The type of the key used in the secondary index.</typeparam>
+    /// <param name="indexName">The name of the secondary index to use for matching.</param>
+    /// <param name="value">The value to check.</param>
+    /// <param name="key">The key value to match against.</param>
+    /// <returns><see langword="true"/> if the value's indexed property matches the specified key; otherwise, <see langword="false"/>.</returns>
+    public bool ValueMatchesSecondaryIndex<TIndexKey>(string indexName, TValue value, TIndexKey key)
+        where TIndexKey : notnull
+    {
+        if (Indices.TryGetValue(indexName, out var idx))
+        {
+            return idx.MatchesKey(value, key);
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -334,42 +329,6 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="item">The key/value pair to remove.</param>
     /// <returns>true if removed; otherwise, false.</returns>
     public bool Remove(KeyValuePair<TKey, TValue> item) => Contains(item) && Remove(item.Key);
-
-    /// <summary>
-    /// Removes all items from the collection.
-    /// </summary>
-    public void Clear()
-    {
-        for (var i = 0; i < ShardCount; i++)
-        {
-            Locks[i].EnterWriteLock();
-        }
-
-        try
-        {
-            for (var i = 0; i < ShardCount; i++)
-            {
-                _quads[i].Clear();
-            }
-        }
-        finally
-        {
-            for (var i = ShardCount - 1; i >= 0; i--)
-            {
-                Locks[i].ExitWriteLock();
-            }
-        }
-
-        if (!_valueIndices.IsEmpty)
-        {
-            foreach (var idx in _valueIndices.Values)
-            {
-                idx.Clear();
-            }
-        }
-
-        Emit(CacheAction.Cleared, default);
-    }
 
     /// <summary>
     /// Looks up the value associated with the specified key.
@@ -429,7 +388,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             Locks[i].EnterWriteLock();
             try
             {
-                var dict = _quads[i];
+                var dict = Quads[i];
                 var keysToRemove = new List<TKey>();
 
                 foreach (var kvp in dict)
@@ -509,7 +468,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             Locks[i].EnterReadLock();
             try
             {
-                foreach (var kvp in _quads[i])
+                foreach (var kvp in Quads[i])
                 {
                     array[arrayIndex++] = kvp;
                 }
@@ -533,14 +492,14 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// Returns an enumerator that iterates through the collection.
     /// </summary>
     /// <returns>An enumerator for the collection.</returns>
-    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+    public override IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
     {
         for (var i = 0; i < ShardCount; i++)
         {
             Locks[i].EnterReadLock();
             try
             {
-                foreach (var kvp in _quads[i])
+                foreach (var kvp in Quads[i])
                 {
                     yield return kvp;
                 }
@@ -552,40 +511,23 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
     }
 
-    /// <inheritdoc/>
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
+    /// <summary>
+    /// Calculates the shard index for the specified key.
+    /// </summary>
+    /// <param name="key">The key for which to determine the shard index. Must not be null.</param>
+    /// <returns>The zero-based index of the shard to which the key is assigned.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int GetShard(TKey key) => (key.GetHashCode() & 0x7FFFFFFF) % ShardCount;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyIndicesAdded(TValue item)
-    {
-        if (_valueIndices.IsEmpty)
-        {
-            return;
-        }
-
-        foreach (var index in _valueIndices.Values)
-        {
-            index.OnAdded(item);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyIndicesRemoved(TValue item)
-    {
-        if (_valueIndices.IsEmpty)
-        {
-            return;
-        }
-
-        foreach (var index in _valueIndices.Values)
-        {
-            index.OnRemoved(item);
-        }
-    }
-
+    /// <summary>
+    /// Adds the specified key/value pairs to the collection, distributing them across internal shards for optimized
+    /// storage and concurrency.
+    /// </summary>
+    /// <remarks>This method batches additions for efficiency and may perform operations in parallel if the
+    /// number of items exceeds a predefined threshold. If a key already exists, its value is overwritten. Index
+    /// notifications are triggered for each added value if indices are present.</remarks>
+    /// <param name="items">An array of key/value pairs to add to the collection. Each key must be non-null and conform to the requirements
+    /// of the underlying dictionary.</param>
     private void AddRangeCore(KeyValuePair<TKey, TValue>[] items)
     {
         var count = items.Length;
@@ -634,10 +576,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var dict = _quads[sIdx];
+                        var dict = Quads[sIdx];
                         dict.EnsureCapacity(dict.Count + bucketCount);
 
-                        var hasIndices = !_valueIndices.IsEmpty;
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var kvp = bucket[i];
@@ -669,10 +611,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var dict = _quads[sIdx];
+                        var dict = Quads[sIdx];
                         dict.EnsureCapacity(dict.Count + bucketCount);
 
-                        var hasIndices = !_valueIndices.IsEmpty;
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var kvp = bucket[i];
@@ -691,7 +633,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 }
             }
 
-            EmitBatchDirect(items, count);
+            EmitBatchAddedDirect(items, count);
         }
         finally
         {
@@ -705,6 +647,14 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
     }
 
+    /// <summary>
+    /// Adds a collection of key/value pairs to the underlying data structure, distributing them across shards as
+    /// appropriate.
+    /// </summary>
+    /// <remarks>If the number of items meets or exceeds a parallelization threshold, the addition is
+    /// performed in parallel for improved performance. The method acquires write locks on affected shards during the
+    /// operation. Indices, if present, are updated for each added value.</remarks>
+    /// <param name="items">The list of key/value pairs to add. Cannot be null. Each key is assigned to a shard based on its value.</param>
     private void AddRangeCore(IList<KeyValuePair<TKey, TValue>> items)
     {
         var count = items.Count;
@@ -752,10 +702,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var dict = _quads[sIdx];
+                        var dict = Quads[sIdx];
                         dict.EnsureCapacity(dict.Count + bucketCount);
 
-                        var hasIndices = !_valueIndices.IsEmpty;
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var kvp = bucket[i];
@@ -787,10 +737,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var dict = _quads[sIdx];
+                        var dict = Quads[sIdx];
                         dict.EnsureCapacity(dict.Count + bucketCount);
 
-                        var hasIndices = !_valueIndices.IsEmpty;
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var kvp = bucket[i];
@@ -809,7 +759,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 }
             }
 
-            EmitBatchFromList(items, count);
+            EmitBatchAddedFromList(items, count);
         }
         finally
         {
@@ -823,26 +773,14 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EmitBatchDirect(KeyValuePair<TKey, TValue>[] items, int count)
-    {
-        var pool = ArrayPool<KeyValuePair<TKey, TValue>>.Shared.Rent(count);
-        Array.Copy(items, pool, count);
-        Emit(CacheAction.BatchOperation, default, new PooledBatch<KeyValuePair<TKey, TValue>>(pool, count));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EmitBatchFromList(IList<KeyValuePair<TKey, TValue>> items, int count)
-    {
-        var pool = ArrayPool<KeyValuePair<TKey, TValue>>.Shared.Rent(count);
-        for (var i = 0; i < count; i++)
-        {
-            pool[i] = items[i];
-        }
-
-        Emit(CacheAction.BatchOperation, default, new PooledBatch<KeyValuePair<TKey, TValue>>(pool, count));
-    }
-
+    /// <summary>
+    /// Removes the specified keys from the underlying data store, updating all relevant shards and indices as
+    /// necessary.
+    /// </summary>
+    /// <remarks>This method distributes key removals across internal shards for efficiency. For large numbers
+    /// of keys, removals may be processed in parallel to improve performance. Any associated indices are updated
+    /// accordingly when keys are removed.</remarks>
+    /// <param name="keys">An array of keys to remove from the data store. Cannot be null. If the array is empty, no action is taken.</param>
     private void RemoveKeysCore(TKey[] keys)
     {
         var count = keys.Length;
@@ -891,8 +829,8 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var dict = _quads[sIdx];
-                        var hasIndices = !_valueIndices.IsEmpty;
+                        var dict = Quads[sIdx];
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var key = bucket[i];
@@ -922,8 +860,8 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var dict = _quads[sIdx];
-                        var hasIndices = !_valueIndices.IsEmpty;
+                        var dict = Quads[sIdx];
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var key = bucket[i];
@@ -954,6 +892,14 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
     }
 
+    /// <summary>
+    /// Removes the specified keys from the underlying data store, updating any associated indices as needed.
+    /// </summary>
+    /// <remarks>This method processes removals in parallel if the number of keys meets or exceeds a
+    /// predefined threshold for improved performance. Associated indices are updated for each successfully removed key.
+    /// The method is not thread-safe and should be called with appropriate synchronization if used in a multithreaded
+    /// context.</remarks>
+    /// <param name="keys">A list of keys to remove from the data store. Cannot be null. Keys that do not exist are ignored.</param>
     private void RemoveKeysCore(IList<TKey> keys)
     {
         var count = keys.Count;
@@ -1001,8 +947,8 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var dict = _quads[sIdx];
-                        var hasIndices = !_valueIndices.IsEmpty;
+                        var dict = Quads[sIdx];
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var key = bucket[i];
@@ -1032,8 +978,8 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                     Locks[sIdx].EnterWriteLock();
                     try
                     {
-                        var dict = _quads[sIdx];
-                        var hasIndices = !_valueIndices.IsEmpty;
+                        var dict = Quads[sIdx];
+                        var hasIndices = !Indices.IsEmpty;
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var key = bucket[i];
@@ -1073,6 +1019,12 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
 
         internal QuaternaryDictEditWrapper(QuaternaryDictionary<TKey, TValue> parent) => _parent = parent;
 
+        /// <summary>
+        /// Gets a collection containing all keys in the dictionary.
+        /// </summary>
+        /// <remarks>The returned collection reflects the current set of keys in the dictionary at the
+        /// time of the call. The order of the keys in the collection is not guaranteed. Modifications to the dictionary
+        /// after retrieving the collection are not reflected in the returned collection.</remarks>
         public ICollection<TKey> Keys
         {
             get
@@ -1080,13 +1032,19 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 var result = new List<TKey>();
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    result.AddRange(_parent._quads[i].GetKeys());
+                    result.AddRange(_parent.Quads[i].GetKeys());
                 }
 
                 return result;
             }
         }
 
+        /// <summary>
+        /// Gets a collection containing all values in the dictionary.
+        /// </summary>
+        /// <remarks>The order of the values in the returned collection is not guaranteed. The returned
+        /// collection is a snapshot and is not updated if the dictionary changes after the property is
+        /// accessed.</remarks>
         public ICollection<TValue> Values
         {
             get
@@ -1094,13 +1052,16 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 var result = new List<TValue>();
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    result.AddRange(_parent._quads[i].GetValues());
+                    result.AddRange(_parent.Quads[i].GetValues());
                 }
 
                 return result;
             }
         }
 
+        /// <summary>
+        /// Gets the total number of elements contained in all shards.
+        /// </summary>
         public int Count
         {
             get
@@ -1108,27 +1069,37 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 var count = 0;
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    count += _parent._quads[i].Count;
+                    count += _parent.Quads[i].Count;
                 }
 
                 return count;
             }
         }
 
+        /// <summary>
+        /// Gets a value indicating whether the collection is read-only.
+        /// </summary>
         public bool IsReadOnly => false;
 
+        /// <summary>
+        /// Gets or sets the value associated with the specified key.
+        /// </summary>
+        /// <remarks>Setting a value for an existing key may trigger index updates. Getting a value for a
+        /// key that does not exist will throw a KeyNotFoundException.</remarks>
+        /// <param name="key">The key whose value to get or set.</param>
+        /// <returns>The value associated with the specified key.</returns>
         public TValue this[TKey key]
         {
             get
             {
                 var idx = GetShard(key);
-                return _parent._quads[idx][key];
+                return _parent.Quads[idx][key];
             }
 
             set
             {
                 var idx = GetShard(key);
-                var dict = _parent._quads[idx];
+                var dict = _parent.Quads[idx];
                 if (dict.TryGetValue(key, out var oldVal))
                 {
                     _parent.NotifyIndicesRemoved(oldVal);
@@ -1139,23 +1110,39 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             }
         }
 
+        /// <summary>
+        /// Adds the specified key and value to the collection.
+        /// </summary>
+        /// <param name="key">The key associated with the value to add. Cannot be null.</param>
+        /// <param name="value">The value to add to the collection.</param>
         public void Add(TKey key, TValue value)
         {
             var idx = GetShard(key);
-            _parent._quads[idx].Add(key, value);
+            _parent.Quads[idx].Add(key, value);
             _parent.NotifyIndicesAdded(value);
         }
 
+        /// <summary>
+        /// Determines whether the dictionary contains an element with the specified key.
+        /// </summary>
+        /// <param name="key">The key to locate in the dictionary. Cannot be null.</param>
+        /// <returns><see langword="true"/> if the dictionary contains an element with the specified key; otherwise, <see
+        /// langword="false"/>.</returns>
         public bool ContainsKey(TKey key)
         {
             var idx = GetShard(key);
-            return _parent._quads[idx].ContainsKey(key);
+            return _parent.Quads[idx].ContainsKey(key);
         }
 
+        /// <summary>
+        /// Removes the value with the specified key from the collection.
+        /// </summary>
+        /// <param name="key">The key of the element to remove.</param>
+        /// <returns>true if the element is successfully found and removed; otherwise, false.</returns>
         public bool Remove(TKey key)
         {
             var idx = GetShard(key);
-            if (_parent._quads[idx].Remove(key, out var val))
+            if (_parent.Quads[idx].Remove(key, out var val))
             {
                 _parent.NotifyIndicesRemoved(val);
                 return true;
@@ -1164,57 +1151,105 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             return false;
         }
 
+        /// <summary>
+        /// Attempts to retrieve the value associated with the specified key.
+        /// </summary>
+        /// <param name="key">The key whose value to retrieve.</param>
+        /// <param name="value">When this method returns, contains the value associated with the specified key, if the key is found;
+        /// otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
+        /// <returns>true if the object that implements the method contains an element with the specified key; otherwise, false.</returns>
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
         {
             var idx = GetShard(key);
-            return _parent._quads[idx].TryGetValue(key, out value);
+            return _parent.Quads[idx].TryGetValue(key, out value);
         }
 
+        /// <summary>
+        /// Adds the specified key/value pair to the collection.
+        /// </summary>
+        /// <param name="item">The key/value pair to add to the collection. The key must not already exist in the collection.</param>
         public void Add(KeyValuePair<TKey, TValue> item) => Add(item.Key, item.Value);
 
+        /// <summary>
+        /// Removes all items from the collection, resetting it to an empty state.
+        /// </summary>
+        /// <remarks>This method clears all data from the collection, including any associated indices.
+        /// After calling this method, the collection will contain no items and all indices will be empty. This
+        /// operation is not reversible.</remarks>
         public void Clear()
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                _parent._quads[i].Clear();
+                _parent.Quads[i].Clear();
             }
 
-            if (!_parent._valueIndices.IsEmpty)
+            if (!_parent.Indices.IsEmpty)
             {
-                foreach (var idx in _parent._valueIndices.Values)
+                foreach (var idx in _parent.Indices.Values)
                 {
                     idx.Clear();
                 }
             }
         }
 
+        /// <summary>
+        /// Determines whether the dictionary contains the specified key and value pair.
+        /// </summary>
+        /// <remarks>The value comparison uses the default equality comparer for the value type. If the
+        /// key is not found, the method returns false.</remarks>
+        /// <param name="item">The key and value pair to locate in the dictionary. The key is used to locate the entry, and the value is
+        /// compared to the value associated with the key.</param>
+        /// <returns>true if the dictionary contains an element with the specified key and value; otherwise, false.</returns>
         public bool Contains(KeyValuePair<TKey, TValue> item) =>
             TryGetValue(item.Key, out var v) && EqualityComparer<TValue>.Default.Equals(v, item.Value);
 
+        /// <summary>
+        /// Copies the elements of the collection to the specified array, starting at the given array index.
+        /// </summary>
+        /// <remarks>The destination array must be large enough to contain all the elements of the
+        /// collection, starting at the specified index. The order of the copied elements matches the enumeration order
+        /// of the collection.</remarks>
+        /// <param name="array">The one-dimensional array of key/value pairs that is the destination of the elements copied from the
+        /// collection. The array must have zero-based indexing.</param>
+        /// <param name="arrayIndex">The zero-based index in the destination array at which copying begins.</param>
         public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                foreach (var kvp in _parent._quads[i])
+                foreach (var kvp in _parent.Quads[i])
                 {
                     array[arrayIndex++] = kvp;
                 }
             }
         }
 
+        /// <summary>
+        /// Removes the first occurrence of the specified key/value pair from the collection.
+        /// </summary>
+        /// <param name="item">The key/value pair to remove from the collection. The pair is removed only if both the key and value match
+        /// an entry in the collection.</param>
+        /// <returns>true if the key/value pair was found and removed; otherwise, false.</returns>
         public bool Remove(KeyValuePair<TKey, TValue> item) => Contains(item) && Remove(item.Key);
 
+        /// <summary>
+        /// Returns an enumerator that iterates through the collection of key/value pairs in the dictionary.
+        /// </summary>
+        /// <returns>An enumerator for the collection of key/value pairs contained in the dictionary.</returns>
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                foreach (var kvp in _parent._quads[i])
+                foreach (var kvp in _parent.Quads[i])
                 {
                     yield return kvp;
                 }
             }
         }
 
+        /// <summary>
+        /// Returns an enumerator that iterates through the collection.
+        /// </summary>
+        /// <returns>An enumerator that can be used to iterate through the collection.</returns>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

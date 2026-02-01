@@ -2,8 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
-using System.Collections.Specialized;
-
 namespace CP.Reactive;
 
 /// <summary>
@@ -15,7 +13,8 @@ namespace CP.Reactive;
 /// explicitly added before they can be used for querying. This interface is suitable for scenarios where frequent
 /// lookups by specific keys are required in addition to sequential access.</remarks>
 /// <typeparam name="T">The type of elements contained in the list.</typeparam>
-public interface IQuaternaryList<T> : ICollection<T>, INotifyCollectionChanged, IDisposable
+public interface IQuaternaryList<T> : ICollection<T>, IQuaternarySource<T>
+    where T : notnull
 {
     /// <summary>
     /// Adds an index to the collection using the specified name and key selector.

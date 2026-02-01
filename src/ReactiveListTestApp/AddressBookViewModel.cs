@@ -164,6 +164,14 @@ public class AddressBookViewModel : RxObject
         base.Dispose(disposing);
     }
 
+    /// <summary>
+    /// Determines whether the specified contact matches the given query based on last name or email address.
+    /// </summary>
+    /// <param name="c">The contact to evaluate. If <paramref name="c"/> is <see langword="null"/>, the method returns <see
+    /// langword="false"/>.</param>
+    /// <param name="query">The search query to match against the contact's last name or email address. If <paramref name="query"/> is <see
+    /// langword="null"/>, empty, or consists only of white-space characters, the method returns <see langword="true"/>.</param>
+    /// <returns>true if the contact's last name or email address contains the query string, ignoring case; otherwise, false.</returns>
     private static bool Matches(Contact? c, string query)
     {
         if (c == null)
@@ -180,12 +188,24 @@ public class AddressBookViewModel : RxObject
                c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Initializes the command properties used for bulk import and removal operations.
+    /// </summary>
+    /// <remarks>This method sets up the BulkImportCommand and BulkRemoveInactiveCommand properties with their
+    /// respective actions. It should be called during object initialization to ensure that command properties are
+    /// properly configured before use.</remarks>
     private void InitializeCommands()
     {
         BulkImportCommand = ReactiveCommand.Create<int>(BulkImport);
         BulkRemoveInactiveCommand = ReactiveCommand.Create(BulkRemoveInactive);
     }
 
+    /// <summary>
+    /// Initializes lookup indices for contact data to enable efficient access by city, department, and email address.
+    /// </summary>
+    /// <remarks>This method should be called before performing queries or updates that rely on indexed
+    /// access. Initializing indices improves performance for lookups and updates based on city, department, or email,
+    /// but must be done prior to using these features.</remarks>
     private void InitializeIndices()
     {
         // Add High-Speed Lookup Indices (O(1) access)
@@ -196,6 +216,13 @@ public class AddressBookViewModel : RxObject
         _contactMap.AddValueIndex("ByEmail", c => c.Email);
     }
 
+    /// <summary>
+    /// Initializes contact-related data pipelines and views for the current instance.
+    /// </summary>
+    /// <remarks>This method sets up observable views for all contacts, favorites, contacts filtered by city,
+    /// and dynamic search results. It configures throttling and filtering to optimize UI responsiveness and resource
+    /// usage. This method should be called during initialization to ensure that contact views are available and kept up
+    /// to date.</remarks>
     private void InitializePipelines()
     {
         // 1. ALL CONTACTS (Throttled 100ms)
