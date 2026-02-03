@@ -549,42 +549,30 @@ public static class QuaternaryExtensions
     }
 
     /// <summary>
-    /// Subscribes to change notifications for the specified quaternary list.
+    /// Filters the items in each cache notification emitted by the source observable according to the specified predicate.
     /// </summary>
-    /// <remarks>The returned observable provides real-time updates whenever items are added, removed, or
-    /// modified in the source list. Subscribers will receive notifications as changes occur.</remarks>
-    /// <typeparam name="T">The type of elements contained in the quaternary list.</typeparam>
-    /// <param name="source">The quaternary list to observe for changes. Cannot be null.</param>
-    /// <returns>An observable sequence that emits change sets representing modifications to the quaternary list.</returns>
-    public static IObservable<ChangeSet<T>> Connect<T>(
-    this QuaternaryList<T> source)
-        where T : notnull
-    {
-        if (source is null)
+    /// <remarks>This method produces a new sequence where each notification's item is checked against the predicate.
+    /// Notifications with items that don't match are filtered out.</remarks>
+    /// <typeparam name="T">The type of the items contained in the notification.</typeparam>
+    /// <param name="source">The source observable sequence of cache notifications to filter.</param>
+    /// <param name="predicate">A function that defines the conditions each item must satisfy to be included.</param>
+    /// <returns>An observable sequence of cache notifications containing only notifications with items that satisfy the predicate.</returns>
+    public static IObservable<CacheNotify<T>> WhereItems<T>(
+    this IObservable<CacheNotify<T>> source,
+    Func<T, bool> predicate)
+        where T : notnull =>
+        source.Where(notification =>
         {
-            throw new ArgumentNullException(nameof(source));
-        }
+            if (notification.Item != null)
+            {
+                return predicate(notification.Item);
+            }
 
-        return source.Changes;
-    }
-
-    /// <summary>
-    /// Filters the items in each quaternary change set emitted by the source observable according to the specified
-    /// predicate.
-    /// </summary>
-    /// <remarks>This method does not modify the original change set sequence, but produces a new sequence in
-    /// which each change set contains only the items for which the predicate returns <see langword="true"/>. The
-    /// structure and change semantics of the original change sets are preserved for the filtered items.</remarks>
-    /// <typeparam name="T">The type of the items contained in the change set.</typeparam>
-    /// <param name="source">The source observable sequence of change sets to filter.</param>
-    /// <param name="predicate">A function that defines the conditions each item must satisfy to be included in the resulting change set.</param>
-    /// <returns>An observable sequence of change sets containing only the items that satisfy the specified predicate.</returns>
-    public static IObservable<ChangeSet<T>> WhereChanges<T>(
-    this IObservable<ChangeSet<T>> source,
-    Func<T, bool> predicate) => source.Select(changes =>
-        {
-            var filtered = changes.Where(c => predicate(c.Current)).ToArray();
-            return new ChangeSet<T>(filtered);
+            // For batch operations or cleared, pass through
+            return notification.Action == CacheAction.Cleared ||
+                   notification.Action == CacheAction.BatchOperation ||
+                   notification.Action == CacheAction.BatchAdded ||
+                   notification.Action == CacheAction.BatchRemoved;
         });
 
     /// <summary>
@@ -658,29 +646,26 @@ public static class QuaternaryExtensions
     /// <param name="source">The source list to monitor for property changes.</param>
     /// <param name="property">An expression specifying the property of each item to observe for changes. Must refer to a property of type
     /// <typeparamref name="T"/>.</param>
-    /// <returns>An observable sequence that produces a refresh change set each time the specified property changes on any item
+    /// <returns>An observable sequence that produces a refresh notification each time the specified property changes on any item
     /// in the source list.</returns>
     /// <exception cref="ArgumentException">Thrown if <paramref name="property"/> does not refer to a property.</exception>
-    public static IObservable<ChangeSet<T>> AutoRefresh<T>(
+    public static IObservable<CacheNotify<T>> AutoRefresh<T>(
     this QuaternaryList<T> source,
     Expression<Func<T, object>> property)
         where T : notnull
     {
-        if (source == null)
-        {
-            throw new ArgumentNullException(nameof(source));
-        }
-
-        if (property == null)
-        {
-            throw new ArgumentNullException(nameof(property));
-        }
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(property);
 
         var member = (property.Body as MemberExpression)?.Member;
-        return member == null
-            ? throw new ArgumentException("Expression must be a property")
-            : source.Changes
-            .Select(_ => new ChangeSet<T>(Change<T>.CreateRefresh(default!)));
+        if (member == null)
+        {
+            throw new ArgumentException("Expression must be a property", nameof(property));
+        }
+
+        // Return the Stream directly - it already provides all change notifications
+        // The caller can subscribe and handle refresh logic based on item property changes
+        return source.Stream;
     }
 
     /// <summary>

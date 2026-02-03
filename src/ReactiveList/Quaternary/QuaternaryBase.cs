@@ -130,11 +130,16 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     /// <summary>
     /// Gets an observable sequence that emits cache change notifications as they occur.
     /// </summary>
+    /// <remarks>
+    /// This is the primary observable for change notifications. It provides all change information
+    /// including single item changes and batch operations. The Stream uses a channel-based pipeline
+    /// for efficient, low-allocation event delivery.
+    /// </remarks>
     public IObservable<CacheNotify<TItem>> Stream
     {
         get
         {
-            Interlocked.Exchange(ref _hasSubscribers, 1);
+            Volatile.Write(ref _hasSubscribers, 1);
             return _pipeline.AsObservable();
         }
     }

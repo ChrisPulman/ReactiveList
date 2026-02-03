@@ -34,21 +34,9 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     /// single observable sequence. This allows consumers to subscribe to a unified stream of changes for the entire
     /// QuaternaryList. The merged observable is published and reference-counted to ensure efficient event propagation
     /// and resource management.</remarks>
-    public QuaternaryList() => Changes = Observable.Merge(
-            Quads[0].Changes,
-            Quads[1].Changes,
-            Quads[2].Changes,
-            Quads[3].Changes)
-        .Publish()
-        .RefCount();
-
-    /// <summary>
-    /// Gets an observable sequence that emits change sets representing additions, removals, updates, and moves within
-    /// the collection.
-    /// </summary>
-    /// <remarks>Subscribers receive notifications whenever the underlying collection changes. The sequence
-    /// completes when the collection is disposed or no longer produces changes.</remarks>
-    public IObservable<ChangeSet<T>> Changes { get; }
+    public QuaternaryList()
+    {
+    }
 
     /// <summary>
     /// Gets or sets the element at the specified index.
@@ -61,16 +49,6 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
         get => GetAtGlobalIndex(index);
         set => throw new NotSupportedException("Direct index replacement in sharded list is unstable. Use Remove/Add.");
     }
-
-    /// <summary>
-    /// Connects to the list and returns an observable of unified <see cref="CP.Reactive.ChangeSet{T}"/>.
-    /// </summary>
-    /// <remarks>
-    /// This method provides a unified API compatible with the ReactiveList's Connect() method.
-    /// Since QuaternaryList now uses the unified ChangeSet type internally, no conversion is needed.
-    /// </remarks>
-    /// <returns>An observable sequence of change sets representing collection modifications.</returns>
-    public IObservable<CP.Reactive.ChangeSet<T>> Connect() => Changes;
 
     /// <summary>
     /// Adds the specified item to the collection.
