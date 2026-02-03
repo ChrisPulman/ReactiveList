@@ -358,4 +358,112 @@ public class ReactiveListRemoveTests
         countChanges.Should().Be(1);
         itemArrayChanges.Should().Be(1);
     }
+
+    /// <summary>
+    /// RemoveMany should remove items matching predicate for string type.
+    /// </summary>
+    [Fact]
+    public void RemoveMany_ShouldRemoveMatchingItems_String()
+    {
+        ReactiveList<string> fixture = ["apple", "banana", "apricot", "cherry", "avocado"];
+
+        var removed = fixture.RemoveMany(s => s.StartsWith("a"));
+
+        removed.Should().Be(3);
+        fixture.Count.Should().Be(2);
+        fixture.Should().Contain("banana");
+        fixture.Should().Contain("cherry");
+        fixture.Should().NotContain("apple");
+        fixture.Should().NotContain("apricot");
+        fixture.Should().NotContain("avocado");
+    }
+
+    /// <summary>
+    /// RemoveMany should return zero when no items match predicate.
+    /// </summary>
+    [Fact]
+    public void RemoveMany_ShouldReturnZeroWhenNoMatch()
+    {
+        ReactiveList<string> fixture = ["one", "two", "three"];
+
+        var removed = fixture.RemoveMany(s => s.StartsWith("z"));
+
+        removed.Should().Be(0);
+        fixture.Count.Should().Be(3);
+    }
+
+    /// <summary>
+    /// RemoveMany should throw ArgumentNullException for null predicate.
+    /// </summary>
+    [Fact]
+    public void RemoveMany_ShouldThrowForNullPredicate()
+    {
+        ReactiveList<string> fixture = ["one", "two"];
+
+        var action = () => fixture.RemoveMany(null!);
+
+        action.Should().Throw<ArgumentNullException>();
+    }
+
+    /// <summary>
+    /// RemoveMany should raise property changed events.
+    /// </summary>
+    [Fact]
+    public void RemoveMany_ShouldRaisePropertyChanged()
+    {
+        ReactiveList<int> fixture = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        var countChanges = 0;
+        fixture.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == "Count")
+            {
+                countChanges++;
+            }
+        };
+
+        var removed = fixture.RemoveMany(x => x % 2 == 0);
+
+        removed.Should().Be(5);
+        countChanges.Should().Be(1);
+        fixture.Should().BeEquivalentTo([1, 3, 5, 7, 9]);
+    }
+
+    /// <summary>
+    /// RemoveMany should emit change notification via Connect.
+    /// </summary>
+    [Fact]
+    public void RemoveMany_ShouldEmitChangeNotification()
+    {
+        using var fixture = new ReactiveList<int>([1, 2, 3, 4, 5]);
+        var receivedChanges = new System.Collections.Generic.List<ChangeSet<int>>();
+        using var subscription = fixture.Connect().Subscribe(cs => receivedChanges.Add(cs));
+
+        var removed = fixture.RemoveMany(x => x > 3);
+
+        removed.Should().Be(2);
+        receivedChanges.Should().HaveCount(1);
+        receivedChanges[0].Removes.Should().Be(2);
+    }
+
+    /// <summary>
+    /// RemoveMany should work with complex types.
+    /// </summary>
+    [Fact]
+    public void RemoveMany_ShouldWorkWithComplexTypes()
+    {
+        ReactiveList<TestData> fixture =
+        [
+            new("Alice", 25),
+            new("Bob", 30),
+            new("Charlie", 35),
+            new("Diana", 40)
+        ];
+
+        var removed = fixture.RemoveMany(p => p.Age >= 35);
+
+        removed.Should().Be(2);
+        fixture.Count.Should().Be(2);
+        fixture.Should().Contain(p => p.Name == "Alice");
+        fixture.Should().Contain(p => p.Name == "Bob");
+    }
 }

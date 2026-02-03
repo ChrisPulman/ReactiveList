@@ -9,9 +9,8 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
-using CP.Reactive.Quaternary;
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Provides a base class for partitioned, observable collections that support quaternary (four-way) sharding and cache
@@ -76,6 +75,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     private readonly CancellationTokenSource _cts = new();
     private readonly SynchronizationContext? _syncContext;
     private volatile bool _hasSubscribers;
+    private long _version;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="QuaternaryBase{TItem, TQuad, TValue}"/> class.
@@ -134,7 +134,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     {
         get
         {
-            _hasSubscribers = true;
+            Volatile.Write(ref _hasSubscribers, true);
             return _pipeline.AsObservable();
         }
     }
@@ -143,6 +143,13 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     /// Gets a value indicating whether the object has been disposed.
     /// </summary>
     public bool IsDisposed { get; private set; }
+
+    /// <summary>
+    /// Gets the current version number of the collection, which is incremented on each modification.
+    /// </summary>
+    /// <remarks>This property can be used for efficient change detection without acquiring locks.
+    /// The version is incremented atomically using <see cref="Interlocked.Increment(ref long)"/>.</remarks>
+    public long Version => Interlocked.Read(ref _version);
 
     /// <summary>
     /// Removes all items from the cache.
@@ -204,7 +211,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>
-    /// Attempts to enqueue a cache event for processing.
+    /// Attempts to enqueue a cache event for processing and increments the version counter.
     /// </summary>
     /// <param name="action">The cache action type.</param>
     /// <param name="item">The item associated with the action.</param>
@@ -212,6 +219,9 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void Emit(CacheAction action, TItem? item, PooledBatch<TItem>? batch = null)
     {
+        // Increment version atomically for change tracking
+        Interlocked.Increment(ref _version);
+
         // Fast path: skip channel write if no subscribers and no INCC
         if (!_hasSubscribers && CollectionChanged == null)
         {

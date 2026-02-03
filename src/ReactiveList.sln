@@ -11,9 +11,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionConfig", "SolutionC
 		..\.gitignore = ..\.gitignore
 		..\Directory.Build.props = ..\Directory.Build.props
 		..\LICENSE = ..\LICENSE
+		..\Quaternary_Collection_Technical_Specification_and_Design.md = ..\Quaternary_Collection_Technical_Specification_and_Design.md
 		..\README.md = ..\README.md
 		..\stylecop.json = ..\stylecop.json
-		..\Version.json = ..\Version.json
+		..\version.json = ..\version.json
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "..\build\_build.csproj", "{AE42333A-EEA5-4CAD-93F5-A2941D4FAFF0}"

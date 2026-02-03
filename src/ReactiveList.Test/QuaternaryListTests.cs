@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading;
-using CP.Reactive;
+using CP.Reactive.Quaternary;
 using Xunit;
 
 namespace ReactiveList.Test;
@@ -466,6 +466,93 @@ public class QuaternaryListTests
         Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
         Assert.NotNull(notification);
         Assert.Equal(CacheAction.Cleared, notification!.Action);
+    }
+
+    /// <summary>
+    /// Verifies that ReplaceAll replaces all items atomically.
+    /// </summary>
+    [Fact]
+    public void ReplaceAll_ShouldReplaceAllItemsAtomically()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3, 4, 5]);
+
+        list.ReplaceAll([10, 20, 30]);
+
+        Assert.Equal(3, list.Count);
+        Assert.Contains(10, list);
+        Assert.Contains(20, list);
+        Assert.Contains(30, list);
+        Assert.DoesNotContain(1, list);
+        Assert.DoesNotContain(5, list);
+    }
+
+    /// <summary>
+    /// Verifies that ReplaceAll emits a single batch notification.
+    /// </summary>
+    [Fact]
+    public void ReplaceAll_ShouldEmitSingleBatchNotification()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3]);
+        var notificationCount = 0;
+        using var reset = new ManualResetEventSlim(false);
+        using var subscription = list.Stream.Subscribe(_ =>
+        {
+            notificationCount++;
+            reset.Set();
+        });
+
+        list.ReplaceAll([10, 20]);
+
+        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
+        Assert.Equal(1, notificationCount); // Should be exactly one notification
+    }
+
+    /// <summary>
+    /// Verifies that ReplaceAll with empty collection clears the list.
+    /// </summary>
+    [Fact]
+    public void ReplaceAll_WithEmptyCollection_ShouldClearList()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3, 4, 5]);
+
+        list.ReplaceAll([]);
+
+        Assert.Empty(list);
+    }
+
+    /// <summary>
+    /// Verifies that ReplaceAll updates secondary indices correctly.
+    /// </summary>
+    [Fact]
+    public void ReplaceAll_ShouldUpdateSecondaryIndices()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddIndex("Mod2", x => x % 2);
+        list.AddRange([1, 2, 3, 4, 5]);
+
+        // Verify initial state
+        Assert.Equal(2, list.GetItemsBySecondaryIndex("Mod2", 0).Count()); // 2, 4
+
+        list.ReplaceAll([10, 20, 30]);
+
+        // After replace, new even numbers
+        var evenItems = list.GetItemsBySecondaryIndex("Mod2", 0).ToList();
+        Assert.Equal(3, evenItems.Count); // 10, 20, 30 are all even
+    }
+
+    /// <summary>
+    /// Verifies that ReplaceAll throws ArgumentNullException when items is null.
+    /// </summary>
+    [Fact]
+    public void ReplaceAll_WithNull_ShouldThrowArgumentNullException()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 2, 3]);
+
+        Assert.Throws<ArgumentNullException>(() => list.ReplaceAll(null!));
     }
 
     private record TestPerson(string Name, string City);

@@ -2,7 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Defines methods for maintaining a secondary index that tracks changes to a collection of items.
@@ -43,6 +43,6 @@ public interface ISecondaryIndex<T>
     /// <param name="item">The item whose key should be compared.</param>
     /// <param name="key">The key to compare against. Must be of the correct type for this index.</param>
     /// <returns><see langword="true"/> if the item's key matches the specified key; otherwise, <see langword="false"/>.</returns>
-    bool MatchesKey(T item, object key);
+    bool MatchesKey(T? item, object key);
 }
 #endif

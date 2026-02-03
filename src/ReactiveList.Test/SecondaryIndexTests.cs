@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CP.Reactive;
+using CP.Reactive.Quaternary;
 using FluentAssertions;
 using Xunit;
 

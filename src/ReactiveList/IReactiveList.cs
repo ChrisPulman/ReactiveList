@@ -3,9 +3,7 @@
 
 using System.Collections;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Disposables;
 
 namespace CP.Reactive;
 
@@ -18,7 +16,7 @@ namespace CP.Reactive;
 /// changes to the collection need to be tracked and responded to, such as in data-binding or reactive programming
 /// contexts. Implementations are expected to be thread-safe only if explicitly documented.</remarks>
 /// <typeparam name="T">The type of elements contained in the list. Must be non-nullable.</typeparam>
-public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, ICancelable
+public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IReactiveSource<T>, INotifyPropertyChanged
     where T : notnull
 {
     /// <summary>
@@ -127,6 +125,15 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, INotifyCo
     /// </summary>
     /// <param name="index">The zero-based index of the item to remove.</param>
     new void RemoveAt(int index);
+
+    /// <summary>
+    /// Removes all elements that match the specified predicate from the collection.
+    /// </summary>
+    /// <remarks>This method provides an efficient way to remove multiple items based on a condition
+    /// without having to enumerate the collection separately.</remarks>
+    /// <param name="predicate">A function that returns true for elements that should be removed.</param>
+    /// <returns>The number of elements removed from the collection.</returns>
+    int RemoveMany(Func<T, bool> predicate);
 
     /// <summary>
     /// Removes the range.

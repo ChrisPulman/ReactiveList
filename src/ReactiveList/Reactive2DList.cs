@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Reactive.Linq;
+using System.Runtime.CompilerServices;
 
 namespace CP.Reactive;
 
@@ -143,6 +144,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <param name="item">The item to add to the inner collection at the specified outer index.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="outerIndex"/> is less than 0 or greater than or equal to the number of outer
     /// collections.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AddToInner(int outerIndex, T item)
     {
         if (outerIndex < 0 || outerIndex >= Count)
@@ -174,6 +176,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// </summary>
     /// <returns>An <see cref="IEnumerable{T}"/> that enumerates all items from the inner collections. The sequence is empty if
     /// there are no items.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IEnumerable<T> Flatten() => Items.SelectMany(innerList => innerList.Items);
 
     /// <summary>
@@ -187,6 +190,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when either <paramref name="outerIndex"/> is less than 0 or greater than or equal to the number of outer
     /// lists, or when <paramref name="innerIndex"/> is less than 0 or greater than or equal to the number of items in
     /// the inner list.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T GetItem(int outerIndex, int innerIndex)
     {
         if (outerIndex < 0 || outerIndex >= Count)

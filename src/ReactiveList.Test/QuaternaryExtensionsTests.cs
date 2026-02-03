@@ -4,7 +4,7 @@
 #if NET8_0_OR_GREATER
 using System.Reactive.Concurrency;
 using System.Threading.Tasks;
-using CP.Reactive;
+using CP.Reactive.Quaternary;
 using Xunit;
 
 namespace ReactiveList.Test;

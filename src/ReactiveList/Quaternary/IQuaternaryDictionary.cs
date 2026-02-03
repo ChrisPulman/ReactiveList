@@ -2,7 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Represents a dictionary that supports standard key-value storage as well as additional value-based indexing and
@@ -40,7 +40,7 @@ public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>
     /// <typeparam name="TIndexKey">The type of the key used for indexing. Must be non-nullable.</typeparam>
     /// <param name="name">The unique name of the value index to add. Cannot be null or empty.</param>
     /// <param name="keySelector">A function that extracts the index key from a value. Cannot be null.</param>
-    void AddValueIndex<TIndexKey>(string name, Func<TValue, TIndexKey> keySelector)
+    void AddValueIndex<TIndexKey>(string name, Func<TValue?, TIndexKey> keySelector)
         where TIndexKey : notnull;
 
     /// <summary>

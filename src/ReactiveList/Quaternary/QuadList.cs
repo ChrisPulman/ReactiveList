@@ -4,6 +4,7 @@
 #if NET8_0_OR_GREATER
 using System.Buffers;
 using System.Collections;
+using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 
 namespace CP.Reactive.Quaternary;
@@ -17,6 +18,7 @@ namespace CP.Reactive.Quaternary;
 /// be accessed concurrently from multiple threads. Call Dispose to return internal arrays to the pool.
 /// </remarks>
 /// <typeparam name="T">The type of elements in the list.</typeparam>
+[SkipLocalsInit]
 public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
 {
     private const int MinimumSize = 16;
@@ -31,7 +33,27 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
     {
         _items = ArrayPool<T>.Shared.Rent(MinimumSize);
         _count = 0;
+        Changes = Observable.FromEventPattern<QuaternaryChangeSet<T>>(
+                h => ItemChanged += h,
+                h => ItemChanged -= h)
+            .Select(q => q.EventArgs);
     }
+
+    /// <summary>
+    /// Occurs when an item of type <typeparamref name="T"/> is changed.
+    /// </summary>
+    /// <remarks>Subscribers can use this event to respond to modifications of items. The event provides the
+    /// updated item as event data. This event is not raised for additions or removals; it is only triggered when an
+    /// existing item is changed.</remarks>
+    public event EventHandler<QuaternaryChangeSet<T>>? ItemChanged;
+
+    /// <summary>
+    /// Gets an observable sequence that emits change sets representing additions, removals, updates, and moves within
+    /// the collection.
+    /// </summary>
+    /// <remarks>Subscribers receive notifications whenever the underlying collection changes. The sequence
+    /// completes when the collection is disposed or no longer produces changes.</remarks>
+    public IObservable<QuaternaryChangeSet<T>> Changes { get; }
 
     /// <summary>
     /// Gets the number of elements contained in the list.
@@ -70,6 +92,7 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
             }
 
             _items[index] = value;
+            ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Update, value) });
         }
     }
 
@@ -92,6 +115,8 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
         {
             AddWithResize(item);
         }
+
+        ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Add, item) });
     }
 
     /// <summary>
@@ -106,6 +131,7 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
         if (index >= 0)
         {
             RemoveAt(index);
+            ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Remove, item) });
             return true;
         }
 
@@ -134,6 +160,8 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
         {
             _items[_count] = default!;
         }
+
+        ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Remove, _items[_count]) });
     }
 
     /// <summary>
@@ -167,6 +195,13 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
         EnsureCapacity(_count + count);
         items.CopyTo(_items.AsSpan(_count));
         _count += count;
+        QuaternaryChangeSet<T> changes = new();
+        for (var i = 0; i < count; i++)
+        {
+            changes.Add(new QuaternaryChange<T>(QuaternaryChangeReason.Add, items[i]));
+        }
+
+        ItemChanged?.Invoke(this, changes);
     }
 
     /// <summary>

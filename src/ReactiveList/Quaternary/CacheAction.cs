@@ -2,7 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Specifies the type of action performed on a cache entry.
@@ -16,22 +16,26 @@ public enum CacheAction
     /// Gets or sets the date and time when the entity was added.
     /// </summary>
     Added,
-
     /// <summary>
     /// Gets or sets a value indicating whether the item has been removed.
     /// </summary>
     Removed,
-
     /// <summary>
     /// Gets or sets the date and time when the entity was last updated.
     /// </summary>
     Updated,
-
+    /// <summary>
+    /// Indicates whether the item has been moved from its original location.
+    /// </summary>
+    Moved,
+    /// <summary>
+    /// Gets or sets a value indicating whether the data has been refreshed.
+    /// </summary>
+    Refreshed,
     /// <summary>
     /// Indicates that the item has been cleared and is no longer in use.
     /// </summary>
     Cleared,
-
     /// <summary>
     /// Represents an operation that can be executed as part of a batch process.
     /// </summary>
@@ -39,12 +43,10 @@ public enum CacheAction
     /// improve performance and ensure consistency. The specific behavior and requirements of a batch operation depend
     /// on the implementation.</remarks>
     BatchOperation,
-
     /// <summary>
     /// Represents a batch addition operation where multiple items are added at once.
     /// </summary>
     BatchAdded,
-
     /// <summary>
     /// Represents a batch removal operation where multiple items are removed at once.
     /// </summary>
