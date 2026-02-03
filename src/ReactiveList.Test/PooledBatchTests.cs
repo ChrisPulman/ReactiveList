@@ -1,10 +1,9 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET6_0_OR_GREATER
 using System;
 using System.Buffers;
-using CP.Reactive.Quaternary;
+using CP.Reactive.Core;
 using FluentAssertions;
 using Xunit;
 
@@ -205,4 +204,3 @@ public class PooledBatchTests
         result.Should().Contain("5");
     }
 }
-#endif

@@ -8,6 +8,8 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive;
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
 using FluentAssertions;
 using Xunit;
 
@@ -25,7 +27,7 @@ public class ReactiveListExtensionsTests
     public void WhereChanges_FiltersChangesByPredicate()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         var addedItems = new List<int>();
 
         using var subscription = list.Connect()
@@ -55,11 +57,11 @@ public class ReactiveListExtensionsTests
     public void WhereReason_FiltersAddOnly()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<string>();
+        using var list = new ReactiveList<string>();
         var addCount = 0;
 
         using var subscription = list.Connect()
-            .WhereReason(CP.Reactive.ChangeReason.Add)
+            .WhereReason(CP.Reactive.Core.ChangeReason.Add)
             .Subscribe((Action<ChangeSet<string>>)(cs => addCount++));
 
         // Act
@@ -78,7 +80,7 @@ public class ReactiveListExtensionsTests
     public void OnAdd_ReturnsAddedItems()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         var addedItems = new List<int>();
 
         using var subscription = list.Connect()
@@ -101,7 +103,7 @@ public class ReactiveListExtensionsTests
     public void OnRemove_ReturnsRemovedItems()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         var removedItems = new List<int>();
 
         using var subscription = list.Connect()
@@ -124,12 +126,12 @@ public class ReactiveListExtensionsTests
     public void SelectChanges_TransformsItems()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         var transformedItems = new List<string>();
 
         using var subscription = list.Connect()
             .SelectChanges((int i) => $"Item_{i}")
-            .Subscribe((Action<string>)(item => transformedItems.Add(item)));
+            .Subscribe(item => transformedItems.Add(item));
 
         // Act
         list.Add(1);
@@ -149,7 +151,7 @@ public class ReactiveListExtensionsTests
     public async Task CreateView_CreatesFilteredView()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
 
         // Act
@@ -171,7 +173,7 @@ public class ReactiveListExtensionsTests
     public async Task CreateView_UpdatesOnSourceChange()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3 });
 
         using var view = list.CreateView(x => x > 1, ImmediateScheduler.Instance, 0);
@@ -193,7 +195,7 @@ public class ReactiveListExtensionsTests
     public async Task DynamicCreateView_UpdatesOnFilterChange()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3, 4, 5 });
 
         var filterSubject = new BehaviorSubject<Func<int, bool>>(_ => true);
@@ -219,7 +221,7 @@ public class ReactiveListExtensionsTests
     public async Task SortBy_CreatesSortedView()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 5, 2, 8, 1, 9, 3 });
 
         // Act - sort ascending
@@ -238,7 +240,7 @@ public class ReactiveListExtensionsTests
     public async Task SortBy_WithKeySelector_CreatesSortedView()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<string>();
+        using var list = new ReactiveList<string>();
         list.AddRange(new[] { "banana", "apple", "cherry" });
 
         // Act - sort by length
@@ -258,7 +260,7 @@ public class ReactiveListExtensionsTests
     public async Task GroupBy_CreatesGroupedView()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3, 4, 5, 6 });
 
         // Act - group by even/odd
@@ -281,7 +283,7 @@ public class ReactiveListExtensionsTests
     public async Task GroupBy_UpdatesOnAdd()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3 });
 
         using var view = list.GroupBy((int x) => x % 2 == 0 ? "even" : "odd", ImmediateScheduler.Instance, 0);
@@ -302,7 +304,7 @@ public class ReactiveListExtensionsTests
     public void AddRange_WithSpan_AddsItems()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         ReadOnlySpan<int> items = stackalloc int[] { 1, 2, 3, 4, 5 };
 
         // Act
@@ -320,7 +322,7 @@ public class ReactiveListExtensionsTests
     public void CopyTo_WithSpan_CopiesItems()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3, 4, 5 });
         Span<int> destination = stackalloc int[5];
 
@@ -338,7 +340,7 @@ public class ReactiveListExtensionsTests
     public void AsSpan_ReturnsItems()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3 });
 
         // Act
@@ -358,7 +360,7 @@ public class ReactiveListExtensionsTests
     public void AsMemory_ReturnsItems()
     {
         // Arrange
-        using var list = new CP.Reactive.ReactiveList<int>();
+        using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3 });
 
         // Act

@@ -9,7 +9,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
-using CP.Reactive.Quaternary;
+using CP.Reactive.Collections;
 using FluentAssertions;
 using Xunit;
 

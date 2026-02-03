@@ -5,7 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using CP.Reactive;
+using CP.Reactive.Core;
 using FluentAssertions;
 using Xunit;
 

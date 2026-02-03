@@ -5,9 +5,9 @@
 [![License](https://img.shields.io/github/license/ChrisPulman/ReactiveList.svg?style=flat-square)](LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ChrisPulman/ReactiveList/BuildOnly.yml?branch=main&style=flat-square)](https://github.com/ChrisPulman/ReactiveList/actions)
 
-A lightweight, high-performance reactive list with fine-grained change tracking built on [System.Reactive](https://github.com/dotnet/reactive).
+A lightweight, high-performance reactive collection library with fine-grained change tracking built on [System.Reactive](https://github.com/dotnet/reactive).
 
-**Targets:** .NET Standard 2.0 | .NET 8 | .NET 9 | .NET 10
+**Targets:** .NET Framework 4.7.2 / 4.8 | .NET 8 | .NET 9 | .NET 10
 
 ## Installation
 
@@ -25,56 +25,39 @@ Install-Package ReactiveList
 
 ## Table of Contents
 
-- [Why ReactiveList?](#why-reactivelist)
+- [Overview](#overview)
 - [Quick Start](#quick-start)
-- [ReactiveList Features](#reactivelist-features)
+- [ReactiveList&lt;T&gt;](#reactivelistt)
   - [Basic Operations](#basic-operations)
   - [Batch Operations with Edit](#batch-operations-with-edit)
-  - [Moving Items](#moving-items)
   - [Reactive Subscriptions](#reactive-subscriptions)
   - [Change Tracking](#change-tracking)
-- [Reactive2DList Features](#reactive2dlist-features)
-  - [Constructing a 2D List](#constructing-a-2d-list)
-  - [Accessing Items](#accessing-items)
-  - [Modifying Inner Lists](#modifying-inner-lists)
-  - [Utility Methods](#utility-methods)
+  - [Extension Methods](#reactivelist-extension-methods)
+- [Reactive2DList&lt;T&gt;](#reactive2dlistt)
+- [QuaternaryList&lt;T&gt;](#quaternarylistt) (.NET 8+)
+- [QuaternaryDictionary&lt;TKey, TValue&gt;](#quaternarydictionarytkey-tvalue) (.NET 8+)
+- [Benchmark Results](#benchmark-results)
+- [Full API Reference](#full-api-reference)
 - [UI Binding](#ui-binding)
-  - [WPF / WinUI](#wpf--winui)
-  - [Avalonia](#avalonia)
 - [Use Cases](#use-cases)
-- [API Reference](#api-reference)
-- [Behavior Notes](#behavior-notes)
-- [Building Locally](#building-locally)
 - [License](#license)
 
 ---
 
-## Why ReactiveList?
+## Overview
 
-| Feature | Description |
-|---------|-------------|
-| **Reactive** | Subscribe to changes as they happen with `Added`, `Removed`, `Changed`, and `CurrentItems` observables |
-| **UI-friendly** | Implements `INotifyCollectionChanged` and `INotifyPropertyChanged` for seamless data binding |
-| **Easy binding** | Exposes `ReadOnlyObservableCollection<T>` for direct UI binding |
-| **Granular change info** | Access the last Added/Removed/Changed batch via collections and observables |
-| **Batch operations** | Use `Edit()` for atomic, batched modifications with a single notification |
-| **Familiar API** | Implements `IList<T>`, `IList`, `IReadOnlyList<T>`, and `ICancelable` |
-| **Thread-safe synchronization** | Internal synchronization for `ReplaceAll` operations |
+This library provides four reactive collection types:
+
+| Collection | Description | Targets |
+|------------|-------------|---------|
+| `ReactiveList<T>` | Observable list with fine-grained change tracking | All |
+| `Reactive2DList<T>` | Two-dimensional reactive list (list of lists) | All |
+| `QuaternaryList<T>` | High-performance sharded list for large datasets | .NET 8+ |
+| `QuaternaryDictionary<TKey, TValue>` | High-performance sharded dictionary | .NET 8+ |
 
 ---
 
 ## Quick Start
-
-This library provides:
-
-- A `ReactiveList<T>` implementation that allows you to observe changes in real-time.
-- A `Reactive2DList<T>` for managing a list of lists (2D structure) with reactive capabilities.
-
-> Net 8 and above also includes:
-- A `QuaternaryDictionary<TKey, TValue>` for high-performance key-value storage with reactive features.
-- A `QuaternaryList<T>` for optimized list like operations at scale with reactive capabilities.
-
-Here's a quick example to get you started:
 
 ```csharp
 using CP.Reactive;
@@ -105,13 +88,30 @@ list.Move(0, 2);
 // Replace all items atomically
 list.ReplaceAll(["a", "b", "c"]);
 
+// Subscribe to the Stream for detailed change notifications
+list.Stream.Subscribe(notification =>
+{
+    Console.WriteLine($"{notification.Action}: {notification.Item}");
+});
+
+// Or use Connect() extension for ChangeSet-based processing
+list.Connect().Subscribe(changeSet =>
+{
+    foreach (var change in changeSet)
+    {
+        Console.WriteLine($"{change.Reason}: {change.Current}");
+    }
+});
+
 // Cleanup
 list.Dispose();
 ```
 
 ---
 
-## ReactiveList Features
+## ReactiveList&lt;T&gt;
+
+A reactive, observable list that notifies subscribers of changes in real-time.
 
 ### Basic Operations
 
@@ -131,13 +131,17 @@ list.Remove("item");                        // Remove by value
 list.Remove(["a", "b"]);                   // Remove multiple items
 list.RemoveAt(0);                           // Remove at index
 list.RemoveRange(0, 2);                     // Remove range
+list.RemoveMany(x => x.StartsWith("a"));   // Remove matching predicate
 list.Clear();                               // Remove all items
 
 // Updating items
 list.Update("old", "new");                  // Replace specific item
 
 // Replacing all items
-list.ReplaceAll(["new", "items"]);         // Clear and add in one operation
+list.ReplaceAll(["new", "items"]);         // Clear and add atomically
+
+// Moving items
+list.Move(0, 2);                           // Move item from index 0 to index 2
 
 // Accessing items
 var item = list[0];                         // Get by index
@@ -149,17 +153,12 @@ var count = list.Count;                     // Get count
 
 ### Batch Operations with Edit
 
-The `Edit` method allows you to perform multiple operations atomically with a single change notification. This is more efficient than individual operations when making multiple changes.
+The `Edit` method performs multiple operations atomically with a single change notification:
 
 ```csharp
 var list = new ReactiveList<int>([1, 2, 3, 4, 5]);
 
-// Without Edit: 3 separate notifications
-list.Add(6);
-list.RemoveAt(0);
-list.Insert(2, 100);
-
-// With Edit: single notification for all changes
+// All changes result in a single notification
 list.Edit(l =>
 {
     l.Add(6);
@@ -168,514 +167,558 @@ list.Edit(l =>
     l.AddRange([7, 8, 9]);
     l.Move(0, 3);
 });
-
-// Complex transformations
-list.Edit(l =>
-{
-    // Clear and rebuild
-    l.Clear();
-    for (int i = 0; i < 10; i++)
-    {
-        l.Add(i * 10);
-    }
-});
-```
-
-### Moving Items
-
-Reorder items within the list without remove/add overhead:
-
-```csharp
-var list = new ReactiveList<string>(["A", "B", "C", "D", "E"]);
-
-// Move "A" from index 0 to index 3
-list.Move(0, 3);
-// Result: ["B", "C", "D", "A", "E"]
-
-// Move last item to first position
-list.Move(list.Count - 1, 0);
-// Result: ["E", "B", "C", "D", "A"]
-
-// Moving to same index is a no-op
-list.Move(2, 2); // No change, no notification
 ```
 
 ### Reactive Subscriptions
 
-Subscribe to various change streams:
-
 ```csharp
 var list = new ReactiveList<string>();
 
-// Subscribe to items added in each change
-var addedSub = list.Added.Subscribe(added =>
+// Subscribe to items added
+list.Added.Subscribe(added =>
 {
     foreach (var item in added)
-    {
         Console.WriteLine($"Added: {item}");
-    }
 });
 
-// Subscribe to items removed in each change
-var removedSub = list.Removed.Subscribe(removed =>
+// Subscribe to items removed
+list.Removed.Subscribe(removed =>
 {
     Console.WriteLine($"Removed {removed.Count()} items");
 });
 
-// Subscribe to any change (add/remove/replace)
-var changedSub = list.Changed.Subscribe(changed =>
+// Subscribe to any change
+list.Changed.Subscribe(changed =>
 {
     Console.WriteLine($"Changed: {string.Join(", ", changed)}");
 });
 
-// Subscribe to current items snapshot (fires on count changes)
-var currentSub = list.CurrentItems.Subscribe(items =>
+// Subscribe to current items snapshot
+list.CurrentItems.Subscribe(items =>
 {
     Console.WriteLine($"Current count: {items.Count()}");
-    Console.WriteLine($"Sum: {items.Sum(x => x.Length)}"); // Example aggregation
 });
 
-// You can also subscribe directly to the list (subscribes to CurrentItems)
-var directSub = list.Subscribe(items =>
+// Subscribe to the Stream property for detailed change notifications
+list.Stream.Subscribe(notification =>
 {
-    Console.WriteLine($"Items: [{string.Join(", ", items)}]");
+    Console.WriteLine($"Action: {notification.Action}, Item: {notification.Item}");
 });
 
-// Cleanup
-addedSub.Dispose();
-removedSub.Dispose();
-changedSub.Dispose();
-currentSub.Dispose();
-directSub.Dispose();
-list.Dispose();
+// Or use Connect() extension for ChangeSet-based processing (DynamicData-compatible)
+list.Connect().Subscribe(changeSet =>
+{
+    foreach (var change in changeSet)
+    {
+        Console.WriteLine($"Reason: {change.Reason}, Item: {change.Current}, Index: {change.CurrentIndex}");
+    }
+});
 ```
 
 ### Change Tracking
 
-Access change information via collections (snapshot of last change):
+Access change information via collections:
 
 ```csharp
 var list = new ReactiveList<string>();
 
 list.AddRange(["one", "two", "three"]);
-
 Console.WriteLine($"Items Added: {list.ItemsAdded.Count}");       // 3
 Console.WriteLine($"Items Changed: {list.ItemsChanged.Count}");   // 3
 Console.WriteLine($"Items Removed: {list.ItemsRemoved.Count}");   // 0
 
 list.Remove("two");
-
-Console.WriteLine($"Items Added: {list.ItemsAdded.Count}");       // 0
-Console.WriteLine($"Items Changed: {list.ItemsChanged.Count}");   // 1
 Console.WriteLine($"Items Removed: {list.ItemsRemoved.Count}");   // 1
+```
 
-// ReplaceAll behavior
-list.ReplaceAll(["a", "b"]);
+### ReactiveList Extension Methods
 
-Console.WriteLine($"Items Added: {list.ItemsAdded.Count}");       // 2 (new items)
-Console.WriteLine($"Items Changed: {list.ItemsChanged.Count}");   // 2 (cleared items)
-Console.WriteLine($"Items Removed: {list.ItemsRemoved.Count}");   // 2 (cleared items)
+#### Change Stream Filtering
+
+```csharp
+// Filter changes by predicate
+list.Connect()
+    .WhereChanges(change => change.Current.StartsWith("A"))
+    .Subscribe(changeSet => { });
+
+// Filter by change reason
+list.Connect()
+    .WhereReason(ChangeReason.Add)
+    .Subscribe(changeSet => { });
+
+// Subscribe to specific change types
+list.Connect().OnAdd().Subscribe(item => Console.WriteLine($"Added: {item}"));
+list.Connect().OnRemove().Subscribe(item => Console.WriteLine($"Removed: {item}"));
+list.Connect().OnUpdate().Subscribe(tuple => Console.WriteLine($"Updated: {tuple.Previous} -> {tuple.Current}"));
+list.Connect().OnMove().Subscribe(tuple => Console.WriteLine($"Moved: {tuple.Item} from {tuple.OldIndex} to {tuple.NewIndex}"));
+```
+
+#### Creating Views (.NET 6+)
+
+```csharp
+// Create a filtered view
+var activeUsers = list.CreateView(user => user.IsActive, scheduler: RxApp.MainThreadScheduler, throttleMs: 50);
+
+// Create an unfiltered view
+var allUsers = list.CreateView(scheduler: RxApp.MainThreadScheduler);
+
+// Create a dynamic filtered view (filter changes over time)
+var searchText = new BehaviorSubject<string>("");
+var filterObservable = searchText.Select<string, Func<User, bool>>(text => 
+    user => user.Name.Contains(text, StringComparison.OrdinalIgnoreCase));
+var searchResults = list.CreateView(filterObservable, scheduler: RxApp.MainThreadScheduler);
+
+// Create a sorted view
+var sortedByName = list.SortBy(user => user.Name);
+var sortedDescending = list.SortBy(user => user.Age, descending: true);
+var sortedWithComparer = list.SortBy(Comparer<User>.Create((a, b) => a.Name.CompareTo(b.Name)));
+
+// Create a grouped view
+var groupedByDepartment = list.GroupBy(user => user.Department);
+```
+
+#### Auto-Refresh
+
+```csharp
+// Automatically refresh when property changes (for INotifyPropertyChanged items)
+list.Connect()
+    .AutoRefresh("Name")
+    .Subscribe(changeSet => { });
+```
+
+#### Transformation
+
+```csharp
+// Project changes
+list.Connect()
+    .SelectChanges(item => item.Name)
+    .Subscribe(name => Console.WriteLine(name));
+
+// Project with full change metadata
+list.Connect()
+    .SelectChanges(change => $"{change.Reason}: {change.Current}")
+    .Subscribe(description => Console.WriteLine(description));
+
+// Group changes by key
+list.Connect()
+    .GroupByChanges(item => item.Category)
+    .Subscribe(grouping => Console.WriteLine($"Group {grouping.Key}: {grouping.Count()} items"));
 ```
 
 ---
 
-## Reactive2DList Features
+## Reactive2DList&lt;T&gt;
 
-`Reactive2DList<T>` is a reactive list of reactive lists, perfect for grid-like or table data structures.
-
-```csharp
-Reactive2DList<T> : ReactiveList<ReactiveList<T>>
-```
-
-### Constructing a 2D List
+A two-dimensional reactive list for managing grid-like or tabular data.
 
 ```csharp
-using CP.Reactive;
-
-// Empty 2D list
-var grid = new Reactive2DList<int>();
-
-// From nested collections
-var grid2 = new Reactive2DList<int>(new[]
+// Create from nested collections
+var grid = new Reactive2DList<int>(new[]
 {
     new[] { 1, 2, 3 },
     new[] { 4, 5, 6 },
     new[] { 7, 8, 9 }
 });
 
-// From existing ReactiveList rows
-var row1 = new ReactiveList<int>([10, 20]);
-var row2 = new ReactiveList<int>([30, 40]);
-var grid3 = new Reactive2DList<int>([row1, row2]);
+// Access items
+var item = grid.GetItem(1, 0);  // Row 1, Column 0 = 4
+var row = grid[0];               // First row as ReactiveList<int>
 
-// From flat collection (each item becomes a single-element row)
-var grid4 = new Reactive2DList<int>([1, 2, 3]);
-// Result: [ [1], [2], [3] ]
+// Set items
+grid.SetItem(2, 1, 100);         // Set row 2, column 1 to 100
 
-// From single ReactiveList (becomes single row)
-var grid5 = new Reactive2DList<int>(new ReactiveList<int>([1, 2, 3]));
-// Result: [ [1, 2, 3] ]
+// Add to inner lists
+grid.AddToInner(0, 10);          // Add 10 to first row
+grid.AddToInner(1, [11, 12]);    // Add multiple to second row
 
-// From single value (one row, one item)
-var grid6 = new Reactive2DList<int>(42);
-// Result: [ [42] ]
-```
+// Remove from inner lists
+grid.RemoveFromInner(0, 2);      // Remove item at index 2 from first row
+grid.ClearInner(1);              // Clear second row
 
-### Accessing Items
+// Insert rows
+grid.Insert(0, [100, 200]);      // Insert new row at index 0
+grid.Insert(1, 999);             // Insert single-element row
 
-```csharp
-var grid = new Reactive2DList<string>(new[]
-{
-    new[] { "A1", "A2", "A3" },
-    new[] { "B1", "B2" },
-    new[] { "C1", "C2", "C3", "C4" }
-});
-
-// Access via GetItem (bounds-checked)
-var item = grid.GetItem(1, 0);  // "B1"
-
-// Access via indexers
-var row = grid[0];              // ReactiveList<string> ["A1", "A2", "A3"]
-var cell = grid[0][1];          // "A2"
-
-// Set item at specific position
-grid.SetItem(2, 1, "UPDATED");  // grid[2][1] = "UPDATED"
-
-// Get total count of all items
-var total = grid.TotalCount();  // 9
-
-// Get flattened enumerable of all items
-var all = grid.Flatten();       // ["A1", "A2", "A3", "B1", "B2", "C1", "UPDATED", "C3", "C4"]
-```
-
-### Modifying Inner Lists
-
-```csharp
-var grid = new Reactive2DList<int>(new[]
-{
-    new[] { 1, 2 },
-    new[] { 3, 4 }
-});
-
-// Add items to a specific row
-grid.AddToInner(0, 99);                  // Row 0: [1, 2, 99]
-grid.AddToInner(1, new[] { 5, 6 });      // Row 1: [3, 4, 5, 6]
-
-// Remove item from inner list
-grid.RemoveFromInner(0, 1);              // Row 0: [1, 99] (removed index 1)
-
-// Clear a specific row
-grid.ClearInner(1);                      // Row 1: [] (empty)
-
-// Insert items into a row at specific position
-grid.Insert(0, new[] { 10, 20 }, 0);     // Insert at row 0, inner index 0
-                                          // Row 0: [10, 20, 1, 99]
-```
-
-### Utility Methods
-
-```csharp
-var grid = new Reactive2DList<int>(new[]
-{
-    new[] { 1, 2, 3 },
-    new[] { 4, 5 },
-    new[] { 6 }
-});
-
-// Get total count across all rows
-var total = grid.TotalCount();  // 6
-
-// Get flattened list
-var flat = grid.Flatten().ToList();  // [1, 2, 3, 4, 5, 6]
-
-// Use with LINQ
-var sum = grid.Flatten().Sum();      // 21
-var max = grid.Flatten().Max();      // 6
-
-// Check if any row is empty
-var hasEmpty = grid.Items.Any(row => row.Count == 0);  // false
-
-// Find row with most items
-var largestRow = grid.Items.OrderByDescending(r => r.Count).First();
-```
-
-### Adding and Inserting Rows
-
-```csharp
-var grid = new Reactive2DList<string>();
-
-// Add rows from nested collections
-grid.AddRange(new[]
-{
-    new[] { "a", "b" },
-    new[] { "c", "d", "e" }
-});
-
-// Add single-element rows from flat collection
-grid.AddRange(new[] { "x", "y" });  // Adds rows: ["x"], ["y"]
-
-// Insert a new row at specific index
-grid.Insert(0, new[] { "first", "row" });
-
-// Insert a single-element row
-grid.Insert(1, "solo");
+// Utility methods
+var totalCount = grid.TotalCount();          // Total items across all rows
+var flattened = grid.Flatten().ToList();     // All items as flat list
 ```
 
 ---
 
-## UI Binding
+## QuaternaryList&lt;T&gt;
 
-### WPF / WinUI
+High-performance, thread-safe, sharded list optimized for large datasets (.NET 8+).
 
-`ReactiveList<T>` implements `INotifyCollectionChanged` and `INotifyPropertyChanged`, making it directly bindable.
+### Key Features
 
-**ViewModel:**
+- **Sharded architecture**: Data distributed across 4 partitions for parallel access
+- **Thread-safe**: Uses `ReaderWriterLockSlim` with fine-grained locking
+- **Low allocation**: Uses `ArrayPool<T>` and custom pooled collections
+- **Secondary indices**: O(1) lookup by custom keys
+- **Batch operations**: Efficient bulk add/remove with parallel processing
+
+### Basic Operations
+
 ```csharp
-public class MainViewModel : IDisposable
+using CP.Reactive.Quaternary;
+
+var list = new QuaternaryList<Contact>();
+
+// Add items
+list.Add(new Contact("Alice", "Engineering"));
+list.AddRange(contacts);
+
+// Remove items
+list.Remove(contact);
+list.RemoveRange(contactsToRemove);
+list.RemoveMany(c => c.Department == "HR");
+
+// Check existence
+var exists = list.Contains(contact);
+
+// Batch operations (single notification)
+list.Edit(l =>
 {
-    public IReactiveList<string> Items { get; } = new ReactiveList<string>(["One", "Two", "Three"]);
+    l.Add(new Contact("Bob", "Sales"));
+    l.Clear();
+    l.Add(new Contact("Charlie", "Engineering"));
+});
 
-    public void AddItem(string item) => Items.Add(item);
-    public void RemoveItem(string item) => Items.Remove(item);
-    public void ClearItems() => Items.Clear();
+// Replace all
+list.ReplaceAll(newContacts);
 
-    public void Dispose() => Items.Dispose();
+// Copy to array
+var array = new Contact[list.Count];
+list.CopyTo(array, 0);
+```
+
+### Secondary Indices
+
+```csharp
+var list = new QuaternaryList<Contact>();
+
+// Add indices for O(1) lookups
+list.AddIndex("ByDepartment", c => c.Department);
+list.AddIndex("ByCity", c => c.City);
+
+// Bulk add
+list.AddRange(contacts);
+
+// Fast O(1) query by index
+var engineers = list.GetItemsBySecondaryIndex("ByDepartment", "Engineering");
+var newYorkers = list.GetItemsBySecondaryIndex("ByCity", "New York");
+
+// Check if item matches index
+bool isEngineer = list.ItemMatchesSecondaryIndex("ByDepartment", contact, "Engineering");
+```
+
+### Reactive Streams
+
+```csharp
+// Subscribe to all changes
+list.Stream.Subscribe(notification =>
+{
+    switch (notification.Action)
+    {
+        case CacheAction.Added:
+            Console.WriteLine($"Added: {notification.Item}");
+            break;
+        case CacheAction.Removed:
+            Console.WriteLine($"Removed: {notification.Item}");
+            break;
+        case CacheAction.Cleared:
+            Console.WriteLine("Collection cleared");
+            break;
+        case CacheAction.BatchAdded:
+        case CacheAction.BatchRemoved:
+        case CacheAction.BatchOperation:
+            Console.WriteLine($"Batch: {notification.Batch?.Count} items");
+            break;
+    }
+});
+
+// Version tracking for change detection
+long initialVersion = list.Version;
+list.Add(contact);
+if (list.Version != initialVersion)
+{
+    Console.WriteLine("Collection changed!");
 }
 ```
 
-**XAML (direct binding):**
-```xml
-<ListBox ItemsSource="{Binding Items}" />
+### Creating Views
+
+```csharp
+using System.Reactive.Concurrency;
+
+// Create an unfiltered view
+var allContactsView = list.CreateView(RxApp.MainThreadScheduler, throttleMs: 100);
+
+// Create a filtered view
+var activeView = list.CreateView(c => c.IsActive, RxApp.MainThreadScheduler, throttleMs: 100);
+
+// Create a view filtered by secondary index
+var engineersView = list.CreateViewBySecondaryIndex<Contact, string>(
+    "ByDepartment", 
+    "Engineering",
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Create a view with multiple index keys
+var techDeptView = list.CreateViewBySecondaryIndex<Contact, string>(
+    "ByDepartment",
+    new[] { "Engineering", "QA", "DevOps" },
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Dynamic filtering with observable
+var departmentFilter = new BehaviorSubject<string[]>(new[] { "Engineering" });
+var dynamicView = list.CreateViewBySecondaryIndex(
+    "ByDepartment",
+    departmentFilter,
+    RxApp.MainThreadScheduler);
+
+// Change filter dynamically
+departmentFilter.OnNext(new[] { "HR", "Finance" });
 ```
 
-**XAML (binding to Items property):**
-```xml
-<ListBox ItemsSource="{Binding Items.Items}" />
-```
+### Stream Filtering Extensions
 
-**Nested binding for Reactive2DList:**
-```xml
-<ItemsControl ItemsSource="{Binding Grid}">
-    <ItemsControl.ItemTemplate>
-        <DataTemplate>
-            <ItemsControl ItemsSource="{Binding Items}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border BorderBrush="Gray" BorderThickness="1" Padding="8">
-                            <TextBlock Text="{Binding}"/>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </DataTemplate>
-    </ItemsControl.ItemTemplate>
-</ItemsControl>
-```
+```csharp
+// Filter stream by secondary index
+var engineeringStream = list.Stream
+    .FilterBySecondaryIndex(list, "ByDepartment", "Engineering");
 
-### Avalonia
+// Filter stream by multiple keys
+var techStream = list.Stream
+    .FilterBySecondaryIndex(list, "ByDepartment", "Engineering", "QA", "DevOps");
 
-Works the same as WPF:
+// Dynamic stream filtering
+var filterObservable = new BehaviorSubject<Func<Contact, bool>>(c => c.IsActive);
+var filteredStream = list.Stream.FilterDynamic(filterObservable);
 
-```xml
-<ListBox ItemsSource="{Binding Items}" />
+// Filter items in stream
+var activeStream = list.Stream.WhereItems(c => c.IsActive);
 ```
 
 ---
 
-## Use Cases
+## QuaternaryDictionary&lt;TKey, TValue&gt;
 
-### Real-time Data Feed
+High-performance, thread-safe, sharded dictionary optimized for large datasets (.NET 8+).
+
+### Basic Operations
 
 ```csharp
-public class StockTickerViewModel : IDisposable
+using CP.Reactive.Quaternary;
+
+var dict = new QuaternaryDictionary<Guid, User>();
+
+// Add items
+dict.Add(user.Id, user);                    // Throws if key exists
+dict.TryAdd(user.Id, user);                 // Returns false if key exists
+dict.AddOrUpdate(user.Id, user);            // Add or update
+dict.AddRange(users.Select(u => KeyValuePair.Create(u.Id, u)));
+
+// Access items
+if (dict.TryGetValue(userId, out var user))
 {
-    private readonly CompositeDisposable _disposables = new();
-
-    public IReactiveList<StockPrice> Prices { get; } = new ReactiveList<StockPrice>();
-
-    public StockTickerViewModel(IObservable<StockPrice> priceFeed)
-    {
-        // Subscribe to real-time feed
-        priceFeed
-            .ObserveOn(RxApp.MainThreadScheduler) // Dispatch to UI thread
-            .Subscribe(price =>
-            {
-                var existing = Prices.Items.FirstOrDefault(p => p.Symbol == price.Symbol);
-                if (existing != null)
-                {
-                    Prices.Update(existing, price);
-                }
-                else
-                {
-                    Prices.Add(price);
-                }
-            })
-            .DisposeWith(_disposables);
-    }
-
-    public void Dispose() => _disposables.Dispose();
+    Console.WriteLine(user.Name);
 }
 
-public record StockPrice(string Symbol, decimal Price, DateTime Timestamp);
+// Using Lookup (returns tuple)
+var result = dict.Lookup(userId);
+if (result.HasValue)
+{
+    Console.WriteLine(result.Value.Name);
+}
+
+// Indexer access
+var user = dict[userId];                    // Throws if not found
+dict[userId] = updatedUser;                 // Add or update
+
+// Remove items
+dict.Remove(userId);
+dict.RemoveKeys(userIds);
+dict.RemoveMany(kvp => kvp.Value.IsDeleted);
+dict.Clear();
+
+// Check existence
+var exists = dict.ContainsKey(userId);
+
+// Enumerate
+foreach (var key in dict.Keys) { }
+foreach (var value in dict.Values) { }
+foreach (var kvp in dict) { }
 ```
 
-### Task List with Change Logging
+### Batch Operations
 
 ```csharp
-public class TaskListViewModel : IDisposable
+// Batch edit (single notification)
+dict.Edit(d =>
 {
-    private readonly CompositeDisposable _disposables = new();
-
-    public IReactiveList<TodoItem> Tasks { get; } = new ReactiveList<TodoItem>();
-    public ReactiveList<string> ActivityLog { get; } = new();
-
-    public TaskListViewModel()
-    {
-        Tasks.Added
-            .Subscribe(items =>
-            {
-                foreach (var item in items)
-                {
-                    ActivityLog.Add($"[{DateTime.Now:HH:mm:ss}] Added: {item.Title}");
-                }
-            })
-            .DisposeWith(_disposables);
-
-        Tasks.Removed
-            .Subscribe(items =>
-            {
-                foreach (var item in items)
-                {
-                    ActivityLog.Add($"[{DateTime.Now:HH:mm:ss}] Removed: {item.Title}");
-                }
-            })
-            .DisposeWith(_disposables);
-    }
-
-    public void AddTask(string title) => Tasks.Add(new TodoItem(title));
-
-    public void CompleteTask(TodoItem task)
-    {
-        Tasks.Remove(task);
-        ActivityLog.Add($"[{DateTime.Now:HH:mm:ss}] Completed: {task.Title}");
-    }
-
-    public void Dispose() => _disposables.Dispose();
-}
-
-public record TodoItem(string Title);
+    d[Guid.NewGuid()] = new User("Alice");
+    d[Guid.NewGuid()] = new User("Bob");
+    d.Remove(oldUserId);
+});
 ```
 
-### Spreadsheet-like Grid
+### Secondary Value Indices
 
 ```csharp
-public class SpreadsheetViewModel : IDisposable
-{
-    public Reactive2DList<CellValue> Cells { get; }
+var dict = new QuaternaryDictionary<Guid, User>();
 
-    public SpreadsheetViewModel(int rows, int cols)
-    {
-        var data = Enumerable.Range(0, rows)
-            .Select(r => Enumerable.Range(0, cols)
-                .Select(c => new CellValue($"R{r}C{c}"))
-                .ToArray())
-            .ToArray();
+// Add index on value property
+dict.AddValueIndex("ByDepartment", u => u.Department);
+dict.AddValueIndex("ByRole", u => u.Role);
 
-        Cells = new Reactive2DList<CellValue>(data);
-    }
+// Query by secondary index
+var engineers = dict.GetValuesBySecondaryIndex("ByDepartment", "Engineering");
 
-    public void SetCell(int row, int col, string value)
-    {
-        Cells.SetItem(row, col, new CellValue(value));
-    }
-
-    public CellValue GetCell(int row, int col) => Cells.GetItem(row, col);
-
-    public void AddRow()
-    {
-        var cols = Cells.Count > 0 ? Cells[0].Count : 1;
-        var newRow = Enumerable.Range(0, cols)
-            .Select(c => new CellValue(string.Empty))
-            .ToArray();
-        Cells.Add(new ReactiveList<CellValue>(newRow));
-    }
-
-    public void AddColumn()
-    {
-        for (int i = 0; i < Cells.Count; i++)
-        {
-            Cells.AddToInner(i, new CellValue(string.Empty));
-        }
-    }
-
-    public IEnumerable<string> GetAllValues() =>
-        Cells.Flatten().Select(c => c.Value);
-
-    public void Dispose() => Cells.Dispose();
-}
-
-public record CellValue(string Value);
+// Check if value matches index
+bool isEngineer = dict.ValueMatchesSecondaryIndex("ByDepartment", user, "Engineering");
 ```
 
-### Batch Import with Progress
+### Reactive Streams
 
 ```csharp
-public class DataImportViewModel : IDisposable
+// Subscribe to changes
+dict.Stream.Subscribe(notification =>
 {
-    public IReactiveList<DataRecord> Records { get; } = new ReactiveList<DataRecord>();
-
-    public async Task ImportBatchAsync(IEnumerable<DataRecord> records, IProgress<int> progress)
+    switch (notification.Action)
     {
-        var batch = records.ToList();
-        var processed = 0;
-
-        // Use Edit for efficient batch import
-        Records.Edit(list =>
-        {
-            foreach (var record in batch)
-            {
-                list.Add(record);
-                processed++;
-
-                if (processed % 100 == 0)
-                {
-                    progress.Report(processed);
-                }
-            }
-        });
-
-        progress.Report(processed);
+        case CacheAction.Added:
+            Console.WriteLine($"Added: {notification.Item.Key} = {notification.Item.Value}");
+            break;
+        case CacheAction.Removed:
+            Console.WriteLine($"Removed: {notification.Item.Key}");
+            break;
     }
+});
 
-    public void ClearAndReplace(IEnumerable<DataRecord> newRecords)
-    {
-        // Atomic replace
-        Records.ReplaceAll(newRecords);
-    }
+// Version tracking
+long version = dict.Version;
+```
 
-    public void Dispose() => Records.Dispose();
-}
+### Creating Views
 
-public record DataRecord(int Id, string Name, DateTime Created);
+```csharp
+// Create an unfiltered view
+var allUsersView = dict.CreateView(RxApp.MainThreadScheduler);
+
+// Create a filtered view
+var activeUsersView = dict.CreateView(
+    kvp => kvp.Value.IsActive,
+    RxApp.MainThreadScheduler,
+    throttleMs: 100);
+
+// Create a view filtered by secondary value index
+var engineersView = dict.CreateViewBySecondaryIndex<Guid, User, string>(
+    "ByDepartment",
+    "Engineering",
+    RxApp.MainThreadScheduler);
+
+// Create a view with multiple index keys
+var techView = dict.CreateViewBySecondaryIndex<Guid, User, string>(
+    "ByDepartment",
+    new[] { "Engineering", "QA" },
+    RxApp.MainThreadScheduler);
+
+// Dynamic view with observable keys
+var deptFilter = new BehaviorSubject<string[]>(new[] { "Engineering" });
+var dynamicView = dict.CreateViewBySecondaryIndex(
+    "ByDepartment",
+    deptFilter,
+    RxApp.MainThreadScheduler);
+```
+
+### Stream Filtering Extensions
+
+```csharp
+// Filter stream by secondary value index
+var engineeringStream = dict.Stream
+    .FilterBySecondaryIndex(dict, "ByDepartment", "Engineering");
+
+// Filter by multiple keys
+var techStream = dict.Stream
+    .FilterBySecondaryIndex(dict, "ByDepartment", "Engineering", "QA");
 ```
 
 ---
 
-## API Reference
+## Benchmark Results
 
-### IReactiveList&lt;T&gt; Interface
+### QuaternaryList vs SourceList (DynamicData)
 
-**Interfaces Implemented:**
-- `IList<T>`, `IList`, `IReadOnlyList<T>`
-- `INotifyCollectionChanged`, `INotifyPropertyChanged`
-- `ICancelable`
+**Performance Comparison (10,000 items)**
 
-**Properties:**
+| Operation | QuaternaryList | SourceList | Improvement |
+|-----------|----------------|------------|-------------|
+| RemoveRange | 1,423 μs | 23,708 μs | **16.7x faster** |
+| RemoveMany | 1,453 μs | 10,491 μs | **7.2x faster** |
+| Edit (batch) | 127 μs | 155 μs | **1.2x faster** |
+| Clear | 154 μs | 150 μs | ~Same |
+| ReplaceAll | 139 μs | 145 μs | ~Same |
+| Stream (Add) | 117 μs | 76 μs | SourceList faster |
+| AddRange | 92 μs | 75 μs | SourceList faster |
+
+**Memory Allocation (10,000 items)**
+
+| Operation | QuaternaryList | SourceList | Improvement |
+|-----------|----------------|------------|-------------|
+| RemoveRange | 75 KB | 2,373 KB | **31.6x less** |
+| RemoveMany | 72 KB | 2,759 KB | **38.3x less** |
+| Edit | 72 KB | 344 KB | **4.8x less** |
+| Clear | 72 KB | 253 KB | **3.5x less** |
+| ReplaceAll | 112 KB | 293 KB | **2.6x less** |
+| Stream | 139 KB | 173 KB | **1.2x less** |
+
+### QuaternaryDictionary vs SourceCache (DynamicData)
+
+**Performance Comparison (10,000 items)**
+
+| Operation | QuaternaryDict | SourceCache | Improvement |
+|-----------|----------------|-------------|-------------|
+| Stream (Add) | 264 μs | 1,107 μs | **4.2x faster** |
+| Clear | 168 μs | 406 μs | **2.4x faster** |
+| Lookup | 191 μs | 402 μs | **2.1x faster** |
+| AddRange | 152 μs | 352 μs | **2.3x faster** |
+| RemoveKeys | 269 μs | N/A | N/A |
+
+**Memory Allocation (10,000 items)**
+
+| Operation | QuaternaryDict | SourceCache | Improvement |
+|-----------|----------------|-------------|-------------|
+| Stream | 456 KB | 2,438 KB | **5.3x less** |
+| Clear | 327 KB | 1,156 KB | **3.5x less** |
+| Lookup | 327 KB | 1,156 KB | **3.5x less** |
+| AddRange | 327 KB | 1,156 KB | **3.5x less** |
+
+### When to Use Which Collection
+
+**Use QuaternaryList/QuaternaryDictionary when:**
+- Large datasets (>1,000 items)
+- Bulk removal operations (up to 17x faster)
+- Memory-constrained environments (2-38x less allocation)
+- High-concurrency scenarios
+- Secondary index lookups needed
+
+**Use ReactiveList/DynamicData when:**
+- Small datasets (<500 items)
+- Rich LINQ-like query operators needed
+- Existing DynamicData integration
+
+---
+
+## Full API Reference
+
+### IReactiveList&lt;T&gt;
+
+**Interfaces:** `IList<T>`, `IList`, `IReadOnlyList<T>`, `INotifyCollectionChanged`, `INotifyPropertyChanged`, `ICancelable`
+
+#### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -688,771 +731,305 @@ public record DataRecord(int Id, string Name, DateTime Created);
 | `Changed` | `IObservable<IEnumerable<T>>` | Stream of changed items |
 | `CurrentItems` | `IObservable<IEnumerable<T>>` | Current items snapshot stream |
 | `Count` | `int` | Number of items |
-| `IsDisposed` | `bool` | Whether the list has been disposed |
+| `IsDisposed` | `bool` | Whether disposed |
 
-**Methods:**
+#### Methods
 
 | Method | Description |
 |--------|-------------|
-| `Add(T item)` | Add single item |
-| `AddRange(IEnumerable<T> items)` | Add multiple items |
-| `Insert(int index, T item)` | Insert at index |
-| `InsertRange(int index, IEnumerable<T> items)` | Insert range at index |
-| `Remove(T item)` | Remove by value |
-| `Remove(IEnumerable<T> items)` | Remove multiple items |
-| `RemoveAt(int index)` | Remove at index |
-| `RemoveRange(int index, int count)` | Remove range |
+| `Add(T)` | Add single item |
+| `AddRange(IEnumerable<T>)` | Add multiple items |
+| `Insert(int, T)` | Insert at index |
+| `InsertRange(int, IEnumerable<T>)` | Insert range at index |
+| `Remove(T)` | Remove by value |
+| `Remove(IEnumerable<T>)` | Remove multiple items |
+| `RemoveAt(int)` | Remove at index |
+| `RemoveRange(int, int)` | Remove range |
+| `RemoveMany(Func<T, bool>)` | Remove matching predicate |
 | `Clear()` | Remove all items |
-| `Move(int oldIndex, int newIndex)` | Move item to new position |
-| `Update(T item, T newValue)` | Replace specific item |
-| `ReplaceAll(IEnumerable<T> items)` | Clear and add atomically |
-| `Edit(Action<IExtendedList<T>> editAction)` | Batch operations |
-| `IndexOf(T item)` | Find index of item |
-| `Contains(T item)` | Check if item exists |
-| `Subscribe(IObserver<IEnumerable<T>> observer)` | Subscribe to CurrentItems |
+| `Move(int, int)` | Move item |
+| `Update(T, T)` | Replace item |
+| `ReplaceAll(IEnumerable<T>)` | Replace all items |
+| `Edit(Action<IEditableList<T>>)` | Batch operations |
 | `Dispose()` | Clean up resources |
 
-**Events:**
-
-| Event | Description |
-|-------|-------------|
-| `CollectionChanged` | Raised when collection changes |
-| `PropertyChanged` | Raised when properties change |
-
-### Reactive2DList&lt;T&gt; Class
-
-Inherits from `ReactiveList<ReactiveList<T>>` and adds:
-
-| Method | Description |
-|--------|-------------|
-| `GetItem(int outerIndex, int innerIndex)` | Get item at [row][col] |
-| `SetItem(int outerIndex, int innerIndex, T value)` | Set item at [row][col] |
-| `AddToInner(int outerIndex, T item)` | Add item to specific row |
-| `AddToInner(int outerIndex, IEnumerable<T> items)` | Add items to specific row |
-| `RemoveFromInner(int outerIndex, int innerIndex)` | Remove item from row |
-| `ClearInner(int outerIndex)` | Clear specific row |
-| `Flatten()` | Get all items as flat enumerable |
-| `TotalCount()` | Get total count across all rows |
-| `Insert(int index, IEnumerable<T> items)` | Insert new row |
-| `Insert(int index, T item)` | Insert single-element row |
-| `Insert(int index, IEnumerable<T> items, int innerIndex)` | Insert into existing row |
-| `AddRange(IEnumerable<IEnumerable<T>> items)` | Add multiple rows |
-| `AddRange(IEnumerable<T> items)` | Add single-element rows |
-
----
-
-## Behavior Notes
-
-- **Scheduler**: Observables run on `Scheduler.Immediate` inside the list. Dispatch to your UI thread if updating UI from subscriptions.
-
-- **Change snapshots**: `ItemsAdded`, `ItemsRemoved`, `ItemsChanged` contain only the last change batch (not cumulative).
-
-- **ReplaceAll semantics**: Performs clear + add-range internally:
-  - `ItemsRemoved` contains the cleared items
-  - `ItemsAdded` contains the new items
-  - `ItemsChanged` reflects the clear operation
-  - A `Reset` notification is raised
-
-- **Edit batching**: Changes within `Edit()` result in a single property change notification.
-
-- **Move optimization**: `Move()` is more efficient than Remove + Insert for reordering.
-
-- **Thread safety**: `ReplaceAll` uses `ManualResetEventSlim` for efficient synchronization.
-
-- **Disposal**: Always dispose `ReactiveList` instances to clean up subscriptions and internal resources.
-
----
-
-## QuaternaryList&lt;T&gt; and QuaternaryDictionary&lt;TKey, TValue&gt;
-
-High-performance, thread-safe, sharded collections optimized for large-scale reactive applications. These collections distribute data across four internal partitions (quads) to improve concurrency and reduce lock contention.
-
-**Key Features:**
-- **Sharded architecture**: Data distributed across 4 partitions for parallel access
-- **Thread-safe**: Uses `ReaderWriterLockSlim` with fine-grained locking per shard
-- **Reactive streams**: `Stream` property exposes `IObservable<CacheNotification<T>>` for change notifications
-- **Secondary indices**: O(1) lookup support via custom key selectors
-- **Low allocation**: Optimized with `ArrayPool<T>`, `Span<T>`, and custom pooled collections (`QuadList<T>`)
-- **Batch operations**: Efficient bulk add/remove with parallel processing for large datasets
-
----
-
-## QuaternaryList vs SourceList Benchmark Results
-
-### Performance Comparison (Mean Time)
-
-| Operation | Count | QuaternaryList | SourceList | Winner |
-|-----------|-------|----------------|------------|--------|
-| AddRange | 100 | 75.0 μs | 2.2 μs | SourceList |
-| AddRange | 1,000 | 78.3 μs | 21.3 μs | SourceList |
-| AddRange | 10,000 | 92.9 μs | 75.0 μs | SourceList (1.2x) |
-| RemoveRange | 100 | 106.3 μs | 201.5 μs | **QuaternaryList 1.9x** |
-| RemoveRange | 1,000 | 282.9 μs | 2,341.7 μs | **QuaternaryList 8.3x** |
-| RemoveRange | 10,000 | **1,300.5 μs** | 22,886.7 μs | **QuaternaryList 17.6x** |
-| Clear | 100 | 75.9 μs | 2.5 μs | SourceList |
-| Clear | 1,000 | 79.1 μs | 22.7 μs | SourceList |
-| Clear | 10,000 | **94.7 μs** | 150.9 μs | **QuaternaryList 1.6x** |
-| Stream (Add) | 100 | 74.5 μs | 2.4 μs | SourceList |
-| Stream (Add) | 1,000 | 78.9 μs | 7.8 μs | SourceList |
-| Stream (Add) | 10,000 | 96.8 μs | 74.6 μs | SourceList (1.3x) |
-| Edit (batch) | 100 | 79.9 μs | 1.4 μs | SourceList |
-| Edit (batch) | 1,000 | 79.6 μs | 14.2 μs | SourceList |
-| Edit (batch) | 10,000 | **107.3 μs** | 153.6 μs | **QuaternaryList 1.4x** |
-| RemoveMany | 100 | 105.4 μs | 6.1 μs | SourceList |
-| RemoveMany | 1,000 | 182.9 μs | 80.4 μs | SourceList |
-| RemoveMany | 10,000 | **1,221.0 μs** | 10,353.3 μs | **QuaternaryList 8.5x** |
-
-### Memory Allocation Comparison
-
-| Operation | Count | QuaternaryList | SourceList | Winner |
-|-----------|-------|----------------|------------|--------|
-| AddRange | 1,000 | **15.6 KB** | 26.8 KB | **QuaternaryList 1.7x** |
-| AddRange | 10,000 | **72.3 KB** | 172.3 KB | **QuaternaryList 2.4x** |
-| RemoveRange | 1,000 | **17.9 KB** | 234.9 KB | **QuaternaryList 13.1x** |
-| RemoveRange | 10,000 | **75.0 KB** | 2,373.3 KB | **QuaternaryList 31.6x** |
-| Clear | 1,000 | **15.6 KB** | 26.8 KB | **QuaternaryList 1.7x** |
-| Clear | 10,000 | **72.3 KB** | 253.0 KB | **QuaternaryList 3.5x** |
-| Stream (Add) | 1,000 | **15.6 KB** | 13.9 KB | SourceList |
-| Stream (Add) | 10,000 | **138.6 KB** | 172.8 KB | **QuaternaryList 1.2x** |
-| Edit (batch) | 1,000 | **12.9 KB** | 26.2 KB | **QuaternaryList 2.0x** |
-| Edit (batch) | 10,000 | **105.0 KB** | 344.2 KB | **QuaternaryList 3.3x** |
-| RemoveMany | 1,000 | **15.1 KB** | 253.7 KB | **QuaternaryList 16.8x** |
-| RemoveMany | 10,000 | **138.2 KB** | 2,758.6 KB | **QuaternaryList 20.0x** |
-
-### Key Takeaways
-
-**QuaternaryList excels at (10,000 items):**
-- **RemoveRange**: 17.6x faster than SourceList
-- **RemoveMany**: 8.5x faster than SourceList  
-- **Edit (batch)**: 1.4x faster than SourceList
-- **Clear**: 1.6x faster than SourceList
-- **Memory**: Uses 2-32x less memory depending on operation
-
-**SourceList is better for:**
-- Small datasets (<500 items)
-- Individual add operations
-- Simple single-item workflows
-
----
-
-## QuaternaryDictionary vs SourceCache Benchmark Results
-
-### Performance Comparison (Mean Time)
-
-| Operation | Count | QuaternaryDict | SourceCache | Winner |
-|-----------|-------|----------------|-------------|--------|
-| AddRange | 100 | 72.3 μs | 2.2 μs | SourceCache |
-| AddRange | 1,000 | 77.9 μs | 19.3 μs | SourceCache |
-| AddRange | 10,000 | **135.9 μs** | 387.7 μs | **QuaternaryDict 2.9x** |
-| Clear | 100 | 76.9 μs | 2.4 μs | SourceCache |
-| Clear | 1,000 | 78.1 μs | 21.2 μs | SourceCache |
-| Clear | 10,000 | **138.9 μs** | 420.1 μs | **QuaternaryDict 3.0x** |
-| Lookup | 100 | 72.5 μs | 2.3 μs | SourceCache |
-| Lookup | 1,000 | 77.5 μs | 21.3 μs | SourceCache |
-| Lookup | 10,000 | **136.5 μs** | 397.4 μs | **QuaternaryDict 2.9x** |
-| Stream (Add) | 10,000 | **198.2 μs** | 1,739.9 μs | **QuaternaryDict 8.8x** |
-
-### Memory Allocation Comparison
-
-| Operation | Count | QuaternaryDict | SourceCache | Winner |
-|-----------|-------|----------------|-------------|--------|
-| AddRange | 1,000 | **47.0 KB** | 124.1 KB | **QuaternaryDict 2.6x** |
-| AddRange | 10,000 | **327.2 KB** | 1,155.7 KB | **QuaternaryDict 3.5x** |
-| Clear | 1,000 | **47.0 KB** | 124.2 KB | **QuaternaryDict 2.6x** |
-| Clear | 10,000 | **327.2 KB** | 1,155.8 KB | **QuaternaryDict 3.5x** |
-| Lookup | 10,000 | **327.2 KB** | 1,155.7 KB | **QuaternaryDict 3.5x** |
-| Stream | 10,000 | **456.0 KB** | 2,437.9 KB | **QuaternaryDict 5.3x** |
-
----
-
-## When to Use Quaternary Collections
-
-### Choose QuaternaryDictionary/QuaternaryList when:
-1. **Large datasets (>1,000 items)** - Performance advantage kicks in at scale
-2. **Bulk removal operations** - Up to 17x faster RemoveRange, 8x faster RemoveMany
-3. **Memory-constrained environments** - 2-32x less allocation than DynamicData
-4. **Batch edit operations at scale** - 1.4x faster Edit at 10,000+ items
-5. **High-concurrency scenarios** - Sharded design reduces lock contention
-6. **Real-time data feeds** - Efficient streaming with low allocation
-
-### Choose DynamicData (SourceCache/SourceList) when:
-1. **Small datasets (<500 items)** - Lower fixed overhead
-2. **Frequent single-item operations** - Individual Add/Remove is faster
-3. **Rich query operators** - DynamicData has extensive LINQ-like operators
-4. **Existing codebase** - Already using DynamicData patterns
-
----
-
-## QuaternaryList&lt;T&gt; API Reference
-
-
-### Properties
+#### IReactiveSource&lt;T&gt; Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Count` | `int` | Total number of items across all shards |
-| `IsReadOnly` | `bool` | Always returns `false` |
-| `Stream` | `IObservable<CacheNotification<T>>` | Observable stream of change notifications |
+| `Stream` | `IObservable<CacheNotify<T>>` | Primary change notification stream |
+| `Version` | `long` | Increments on each change |
 
-### Methods
+#### Extension Methods
 
 | Method | Description |
 |--------|-------------|
-| `Add(T item)` | Add single item to appropriate shard |
-| `AddRange(IEnumerable<T> items)` | Bulk add with parallel processing for large sets |
-| `Remove(T item)` | Remove item from collection |
-| `RemoveRange(IEnumerable<T> items)` | Bulk remove items |
-| `RemoveMany(Func<T, bool> predicate)` | Remove items matching predicate |
-| `Clear()` | Remove all items from all shards |
-| `Contains(T item)` | Check if item exists (O(1) average) |
-| `Edit(Action<IList<T>> editAction)` | Batch operations with single notification |
-| `AddIndex<TKey>(string name, Func<T, TKey> keySelector)` | Add secondary index |
-| `GetItemsBySecondaryIndex<TKey>(string indexName, TKey key)` | Query using secondary index |
-| `CopyTo(T[] array, int arrayIndex)` | Copy all items to an array |
-| `GetEnumerator()` | Enumerate all items across shards |
+| `Connect()` | Convert Stream to ChangeSet format (DynamicData compatible) |
 
-### Unsupported Methods (Due to Sharded Architecture)
+### IQuaternaryList&lt;T&gt; (.NET 8+)
 
-| Method | Alternative |
-|--------|-------------|
-| `IndexOf(T item)` | Use `Contains(item)` to check existence |
-| `Insert(int index, T item)` | Use `Add(item)` - sharding determines placement |
-| `RemoveAt(int index)` | Use `Remove(item)` or `RemoveMany(predicate)` |
-| `this[int index] { set; }` | Use `Remove` + `Add` for updates |
+**Interfaces:** `ICollection<T>`, `IQuaternarySource<T>`, `INotifyCollectionChanged`, `ICancelable`
 
-> **Note**: QuaternaryList distributes items across 4 shards based on hash code. Index-based operations would be misleading since item order is determined by the sharding algorithm, not insertion order.
-
-### Secondary Indices
-
-```csharp
-var list = new QuaternaryList<Contact>();
-
-// Add index for fast lookups by city
-list.AddIndex("ByCity", c => c.City);
-
-// Add index for department
-list.AddIndex("ByDepartment", c => c.Department);
-
-// Bulk add contacts
-list.AddRange(contacts);
-
-// Fast O(1) query by index
-var newYorkers = list.GetItemsBySecondaryIndex("ByCity", "New York");
-var engineers = list.GetItemsBySecondaryIndex("ByDepartment", "Engineering");
-```
-
----
-
-## QuaternaryDictionary&lt;TKey, TValue&gt; API Reference
-
-### Properties
+#### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Count` | `int` | Total number of key-value pairs |
-| `Keys` | `ICollection<TKey>` | All keys in the dictionary |
-| `Values` | `ICollection<TValue>` | All values in the dictionary |
-| `IsReadOnly` | `bool` | Always returns `false` |
-| `Stream` | `IObservable<CacheNotification<KeyValuePair<TKey, TValue>>>` | Change notifications |
+| `Count` | `int` | Total items across shards |
+| `IsReadOnly` | `bool` | Always false |
+| `Stream` | `IObservable<CacheNotify<T>>` | Change notifications |
+| `Version` | `long` | Increments on each change |
+| `IsDisposed` | `bool` | Whether disposed |
 
-### Methods
-
-| Method | Description |
-|--------|-------------|
-| `Add(TKey key, TValue value)` | Add key-value pair (throws if exists) |
-| `TryAdd(TKey key, TValue value)` | Add if not exists, returns success |
-| `AddOrUpdate(TKey key, TValue value)` | Add or update existing value |
-| `AddRange(IEnumerable<KeyValuePair<TKey, TValue>> items)` | Bulk add/update |
-| `Remove(TKey key)` | Remove by key |
-| `RemoveKeys(IEnumerable<TKey> keys)` | Bulk remove by keys |
-| `RemoveMany(Func<KeyValuePair<TKey, TValue>, bool> predicate)` | Remove entries matching predicate |
-| `Clear()` | Remove all entries |
-| `TryGetValue(TKey key, out TValue value)` | Try get value by key |
-| `Lookup(TKey key)` | Get `(bool HasValue, TValue? Value)` tuple by key |
-| `ContainsKey(TKey key)` | Check if key exists |
-| `Edit(Action<IDictionary<TKey, TValue>> editAction)` | Batch operations |
-| `AddValueIndex<TIndexKey>(string name, Func<TValue, TIndexKey> keySelector)` | Add secondary value index |
-| `GetValuesBySecondaryIndex<TIndexKey>(string indexName, TIndexKey key)` | Query values by secondary index key |
-| `ValueMatchesSecondaryIndex<TIndexKey>(string indexName, TValue value, TIndexKey key)` | Check if value matches a secondary index key |
-
-### QuaternaryDictionary Extension Methods
-
-Extension methods for creating reactive views over `QuaternaryDictionary`:
+#### Methods
 
 | Method | Description |
 |--------|-------------|
-| `CreateView(scheduler, throttleMs)` | Creates an unfiltered reactive view |
-| `CreateView(filter, scheduler, throttleMs)` | Creates a filtered reactive view |
-| `CreateView(filterObservable, scheduler, throttleMs)` | Creates a dynamic view with changing filter |
-| `CreateView<TQuery>(queryObservable, filter, scheduler, throttleMs)` | Creates a dynamic view with query-based filter |
-| `CreateViewBySecondaryIndex<TIndexKey>(indexName, key, scheduler, throttleMs)` | Creates a view filtered by secondary value index |
-| `CreateViewBySecondaryIndex<TIndexKey>(indexName, keys[], scheduler, throttleMs)` | Creates a view filtered by multiple secondary index keys |
-| `CreateViewBySecondaryIndex<TIndexKey>(indexName, keysObservable, scheduler, throttleMs)` | Creates a dynamic view with changing secondary index keys |
+| `Add(T)` | Add item to appropriate shard |
+| `AddRange(IEnumerable<T>)` | Bulk add (parallel for large sets) |
+| `Remove(T)` | Remove item |
+| `RemoveRange(IEnumerable<T>)` | Bulk remove |
+| `RemoveMany(Func<T, bool>)` | Remove matching predicate |
+| `Clear()` | Clear all shards |
+| `Contains(T)` | Check existence (O(1) average) |
+| `Edit(Action<ICollection<T>>)` | Batch operations |
+| `ReplaceAll(IEnumerable<T>)` | Replace all atomically |
+| `AddIndex<TKey>(string, Func<T, TKey>)` | Add secondary index |
+| `GetItemsBySecondaryIndex<TKey>(string, TKey)` | Query by index |
+| `ItemMatchesSecondaryIndex<TKey>(string, T, TKey)` | Check index match |
+| `CopyTo(T[], int)` | Copy to array |
+| `Dispose()` | Clean up resources |
 
-### Stream Filter Extensions
+### IQuaternaryDictionary&lt;TKey, TValue&gt; (.NET 8+)
 
-Extension methods for filtering cache notification streams:
+**Interfaces:** `IDictionary<TKey, TValue>`, `IQuaternarySource<KeyValuePair<TKey, TValue>>`, `INotifyCollectionChanged`, `ICancelable`
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Count` | `int` | Total key-value pairs |
+| `Keys` | `ICollection<TKey>` | All keys |
+| `Values` | `ICollection<TValue>` | All values |
+| `IsReadOnly` | `bool` | Always false |
+| `Stream` | `IObservable<CacheNotify<KVP>>` | Change notifications |
+| `Version` | `long` | Increments on each change |
+| `IsDisposed` | `bool` | Whether disposed |
+
+#### Methods
 
 | Method | Description |
 |--------|-------------|
-| `FilterBySecondaryIndex<TIndexKey>(stream, dict, indexName, key)` | Filters stream by secondary value index key |
-| `FilterBySecondaryIndex<TIndexKey>(stream, dict, indexName, keys[])` | Filters stream by multiple secondary index keys |
-| `FilterDynamic(stream, filterObservable)` | Filters stream with dynamically changing predicate |
+| `Add(TKey, TValue)` | Add (throws if exists) |
+| `TryAdd(TKey, TValue)` | Add if not exists |
+| `AddOrUpdate(TKey, TValue)` | Add or update |
+| `AddRange(IEnumerable<KVP>)` | Bulk add/update |
+| `Remove(TKey)` | Remove by key |
+| `RemoveKeys(IEnumerable<TKey>)` | Bulk remove |
+| `RemoveMany(Func<KVP, bool>)` | Remove matching predicate |
+| `Clear()` | Remove all |
+| `TryGetValue(TKey, out TValue)` | Try get value |
+| `Lookup(TKey)` | Get (HasValue, Value) tuple |
+| `ContainsKey(TKey)` | Check key exists |
+| `Edit(Action<IDictionary<TKey, TValue>>)` | Batch operations |
+| `AddValueIndex<TIndexKey>(string, Func<TValue, TIndexKey>)` | Add value index |
+| `GetValuesBySecondaryIndex<TIndexKey>(string, TIndexKey)` | Query by index |
+| `ValueMatchesSecondaryIndex<TIndexKey>(string, TValue, TIndexKey)` | Check index match |
+| `Dispose()` | Clean up resources |
+
+### Extension Methods
+
+#### ReactiveList Extensions
+
+| Method | Description |
+|--------|-------------|
+| `WhereChanges(Func<Change<T>, bool>)` | Filter change stream |
+| `WhereReason(ChangeReason)` | Filter by change reason |
+| `SelectChanges(Func<T, TResult>)` | Project changes |
+| `OnAdd()` | Subscribe to adds only |
+| `OnRemove()` | Subscribe to removes only |
+| `OnUpdate()` | Subscribe to updates only |
+| `OnMove()` | Subscribe to moves only |
+| `CreateView(Func<T, bool>, IScheduler, int)` | Create filtered view |
+| `CreateView(IObservable<Func<T, bool>>, IScheduler, int)` | Create dynamic filtered view |
+| `SortBy(IComparer<T>, IScheduler, int)` | Create sorted view |
+| `SortBy(Func<T, TKey>, bool, IScheduler, int)` | Create sorted view by key |
+| `GroupBy(Func<T, TKey>, IScheduler, int)` | Create grouped view |
+| `GroupByChanges(Func<T, TKey>)` | Group change stream |
+| `AutoRefresh(string)` | Auto-refresh on property change |
+
+#### QuaternaryList Extensions
+
+| Method | Description |
+|--------|-------------|
+| `CreateView(IScheduler, int)` | Create unfiltered view |
+| `CreateView(Func<T, bool>, IScheduler, int)` | Create filtered view |
+| `CreateView(IObservable<Func<T, bool>>, IScheduler, int)` | Create dynamic view |
+| `CreateViewBySecondaryIndex<TKey>(string, TKey, IScheduler, int)` | View by index key |
+| `CreateViewBySecondaryIndex<TKey>(string, TKey[], IScheduler, int)` | View by multiple keys |
+| `CreateViewBySecondaryIndex<TKey>(string, IObservable<TKey[]>, IScheduler, int)` | Dynamic index view |
+| `FilterBySecondaryIndex<TKey>(stream, list, string, TKey)` | Filter stream by index |
+| `FilterBySecondaryIndex<TKey>(stream, list, string, params TKey[])` | Filter stream by keys |
+| `FilterDynamic(stream, IObservable<Func<T, bool>>)` | Dynamic stream filter |
+| `WhereItems(stream, Func<T, bool>)` | Filter stream items |
+| `AutoRefresh(Expression<Func<T, object>>)` | Auto-refresh view |
+
+#### QuaternaryDictionary Extensions
+
+| Method | Description |
+|--------|-------------|
+| `CreateView(IScheduler, int)` | Create unfiltered view |
+| `CreateView(Func<KVP, bool>, IScheduler, int)` | Create filtered view |
+| `CreateView(IObservable<Func<KVP, bool>>, IScheduler, int)` | Create dynamic view |
+| `CreateViewBySecondaryIndex<TIndexKey>(string, TIndexKey, IScheduler, int)` | View by value index |
+| `CreateViewBySecondaryIndex<TIndexKey>(string, TIndexKey[], IScheduler, int)` | View by multiple keys |
+| `CreateViewBySecondaryIndex<TIndexKey>(string, IObservable<TIndexKey[]>, IScheduler, int)` | Dynamic index view |
+| `FilterBySecondaryIndex<TIndexKey>(stream, dict, string, TIndexKey)` | Filter stream |
+| `FilterBySecondaryIndex<TIndexKey>(stream, dict, string, params TIndexKey[])` | Filter stream by keys |
 
 ---
 
-## Basic Usage Examples
+## UI Binding
 
-### QuaternaryList Basic Operations
+### WPF / WinUI
 
 ```csharp
-using CP.Reactive;
-
-// Create and populate
-var list = new QuaternaryList<string>();
-list.Add("item1");
-list.AddRange(["item2", "item3", "item4"]);
-
-// Query
-Console.WriteLine(list.Count);            // 4
-Console.WriteLine(list.Contains("item2")); // true
-
-// Remove
-list.Remove("item2");
-list.RemoveMany(s => s.StartsWith("item")); // Remove matching items
-
-// Batch operations (single notification)
-list.Edit(l =>
+public class MainViewModel : IDisposable
 {
-    l.Add("new1");
-    l.Add("new2");
-    l.Clear();
-    l.Add("fresh");
-});
-
-// Cleanup
-list.Dispose();
+    public IReactiveList<string> Items { get; } = new ReactiveList<string>();
+    
+    public void Dispose() => Items.Dispose();
+}
 ```
 
-### QuaternaryDictionary Basic Operations
-
-```csharp
-using CP.Reactive;
-
-// Create and populate
-var dict = new QuaternaryDictionary<int, string>();
-dict.Add(1, "one");
-dict.AddOrUpdate(2, "two");
-
-// Bulk add
-dict.AddRange(new[]
-{
-    KeyValuePair.Create(3, "three"),
-    KeyValuePair.Create(4, "four")
-});
-
-// Query
-if (dict.TryGetValue(1, out var value))
-{
-    Console.WriteLine(value); // "one"
-}
-
-// Using Lookup (returns Optional<T>)
-var result = dict.Lookup(2);
-if (result.HasValue)
-{
-    Console.WriteLine(result.Value); // "two"
-}
-
-// Remove
-dict.Remove(1);
-dict.RemoveKeys([2, 3]);
-
-// Cleanup
-dict.Dispose();
+```xml
+<ListBox ItemsSource="{Binding Items}" />
+<!-- or -->
+<ListBox ItemsSource="{Binding Items.Items}" />
 ```
 
----
-
-## Reactive Streams
-
-### Subscribing to Changes
+### With QuaternaryList
 
 ```csharp
-using CP.Reactive;
-using System.Reactive.Linq;
-
-var list = new QuaternaryList<int>();
-
-// Subscribe to all changes
-var subscription = list.Stream
-    .Subscribe(notification =>
+public class MainViewModel : IDisposable
+{
+    private readonly QuaternaryList<Contact> _contacts = new();
+    
+    public ReadOnlyObservableCollection<Contact> Contacts { get; }
+    
+    public MainViewModel()
     {
-        switch (notification.Action)
-        {
-            case CacheAction.Added:
-                Console.WriteLine($"Added: {notification.Item}");
-                break;
-            case CacheAction.Removed:
-                Console.WriteLine($"Removed: {notification.Item}");
-                break;
-            case CacheAction.Cleared:
-                Console.WriteLine("Collection cleared");
-                break;
-            case CacheAction.BatchOperation:
-                Console.WriteLine($"Batch completed: {notification.BatchItems?.Count()} items");
-                break;
-        }
-    });
-
-list.Add(1);     // Added: 1
-list.Add(2);     // Added: 2
-list.Remove(1);  // Removed: 1
-list.Clear();    // Collection cleared
-
-subscription.Dispose();
-list.Dispose();
+        var view = _contacts.CreateView(RxApp.MainThreadScheduler);
+        view.ToProperty(x => Contacts = x);
+    }
+    
+    public void Dispose() => _contacts.Dispose();
+}
 ```
 
-### Creating Filtered Views
+---
+
+## Use Cases
+
+### Real-time Data Feed
 
 ```csharp
-using CP.Reactive;
-using ReactiveUI;
-
-var contacts = new QuaternaryList<Contact>();
-
-// Create an auto-updating view of favorites
-var favoritesView = contacts.CreateView(
-    c => c.IsFavorite,
-    RxApp.MainThreadScheduler,
-    throttleMs: 100);
-
-// Bind to UI
-favoritesView.ToProperty(x => FavoriteContacts = x);
+public class StockTickerViewModel : IDisposable
+{
+    private readonly QuaternaryDictionary<string, StockPrice> _prices = new();
+    
+    public StockTickerViewModel(IObservable<StockPrice> feed)
+    {
+        _prices.AddValueIndex("BySector", p => p.Sector);
+        
+        feed.ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(price => _prices.AddOrUpdate(price.Symbol, price));
+    }
+    
+    public IEnumerable<StockPrice> GetBySector(string sector) =>
+        _prices.GetValuesBySecondaryIndex("BySector", sector);
+    
+    public void Dispose() => _prices.Dispose();
+}
 ```
 
-### QuaternaryDictionary Reactive Views
+### Address Book with Secondary Indices
 
 ```csharp
-using CP.Reactive;
-using ReactiveUI;
-using System.Reactive.Subjects;
-
-// Create dictionary with secondary value index
-var userCache = new QuaternaryDictionary<Guid, User>();
-userCache.AddValueIndex("ByDepartment", u => u.Department);
-
-// Create a simple reactive view (all items)
-var allUsersView = userCache.CreateView(
-    RxApp.MainThreadScheduler,
-    throttleMs: 100);
-
-// Create a filtered view
-var activeUsersView = userCache.CreateView(
-    kvp => kvp.Value.IsActive,
-    RxApp.MainThreadScheduler,
-    throttleMs: 100);
-
-// Create a view filtered by secondary value index
-var engineeringView = userCache.CreateViewBySecondaryIndex<Guid, User, string>(
-    "ByDepartment", 
-    "Engineering",
-    RxApp.MainThreadScheduler,
-    throttleMs: 100);
-
-// Create a view filtered by multiple departments
-var techDeptView = userCache.CreateViewBySecondaryIndex<Guid, User, string>(
-    "ByDepartment",
-    new[] { "Engineering", "QA", "DevOps" },
-    RxApp.MainThreadScheduler,
-    throttleMs: 100);
-
-// Dynamic filtering with observable
-var departmentFilter = new BehaviorSubject<string[]>(new[] { "Engineering" });
-var dynamicDeptView = userCache.CreateViewBySecondaryIndex<Guid, User, string>(
-    "ByDepartment",
-    departmentFilter,
-    RxApp.MainThreadScheduler,
-    throttleMs: 100);
-
-// Change filter dynamically - view automatically rebuilds
-departmentFilter.OnNext(new[] { "HR", "Finance" });
-
-// Query values by secondary index
-var engineeringUsers = userCache.GetValuesBySecondaryIndex("ByDepartment", "Engineering");
-
-// Check if a value matches a secondary index key
-var user = new User("Alice", "Engineering");
-bool isEngineer = userCache.ValueMatchesSecondaryIndex("ByDepartment", user, "Engineering");
+public class AddressBookViewModel : IDisposable
+{
+    private readonly QuaternaryList<Contact> _contacts = new();
+    
+    public AddressBookViewModel()
+    {
+        _contacts.AddIndex("ByCity", c => c.City);
+        _contacts.AddIndex("ByDepartment", c => c.Department);
+    }
+    
+    public void BulkImport(IEnumerable<Contact> contacts) =>
+        _contacts.AddRange(contacts);
+    
+    public IEnumerable<Contact> GetByCity(string city) =>
+        _contacts.GetItemsBySecondaryIndex("ByCity", city);
+    
+    public int RemoveByDepartment(string dept)
+    {
+        var targets = _contacts.GetItemsBySecondaryIndex("ByDepartment", dept).ToList();
+        _contacts.RemoveRange(targets);
+        return targets.Count;
+    }
+    
+    public void Dispose() => _contacts.Dispose();
+}
 ```
 
 ---
 
 ## Migrating from DynamicData
 
-### SourceList → QuaternaryList
+| DynamicData | ReactiveList |
+|-------------|--------------|
+| `SourceList<T>` | `ReactiveList<T>` or `QuaternaryList<T>` |
+| `SourceCache<T, TKey>` | `QuaternaryDictionary<TKey, T>` |
+| `Connect()` | `Stream` property or `Connect()` extension method |
+| `Filter()` | `CreateView()` or `WhereChanges()` |
+| `Transform()` | `SelectChanges()` |
+| `Bind()` | `CreateView().ToProperty()` |
+| `AddOrUpdate(item)` | `AddOrUpdate(key, value)` |
+| `Edit(inner => ...)` | `Edit(inner => ...)` |
+
+### Stream vs Connect
+
+ReactiveList provides two ways to observe changes:
+
+1. **Stream property** - Returns `IObservable<CacheNotify<T>>` with action-based notifications
+   - Lower allocations for high-throughput scenarios
+   - Direct access to batch operations
+   - Use `Stream.ToChangeSets()` to convert to ChangeSet format
+
+2. **Connect() extension** - Returns `IObservable<ChangeSet<T>>` (DynamicData-compatible)
+   - Familiar API for DynamicData users
+   - Works with existing ChangeSet-based operators
 
 ```csharp
-// DynamicData SourceList
-var sourceList = new SourceList<Person>();
-sourceList.AddRange(people);
-sourceList.Edit(list =>
+// Using Stream directly
+list.Stream.Subscribe(notification =>
 {
-    list.Add(new Person("John"));
-    list.RemoveAt(0);  // SourceList supports index-based removal
-});
-sourceList.Connect()
-    .Filter(p => p.Age > 18)
-    .ObserveOn(RxApp.MainThreadScheduler)
-    .Subscribe(changes => { });
-
-// QuaternaryList equivalent
-// Note: QuaternaryList is sharded, so index-based operations are not supported.
-// Use item-based Remove() or RemoveMany() instead of RemoveAt().
-var quaternaryList = new QuaternaryList<Person>();
-quaternaryList.AddRange(people);
-quaternaryList.Edit(list =>
-{
-    list.Add(new Person("John"));
-    // Use Remove(item) instead of RemoveAt(index)
-    var firstItem = list.FirstOrDefault();
-    if (firstItem != null)
+    switch (notification.Action)
     {
-        list.Remove(firstItem);
+        case CacheAction.Added:
+            Console.WriteLine($"Added: {notification.Item}");
+            break;
+        case CacheAction.BatchAdded:
+            Console.WriteLine($"Batch added: {notification.Batch?.Count} items");
+            break;
     }
 });
-quaternaryList.Stream
-    .Where(n => n.Action == CacheAction.Added && n.Item?.Age > 18)
-    .ObserveOn(RxApp.MainThreadScheduler)
-    .Subscribe(notification => { });
 
-// Or use CreateView for filtered collections
-quaternaryList.CreateView(p => p.Age > 18, RxApp.MainThreadScheduler)
-    .ToProperty(x => Adults = x);
+// Using Connect() for ChangeSet-based processing
+list.Connect()
+    .WhereReason(ChangeReason.Add)
+    .Subscribe(changeSet => { });
 ```
-
-### SourceCache → QuaternaryDictionary
-
-```csharp
-// DynamicData SourceCache
-var sourceCache = new SourceCache<Person, Guid>(p => p.Id);
-sourceCache.AddOrUpdate(person);
-sourceCache.Edit(cache =>
-{
-    cache.AddOrUpdate(new Person { Id = Guid.NewGuid(), Name = "John" });
-    cache.Remove(oldId);
-});
-sourceCache.Connect()
-    .Filter(p => p.IsActive)
-    .ObserveOn(RxApp.MainThreadScheduler)
-    .Bind(out var activeUsers)
-    .Subscribe();
-
-
-// QuaternaryDictionary equivalent
-var quaternaryDict = new QuaternaryDictionary<Guid, Person>();
-quaternaryDict.AddOrUpdate(person.Id, person);
-quaternaryDict.Edit(dict =>
-{
-    dict[Guid.NewGuid()] = new Person { Name = "John" };
-    dict.Remove(oldId);
-});
-quaternaryDict.Stream
-    .ObserveOn(RxApp.MainThreadScheduler)
-    .Subscribe(notification => { });
-
-// For filtered views
-quaternaryDict.CreateView(p => p.IsActive, RxApp.MainThreadScheduler)
-    .ToProperty(x => ActiveUsers = x);
-```
-
-### Key Migration Differences
-
-| DynamicData | Quaternary | Notes |
-|-------------|------------|-------|
-| `Connect()` | `Stream` | Direct property access |
-| `Filter()` | `CreateView()` or LINQ on `Stream` | Use CreateView for UI binding |
-| `Bind()` | `ToProperty()` | Extension method for binding |
-| `Watch()` | Subscribe to `Stream` | Filter by key in subscription |
-| `SourceCache<T, TKey>` | `QuaternaryDictionary<TKey, T>` | Key selector not needed |
-| `AddOrUpdate(item)` | `AddOrUpdate(key, value)` | Explicit key required |
-| `RemoveAt(index)` | `Remove(item)` | Index-based ops not supported (sharded) |
-| `Insert(index, item)` | `Add(item)` | Index-based ops not supported (sharded) |
-| `IndexOf(item)` | `Contains(item)` | Use Contains for existence check |
-
----
-
-
-## Advanced Example: Address Book Application
-
-```csharp
-using System.Collections.ObjectModel;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using CP.Reactive;
-using ReactiveUI;
-
-public class AddressBookViewModel : IDisposable
-{
-    private readonly QuaternaryList<Contact> _contactList = [];
-    private readonly QuaternaryDictionary<Guid, Contact> _contactMap = [];
-    private readonly BehaviorSubject<string> _searchText = new(string.Empty);
-    private bool _disposedValue;
-
-    public AddressBookViewModel()
-    {
-        InitializeIndices();
-        InitializePipelines();
-    }
-
-    public ReadOnlyObservableCollection<Contact> AllContacts { get; private set; }
-    public ReadOnlyObservableCollection<Contact> FavoriteContacts { get; private set; }
-    public ReadOnlyObservableCollection<Contact> NewYorkContacts { get; private set; }
-    public ReadOnlyObservableCollection<Contact> SearchResults { get; private set; }
-
-    public string SearchQuery
-    {
-        get => _searchText.Value;
-        set => _searchText.OnNext(value ?? string.Empty);
-    }
-
-    public void BulkImport(int count)
-    {
-        var newContacts = Enumerable.Range(0, count).Select(i =>
-            new Contact(
-                Guid.NewGuid(),
-                $"User{i}",
-                $"Smith{i}",
-                $"user{i}@company.com",
-                i % 2 == 0 ? "Engineering" : "HR",
-                i % 10 == 0,
-                new Address("123 Main", i % 5 == 0 ? "New York" : "London", "10001", "USA"))).ToList();
-
-        // High-speed parallel add
-        _contactList.AddRange(newContacts);
-        _contactMap.AddRange(newContacts.Select(c => new KeyValuePair<Guid, Contact>(c.Id, c)));
-    }
-
-    public void BulkRemoveByDepartment(string department)
-    {
-        // O(1) query using secondary index
-        var targets = _contactList.GetItemsBySecondaryIndex("ByDepartment", department).ToList();
-        
-        // Bulk thread-safe remove
-        _contactList.RemoveRange(targets);
-        
-        // Sync dictionary
-        foreach (var c in targets)
-        {
-            _contactMap.Remove(c.Id);
-        }
-    }
-
-    public void UpdateCityName(string oldCity, string newCity)
-    {
-        // Fast index query
-        var targets = _contactList.GetItemsBySecondaryIndex("ByCity", oldCity).ToList();
-
-        // Create updated records
-        var updates = targets.Select(c => 
-            c with { HomeAddress = c.HomeAddress with { City = newCity } }).ToList();
-
-        // Atomic update
-        _contactList.RemoveRange(targets);
-        _contactList.AddRange(updates);
-    }
-
-    private void InitializeIndices()
-    {
-        // Secondary indices for O(1) lookups
-        _contactList.AddIndex("ByCity", c => c.HomeAddress.City);
-        _contactList.AddIndex("ByDepartment", c => c.Department);
-        _contactMap.AddValueIndex("ByEmail", c => c.Email);
-    }
-
-    private void InitializePipelines()
-    {
-        // All contacts (throttled for performance)
-        _contactList.CreateView(c => true, RxApp.MainThreadScheduler, throttleMs: 100)
-                    .ToProperty(x => AllContacts = x);
-
-        // Favorites only
-        _contactList.CreateView(c => c.IsFavorite, RxApp.MainThreadScheduler, throttleMs: 100)
-                    .ToProperty(x => FavoriteContacts = x);
-
-        // New York contacts (using stream for updates)
-        _contactList.CreateView(c => c.HomeAddress.City == "New York", RxApp.MainThreadScheduler, throttleMs: 200)
-                    .ToProperty(x => NewYorkContacts = x);
-
-        // Dynamic search with text filtering
-        var searchPipeline = _contactList.Stream
-            .CombineLatest(_searchText, (change, query) => new { change, query })
-            .Where(x => Matches(x.change.Item, x.query))
-            .Select(x => x.change);
-
-        new ReactiveView<Contact>(
-            searchPipeline,
-            [.. _contactList],
-            c => Matches(c, _searchText.Value),
-            TimeSpan.FromMilliseconds(50),
-            RxApp.MainThreadScheduler)
-            .ToProperty(x => SearchResults = x);
-    }
-
-    private static bool Matches(Contact? c, string query) =>
-        c != null && (string.IsNullOrWhiteSpace(query) ||
-                      c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                      c.Email.Contains(query, StringComparison.OrdinalIgnoreCase));
-
-    public void Dispose()
-    {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!_disposedValue)
-        {
-            if (disposing)
-            {
-                _contactList.Dispose();
-                _contactMap.Dispose();
-                _searchText.Dispose();
-            }
-            _disposedValue = true;
-        }
-    }
-}
-
-// Supporting records
-public record Contact(
-    Guid Id,
-    string FirstName,
-    string LastName,
-    string Email,
-    string Department,
-    bool IsFavorite,
-    Address HomeAddress);
-
-public record Address(string Street, string City, string PostalCode, string Country);
-```
-
----
-
-## Performance Optimization Tips
-
-1. **Use AddRange for bulk operations** - Much faster than individual Add calls
-2. **Leverage secondary indices** - O(1) vs O(n) for repeated queries
-3. **Throttle UI updates** - Use `CreateView` with `throttleMs` for reactive bindings
-4. **Batch with Edit** - Single notification for multiple changes
-5. **Dispose properly** - Release resources and stop background processing
-
----
-
-**Dependencies:**
-- [System.Reactive](https://github.com/dotnet/reactive)
 
 ---
 

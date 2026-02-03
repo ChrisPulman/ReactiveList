@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using CP.Reactive;
+using CP.Reactive.Collections;
 using FluentAssertions;
 using Xunit;
 
