@@ -5,7 +5,7 @@
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Represents a quaternary collection that provides an observable stream of cache notifications

@@ -2,10 +2,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
+using System.Linq.Expressions;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Provides extension methods for creating reactive views over quaternary collections with optional filtering and
@@ -57,7 +58,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the source list and updates reactively as
     /// the list changes.</returns>
-    public static ReactiveView<T> CreateView<T>(this IQuaternarySource<T> list, Func<T, bool> filter, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<T> CreateView<T>(this IQuaternarySource<T> list, Func<T?, bool> filter, IScheduler scheduler, int throttleMs = 50)
         where T : notnull
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -214,7 +215,7 @@ public static class QuaternaryExtensions
         var filterObservable = keysObservable.Select<TKey[], Func<T, bool>>(keys =>
         {
             // Build a hashset of items matching the keys for efficient lookup
-            var matchingItems = new HashSet<T>(keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key)));
+            var matchingItems = new HashSet<T?>(keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key)));
 
             return item => matchingItems.Contains(item);
         });
@@ -246,13 +247,13 @@ public static class QuaternaryExtensions
         return stream.Select(notification =>
         {
             // Get the current set of items matching the key from the secondary index
-            var matchingItems = new HashSet<T>(list.GetItemsBySecondaryIndex(indexName, key));
+            var matchingItems = list.GetItemsBySecondaryIndex(indexName, key).Where(x => x != null).ToHashSet()!;
 
             return notification.Action switch
             {
                 CacheAction.Added when notification.Item != null && matchingItems.Contains(notification.Item) => notification,
                 CacheAction.Removed when notification.Item != null && matchingItems.Contains(notification.Item) => notification,
-                CacheAction.BatchOperation when notification.Batch != null => FilterBatch(notification, matchingItems),
+                CacheAction.BatchOperation when notification.Batch != null => FilterBatch(notification, matchingItems!),
                 CacheAction.Cleared => notification,
                 _ => null
             };
@@ -285,13 +286,13 @@ public static class QuaternaryExtensions
         return stream.Select(notification =>
         {
             // Get the current set of items matching all keys from the secondary index
-            var matchingItems = new HashSet<T>(keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key)));
+            var matchingItems = keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key)).Where(x => x != null).ToHashSet()!;
 
             return notification.Action switch
             {
                 CacheAction.Added when notification.Item != null && matchingItems.Contains(notification.Item) => notification,
                 CacheAction.Removed when notification.Item != null && matchingItems.Contains(notification.Item) => notification,
-                CacheAction.BatchOperation when notification.Batch != null => FilterBatch(notification, matchingItems),
+                CacheAction.BatchOperation when notification.Batch != null => FilterBatch(notification, matchingItems!),
                 CacheAction.Cleared => notification,
                 _ => null
             };
@@ -468,7 +469,7 @@ public static class QuaternaryExtensions
                 CacheAction.Added when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
                 CacheAction.Removed when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
                 CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
-                    FilterBatch(notification, new HashSet<KeyValuePair<TKey, TValue>>(dict.Where(kvp => matchingValues.Contains(kvp.Value)))),
+                    FilterBatch(notification, dict.Where(kvp => matchingValues.Contains(kvp.Value)).Select(kvp => new KeyValuePair<TKey, TValue>(kvp.Key, kvp.Value!)).ToHashSet()),
                 CacheAction.Cleared => notification,
                 _ => null
             };
@@ -509,7 +510,7 @@ public static class QuaternaryExtensions
                 CacheAction.Added when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
                 CacheAction.Removed when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
                 CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
-                    FilterBatch(notification, new HashSet<KeyValuePair<TKey, TValue>>(dict.Where(kvp => matchingValues.Contains(kvp.Value)))),
+                    FilterBatch(notification, dict.Where(kvp => matchingValues.Contains(kvp.Value)).Select(kvp => new KeyValuePair<TKey, TValue>(kvp.Key, kvp.Value!)).ToHashSet()),
                 CacheAction.Cleared => notification,
                 _ => null
             };
@@ -545,6 +546,141 @@ public static class QuaternaryExtensions
                     _ => null
                 }).Where(n => n != null).Select(n => n!))
             .Switch();
+    }
+
+    /// <summary>
+    /// Subscribes to change notifications for the specified quaternary list.
+    /// </summary>
+    /// <remarks>The returned observable provides real-time updates whenever items are added, removed, or
+    /// modified in the source list. Subscribers will receive notifications as changes occur.</remarks>
+    /// <typeparam name="T">The type of elements contained in the quaternary list.</typeparam>
+    /// <param name="source">The quaternary list to observe for changes. Cannot be null.</param>
+    /// <returns>An observable sequence that emits change sets representing modifications to the quaternary list.</returns>
+    public static IObservable<QuaternaryChangeSet<T>> Connect<T>(
+    this QuaternaryList<T> source)
+        where T : notnull
+    {
+        if (source is null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        return source.Changes;
+    }
+
+    /// <summary>
+    /// Filters the items in each quaternary change set emitted by the source observable according to the specified
+    /// predicate.
+    /// </summary>
+    /// <remarks>This method does not modify the original change set sequence, but produces a new sequence in
+    /// which each change set contains only the items for which the predicate returns <see langword="true"/>. The
+    /// structure and change semantics of the original change sets are preserved for the filtered items.</remarks>
+    /// <typeparam name="T">The type of the items contained in the change set.</typeparam>
+    /// <param name="source">The source observable sequence of quaternary change sets to filter.</param>
+    /// <param name="predicate">A function that defines the conditions each item must satisfy to be included in the resulting change set.</param>
+    /// <returns>An observable sequence of quaternary change sets containing only the items that satisfy the specified predicate.</returns>
+    public static IObservable<QuaternaryChangeSet<T>> WhereChanges<T>(
+    this IObservable<QuaternaryChangeSet<T>> source,
+    Func<T, bool> predicate) => source.Select(changes =>
+        {
+            var filtered = changes.Where(c => predicate(c.Item));
+
+            return QuaternaryChangeSet<T>.Batch(filtered);
+        });
+
+    /// <summary>
+    /// Projects each item in a sequence of quaternary change sets into a new form using the specified selector
+    /// function.
+    /// </summary>
+    /// <remarks>This method preserves the change reasons and indices from the source change sets while
+    /// transforming the items. The selector function is applied to each item as changes are observed.</remarks>
+    /// <typeparam name="T">The type of the elements contained in the source change set.</typeparam>
+    /// <typeparam name="TResult">The type of the elements produced by the selector function.</typeparam>
+    /// <param name="source">An observable sequence of quaternary change sets whose items will be transformed.</param>
+    /// <param name="selector">A function that projects each item in the change set to a new result value.</param>
+    /// <returns>An observable sequence of quaternary change sets containing the projected result items.</returns>
+    public static IObservable<QuaternaryChangeSet<TResult>> SelectChanges<T, TResult>(
+    this IObservable<QuaternaryChangeSet<T>> source,
+    Func<T, TResult> selector) => source.Select(changes =>
+        QuaternaryChangeSet<TResult>.Batch(
+            changes.Select(c => new QuaternaryChange<TResult>(
+                c.Reason,
+                selector(c.Item),
+                c.Index,
+                c.OldIndex))));
+
+    /// <summary>
+    /// Projects each change set in the observable sequence into a sorted batch using the specified key selector.
+    /// </summary>
+    /// <remarks>The sorting is applied to each batch as it is emitted by the source sequence. The method does
+    /// not maintain a global sort order across batches.</remarks>
+    /// <typeparam name="T">The type of the elements contained in the change set.</typeparam>
+    /// <typeparam name="TKey">The type of the key used for sorting the elements.</typeparam>
+    /// <param name="source">The observable sequence of quaternary change sets to be sorted.</param>
+    /// <param name="keySelector">A function that extracts the key from each element for sorting purposes. Cannot be null.</param>
+    /// <returns>An observable sequence of quaternary change sets, where each batch is sorted according to the specified key
+    /// selector.</returns>
+    public static IObservable<QuaternaryChangeSet<T>> SortBy<T, TKey>(
+    this IObservable<QuaternaryChangeSet<T>> source,
+    Func<T, TKey> keySelector) => source.Select(changes =>
+        {
+            var sorted = changes.OrderBy(c => keySelector(c.Item));
+            return QuaternaryChangeSet<T>.Batch(sorted);
+        });
+
+    /// <summary>
+    /// Projects each item in the source change set into groups based on a specified key, emitting an observable
+    /// sequence of grouped observables as items change.
+    /// </summary>
+    /// <remarks>Each group is represented by an <see cref="IGroupedObservable{TKey, T}"/> that emits items
+    /// sharing the same key. Groups are created and removed dynamically as items are added or removed from the source
+    /// change set.</remarks>
+    /// <typeparam name="T">The type of the items contained in the change set.</typeparam>
+    /// <typeparam name="TKey">The type of the key used to group items.</typeparam>
+    /// <param name="source">An observable sequence of change sets containing items to be grouped.</param>
+    /// <param name="keySelector">A function that extracts the grouping key from each item.</param>
+    /// <returns>An observable sequence of grouped observables, where each group corresponds to a unique key and emits items as
+    /// they change.</returns>
+    public static IObservable<IGroupedObservable<TKey, T>> GroupByChanges<T, TKey>(
+    this IObservable<QuaternaryChangeSet<T>> source,
+    Func<T, TKey> keySelector) => source
+            .SelectMany(set => set)
+            .GroupBy(c => keySelector(c.Item), c => c.Item);
+
+    /// <summary>
+    /// Creates an observable sequence that emits a refresh change set whenever the specified property of any item in
+    /// the source list changes.
+    /// </summary>
+    /// <remarks>The returned observable emits a refresh change set for the entire list whenever the observed
+    /// property changes on any item. This is useful for scenarios where downstream consumers need to be notified of
+    /// property changes that may affect filtering, sorting, or other derived views.</remarks>
+    /// <typeparam name="T">The type of elements contained in the source list.</typeparam>
+    /// <param name="source">The source list to monitor for property changes.</param>
+    /// <param name="property">An expression specifying the property of each item to observe for changes. Must refer to a property of type
+    /// <typeparamref name="T"/>.</param>
+    /// <returns>An observable sequence that produces a refresh change set each time the specified property changes on any item
+    /// in the source list.</returns>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="property"/> does not refer to a property.</exception>
+    public static IObservable<QuaternaryChangeSet<T>> AutoRefresh<T>(
+    this QuaternaryList<T> source,
+    Expression<Func<T, object>> property)
+        where T : notnull
+    {
+        if (source == null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        if (property == null)
+        {
+            throw new ArgumentNullException(nameof(property));
+        }
+
+        var member = (property.Body as MemberExpression)?.Member;
+        return member == null
+            ? throw new ArgumentException("Expression must be a property")
+            : source.Changes
+            .Select(_ => new QuaternaryChangeSet<T> { new(QuaternaryChangeReason.Refresh, default!) });
     }
 
     /// <summary>

@@ -6,9 +6,8 @@ using System.Buffers;
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using CP.Reactive.Quaternary;
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Represents a thread-safe, sharded dictionary that distributes key-value pairs across four internal partitions for
@@ -16,6 +15,7 @@ namespace CP.Reactive;
 /// </summary>
 /// <typeparam name="TKey">The type of keys in the dictionary. Must be non-nullable.</typeparam>
 /// <typeparam name="TValue">The type of values stored in the dictionary.</typeparam>
+[SkipLocalsInit]
 public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TKey, TValue>, QuadDictionary<TKey, TValue>, TValue>, IQuaternaryDictionary<TKey, TValue>
     where TKey : notnull
 {
@@ -248,7 +248,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <typeparam name="TIndexKey">The type of the index key.</typeparam>
     /// <param name="name">The unique name of the index to add.</param>
     /// <param name="keySelector">A function that extracts the index key from a value.</param>
-    public void AddValueIndex<TIndexKey>(string name, Func<TValue, TIndexKey> keySelector)
+    public void AddValueIndex<TIndexKey>(string name, Func<TValue?, TIndexKey> keySelector)
         where TIndexKey : notnull
     {
         var index = new SecondaryIndex<TValue, TIndexKey>(keySelector);
@@ -288,6 +288,35 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
 
         return [];
+    }
+
+    /// <summary>
+    /// Creates a reactive view filtered by a secondary index key.
+    /// </summary>
+    /// <typeparam name="TIndexKey">The type of the key used in the secondary index.</typeparam>
+    /// <param name="indexName">The name of the secondary index to filter by.</param>
+    /// <param name="key">The key value to filter on.</param>
+    /// <param name="scheduler">The scheduler for dispatching updates.</param>
+    /// <param name="throttleMs">Throttle interval in milliseconds. Defaults to 50ms.</param>
+    /// <returns>A reactive view containing values matching the secondary index key.</returns>
+    public SecondaryIndexReactiveView<TKey, TValue, TIndexKey> CreateViewBySecondaryIndex<TIndexKey>(
+        string indexName,
+        TIndexKey key,
+        System.Reactive.Concurrency.IScheduler scheduler,
+        int throttleMs = 50)
+        where TIndexKey : notnull
+    {
+        if (!Indices.TryGetValue(indexName, out var idx) || idx is not SecondaryIndex<TValue, TIndexKey>)
+        {
+            throw new InvalidOperationException($"Secondary index '{indexName}' does not exist or has incompatible type.");
+        }
+
+        return new SecondaryIndexReactiveView<TKey, TValue, TIndexKey>(
+            this,
+            indexName,
+            key,
+            scheduler,
+            TimeSpan.FromMilliseconds(throttleMs));
     }
 
     /// <summary>
@@ -383,40 +412,68 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
 
         var totalRemoved = 0;
 
-        for (var i = 0; i < ShardCount; i++)
-        {
-            Locks[i].EnterWriteLock();
-            try
-            {
-                var dict = Quads[i];
-                var keysToRemove = new List<TKey>();
+        // Use pooled arrays for keys to remove
+        var keysBuffer = ArrayPool<TKey>.Shared.Rent(64);
+        var keysCount = 0;
 
-                foreach (var kvp in dict)
+        try
+        {
+            for (var i = 0; i < ShardCount; i++)
+            {
+                Locks[i].EnterWriteLock();
+                try
                 {
-                    if (predicate(kvp))
+                    var dict = Quads[i];
+
+                    // First pass: identify keys to remove
+                    keysCount = 0;
+                    foreach (var kvp in dict)
                     {
-                        keysToRemove.Add(kvp.Key);
+                        if (predicate(kvp))
+                        {
+                            // Grow buffer if needed
+                            if (keysCount >= keysBuffer.Length)
+                            {
+                                var newBuffer = ArrayPool<TKey>.Shared.Rent(keysBuffer.Length * 2);
+                                keysBuffer.AsSpan(0, keysCount).CopyTo(newBuffer);
+                                ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<TKey>());
+                                keysBuffer = newBuffer;
+                            }
+
+                            keysBuffer[keysCount++] = kvp.Key;
+                        }
+                    }
+
+                    // Second pass: remove identified keys
+                    var hasIndices = !Indices.IsEmpty;
+                    for (var j = 0; j < keysCount; j++)
+                    {
+                        var key = keysBuffer[j];
+                        if (dict.Remove(key, out var val))
+                        {
+                            if (hasIndices)
+                            {
+                                NotifyIndicesRemoved(val);
+                            }
+
+                            totalRemoved++;
+                        }
                     }
                 }
-
-                foreach (var key in keysToRemove)
+                finally
                 {
-                    if (dict.Remove(key, out var val))
-                    {
-                        NotifyIndicesRemoved(val);
-                        totalRemoved++;
-                    }
+                    Locks[i].ExitWriteLock();
                 }
             }
-            finally
+
+            if (totalRemoved > 0)
             {
-                Locks[i].ExitWriteLock();
+                Emit(CacheAction.BatchOperation, default);
             }
         }
-
-        if (totalRemoved > 0)
+        finally
         {
-            Emit(CacheAction.BatchOperation, default);
+            ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<TKey>());
         }
 
         return totalRemoved;
@@ -514,10 +571,18 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <summary>
     /// Calculates the shard index for the specified key.
     /// </summary>
+    /// <remarks>Uses golden ratio multiplication for better hash distribution across shards.
+    /// The result is always a value between 0 and 3 (inclusive) for 4 shards.</remarks>
     /// <param name="key">The key for which to determine the shard index. Must not be null.</param>
     /// <returns>The zero-based index of the shard to which the key is assigned.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetShard(TKey key) => (key.GetHashCode() & 0x7FFFFFFF) % ShardCount;
+    private static int GetShard(TKey key)
+    {
+        // Use golden ratio multiplication for better hash distribution
+        // Then shift right by 30 bits to get 2 bits (0-3) for 4 shards
+        var hash = key.GetHashCode();
+        return (int)((uint)(hash * 0x9E3779B9) >> 30);
+    }
 
     /// <summary>
     /// Adds the specified key/value pairs to the collection, distributing them across internal shards for optimized

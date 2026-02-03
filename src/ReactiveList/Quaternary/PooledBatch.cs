@@ -4,7 +4,7 @@
 
 using System.Buffers;
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Represents a batch of items obtained from an array pool, along with the number of valid items in the batch.

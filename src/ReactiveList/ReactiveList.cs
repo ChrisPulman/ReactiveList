@@ -12,6 +12,7 @@ using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 #if NET6_0_OR_GREATER
+using System.Buffers;
 using System.Runtime.InteropServices;
 #endif
 
@@ -82,6 +83,12 @@ public class ReactiveList<T> : IReactiveList<T>
 
     [NonSerialized]
     private BehaviorSubject<IEnumerable<T>>? _removed;
+
+    [NonSerialized]
+    private Subject<ChangeSet<T>>? _changeSubject;
+
+    [NonSerialized]
+    private long _version;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
@@ -173,6 +180,15 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <value>The removed.</value>
     public IObservable<IEnumerable<T>> Removed => _removed!.Skip(1);
 
+    /// <summary>
+    /// Gets the current version number of the collection, which is incremented on each modification.
+    /// </summary>
+    /// <remarks>
+    /// This property can be used for efficient change detection without acquiring locks.
+    /// The version is incremented atomically using <see cref="Interlocked.Increment(ref long)"/>.
+    /// </remarks>
+    public long Version => Interlocked.Read(ref _version);
+
     /// <inheritdoc/>
     public object SyncRoot => this;
 
@@ -199,6 +215,7 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Add(T item)
     {
         lock (_lock!)
@@ -210,6 +227,141 @@ public class ReactiveList<T> : IReactiveList<T>
             OnPropertyChanged(ItemArray);
         }
     }
+
+    /// <summary>
+    /// Connects to the change stream. Similar to DynamicData's Connect().
+    /// </summary>
+    /// <returns>An observable stream of change sets representing all modifications to the list.</returns>
+    public IObservable<ChangeSet<T>> Connect() => _changeSubject!.AsObservable();
+
+#if NET6_0_OR_GREATER
+    /// <summary>
+    /// Creates a snapshot of current items as an array.
+    /// </summary>
+    /// <returns>An array containing all current items.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public T[] ToArray()
+    {
+        lock (_lock!)
+        {
+            return [.. _internalList];
+        }
+    }
+
+    /// <summary>
+    /// Adds a range of items from a <see cref="ReadOnlySpan{T}"/>.
+    /// </summary>
+    /// <param name="items">The items to add.</param>
+    public void AddRange(ReadOnlySpan<T> items)
+    {
+        if (items.IsEmpty)
+        {
+            return;
+        }
+
+        lock (_lock!)
+        {
+            _internalList.EnsureCapacity(_internalList.Count + items.Length);
+            foreach (var item in items)
+            {
+                _internalList.Add(item);
+                _observableItems!.Add(item);
+            }
+
+            // Notify with array copy
+            var itemArray = items.ToArray();
+            NotifyAddedRange(itemArray);
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
+    }
+
+    /// <summary>
+    /// Copies items to the specified span.
+    /// </summary>
+    /// <param name="destination">The destination span.</param>
+    /// <exception cref="ArgumentException">Thrown when destination is too small.</exception>
+    public void CopyTo(Span<T> destination)
+    {
+        lock (_lock!)
+        {
+            if (destination.Length < _internalList.Count)
+            {
+                throw new ArgumentException("Destination span is too small.", nameof(destination));
+            }
+
+            CollectionsMarshal.AsSpan(_internalList).CopyTo(destination);
+        }
+    }
+
+    /// <summary>
+    /// Gets a read-only span over the internal list for zero-copy access.
+    /// </summary>
+    /// <remarks>
+    /// WARNING: This method does not acquire a lock. The caller must ensure thread safety.
+    /// The returned span is only valid while no modifications are made to the list.
+    /// </remarks>
+    /// <returns>A read-only span over the internal items.</returns>
+    public ReadOnlySpan<T> AsSpan()
+    {
+        return CollectionsMarshal.AsSpan(_internalList);
+    }
+
+    /// <summary>
+    /// Gets a memory region over the internal list for async operations.
+    /// </summary>
+    /// <remarks>
+    /// WARNING: This method does not acquire a lock. The caller must ensure thread safety.
+    /// The returned memory is only valid while no modifications are made to the list.
+    /// </remarks>
+    /// <returns>A read-only memory region over the internal items.</returns>
+    public ReadOnlyMemory<T> AsMemory()
+    {
+        return _internalList.ToArray().AsMemory();
+    }
+
+    /// <summary>
+    /// Clears all items from the list without releasing the internal array capacity.
+    /// </summary>
+    /// <remarks>
+    /// This method is more efficient than Clear() when you plan to add items back to the list,
+    /// as it avoids the overhead of reallocating the internal array. The capacity is preserved.
+    /// </remarks>
+    /// <param name="notifyChange">Whether to emit change notifications. Defaults to true.</param>
+    public void ClearWithoutDeallocation(bool notifyChange = true)
+    {
+        lock (_lock!)
+        {
+            if (_internalList.Count == 0)
+            {
+                if (notifyChange)
+                {
+                    ClearHistory();
+                    OnPropertyChanged(nameof(Count));
+                    OnPropertyChanged(ItemArray);
+                }
+
+                return;
+            }
+
+            var clearedItems = notifyChange ? _internalList.ToArray() : Array.Empty<T>();
+            var capacity = _internalList.Capacity;
+
+            _internalList.Clear();
+            _observableItems!.Clear();
+
+            // Restore capacity to avoid reallocation on next add
+            _internalList.Capacity = capacity;
+
+            if (notifyChange)
+            {
+                NotifyCleared(clearedItems);
+                OnPropertyChanged(nameof(Count));
+                OnPropertyChanged(ItemArray);
+            }
+        }
+    }
+#endif
 
     /// <inheritdoc/>
     public void Dispose()
@@ -459,6 +611,7 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Insert(int index, T item)
     {
         lock (_lock!)
@@ -516,6 +669,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <param name="oldIndex">The current index of the item.</param>
     /// <param name="newIndex">The new index for the item.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Move(int oldIndex, int newIndex)
     {
         if (oldIndex < 0 || oldIndex >= Count)
@@ -539,12 +693,13 @@ public class ReactiveList<T> : IReactiveList<T>
             _internalList.RemoveAt(oldIndex);
             _internalList.Insert(newIndex, item);
             _observableItems!.Move(oldIndex, newIndex);
-            NotifyChangedSingle(item);
+            NotifyChangedSingle(item, ChangeReason.Move, newIndex, oldIndex);
             OnPropertyChanged(ItemArray);
         }
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Remove(T item)
     {
         lock (_lock!)
@@ -602,6 +757,90 @@ public class ReactiveList<T> : IReactiveList<T>
         if (IsCompatibleObject(value))
         {
             Remove((T)value!);
+        }
+    }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int RemoveMany(Func<T, bool> predicate)
+    {
+        if (predicate == null)
+        {
+            throw new ArgumentNullException(nameof(predicate));
+        }
+
+        lock (_lock!)
+        {
+#if NET6_0_OR_GREATER
+            // Use pooled buffer for better memory efficiency
+            var removedBuffer = ArrayPool<T>.Shared.Rent(Math.Max(16, _internalList.Count / 4));
+            var removedCount = 0;
+
+            try
+            {
+                // Iterate in reverse to avoid index shifting issues
+                for (var i = _internalList.Count - 1; i >= 0; i--)
+                {
+                    var item = _internalList[i];
+                    if (predicate(item))
+                    {
+                        _internalList.RemoveAt(i);
+                        _observableItems!.RemoveAt(i);
+
+                        // Grow buffer if needed
+                        if (removedCount >= removedBuffer.Length)
+                        {
+                            var newBuffer = ArrayPool<T>.Shared.Rent(removedBuffer.Length * 2);
+                            removedBuffer.AsSpan(0, removedCount).CopyTo(newBuffer);
+                            ArrayPool<T>.Shared.Return(removedBuffer);
+                            removedBuffer = newBuffer;
+                        }
+
+                        removedBuffer[removedCount++] = item;
+                    }
+                }
+
+                if (removedCount > 0)
+                {
+                    // Reverse in-place to maintain original order
+                    removedBuffer.AsSpan(0, removedCount).Reverse();
+                    NotifyRemovedRange(removedBuffer.AsSpan(0, removedCount).ToArray());
+                    OnPropertyChanged(nameof(Count));
+                    OnPropertyChanged(ItemArray);
+                }
+
+                return removedCount;
+            }
+            finally
+            {
+                ArrayPool<T>.Shared.Return(removedBuffer, clearArray: true);
+            }
+#else
+            var removed = new List<T>();
+
+            // Iterate in reverse to avoid index shifting issues
+            for (var i = _internalList.Count - 1; i >= 0; i--)
+            {
+                var item = _internalList[i];
+                if (predicate(item))
+                {
+                    _internalList.RemoveAt(i);
+                    _observableItems!.RemoveAt(i);
+                    removed.Add(item);
+                }
+            }
+
+            if (removed.Count > 0)
+            {
+                // Reverse to maintain original order in notification
+                removed.Reverse();
+                NotifyRemovedRange([.. removed]);
+                OnPropertyChanged(nameof(Count));
+                OnPropertyChanged(ItemArray);
+            }
+
+            return removed.Count;
+#endif
         }
     }
 
@@ -722,6 +961,7 @@ public class ReactiveList<T> : IReactiveList<T>
     public IDisposable Subscribe(IObserver<IEnumerable<T>> observer) => _currentItems!.Subscribe(observer);
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Update(T item, T newValue)
     {
         lock (_lock!)
@@ -731,7 +971,7 @@ public class ReactiveList<T> : IReactiveList<T>
             {
                 _internalList[index] = newValue;
                 _observableItems![index] = newValue;
-                NotifyChangedSingle(newValue);
+                NotifyChangedSingle(newValue, ChangeReason.Update, index, index);
             }
         }
     }
@@ -749,6 +989,8 @@ public class ReactiveList<T> : IReactiveList<T>
             _changed?.Dispose();
             _removed?.Dispose();
             _currentItems?.Dispose();
+            _changeSubject?.OnCompleted();
+            _changeSubject?.Dispose();
         }
     }
 
@@ -821,6 +1063,7 @@ public class ReactiveList<T> : IReactiveList<T>
         _changed = new(Array.Empty<T>());
         _removed = new(Array.Empty<T>());
         _currentItems = new(Array.Empty<T>());
+        _changeSubject = new();
     }
 
     /// <summary>
@@ -833,6 +1076,8 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyAdded(T item, int index = -1)
     {
+        Interlocked.Increment(ref _version);
+
         _itemsAddedCollection!.Clear();
         _itemsAddedCollection.Add(item);
         _itemsRemovedCollection!.Clear();
@@ -844,6 +1089,10 @@ public class ReactiveList<T> : IReactiveList<T>
         _currentItems!.OnNext(_internalList);
 
         var startIndex = index >= 0 ? index : _internalList.Count - 1;
+
+        // Emit to unified change stream
+        _changeSubject!.OnNext(new ChangeSet<T>(Change<T>.CreateAdd(item, startIndex)));
+
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, startIndex));
     }
 
@@ -856,6 +1105,8 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyAddedRange(T[] items, int index = -1)
     {
+        Interlocked.Increment(ref _version);
+
         UpdateTrackingCollection(_itemsAddedCollection!, items);
         _itemsRemovedCollection!.Clear();
         UpdateTrackingCollection(_itemsChangedCollection!, items);
@@ -863,6 +1114,16 @@ public class ReactiveList<T> : IReactiveList<T>
         _added!.OnNext(items);
         _changed!.OnNext(items);
         _currentItems!.OnNext(_internalList);
+
+        // Emit to unified change stream
+        var startIndex = index >= 0 ? index : _internalList.Count - items.Length;
+        var changes = new Change<T>[items.Length];
+        for (var i = 0; i < items.Length; i++)
+        {
+            changes[i] = Change<T>.CreateAdd(items[i], startIndex + i);
+        }
+
+        _changeSubject!.OnNext(new ChangeSet<T>(changes));
 
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
@@ -875,6 +1136,8 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyRemoved(T item, int index)
     {
+        Interlocked.Increment(ref _version);
+
         _itemsRemovedCollection!.Clear();
         _itemsRemovedCollection.Add(item);
         _itemsAddedCollection!.Clear();
@@ -884,6 +1147,9 @@ public class ReactiveList<T> : IReactiveList<T>
         _removed!.OnNext([item]);
         _changed!.OnNext([item]);
         _currentItems!.OnNext(_internalList);
+
+        // Emit to unified change stream
+        _changeSubject!.OnNext(new ChangeSet<T>(Change<T>.CreateRemove(item, index)));
 
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
     }
@@ -898,6 +1164,8 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyRemovedRange(T[] items)
     {
+        Interlocked.Increment(ref _version);
+
         UpdateTrackingCollection(_itemsRemovedCollection!, items);
         _itemsAddedCollection!.Clear();
         UpdateTrackingCollection(_itemsChangedCollection!, items);
@@ -905,6 +1173,15 @@ public class ReactiveList<T> : IReactiveList<T>
         _removed!.OnNext(items);
         _changed!.OnNext(items);
         _currentItems!.OnNext(_internalList);
+
+        // Emit to unified change stream
+        var changes = new Change<T>[items.Length];
+        for (var i = 0; i < items.Length; i++)
+        {
+            changes[i] = Change<T>.CreateRemove(items[i], -1);
+        }
+
+        _changeSubject!.OnNext(new ChangeSet<T>(changes));
 
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
@@ -919,6 +1196,8 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void NotifyCleared(T[] clearedItems)
     {
+        Interlocked.Increment(ref _version);
+
         _itemsAddedCollection!.Clear();
         UpdateTrackingCollection(_itemsChangedCollection!, clearedItems);
         UpdateTrackingCollection(_itemsRemovedCollection!, clearedItems);
@@ -926,6 +1205,9 @@ public class ReactiveList<T> : IReactiveList<T>
         _removed!.OnNext(clearedItems);
         _changed!.OnNext(clearedItems);
         _currentItems!.OnNext(_internalList);
+
+        // Emit to unified change stream - single Clear change
+        _changeSubject!.OnNext(new ChangeSet<T>(new Change<T>(ChangeReason.Clear, default!)));
 
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
@@ -938,14 +1220,22 @@ public class ReactiveList<T> : IReactiveList<T>
     /// communicated as such to subscribers. It clears any previous change notifications before reporting the new
     /// change.</remarks>
     /// <param name="item">The item that has changed and should be reported to observers.</param>
+    /// <param name="reason">The reason for the change. Defaults to Refresh.</param>
+    /// <param name="currentIndex">The current index, if applicable.</param>
+    /// <param name="previousIndex">The previous index, if applicable (for moves).</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyChangedSingle(T item)
+    private void NotifyChangedSingle(T item, ChangeReason reason = ChangeReason.Refresh, int currentIndex = -1, int previousIndex = -1)
     {
+        Interlocked.Increment(ref _version);
+
         _itemsChangedCollection!.Clear();
         _itemsChangedCollection.Add(item);
 
         _changed!.OnNext([item]);
         _currentItems!.OnNext(_internalList);
+
+        // Emit to unified change stream
+        _changeSubject!.OnNext(new ChangeSet<T>(new Change<T>(reason, item, currentIndex: currentIndex, previousIndex: previousIndex)));
     }
 
     /// <summary>

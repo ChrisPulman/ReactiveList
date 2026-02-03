@@ -154,4 +154,80 @@ public class ListBenchmarks
         list.Edit(l => l.AddRange(_data));
         return list.Items.Where(x => x % 2 == 0).Count();
     }
+
+    [Benchmark]
+    public int ReactiveList_Connect()
+    {
+        using var list = new ReactiveList<int>();
+        var total = 0;
+        using var sub = list.Connect().Subscribe(changes => total += changes.Count);
+        list.AddRange(_data);
+        return total;
+    }
+
+    [Benchmark]
+    public int SourceList_Connect()
+    {
+        using var list = new SourceList<int>();
+        var total = 0;
+        using var sub = list.Connect().Subscribe(changes => total += changes.Count);
+        list.AddRange(_data);
+        return total;
+    }
+
+    [Benchmark]
+    public int ReactiveList_ReplaceAll()
+    {
+        using var list = new ReactiveList<int>(_data);
+        var newData = Enumerable.Range(Count, Count).ToArray();
+        list.ReplaceAll(newData);
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int SourceList_ReplaceAll()
+    {
+        using var list = new SourceList<int>();
+        list.Edit(l => l.AddRange(_data));
+        var newData = Enumerable.Range(Count, Count).ToArray();
+        list.Edit(innerList =>
+        {
+            innerList.Clear();
+            innerList.AddRange(newData);
+        });
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int ReactiveList_Move()
+    {
+        using var list = new ReactiveList<int>(_data);
+        list.Move(0, Count / 2);
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int SourceList_Move()
+    {
+        using var list = new SourceList<int>();
+        list.Edit(l => l.AddRange(_data));
+        list.Move(0, Count / 2);
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int ReactiveList_RemoveMany()
+    {
+        using var list = new ReactiveList<int>(_data);
+        return list.RemoveMany(x => x % 2 == 0);
+    }
+
+    [Benchmark]
+    public int SourceList_RemoveMany()
+    {
+        using var list = new SourceList<int>();
+        list.Edit(l => l.AddRange(_data));
+        list.RemoveMany(list.Items.Where(x => x % 2 == 0));
+        return list.Count;
+    }
 }

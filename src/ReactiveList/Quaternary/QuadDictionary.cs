@@ -6,6 +6,7 @@ using System.Buffers;
 using System.Collections;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -21,6 +22,7 @@ namespace CP.Reactive.Quaternary;
 /// Dispose to return internal arrays to the pool when the dictionary is no longer needed.</remarks>
 /// <typeparam name="TKey">The type of keys in the dictionary. Can be null if the comparer supports it.</typeparam>
 /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
+[SkipLocalsInit]
 public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyValuePair<TKey, TValue>>, IQuad<KeyValuePair<TKey, TValue>>
 {
     private const int MinimumSize = 16; // minimum arraypool size(power of 2)
@@ -62,7 +64,27 @@ public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyV
         _freeList = -1;
         _freeCount = 0;
         _buckets.AsSpan().Clear();
+        Changes = Observable.FromEventPattern<QuaternaryChangeSet<KeyValuePair<TKey, TValue>>>(
+                h => ItemChanged += h,
+                h => ItemChanged -= h)
+            .Select(q => q.EventArgs);
     }
+
+    /// <summary>
+    /// Occurs when an item in the collection is added, removed, or its value is updated.
+    /// </summary>
+    /// <remarks>The event provides the affected key-value pair as event data. Subscribers can use this event
+    /// to respond to changes in the collection's contents. This event is raised for any modification to an item,
+    /// including updates to an existing value or removal of an item.</remarks>
+    public event EventHandler<QuaternaryChangeSet<KeyValuePair<TKey, TValue>>>? ItemChanged;
+
+    /// <summary>
+    /// Gets an observable sequence that emits change sets representing additions, removals, updates, and moves within
+    /// the collection.
+    /// </summary>
+    /// <remarks>Subscribers receive notifications whenever the underlying collection changes. The sequence
+    /// completes when the collection is disposed or no longer produces changes.</remarks>
+    public IObservable<QuaternaryChangeSet<KeyValuePair<TKey, TValue>>> Changes { get; }
 
     /// <summary>
     /// Gets the number of key/value pairs contained in the dictionary.
@@ -97,6 +119,7 @@ public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyV
         {
             ref var valueRef = ref GetValueRefOrAddDefault(key, out _);
             valueRef = value;
+            ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Add, new KeyValuePair<TKey, TValue>(key, value)) });
         }
     }
 
@@ -267,6 +290,7 @@ public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyV
                 _freeList = index;
                 _freeCount++;
 
+                ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Remove, new KeyValuePair<TKey, TValue>(key, value)) });
                 return true;
             }
 
@@ -294,6 +318,7 @@ public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyV
             _entryIndex = 0;
             _freeList = -1;
             _freeCount = 0;
+            ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Clear, default) });
         }
     }
 
@@ -443,6 +468,7 @@ public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyV
         newEntry.Value = default;
         newEntry.Next = bucket - 1;
         bucket = index + 1;
+        ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Add, new KeyValuePair<TKey, TValue>(key, newEntry.Value!)) });
 
         return ref newEntry.Value;
     }

@@ -3,7 +3,7 @@
 
 #if NET6_0_OR_GREATER
 using System;
-using CP.Reactive;
+using CP.Reactive.Quaternary;
 using FluentAssertions;
 using Xunit;
 
@@ -23,10 +23,12 @@ public class CacheActionTests
         ((int)CacheAction.Added).Should().Be(0);
         ((int)CacheAction.Removed).Should().Be(1);
         ((int)CacheAction.Updated).Should().Be(2);
-        ((int)CacheAction.Cleared).Should().Be(3);
-        ((int)CacheAction.BatchOperation).Should().Be(4);
-        ((int)CacheAction.BatchAdded).Should().Be(5);
-        ((int)CacheAction.BatchRemoved).Should().Be(6);
+        ((int)CacheAction.Moved).Should().Be(3);
+        ((int)CacheAction.Refreshed).Should().Be(4);
+        ((int)CacheAction.Cleared).Should().Be(5);
+        ((int)CacheAction.BatchOperation).Should().Be(6);
+        ((int)CacheAction.BatchAdded).Should().Be(7);
+        ((int)CacheAction.BatchRemoved).Should().Be(8);
     }
 
     /// <summary>
@@ -37,10 +39,12 @@ public class CacheActionTests
     {
         var values = Enum.GetValues<CacheAction>();
 
-        values.Should().HaveCount(7);
+        values.Should().HaveCount(9);
         values.Should().Contain(CacheAction.Added);
         values.Should().Contain(CacheAction.Removed);
         values.Should().Contain(CacheAction.Updated);
+        values.Should().Contain(CacheAction.Moved);
+        values.Should().Contain(CacheAction.Refreshed);
         values.Should().Contain(CacheAction.Cleared);
         values.Should().Contain(CacheAction.BatchOperation);
         values.Should().Contain(CacheAction.BatchAdded);

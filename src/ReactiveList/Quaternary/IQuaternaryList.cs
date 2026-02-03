@@ -2,7 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Represents a list of elements that supports secondary named indexes for efficient querying in addition to standard
@@ -25,7 +25,7 @@ public interface IQuaternaryList<T> : ICollection<T>, IQuaternarySource<T>
     /// <typeparam name="TKey">The type of the key used for the index. Must be non-nullable.</typeparam>
     /// <param name="name">The unique name of the index to add. Cannot be null or empty.</param>
     /// <param name="keySelector">A function that extracts the key from each element in the collection. Cannot be null.</param>
-    void AddIndex<TKey>(string name, Func<T, TKey> keySelector)
+    void AddIndex<TKey>(string name, Func<T?, TKey> keySelector)
         where TKey : notnull;
 
     /// <summary>
@@ -73,5 +73,13 @@ public interface IQuaternaryList<T> : ICollection<T>, IQuaternarySource<T>
     /// by reducing the number of change notifications. All operations within the edit action are applied atomically.</remarks>
     /// <param name="editAction">An action that receives an editable list interface to perform modifications.</param>
     void Edit(Action<ICollection<T>> editAction);
+
+    /// <summary>
+    /// Replaces all existing items with new items atomically, emitting a single change notification.
+    /// </summary>
+    /// <remarks>This operation clears all existing items and adds the new items in a single atomic operation.
+    /// Only one change notification is emitted for the entire operation.</remarks>
+    /// <param name="items">The new items to replace all existing items with. Cannot be null.</param>
+    void ReplaceAll(IEnumerable<T> items);
 }
 #endif

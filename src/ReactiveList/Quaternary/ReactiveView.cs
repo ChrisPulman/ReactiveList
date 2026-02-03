@@ -7,7 +7,7 @@ using System.ComponentModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Represents a dynamic, filtered, and observable view over a collection that updates in response to changes from an
@@ -23,7 +23,7 @@ namespace CP.Reactive;
 public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     where T : notnull
 {
-    private readonly ObservableCollection<T> _target = [];
+    private readonly ObservableCollection<T?> _target = [];
     private readonly IDisposable? _sub;
     private bool _disposedValue;
 
@@ -43,9 +43,9 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// <param name="sheduler">The scheduler on which to observe and process batched notifications, typically used to marshal updates to the
     /// appropriate thread (such as the UI thread).</param>
     /// <exception cref="ArgumentNullException">Thrown if stream or filter is null.</exception>
-    public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T> snapshot, Func<T, bool> filter, in TimeSpan throttle, IScheduler sheduler)
+    public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T?> snapshot, Func<T?, bool> filter, in TimeSpan throttle, IScheduler sheduler)
     {
-        Items = new ReadOnlyObservableCollection<T>(_target);
+        Items = new ReadOnlyObservableCollection<T?>(_target);
 
         if (stream == null)
         {
@@ -102,7 +102,7 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// </summary>
     /// <remarks>The collection reflects changes to the underlying data source and notifies observers of any
     /// modifications. Items cannot be added to or removed from this collection directly.</remarks>
-    public ReadOnlyObservableCollection<T> Items { get; }
+    public ReadOnlyObservableCollection<T?> Items { get; }
 
     /// <summary>
     /// Assigns the current collection of items to a property using the specified setter action.
@@ -112,7 +112,7 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// <param name="propertySetter">An action that sets a property to the current read-only observable collection of items. Cannot be null.</param>
     /// <returns>The current instance of <see cref="ReactiveView{T}"/> to enable method chaining.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
-    public ReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
+    public ReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T?>> propertySetter)
     {
         if (propertySetter == null)
         {
@@ -131,7 +131,7 @@ public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// changes.</remarks>
     /// <param name="collection">When the method returns, contains a read-only observable collection of items managed by this view.</param>
     /// <returns>The current instance of <see cref="ReactiveView{T}"/>.</returns>
-    public ReactiveView<T> ToProperty(out ReadOnlyObservableCollection<T> collection)
+    public ReactiveView<T> ToProperty(out ReadOnlyObservableCollection<T?> collection)
     {
         collection = Items;
         return this;

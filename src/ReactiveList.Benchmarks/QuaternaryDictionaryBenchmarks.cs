@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reactive.Linq;
 using BenchmarkDotNet.Attributes;
 using CP.Reactive;
+using CP.Reactive.Quaternary;
 using DynamicData;
 
 namespace ReactiveList.Benchmarks;
@@ -210,6 +212,114 @@ public class QuaternaryDictionaryBenchmarks
         using var dict = new QuaternaryDictionary<int, int>();
         dict.AddRange(_kvps);
         return dict.RemoveMany(kvp => kvp.Key % 2 == 0);
+    }
+
+    [Benchmark]
+    public long QuaternaryDictionary_VersionTracking()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        var initialVersion = dict.Version;
+        dict.AddRange(_kvps);
+        dict.RemoveMany(kvp => kvp.Key % 2 == 0);
+        dict.Clear();
+        return dict.Version - initialVersion;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_ValueIndex()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddRange(_kvps);
+        return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_ParallelAdd()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+
+        // Large dataset to trigger parallel processing (threshold is 256)
+        var largeKvps = Enumerable.Range(0, Math.Max(Count, 500))
+            .Select(i => new KeyValuePair<int, int>(i, i))
+            .ToArray();
+        dict.AddRange(largeKvps);
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_IterateAll()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        var sum = 0;
+        foreach (var kvp in dict)
+        {
+            sum += kvp.Value;
+        }
+
+        return sum;
+    }
+
+    [Benchmark]
+    public int Dictionary_IterateAll()
+    {
+        var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
+        var sum = 0;
+        foreach (var kvp in dict)
+        {
+            sum += kvp.Value;
+        }
+
+        return sum;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_AddOrUpdate()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        for (var i = 0; i < Count; i++)
+        {
+            dict.AddOrUpdate(i, i);
+        }
+
+        // Update existing
+        for (var i = 0; i < Count / 2; i++)
+        {
+            dict.AddOrUpdate(i, i * 2);
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_Keys()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        return dict.Keys.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_Values()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        return dict.Values.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_Enumerate()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        var count = 0;
+        foreach (var kvp in dict)
+        {
+            count += kvp.Key >= 0 ? 1 : 0;
+        }
+
+        return count;
     }
 
     private record Item(int Id, int Value);

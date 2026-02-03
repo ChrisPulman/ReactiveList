@@ -4,10 +4,10 @@
 
 using System.Buffers;
 using System.Collections;
+using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
-using CP.Reactive.Quaternary;
 
-namespace CP.Reactive;
+namespace CP.Reactive.Quaternary;
 
 /// <summary>
 /// Represents a high-performance, thread-safe list that partitions its elements across four internal shards for
@@ -20,10 +20,35 @@ namespace CP.Reactive;
 /// thread-safe. Direct index-based operations (such as Insert, RemoveAt, or setting by index) are not supported and
 /// will throw exceptions; use Add, Remove, or batch methods instead.</remarks>
 /// <typeparam name="T">The type of elements stored in the list. Must be non-nullable.</typeparam>
+[SkipLocalsInit]
 public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryList<T>
     where T : notnull
 {
     private const int ParallelThreshold = 256; // Only parallelize for larger datasets
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="QuaternaryList{T}"/> class and sets up change tracking across all four underlying.
+    /// quad lists.
+    /// </summary>
+    /// <remarks>The constructor merges the change notifications from each of the four quad lists into a
+    /// single observable sequence. This allows consumers to subscribe to a unified stream of changes for the entire
+    /// QuaternaryList. The merged observable is published and reference-counted to ensure efficient event propagation
+    /// and resource management.</remarks>
+    public QuaternaryList() => Changes = Observable.Merge(
+            Quads[0].Changes,
+            Quads[1].Changes,
+            Quads[2].Changes,
+            Quads[3].Changes)
+        .Publish()
+        .RefCount();
+
+    /// <summary>
+    /// Gets an observable sequence that emits change sets representing additions, removals, updates, and moves within
+    /// the collection.
+    /// </summary>
+    /// <remarks>Subscribers receive notifications whenever the underlying collection changes. The sequence
+    /// completes when the collection is disposed or no longer produces changes.</remarks>
+    public IObservable<QuaternaryChangeSet<T>> Changes { get; }
 
     /// <summary>
     /// Gets or sets the element at the specified index.
@@ -35,6 +60,43 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     {
         get => GetAtGlobalIndex(index);
         set => throw new NotSupportedException("Direct index replacement in sharded list is unstable. Use Remove/Add.");
+    }
+
+    /// <summary>
+    /// Connects to the list and returns an observable of unified <see cref="CP.Reactive.ChangeSet{T}"/>.
+    /// </summary>
+    /// <remarks>
+    /// This method provides a unified API compatible with the ReactiveList's Connect() method,
+    /// wrapping the internal QuaternaryChangeSet into the unified ChangeSet format.
+    /// </remarks>
+    /// <returns>An observable sequence of change sets representing collection modifications.</returns>
+    public IObservable<CP.Reactive.ChangeSet<T>> Connect()
+    {
+        return Changes.Select(qcs =>
+        {
+            var changes = new List<CP.Reactive.Change<T>>(qcs.Count);
+            foreach (var qc in qcs)
+            {
+                // Skip batch markers
+                if (qc.Reason == QuaternaryChangeReason.Batch)
+                {
+                    continue;
+                }
+
+                var reason = qc.Reason switch
+                {
+                    QuaternaryChangeReason.Add => CP.Reactive.ChangeReason.Add,
+                    QuaternaryChangeReason.Remove => CP.Reactive.ChangeReason.Remove,
+                    QuaternaryChangeReason.Update => CP.Reactive.ChangeReason.Update,
+                    QuaternaryChangeReason.Refresh => CP.Reactive.ChangeReason.Refresh,
+                    _ => CP.Reactive.ChangeReason.Add
+                };
+
+                changes.Add(new CP.Reactive.Change<T>(reason, qc.Item, default, qc.Index, qc.OldIndex));
+            }
+
+            return new CP.Reactive.ChangeSet<T>([.. changes]);
+        });
     }
 
     /// <summary>
@@ -149,35 +211,55 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
         ArgumentNullException.ThrowIfNull(predicate);
 
         var totalRemoved = 0;
-        var removedItems = new List<T>();
 
-        for (var i = 0; i < ShardCount; i++)
+        // Use pooled buffer for removed items
+        var removedBuffer = ArrayPool<T>.Shared.Rent(64);
+        var removedCount = 0;
+
+        try
         {
-            Locks[i].EnterWriteLock();
-            try
+            for (var i = 0; i < ShardCount; i++)
             {
-                var quad = Quads[i];
-                for (var j = quad.Count - 1; j >= 0; j--)
+                Locks[i].EnterWriteLock();
+                try
                 {
-                    var item = quad[j];
-                    if (predicate(item))
+                    var quad = Quads[i];
+                    for (var j = quad.Count - 1; j >= 0; j--)
                     {
-                        quad.RemoveAt(j);
-                        NotifyIndicesRemoved(item);
-                        removedItems.Add(item);
-                        totalRemoved++;
+                        var item = quad[j];
+                        if (predicate(item))
+                        {
+                            quad.RemoveAt(j);
+                            NotifyIndicesRemoved(item);
+
+                            // Grow buffer if needed
+                            if (removedCount >= removedBuffer.Length)
+                            {
+                                var newBuffer = ArrayPool<T>.Shared.Rent(removedBuffer.Length * 2);
+                                removedBuffer.AsSpan(0, removedCount).CopyTo(newBuffer);
+                                ArrayPool<T>.Shared.Return(removedBuffer, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+                                removedBuffer = newBuffer;
+                            }
+
+                            removedBuffer[removedCount++] = item;
+                            totalRemoved++;
+                        }
                     }
                 }
+                finally
+                {
+                    Locks[i].ExitWriteLock();
+                }
             }
-            finally
+
+            if (totalRemoved > 0)
             {
-                Locks[i].ExitWriteLock();
+                EmitBatchRemoved(removedBuffer, removedCount);
             }
         }
-
-        if (totalRemoved > 0)
+        finally
         {
-            EmitBatchRemovedFromList(removedItems, removedItems.Count);
+            ArrayPool<T>.Shared.Return(removedBuffer, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
         }
 
         return totalRemoved;
@@ -215,12 +297,115 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     }
 
     /// <summary>
+    /// Replaces all existing items with new items atomically, emitting a single change notification.
+    /// </summary>
+    /// <remarks>This operation clears all existing items and adds the new items in a single atomic operation.
+    /// Only one change notification is emitted for the entire operation. All indices are updated accordingly.</remarks>
+    /// <param name="items">The new items to replace all existing items with. Cannot be null.</param>
+    public void ReplaceAll(IEnumerable<T> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+
+        var newItems = items as T[] ?? items.ToArray();
+
+        // Acquire all locks
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Locks[i].EnterWriteLock();
+        }
+
+        try
+        {
+            // Clear all shards and indices
+            for (var i = 0; i < ShardCount; i++)
+            {
+                Quads[i].Clear();
+            }
+
+            foreach (var idx in Indices.Values)
+            {
+                idx.Clear();
+            }
+
+            // Add new items to appropriate shards
+            if (newItems.Length > 0)
+            {
+                // Pre-calculate bucket assignments
+                var bucketCountsArray = new int[ShardCount];
+                var bucketIndicesArray = new int[ShardCount];
+
+                for (var i = 0; i < newItems.Length; i++)
+                {
+                    var shardIdx = GetShardIndex(newItems[i]);
+                    bucketCountsArray[shardIdx]++;
+                }
+
+                var bucketArrays = new T[ShardCount][];
+                for (var i = 0; i < ShardCount; i++)
+                {
+                    bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : Array.Empty<T>();
+                }
+
+                try
+                {
+                    for (var i = 0; i < newItems.Length; i++)
+                    {
+                        var item = newItems[i];
+                        var shardIdx = GetShardIndex(item);
+                        bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = item;
+                    }
+
+                    for (var sIdx = 0; sIdx < ShardCount; sIdx++)
+                    {
+                        var bucketCount = bucketCountsArray[sIdx];
+                        if (bucketCount == 0)
+                        {
+                            continue;
+                        }
+
+                        var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
+                        Quads[sIdx].AddRange(bucket);
+
+                        if (!Indices.IsEmpty)
+                        {
+                            for (var i = 0; i < bucketCount; i++)
+                            {
+                                NotifyIndicesAdded(bucket[i]);
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    for (var i = 0; i < ShardCount; i++)
+                    {
+                        if (bucketCountsArray[i] > 0)
+                        {
+                            ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+                        }
+                    }
+                }
+            }
+        }
+        finally
+        {
+            for (var i = ShardCount - 1; i >= 0; i--)
+            {
+                Locks[i].ExitWriteLock();
+            }
+        }
+
+        // Emit single batch notification
+        Emit(CacheAction.BatchOperation, default);
+    }
+
+    /// <summary>
     /// Adds a secondary index to enable efficient lookups based on a specified key selector.
     /// </summary>
     /// <typeparam name="TKey">The type of the key used for indexing.</typeparam>
     /// <param name="name">The unique name of the index to add.</param>
     /// <param name="keySelector">A function that extracts the key from each item for indexing.</param>
-    public void AddIndex<TKey>(string name, Func<T, TKey> keySelector)
+    public void AddIndex<TKey>(string name, Func<T?, TKey> keySelector)
         where TKey : notnull
     {
         var index = new SecondaryIndex<T, TKey>(keySelector);
@@ -272,7 +457,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     /// <param name="item">The item to check.</param>
     /// <param name="key">The key value to match against.</param>
     /// <returns><see langword="true"/> if the item's indexed value matches the specified key; otherwise, <see langword="false"/>.</returns>
-    public bool ItemMatchesSecondaryIndex<TKey>(string indexName, T item, TKey key)
+    public bool ItemMatchesSecondaryIndex<TKey>(string indexName, T? item, TKey key)
         where TKey : notnull
     {
         if (Indices.TryGetValue(indexName, out var idx))
@@ -362,14 +547,41 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     }
 
     /// <summary>
+    /// Creates a snapshot of the current items as a read-only list.
+    /// </summary>
+    /// <returns>A read-only list containing the items at the time of the call. The returned list is independent of subsequent
+    /// changes to the original collection.</returns>
+    public IReadOnlyList<T> Snapshot()
+    {
+        var total = Quads.Sum(q => q.Count);
+        var result = new T[total];
+
+        var offset = 0;
+        foreach (var quad in Quads)
+        {
+            quad.CopyTo(result, offset);
+            offset += quad.Count;
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Calculates the shard index for the specified item based on its hash code.
     /// </summary>
-    /// <remarks>The shard index is determined by applying a hash function to the item. If the item is null, a
-    /// default hash code of 0 is used. The result is always a non-negative integer less than ShardCount.</remarks>
+    /// <remarks>The shard index is determined by applying an optimized hash function using the golden ratio
+    /// for better distribution. If the item is null, a default hash code of 0 is used. The result is always a
+    /// non-negative integer less than ShardCount (0-3).</remarks>
     /// <param name="item">The item for which to compute the shard index. Can be null.</param>
     /// <returns>An integer representing the zero-based index of the shard to which the item is assigned.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetShardIndex(T? item) => (item?.GetHashCode() ?? 0) & 0x7FFFFFFF & (ShardCount - 1);
+    private static int GetShardIndex(T? item)
+    {
+        // Use golden ratio multiplication for better hash distribution
+        // Then shift right by 30 bits to get 2 bits (0-3) for 4 shards
+        var hash = item?.GetHashCode() ?? 0;
+        return (int)((uint)(hash * 0x9E3779B9) >> 30);
+    }
 
     /// <summary>
     /// Retrieves the element at the specified global index across all shards.

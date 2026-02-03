@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
 using BenchmarkDotNet.Attributes;
-using CP.Reactive;
+using CP.Reactive.Quaternary;
 using DynamicData;
 
 namespace ReactiveList.Benchmarks;
@@ -183,6 +184,102 @@ public class QuaternaryListBenchmarks
         using var list = new SourceList<int>();
         list.AddRange(_data);
         list.RemoveMany(list.Items.Where(x => x % 2 == 0));
+        return list.Count;
+    }
+
+    [Benchmark]
+    public long QuaternaryList_VersionTracking()
+    {
+        using var list = new QuaternaryList<int>();
+        var initialVersion = list.Version;
+        list.AddRange(_data);
+        list.RemoveMany(x => x % 2 == 0);
+        list.Clear();
+        return list.Version - initialVersion;
+    }
+
+    [Benchmark]
+    public int QuaternaryList_MultipleIndices()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddIndex("Mod2", x => x % 2);
+        list.AddIndex("Mod3", x => x % 3);
+        list.AddIndex("Mod5", x => x % 5);
+        list.AddRange(_data);
+        return list.GetItemsBySecondaryIndex("Mod2", 0).Count() +
+               list.GetItemsBySecondaryIndex("Mod3", 0).Count() +
+               list.GetItemsBySecondaryIndex("Mod5", 0).Count();
+    }
+
+    [Benchmark]
+    public int QuaternaryList_ParallelAdd()
+    {
+        using var list = new QuaternaryList<int>();
+
+        // Large dataset to trigger parallel processing (threshold is 256)
+        var largeData = Enumerable.Range(0, Math.Max(Count, 500)).ToArray();
+        list.AddRange(largeData);
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryList_IterateAll()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange(_data);
+        var sum = 0;
+        foreach (var item in list)
+        {
+            sum += item;
+        }
+
+        return sum;
+    }
+
+    [Benchmark]
+    public int List_IterateAll()
+    {
+        var list = new List<int>(_data);
+        var sum = 0;
+        foreach (var item in list)
+        {
+            sum += item;
+        }
+
+        return sum;
+    }
+
+    [Benchmark]
+    public int QuaternaryList_CopyTo()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange(_data);
+        var buffer = new int[Count];
+        list.CopyTo(buffer, 0);
+        return buffer.Length;
+    }
+
+    [Benchmark]
+    public int QuaternaryList_ReplaceAll()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange(_data);
+        var newData = Enumerable.Range(Count, Count).ToArray();
+        list.ReplaceAll(newData);
+        return list.Count;
+    }
+
+    [Benchmark]
+    public int SourceList_ReplaceAll()
+    {
+        using var list = new SourceList<int>();
+        list.AddRange(_data);
+        var newData = Enumerable.Range(Count, Count).ToArray();
+        list.Edit(innerList =>
+        {
+            innerList.Clear();
+            innerList.AddRange(newData);
+        });
         return list.Count;
     }
 }

@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
-using CP.Reactive;
+using CP.Reactive.Quaternary;
 using FluentAssertions;
 using Xunit;
 
