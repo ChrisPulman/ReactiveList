@@ -5,29 +5,26 @@
 namespace CP.Reactive.Quaternary;
 
 /// <summary>
-/// Defines a contract for a tuple or structure that contains four elements of the specified type.
+/// Defines a contract for a high-performance shard container used within quaternary collections.
 /// </summary>
-/// <typeparam name="T">The type of each element in the quadruple.</typeparam>
+/// <remarks>
+/// IQuad represents an internal shard that stores elements. It is optimized for fast add/remove
+/// operations and is not intended to emit its own change notifications. Change tracking is handled
+/// by the parent QuaternaryBase collection through its Stream pipeline.
+/// </remarks>
+/// <typeparam name="T">The type of each element in the shard.</typeparam>
 public interface IQuad<T>
 {
     /// <summary>
-    /// Gets the number of elements contained in the collection.
+    /// Gets the number of elements contained in the shard.
     /// </summary>
     int Count { get; }
 
     /// <summary>
-    /// Gets an observable sequence that emits change sets representing additions, removals, updates, and moves within
-    /// the collection.
+    /// Removes all items from the shard.
     /// </summary>
-    /// <remarks>Subscribers receive notifications whenever the underlying collection changes. The sequence
-    /// completes when the collection is disposed or no longer produces changes.</remarks>
-    IObservable<QuaternaryChangeSet<T>> Changes { get; }
-
-    /// <summary>
-    /// Removes all items from the collection.
-    /// </summary>
-    /// <remarks>After calling this method, the collection will be empty. This method does not modify the
-    /// capacity of the collection, if applicable.</remarks>
+    /// <remarks>After calling this method, the shard will be empty. This method does not modify the
+    /// capacity of the shard, if applicable.</remarks>
     void Clear();
 }
 #endif

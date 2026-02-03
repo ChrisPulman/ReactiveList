@@ -4,7 +4,6 @@
 #if NET8_0_OR_GREATER
 using System.Buffers;
 using System.Collections;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 
 namespace CP.Reactive.Quaternary;
@@ -13,9 +12,11 @@ namespace CP.Reactive.Quaternary;
 /// Provides a high-performance, pooled list for storing elements with fast add, remove, and enumeration operations.
 /// </summary>
 /// <remarks>
-/// QuadList is optimized for scenarios where frequent additions and removals are required.
+/// QuadList is an internal shard optimized for scenarios where frequent additions and removals are required.
 /// It uses array pooling to minimize allocations. The list is not thread-safe and should not
 /// be accessed concurrently from multiple threads. Call Dispose to return internal arrays to the pool.
+/// Change notifications are NOT emitted from this class - the parent QuaternaryBase handles all notifications
+/// through its Stream pipeline.
 /// </remarks>
 /// <typeparam name="T">The type of elements in the list.</typeparam>
 [SkipLocalsInit]
@@ -33,27 +34,7 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
     {
         _items = ArrayPool<T>.Shared.Rent(MinimumSize);
         _count = 0;
-        Changes = Observable.FromEventPattern<QuaternaryChangeSet<T>>(
-                h => ItemChanged += h,
-                h => ItemChanged -= h)
-            .Select(q => q.EventArgs);
     }
-
-    /// <summary>
-    /// Occurs when an item of type <typeparamref name="T"/> is changed.
-    /// </summary>
-    /// <remarks>Subscribers can use this event to respond to modifications of items. The event provides the
-    /// updated item as event data. This event is not raised for additions or removals; it is only triggered when an
-    /// existing item is changed.</remarks>
-    public event EventHandler<QuaternaryChangeSet<T>>? ItemChanged;
-
-    /// <summary>
-    /// Gets an observable sequence that emits change sets representing additions, removals, updates, and moves within
-    /// the collection.
-    /// </summary>
-    /// <remarks>Subscribers receive notifications whenever the underlying collection changes. The sequence
-    /// completes when the collection is disposed or no longer produces changes.</remarks>
-    public IObservable<QuaternaryChangeSet<T>> Changes { get; }
 
     /// <summary>
     /// Gets the number of elements contained in the list.
@@ -92,7 +73,6 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
             }
 
             _items[index] = value;
-            ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Update, value) });
         }
     }
 
@@ -115,8 +95,6 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
         {
             AddWithResize(item);
         }
-
-        ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Add, item) });
     }
 
     /// <summary>
@@ -131,7 +109,6 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
         if (index >= 0)
         {
             RemoveAt(index);
-            ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Remove, item) });
             return true;
         }
 
@@ -160,8 +137,6 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
         {
             _items[_count] = default!;
         }
-
-        ItemChanged?.Invoke(this, new() { new(QuaternaryChangeReason.Remove, _items[_count]) });
     }
 
     /// <summary>
@@ -184,6 +159,7 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
     /// Adds the elements of the specified span to the end of the list.
     /// </summary>
     /// <param name="items">The span of items to add.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AddRange(in ReadOnlySpan<T> items)
     {
         var count = items.Length;
@@ -195,13 +171,6 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
         EnsureCapacity(_count + count);
         items.CopyTo(_items.AsSpan(_count));
         _count += count;
-        QuaternaryChangeSet<T> changes = new();
-        for (var i = 0; i < count; i++)
-        {
-            changes.Add(new QuaternaryChange<T>(QuaternaryChangeReason.Add, items[i]));
-        }
-
-        ItemChanged?.Invoke(this, changes);
     }
 
     /// <summary>
@@ -221,6 +190,7 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
     /// Ensures that the capacity of this list is at least the specified value.
     /// </summary>
     /// <param name="capacity">The minimum capacity to ensure.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void EnsureCapacity(int capacity)
     {
         if (_items.Length < capacity)
@@ -241,12 +211,14 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
     /// </summary>
     /// <param name="array">The destination array.</param>
     /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void CopyTo(T[] array, int arrayIndex) => Array.Copy(_items, 0, array, arrayIndex, _count);
 
     /// <summary>
     /// Returns an enumerator that iterates through the list.
     /// </summary>
     /// <returns>An enumerator for the list.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Enumerator GetEnumerator() => new(this);
 
     /// <inheritdoc/>

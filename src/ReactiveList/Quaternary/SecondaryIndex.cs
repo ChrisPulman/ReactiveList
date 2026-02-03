@@ -13,7 +13,7 @@ namespace CP.Reactive.Quaternary;
 /// <typeparam name="T">The type of items to be indexed.</typeparam>
 /// <typeparam name="TKey">The type of the key used for indexing. Must be non-nullable.</typeparam>
 /// <param name="selector">A function that extracts the secondary key from an item.</param>
-public class SecondaryIndex<T, TKey>(Func<T?, TKey> selector) : ISecondaryIndex<T>
+public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T>
     where TKey : notnull
 {
     private readonly ConcurrentDictionary<TKey, HashSet<T>>[] _shards =
@@ -119,7 +119,7 @@ public class SecondaryIndex<T, TKey>(Func<T?, TKey> selector) : ISecondaryIndex<
     /// <param name="item">The item whose key should be compared.</param>
     /// <param name="key">The key to compare against. Must be of type <typeparamref name="TKey"/>.</param>
     /// <returns><see langword="true"/> if the item's key matches the specified key; otherwise, <see langword="false"/>.</returns>
-    public bool MatchesKey(T? item, object key)
+    public bool MatchesKey(T item, object key)
     {
         if (key is not TKey typedKey)
         {

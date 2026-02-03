@@ -248,7 +248,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <typeparam name="TIndexKey">The type of the index key.</typeparam>
     /// <param name="name">The unique name of the index to add.</param>
     /// <param name="keySelector">A function that extracts the index key from a value.</param>
-    public void AddValueIndex<TIndexKey>(string name, Func<TValue?, TIndexKey> keySelector)
+    public void AddValueIndex<TIndexKey>(string name, Func<TValue, TIndexKey> keySelector)
         where TIndexKey : notnull
     {
         var index = new SecondaryIndex<TValue, TIndexKey>(keySelector);

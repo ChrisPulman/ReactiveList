@@ -74,7 +74,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     private readonly Subject<CacheNotify<TItem>> _pipeline = new();
     private readonly CancellationTokenSource _cts = new();
     private readonly SynchronizationContext? _syncContext;
-    private volatile bool _hasSubscribers;
+    private int _hasSubscribers;
     private long _version;
 
     /// <summary>
@@ -130,11 +130,16 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     /// <summary>
     /// Gets an observable sequence that emits cache change notifications as they occur.
     /// </summary>
+    /// <remarks>
+    /// This is the primary observable for change notifications. It provides all change information
+    /// including single item changes and batch operations. The Stream uses a channel-based pipeline
+    /// for efficient, low-allocation event delivery.
+    /// </remarks>
     public IObservable<CacheNotify<TItem>> Stream
     {
         get
         {
-            Volatile.Write(ref _hasSubscribers, true);
+            Volatile.Write(ref _hasSubscribers, 1);
             return _pipeline.AsObservable();
         }
     }
@@ -223,7 +228,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
         Interlocked.Increment(ref _version);
 
         // Fast path: skip channel write if no subscribers and no INCC
-        if (!_hasSubscribers && CollectionChanged == null)
+        if (Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) == 0 && CollectionChanged == null)
         {
             batch?.Dispose();
             return;
