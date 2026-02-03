@@ -48,7 +48,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     /// </summary>
     /// <remarks>Subscribers receive notifications whenever the underlying collection changes. The sequence
     /// completes when the collection is disposed or no longer produces changes.</remarks>
-    public IObservable<QuaternaryChangeSet<T>> Changes { get; }
+    public IObservable<ChangeSet<T>> Changes { get; }
 
     /// <summary>
     /// Gets or sets the element at the specified index.
@@ -66,38 +66,11 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     /// Connects to the list and returns an observable of unified <see cref="CP.Reactive.ChangeSet{T}"/>.
     /// </summary>
     /// <remarks>
-    /// This method provides a unified API compatible with the ReactiveList's Connect() method,
-    /// wrapping the internal QuaternaryChangeSet into the unified ChangeSet format.
+    /// This method provides a unified API compatible with the ReactiveList's Connect() method.
+    /// Since QuaternaryList now uses the unified ChangeSet type internally, no conversion is needed.
     /// </remarks>
     /// <returns>An observable sequence of change sets representing collection modifications.</returns>
-    public IObservable<CP.Reactive.ChangeSet<T>> Connect()
-    {
-        return Changes.Select(qcs =>
-        {
-            var changes = new List<CP.Reactive.Change<T>>(qcs.Count);
-            foreach (var qc in qcs)
-            {
-                // Skip batch markers
-                if (qc.Reason == QuaternaryChangeReason.Batch)
-                {
-                    continue;
-                }
-
-                var reason = qc.Reason switch
-                {
-                    QuaternaryChangeReason.Add => CP.Reactive.ChangeReason.Add,
-                    QuaternaryChangeReason.Remove => CP.Reactive.ChangeReason.Remove,
-                    QuaternaryChangeReason.Update => CP.Reactive.ChangeReason.Update,
-                    QuaternaryChangeReason.Refresh => CP.Reactive.ChangeReason.Refresh,
-                    _ => CP.Reactive.ChangeReason.Add
-                };
-
-                changes.Add(new CP.Reactive.Change<T>(reason, qc.Item, default, qc.Index, qc.OldIndex));
-            }
-
-            return new CP.Reactive.ChangeSet<T>([.. changes]);
-        });
-    }
+    public IObservable<CP.Reactive.ChangeSet<T>> Connect() => Changes;
 
     /// <summary>
     /// Adds the specified item to the collection.
@@ -405,7 +378,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     /// <typeparam name="TKey">The type of the key used for indexing.</typeparam>
     /// <param name="name">The unique name of the index to add.</param>
     /// <param name="keySelector">A function that extracts the key from each item for indexing.</param>
-    public void AddIndex<TKey>(string name, Func<T?, TKey> keySelector)
+    public void AddIndex<TKey>(string name, Func<T, TKey> keySelector)
         where TKey : notnull
     {
         var index = new SecondaryIndex<T, TKey>(keySelector);
@@ -457,7 +430,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
     /// <param name="item">The item to check.</param>
     /// <param name="key">The key value to match against.</param>
     /// <returns><see langword="true"/> if the item's indexed value matches the specified key; otherwise, <see langword="false"/>.</returns>
-    public bool ItemMatchesSecondaryIndex<TKey>(string indexName, T? item, TKey key)
+    public bool ItemMatchesSecondaryIndex<TKey>(string indexName, T item, TKey key)
         where TKey : notnull
     {
         if (Indices.TryGetValue(indexName, out var idx))

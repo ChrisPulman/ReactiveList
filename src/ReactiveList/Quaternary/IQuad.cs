@@ -21,7 +21,7 @@ public interface IQuad<T>
     /// </summary>
     /// <remarks>Subscribers receive notifications whenever the underlying collection changes. The sequence
     /// completes when the collection is disposed or no longer produces changes.</remarks>
-    IObservable<QuaternaryChangeSet<T>> Changes { get; }
+    IObservable<ChangeSet<T>> Changes { get; }
 
     /// <summary>
     /// Removes all items from the collection.

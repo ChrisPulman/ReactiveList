@@ -74,7 +74,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     private readonly Subject<CacheNotify<TItem>> _pipeline = new();
     private readonly CancellationTokenSource _cts = new();
     private readonly SynchronizationContext? _syncContext;
-    private volatile bool _hasSubscribers;
+    private int _hasSubscribers;
     private long _version;
 
     /// <summary>
@@ -134,7 +134,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
     {
         get
         {
-            Volatile.Write(ref _hasSubscribers, true);
+            Interlocked.Exchange(ref _hasSubscribers, 1);
             return _pipeline.AsObservable();
         }
     }
@@ -223,7 +223,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
         Interlocked.Increment(ref _version);
 
         // Fast path: skip channel write if no subscribers and no INCC
-        if (!_hasSubscribers && CollectionChanged == null)
+        if (Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) == 0 && CollectionChanged == null)
         {
             batch?.Dispose();
             return;

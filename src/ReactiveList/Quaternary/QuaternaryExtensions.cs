@@ -58,7 +58,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the source list and updates reactively as
     /// the list changes.</returns>
-    public static ReactiveView<T> CreateView<T>(this IQuaternarySource<T> list, Func<T?, bool> filter, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<T> CreateView<T>(this IQuaternarySource<T> list, Func<T, bool> filter, IScheduler scheduler, int throttleMs = 50)
         where T : notnull
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -556,7 +556,7 @@ public static class QuaternaryExtensions
     /// <typeparam name="T">The type of elements contained in the quaternary list.</typeparam>
     /// <param name="source">The quaternary list to observe for changes. Cannot be null.</param>
     /// <returns>An observable sequence that emits change sets representing modifications to the quaternary list.</returns>
-    public static IObservable<QuaternaryChangeSet<T>> Connect<T>(
+    public static IObservable<ChangeSet<T>> Connect<T>(
     this QuaternaryList<T> source)
         where T : notnull
     {
@@ -576,38 +576,38 @@ public static class QuaternaryExtensions
     /// which each change set contains only the items for which the predicate returns <see langword="true"/>. The
     /// structure and change semantics of the original change sets are preserved for the filtered items.</remarks>
     /// <typeparam name="T">The type of the items contained in the change set.</typeparam>
-    /// <param name="source">The source observable sequence of quaternary change sets to filter.</param>
+    /// <param name="source">The source observable sequence of change sets to filter.</param>
     /// <param name="predicate">A function that defines the conditions each item must satisfy to be included in the resulting change set.</param>
-    /// <returns>An observable sequence of quaternary change sets containing only the items that satisfy the specified predicate.</returns>
-    public static IObservable<QuaternaryChangeSet<T>> WhereChanges<T>(
-    this IObservable<QuaternaryChangeSet<T>> source,
+    /// <returns>An observable sequence of change sets containing only the items that satisfy the specified predicate.</returns>
+    public static IObservable<ChangeSet<T>> WhereChanges<T>(
+    this IObservable<ChangeSet<T>> source,
     Func<T, bool> predicate) => source.Select(changes =>
         {
-            var filtered = changes.Where(c => predicate(c.Item));
-
-            return QuaternaryChangeSet<T>.Batch(filtered);
+            var filtered = changes.Where(c => predicate(c.Current)).ToArray();
+            return new ChangeSet<T>(filtered);
         });
 
     /// <summary>
-    /// Projects each item in a sequence of quaternary change sets into a new form using the specified selector
+    /// Projects each item in a sequence of change sets into a new form using the specified selector
     /// function.
     /// </summary>
     /// <remarks>This method preserves the change reasons and indices from the source change sets while
     /// transforming the items. The selector function is applied to each item as changes are observed.</remarks>
     /// <typeparam name="T">The type of the elements contained in the source change set.</typeparam>
     /// <typeparam name="TResult">The type of the elements produced by the selector function.</typeparam>
-    /// <param name="source">An observable sequence of quaternary change sets whose items will be transformed.</param>
+    /// <param name="source">An observable sequence of change sets whose items will be transformed.</param>
     /// <param name="selector">A function that projects each item in the change set to a new result value.</param>
-    /// <returns>An observable sequence of quaternary change sets containing the projected result items.</returns>
-    public static IObservable<QuaternaryChangeSet<TResult>> SelectChanges<T, TResult>(
-    this IObservable<QuaternaryChangeSet<T>> source,
+    /// <returns>An observable sequence of change sets containing the projected result items.</returns>
+    public static IObservable<ChangeSet<TResult>> SelectChanges<T, TResult>(
+    this IObservable<ChangeSet<T>> source,
     Func<T, TResult> selector) => source.Select(changes =>
-        QuaternaryChangeSet<TResult>.Batch(
-            changes.Select(c => new QuaternaryChange<TResult>(
+        new ChangeSet<TResult>(
+            changes.Select(c => new Change<TResult>(
                 c.Reason,
-                selector(c.Item),
-                c.Index,
-                c.OldIndex))));
+                selector(c.Current),
+                c.Previous != null ? selector(c.Previous) : default,
+                c.CurrentIndex,
+                c.PreviousIndex)).ToArray()));
 
     /// <summary>
     /// Projects each change set in the observable sequence into a sorted batch using the specified key selector.
@@ -616,16 +616,16 @@ public static class QuaternaryExtensions
     /// not maintain a global sort order across batches.</remarks>
     /// <typeparam name="T">The type of the elements contained in the change set.</typeparam>
     /// <typeparam name="TKey">The type of the key used for sorting the elements.</typeparam>
-    /// <param name="source">The observable sequence of quaternary change sets to be sorted.</param>
+    /// <param name="source">The observable sequence of change sets to be sorted.</param>
     /// <param name="keySelector">A function that extracts the key from each element for sorting purposes. Cannot be null.</param>
-    /// <returns>An observable sequence of quaternary change sets, where each batch is sorted according to the specified key
+    /// <returns>An observable sequence of change sets, where each batch is sorted according to the specified key
     /// selector.</returns>
-    public static IObservable<QuaternaryChangeSet<T>> SortBy<T, TKey>(
-    this IObservable<QuaternaryChangeSet<T>> source,
+    public static IObservable<ChangeSet<T>> SortBy<T, TKey>(
+    this IObservable<ChangeSet<T>> source,
     Func<T, TKey> keySelector) => source.Select(changes =>
         {
-            var sorted = changes.OrderBy(c => keySelector(c.Item));
-            return QuaternaryChangeSet<T>.Batch(sorted);
+            var sorted = changes.OrderBy(c => keySelector(c.Current)).ToArray();
+            return new ChangeSet<T>(sorted);
         });
 
     /// <summary>
@@ -642,10 +642,10 @@ public static class QuaternaryExtensions
     /// <returns>An observable sequence of grouped observables, where each group corresponds to a unique key and emits items as
     /// they change.</returns>
     public static IObservable<IGroupedObservable<TKey, T>> GroupByChanges<T, TKey>(
-    this IObservable<QuaternaryChangeSet<T>> source,
+    this IObservable<ChangeSet<T>> source,
     Func<T, TKey> keySelector) => source
             .SelectMany(set => set)
-            .GroupBy(c => keySelector(c.Item), c => c.Item);
+            .GroupBy(c => keySelector(c.Current), c => c.Current);
 
     /// <summary>
     /// Creates an observable sequence that emits a refresh change set whenever the specified property of any item in
@@ -661,7 +661,7 @@ public static class QuaternaryExtensions
     /// <returns>An observable sequence that produces a refresh change set each time the specified property changes on any item
     /// in the source list.</returns>
     /// <exception cref="ArgumentException">Thrown if <paramref name="property"/> does not refer to a property.</exception>
-    public static IObservable<QuaternaryChangeSet<T>> AutoRefresh<T>(
+    public static IObservable<ChangeSet<T>> AutoRefresh<T>(
     this QuaternaryList<T> source,
     Expression<Func<T, object>> property)
         where T : notnull
@@ -680,7 +680,7 @@ public static class QuaternaryExtensions
         return member == null
             ? throw new ArgumentException("Expression must be a property")
             : source.Changes
-            .Select(_ => new QuaternaryChangeSet<T> { new(QuaternaryChangeReason.Refresh, default!) });
+            .Select(_ => new ChangeSet<T>(Change<T>.CreateRefresh(default!)));
     }
 
     /// <summary>
