@@ -30,6 +30,10 @@ public static class ReactiveListExtensions
         this IObservable<ChangeSet<T>> source,
         Func<Change<T>, bool> predicate)
     {
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(predicate);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
@@ -39,20 +43,49 @@ public static class ReactiveListExtensions
         {
             throw new ArgumentNullException(nameof(predicate));
         }
+#endif
 
         return source.Select(changeSet =>
         {
-            var filtered = new List<Change<T>>();
+            if (changeSet.Count == 0)
+            {
+                return ChangeSet<T>.Empty;
+            }
+
+            // Count matching items first to avoid resizing
+            var matchCount = 0;
+            for (var i = 0; i < changeSet.Count; i++)
+            {
+                if (predicate(changeSet[i]))
+                {
+                    matchCount++;
+                }
+            }
+
+            if (matchCount == 0)
+            {
+                return ChangeSet<T>.Empty;
+            }
+
+            // If all match, return original (avoid copy)
+            if (matchCount == changeSet.Count)
+            {
+                return changeSet;
+            }
+
+            // Allocate exactly what's needed
+            var filtered = new Change<T>[matchCount];
+            var idx = 0;
             for (var i = 0; i < changeSet.Count; i++)
             {
                 var change = changeSet[i];
                 if (predicate(change))
                 {
-                    filtered.Add(change);
+                    filtered[idx++] = change;
                 }
             }
 
-            return filtered.Count > 0 ? new ChangeSet<T>([.. filtered]) : ChangeSet<T>.Empty;
+            return new ChangeSet<T>(filtered);
         }).Where(cs => cs.Count > 0);
     }
 
@@ -81,15 +114,46 @@ public static class ReactiveListExtensions
     /// <returns>An observable sequence of change sets containing the projected result items.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IObservable<ChangeSet<TResult>> SelectChanges<T, TResult>(
-    this IObservable<ChangeSet<T>> source,
-    Func<T, TResult> selector) => source.Select(changes =>
-        new ChangeSet<TResult>(
-            changes.Select(c => new Change<TResult>(
-                c.Reason,
-                selector(c.Current),
-                c.Previous != null ? selector(c.Previous) : default,
-                c.CurrentIndex,
-                c.PreviousIndex)).ToArray()));
+        this IObservable<ChangeSet<T>> source,
+        Func<T, TResult> selector)
+    {
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(selector);
+#else
+        if (source == null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        if (selector == null)
+        {
+            throw new ArgumentNullException(nameof(selector));
+        }
+#endif
+
+        return source.Select(changes =>
+        {
+            if (changes.Count == 0)
+            {
+                return ChangeSet<TResult>.Empty;
+            }
+
+            var transformed = new Change<TResult>[changes.Count];
+            for (var i = 0; i < changes.Count; i++)
+            {
+                var c = changes[i];
+                transformed[i] = new Change<TResult>(
+                    c.Reason,
+                    selector(c.Current),
+                    c.Previous != null ? selector(c.Previous) : default,
+                    c.CurrentIndex,
+                    c.PreviousIndex);
+            }
+
+            return new ChangeSet<TResult>(transformed);
+        });
+    }
 
     /// <summary>
     /// Projects each change in the change stream into a new form, including the change metadata.
@@ -104,6 +168,10 @@ public static class ReactiveListExtensions
         this IObservable<ChangeSet<TSource>> source,
         Func<Change<TSource>, TResult> selector)
     {
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(selector);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
@@ -113,13 +181,19 @@ public static class ReactiveListExtensions
         {
             throw new ArgumentNullException(nameof(selector));
         }
+#endif
 
         return source.SelectMany(changeSet =>
         {
-            var results = new List<TResult>(changeSet.Count);
+            if (changeSet.Count == 0)
+            {
+                return Array.Empty<TResult>();
+            }
+
+            var results = new TResult[changeSet.Count];
             for (var i = 0; i < changeSet.Count; i++)
             {
-                results.Add(selector(changeSet[i]));
+                results[i] = selector(changeSet[i]);
             }
 
             return results;
