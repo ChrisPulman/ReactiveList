@@ -41,16 +41,19 @@ public class ReactiveList<T> : IReactiveList<T>
     private readonly List<T> _internalList = [];
 
     [NonSerialized]
-    private BehaviorSubject<IEnumerable<T>>? _added;
-
-    [NonSerialized]
-    private BehaviorSubject<IEnumerable<T>>? _changed;
-
-    [NonSerialized]
     private CompositeDisposable? _cleanUp;
 
     [NonSerialized]
+    private IObservable<IEnumerable<T>>? _added;
+
+    [NonSerialized]
+    private IObservable<IEnumerable<T>>? _changed;
+
+    [NonSerialized]
     private BehaviorSubject<IEnumerable<T>>? _currentItems;
+
+    [NonSerialized]
+    private IObservable<IEnumerable<T>>? _removed;
 
     [NonSerialized]
     private ReadOnlyObservableCollection<T>? _items;
@@ -85,13 +88,10 @@ public class ReactiveList<T> : IReactiveList<T>
     private ObservableCollection<T>? _observableItems;
 
     [NonSerialized]
-    private BehaviorSubject<IEnumerable<T>>? _removed;
-
-    [NonSerialized]
     private Subject<CacheNotify<T>>? _streamPipeline;
 
     [NonSerialized]
-    private int _hasSubscribers;
+    private bool _skipInternalSubscription;
 
     [NonSerialized]
     private long _version;
@@ -122,27 +122,33 @@ public class ReactiveList<T> : IReactiveList<T>
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
-    /// Gets the added during the last change as an Observeable.
+    /// Gets the added during the last change as an Observable.
     /// </summary>
     /// <value>The added.</value>
-    public IObservable<IEnumerable<T>> Added => _added!.Skip(1);
+    public IObservable<IEnumerable<T>> Added => _added!;
 
     /// <summary>
-    /// Gets the changed during the last change as an Observeable.
+    /// Gets the changed during the last change as an Observable.
     /// </summary>
     /// <value>The changed.</value>
-    public IObservable<IEnumerable<T>> Changed => _changed!.Skip(1);
-
-    /// <inheritdoc/>
-    public int Count => _internalList.Count;
+    public IObservable<IEnumerable<T>> Changed => _changed!;
 
     /// <summary>
-    /// Gets the current items during the last change as an Observeable.
+    /// Gets the current items during the last change as an Observable.
     /// </summary>
     /// <value>
     /// The current items.
     /// </value>
     public IObservable<IEnumerable<T>> CurrentItems => _currentItems!;
+
+    /// <summary>
+    /// Gets the removed items during the last change as an Observable.
+    /// </summary>
+    /// <value>The removed.</value>
+    public IObservable<IEnumerable<T>> Removed => _removed!;
+
+    /// <inheritdoc/>
+    public int Count => _internalList.Count;
 
     /// <inheritdoc/>
     public bool IsDisposed => _cleanUp?.IsDisposed ?? true;
@@ -181,12 +187,6 @@ public class ReactiveList<T> : IReactiveList<T>
     public ReadOnlyObservableCollection<T> ItemsRemoved => _itemsRemoved!;
 
     /// <summary>
-    /// Gets the removed items during the last change as an Observable.
-    /// </summary>
-    /// <value>The removed.</value>
-    public IObservable<IEnumerable<T>> Removed => _removed!.Skip(1);
-
-    /// <summary>
     /// Gets an observable sequence that emits cache change notifications as they occur.
     /// </summary>
     /// <remarks>
@@ -194,14 +194,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// including single item changes and batch operations. The Stream uses a channel-based pipeline
     /// for efficient, low-allocation event delivery.
     /// </remarks>
-    public IObservable<CacheNotify<T>> Stream
-    {
-        get
-        {
-            Volatile.Write(ref _hasSubscribers, 1);
-            return _streamPipeline!.AsObservable();
-        }
-    }
+    public IObservable<CacheNotify<T>> Stream => _streamPipeline!.AsObservable();
 
     /// <summary>
     /// Gets the current version number of the collection, which is incremented on each modification.
@@ -246,8 +239,6 @@ public class ReactiveList<T> : IReactiveList<T>
             _internalList.Add(item);
             _observableItems!.Add(item);
             NotifyAdded(item);
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -288,8 +279,6 @@ public class ReactiveList<T> : IReactiveList<T>
             // Notify with array copy
             var itemArray = items.ToArray();
             NotifyAddedRange(itemArray);
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -319,10 +308,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// The returned span is only valid while no modifications are made to the list.
     /// </remarks>
     /// <returns>A read-only span over the internal items.</returns>
-    public ReadOnlySpan<T> AsSpan()
-    {
-        return CollectionsMarshal.AsSpan(_internalList);
-    }
+    public ReadOnlySpan<T> AsSpan() => CollectionsMarshal.AsSpan(_internalList);
 
     /// <summary>
     /// Gets a memory region over the internal list for async operations.
@@ -332,10 +318,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// The returned memory is only valid while no modifications are made to the list.
     /// </remarks>
     /// <returns>A read-only memory region over the internal items.</returns>
-    public ReadOnlyMemory<T> AsMemory()
-    {
-        return _internalList.ToArray().AsMemory();
-    }
+    public ReadOnlyMemory<T> AsMemory() => _internalList.ToArray().AsMemory();
 
     /// <summary>
     /// Clears all items from the list without releasing the internal array capacity.
@@ -354,8 +337,6 @@ public class ReactiveList<T> : IReactiveList<T>
                 if (notifyChange)
                 {
                     ClearHistory();
-                    OnPropertyChanged(nameof(Count));
-                    OnPropertyChanged(ItemArray);
                 }
 
                 return;
@@ -373,8 +354,6 @@ public class ReactiveList<T> : IReactiveList<T>
             if (notifyChange)
             {
                 NotifyCleared(clearedItems);
-                OnPropertyChanged(nameof(Count));
-                OnPropertyChanged(ItemArray);
             }
         }
     }
@@ -424,8 +403,6 @@ public class ReactiveList<T> : IReactiveList<T>
             }
 
             NotifyAddedRange(itemArray);
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -443,8 +420,6 @@ public class ReactiveList<T> : IReactiveList<T>
             if (_internalList.Count == 0)
             {
                 ClearHistory();
-                OnPropertyChanged(nameof(Count));
-                OnPropertyChanged(ItemArray);
                 return;
             }
 
@@ -452,8 +427,6 @@ public class ReactiveList<T> : IReactiveList<T>
             _internalList.Clear();
             _observableItems!.Clear();
             NotifyCleared(clearedItems);
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -581,12 +554,12 @@ public class ReactiveList<T> : IReactiveList<T>
 
             if (added.Count > 0)
             {
-                NotifyAddedRange([.. added]);
+                NotifyAddedRange([.. added], notifyINPC: false);
             }
 
             if (removed.Count > 0)
             {
-                NotifyRemovedRange([.. removed]);
+                NotifyRemovedRange([.. removed], notifyINPC: false);
             }
 
             OnPropertyChanged(nameof(Count));
@@ -636,8 +609,6 @@ public class ReactiveList<T> : IReactiveList<T>
             _internalList.Insert(index, item);
             _observableItems!.Insert(index, item);
             NotifyAdded(item, index);
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -676,8 +647,6 @@ public class ReactiveList<T> : IReactiveList<T>
             }
 
             NotifyAddedRange(itemArray, index);
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -730,8 +699,6 @@ public class ReactiveList<T> : IReactiveList<T>
             _internalList.RemoveAt(index);
             _observableItems!.RemoveAt(index);
             NotifyRemoved(item, index);
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
             return true;
         }
     }
@@ -762,8 +729,6 @@ public class ReactiveList<T> : IReactiveList<T>
             if (removed.Count > 0)
             {
                 NotifyRemovedRange([.. removed]);
-                OnPropertyChanged(nameof(Count));
-                OnPropertyChanged(ItemArray);
             }
         }
     }
@@ -822,8 +787,6 @@ public class ReactiveList<T> : IReactiveList<T>
                     // Reverse in-place to maintain original order
                     removedBuffer.AsSpan(0, removedCount).Reverse();
                     NotifyRemovedRange(removedBuffer.AsSpan(0, removedCount).ToArray());
-                    OnPropertyChanged(nameof(Count));
-                    OnPropertyChanged(ItemArray);
                 }
 
                 return removedCount;
@@ -852,8 +815,6 @@ public class ReactiveList<T> : IReactiveList<T>
                 // Reverse to maintain original order in notification
                 removed.Reverse();
                 NotifyRemovedRange([.. removed]);
-                OnPropertyChanged(nameof(Count));
-                OnPropertyChanged(ItemArray);
             }
 
             return removed.Count;
@@ -881,8 +842,6 @@ public class ReactiveList<T> : IReactiveList<T>
             _internalList.RemoveAt(index);
             _observableItems!.RemoveAt(index);
             NotifyRemoved(item, index);
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -914,8 +873,6 @@ public class ReactiveList<T> : IReactiveList<T>
             {
                 _observableItems!.RemoveAt(index);
             }
-
-            NotifyRemovedRange(removed);
 #else
             var removed = new T[count];
             for (var i = 0; i < count; i++)
@@ -924,11 +881,9 @@ public class ReactiveList<T> : IReactiveList<T>
                 _internalList.RemoveAt(index);
                 _observableItems!.RemoveAt(index);
             }
+#endif
 
             NotifyRemovedRange(removed);
-#endif
-            OnPropertyChanged(nameof(Count));
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -952,18 +907,37 @@ public class ReactiveList<T> : IReactiveList<T>
                 _observableItems.Add(item);
             }
 
-            // Update tracking collections
-            UpdateTrackingCollection(_itemsRemovedCollection!, oldItems);
-            _removed!.OnNext(oldItems);
+            Interlocked.Increment(ref _version);
 
+            // For ReplaceAll, directly update tracking collections with expected semantics:
+            // - ItemsAdded = new items
+            // - ItemsRemoved = old items
+            // - ItemsChanged = old items (the items that were replaced)
             UpdateTrackingCollection(_itemsAddedCollection!, itemArray);
-            _added!.OnNext(itemArray);
-
+            UpdateTrackingCollection(_itemsRemovedCollection!, oldItems);
             UpdateTrackingCollection(_itemsChangedCollection!, oldItems);
-            _changed!.OnNext(oldItems);
-
             _currentItems!.OnNext(_internalList);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+
+            // Set flag to skip internal subscription processing for the following events
+            _skipInternalSubscription = true;
+
+            // Emit events to Stream for external subscribers
+            if (oldItems.Length > 0)
+            {
+                var removedPool = ArrayPool<T>.Shared.Rent(oldItems.Length);
+                Array.Copy(oldItems, removedPool, oldItems.Length);
+                _streamPipeline?.OnNext(new CacheNotify<T>(CacheAction.BatchRemoved, default, new PooledBatch<T>(removedPool, oldItems.Length)));
+            }
+
+            // Keep flag set for the second event
+            _skipInternalSubscription = true;
+
+            if (itemArray.Length > 0)
+            {
+                var addedPool = ArrayPool<T>.Shared.Rent(itemArray.Length);
+                Array.Copy(itemArray, addedPool, itemArray.Length);
+                _streamPipeline?.OnNext(new CacheNotify<T>(CacheAction.BatchAdded, default, new PooledBatch<T>(addedPool, itemArray.Length)));
+            }
 
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
@@ -986,9 +960,10 @@ public class ReactiveList<T> : IReactiveList<T>
             var index = _internalList.IndexOf(item);
             if (index >= 0)
             {
+                var oldValue = _internalList[index];
                 _internalList[index] = newValue;
                 _observableItems![index] = newValue;
-                NotifyChangedSingle(newValue, ChangeReason.Update, index, index);
+                NotifyChangedSingle(newValue, ChangeReason.Update, index, index, previous: oldValue);
             }
         }
     }
@@ -1002,9 +977,6 @@ public class ReactiveList<T> : IReactiveList<T>
         if (disposing)
         {
             _cleanUp?.Dispose();
-            _added?.Dispose();
-            _changed?.Dispose();
-            _removed?.Dispose();
             _currentItems?.Dispose();
             _streamPipeline?.OnCompleted();
             _streamPipeline?.Dispose();
@@ -1045,6 +1017,31 @@ public class ReactiveList<T> : IReactiveList<T>
     }
 
     /// <summary>
+    /// Extracts items from a cache notification.
+    /// </summary>
+    /// <param name="notification">The cache notification.</param>
+    /// <returns>The items from the notification.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static T[] GetItemsFromNotification(CacheNotify<T> notification)
+    {
+        if (notification.Batch != null)
+        {
+            // Return a copy to avoid issues with pooled array disposal
+            var batch = notification.Batch;
+            var result = new T[batch.Count];
+            Array.Copy(batch.Items, result, batch.Count);
+            return result;
+        }
+
+        if (notification.Item != null)
+        {
+            return [notification.Item];
+        }
+
+        return Array.Empty<T>();
+    }
+
+    /// <summary>
     /// Handles post-deserialization processing to restore the object's state after deserialization is complete.
     /// </summary>
     /// <remarks>This method is automatically invoked by the deserialization infrastructure after the object
@@ -1076,12 +1073,108 @@ public class ReactiveList<T> : IReactiveList<T>
         _itemsAdded = new(_itemsAddedCollection);
         _itemsChanged = new(_itemsChangedCollection);
         _itemsRemoved = new(_itemsRemovedCollection);
-        _added = new(Array.Empty<T>());
-        _changed = new(Array.Empty<T>());
-        _removed = new(Array.Empty<T>());
         _currentItems = new(Array.Empty<T>());
         _streamPipeline = new();
-        _hasSubscribers = 0;
+
+        // Create a shared observable from the stream pipeline
+        var sharedStream = _streamPipeline.Publish().RefCount();
+
+        // Derive Added observable from Stream
+        _added = sharedStream
+            .Where(n => n.Action == CacheAction.Added || n.Action == CacheAction.BatchAdded)
+            .Select(GetItemsFromNotification);
+
+        // Derive Removed observable from Stream
+        _removed = sharedStream
+            .Where(n => n.Action == CacheAction.Removed || n.Action == CacheAction.BatchRemoved || n.Action == CacheAction.Cleared)
+            .Select(GetItemsFromNotification);
+
+        // Derive Changed observable from Stream (all actions represent changes)
+        _changed = sharedStream
+            .Select(GetItemsFromNotification);
+
+        // Internal subscription to update tracking collections, CurrentItems, and raise events
+        var internalSubscription = _streamPipeline
+            .Subscribe(notification =>
+            {
+                // Skip if tracking collections were already updated directly (e.g., ReplaceAll)
+                if (_skipInternalSubscription)
+                {
+                    _skipInternalSubscription = false;
+                    RaiseCollectionChanged(notification);
+                    return;
+                }
+
+                // Update tracking collections based on action type
+                var items = GetItemsFromNotification(notification);
+                var itemsArray = items as T[] ?? items.ToArray();
+
+                switch (notification.Action)
+                {
+                    case CacheAction.Added:
+                    case CacheAction.BatchAdded:
+                        UpdateTrackingCollection(_itemsAddedCollection!, itemsArray);
+                        _itemsRemovedCollection!.Clear();
+                        UpdateTrackingCollection(_itemsChangedCollection!, itemsArray);
+                        break;
+
+                    case CacheAction.Removed:
+                    case CacheAction.BatchRemoved:
+                    case CacheAction.Cleared:
+                        UpdateTrackingCollection(_itemsRemovedCollection!, itemsArray);
+                        _itemsAddedCollection!.Clear();
+                        UpdateTrackingCollection(_itemsChangedCollection!, itemsArray);
+                        break;
+
+                    case CacheAction.Updated:
+                    case CacheAction.Moved:
+                    case CacheAction.Refreshed:
+                        // For update/move/refresh, only update ItemsChanged - leave ItemsAdded/ItemsRemoved unchanged
+                        UpdateTrackingCollection(_itemsChangedCollection!, itemsArray);
+                        break;
+                }
+
+                // Always update CurrentItems
+                _currentItems!.OnNext(_internalList);
+
+                // Raise CollectionChanged event
+                RaiseCollectionChanged(notification);
+            });
+
+        _cleanUp.Add(internalSubscription);
+    }
+
+    /// <summary>
+    /// Raises the CollectionChanged event based on the cache notification.
+    /// </summary>
+    /// <param name="notification">The cache notification.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void RaiseCollectionChanged(CacheNotify<T> notification)
+    {
+        if (CollectionChanged == null)
+        {
+            return;
+        }
+
+        var args = notification.Action switch
+        {
+            CacheAction.Added => new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Add,
+                notification.Item,
+                notification.CurrentIndex),
+            CacheAction.Removed => new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Remove,
+                notification.Item,
+                notification.CurrentIndex),
+            CacheAction.Moved => new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Move,
+                notification.Item,
+                notification.CurrentIndex,
+                notification.PreviousIndex),
+            _ => new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset)
+        };
+
+        CollectionChanged.Invoke(this, args);
     }
 
     /// <summary>
@@ -1091,27 +1184,19 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="item">The item that was added to the collection.</param>
     /// <param name="index">The zero-based index at which the item was added, or -1 to indicate the item was added at the end of the
     /// collection.</param>
+    /// <param name="notifyINPC">True to notify INotifyPropertyChanged subscribers; otherwise, false.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyAdded(T item, int index = -1)
+    private void NotifyAdded(T item, int index = -1, bool notifyINPC = true)
     {
         Interlocked.Increment(ref _version);
-
-        _itemsAddedCollection!.Clear();
-        _itemsAddedCollection.Add(item);
-        _itemsRemovedCollection!.Clear();
-        _itemsChangedCollection!.Clear();
-        _itemsChangedCollection.Add(item);
-
-        _added!.OnNext([item]);
-        _changed!.OnNext([item]);
-        _currentItems!.OnNext(_internalList);
-
         var startIndex = index >= 0 ? index : _internalList.Count - 1;
-
-        // Emit to Stream pipeline
         EmitStream(CacheAction.Added, item, currentIndex: startIndex);
 
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, startIndex));
+        if (notifyINPC)
+        {
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
     }
 
     /// <summary>
@@ -1120,26 +1205,21 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <param name="items">The array of items that were added to the collection. Cannot be null.</param>
     /// <param name="index">The zero-based index at which the items were added, or -1 if the index is not specified.</param>
+    /// <param name="notifyINPC">True to notify INotifyPropertyChanged subscribers; otherwise, false.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyAddedRange(T[] items, int index = -1)
+    private void NotifyAddedRange(T[] items, int index = -1, bool notifyINPC = true)
     {
         Interlocked.Increment(ref _version);
-
-        UpdateTrackingCollection(_itemsAddedCollection!, items);
-        _itemsRemovedCollection!.Clear();
-        UpdateTrackingCollection(_itemsChangedCollection!, items);
-
-        _added!.OnNext(items);
-        _changed!.OnNext(items);
-        _currentItems!.OnNext(_internalList);
-
-        // Emit to Stream pipeline (batch)
         var startIndex = index >= 0 ? index : _internalList.Count - items.Length;
         var pool = ArrayPool<T>.Shared.Rent(items.Length);
         Array.Copy(items, pool, items.Length);
         EmitStream(CacheAction.BatchAdded, default, new PooledBatch<T>(pool, items.Length), startIndex);
 
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        if (notifyINPC)
+        {
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
     }
 
     /// <summary>
@@ -1147,25 +1227,18 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <param name="item">The item that was removed from the collection.</param>
     /// <param name="index">The zero-based index at which the item was removed.</param>
+    /// <param name="notifyINPC">True to notify INotifyPropertyChanged subscribers; otherwise, false.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyRemoved(T item, int index)
+    private void NotifyRemoved(T item, int index, bool notifyINPC = true)
     {
         Interlocked.Increment(ref _version);
-
-        _itemsRemovedCollection!.Clear();
-        _itemsRemovedCollection.Add(item);
-        _itemsAddedCollection!.Clear();
-        _itemsChangedCollection!.Clear();
-        _itemsChangedCollection.Add(item);
-
-        _removed!.OnNext([item]);
-        _changed!.OnNext([item]);
-        _currentItems!.OnNext(_internalList);
-
-        // Emit to Stream pipeline
         EmitStream(CacheAction.Removed, item, currentIndex: index);
 
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
+        if (notifyINPC)
+        {
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
     }
 
     /// <summary>
@@ -1175,25 +1248,20 @@ public class ReactiveList<T> : IReactiveList<T>
     /// to observers. It should be called after items have been removed to ensure that all observers receive the
     /// appropriate notifications.</remarks>
     /// <param name="items">The array of items that were removed from the collection. Cannot be null.</param>
+    /// <param name="notifyINPC">True to notify INotifyPropertyChanged subscribers; otherwise, false.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyRemovedRange(T[] items)
+    private void NotifyRemovedRange(T[] items, bool notifyINPC = true)
     {
         Interlocked.Increment(ref _version);
-
-        UpdateTrackingCollection(_itemsRemovedCollection!, items);
-        _itemsAddedCollection!.Clear();
-        UpdateTrackingCollection(_itemsChangedCollection!, items);
-
-        _removed!.OnNext(items);
-        _changed!.OnNext(items);
-        _currentItems!.OnNext(_internalList);
-
-        // Emit to Stream pipeline (batch)
         var pool = ArrayPool<T>.Shared.Rent(items.Length);
         Array.Copy(items, pool, items.Length);
         EmitStream(CacheAction.BatchRemoved, default, new PooledBatch<T>(pool, items.Length));
 
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        if (notifyINPC)
+        {
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
     }
 
     /// <summary>
@@ -1203,23 +1271,27 @@ public class ReactiveList<T> : IReactiveList<T>
     /// to reflect the cleared state. It should be called after the collection is cleared to ensure that observers
     /// receive accurate updates.</remarks>
     /// <param name="clearedItems">An array containing the items that were removed from the collection when it was cleared. Cannot be null.</param>
+    /// <param name="notifyINPC">True to notify INotifyPropertyChanged subscribers; otherwise, false.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyCleared(T[] clearedItems)
+    private void NotifyCleared(T[] clearedItems, bool notifyINPC = true)
     {
         Interlocked.Increment(ref _version);
+        if (clearedItems.Length > 0)
+        {
+            var pool = ArrayPool<T>.Shared.Rent(clearedItems.Length);
+            Array.Copy(clearedItems, pool, clearedItems.Length);
+            EmitStream(CacheAction.Cleared, default, new PooledBatch<T>(pool, clearedItems.Length));
+        }
+        else
+        {
+            EmitStream(CacheAction.Cleared, default);
+        }
 
-        _itemsAddedCollection!.Clear();
-        UpdateTrackingCollection(_itemsChangedCollection!, clearedItems);
-        UpdateTrackingCollection(_itemsRemovedCollection!, clearedItems);
-
-        _removed!.OnNext(clearedItems);
-        _changed!.OnNext(clearedItems);
-        _currentItems!.OnNext(_internalList);
-
-        // Emit to Stream pipeline
-        EmitStream(CacheAction.Cleared, default);
-
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        if (notifyINPC)
+        {
+            OnPropertyChanged(nameof(Count));
+            OnPropertyChanged(ItemArray);
+        }
     }
 
     /// <summary>
@@ -1233,18 +1305,11 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="reason">The reason for the change. Defaults to Refresh.</param>
     /// <param name="currentIndex">The current index, if applicable.</param>
     /// <param name="previousIndex">The previous index, if applicable (for moves).</param>
+    /// <param name="previous">The previous item value (for update operations), or default if not applicable.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void NotifyChangedSingle(T item, ChangeReason reason = ChangeReason.Refresh, int currentIndex = -1, int previousIndex = -1)
+    private void NotifyChangedSingle(T item, ChangeReason reason = ChangeReason.Refresh, int currentIndex = -1, int previousIndex = -1, T? previous = default)
     {
         Interlocked.Increment(ref _version);
-
-        _itemsChangedCollection!.Clear();
-        _itemsChangedCollection.Add(item);
-
-        _changed!.OnNext([item]);
-        _currentItems!.OnNext(_internalList);
-
-        // Emit to Stream pipeline
         var cacheAction = reason switch
         {
             ChangeReason.Update => CacheAction.Updated,
@@ -1252,7 +1317,7 @@ public class ReactiveList<T> : IReactiveList<T>
             ChangeReason.Refresh => CacheAction.Refreshed,
             _ => CacheAction.Updated
         };
-        EmitStream(cacheAction, item, currentIndex: currentIndex, previousIndex: previousIndex);
+        EmitStream(cacheAction, item, currentIndex: currentIndex, previousIndex: previousIndex, previous: previous);
     }
 
     /// <summary>
@@ -1266,6 +1331,8 @@ public class ReactiveList<T> : IReactiveList<T>
         _itemsAddedCollection!.Clear();
         _itemsChangedCollection!.Clear();
         _itemsRemovedCollection!.Clear();
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(ItemArray);
     }
 
     /// <summary>
@@ -1276,17 +1343,10 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="batch">An optional batch of items.</param>
     /// <param name="currentIndex">The current index of the item, or -1 if not applicable.</param>
     /// <param name="previousIndex">The previous index of the item, or -1 if not applicable.</param>
+    /// <param name="previous">The previous item value (for update operations), or default if not applicable.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void EmitStream(CacheAction action, T? item, PooledBatch<T>? batch = null, int currentIndex = -1, int previousIndex = -1)
-    {
-        // Fast path: skip if no subscribers
-        if (Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) == 0)
-        {
-            batch?.Dispose();
-            return;
-        }
+    private void EmitStream(CacheAction action, T? item, PooledBatch<T>? batch = null, int currentIndex = -1, int previousIndex = -1, T? previous = default) =>
 
-        // Emit directly to pipeline for synchronous delivery
-        _streamPipeline?.OnNext(new CacheNotify<T>(action, item, batch, currentIndex, previousIndex));
-    }
+        // Always emit to pipeline - internal subscription needs events for tracking collections
+        _streamPipeline?.OnNext(new CacheNotify<T>(action, item, batch, currentIndex, previousIndex, previous));
 }

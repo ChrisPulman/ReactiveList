@@ -25,7 +25,7 @@ namespace CP.Reactive.Collections;
 /// <typeparam name="TItem">The type of items stored in the collection. Must be non-nullable.</typeparam>
 /// <typeparam name="TQuad">The type representing a quad (shard) within the collection. Must implement <see cref="IQuad{TItem}"/>.</typeparam>
 /// <typeparam name="TValue">The type used for secondary indexing within the collection.</typeparam>
-public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<TItem>
+public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TItem>
     where TItem : notnull
     where TQuad : IQuad<TItem>, new()
 {
@@ -203,6 +203,14 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IQuaternarySource<T
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+
+    /// <summary>
+    /// Returns an array containing all elements in the collection.
+    /// </summary>
+    /// <returns>An array of type TItem that contains all elements of the collection. The array is empty if the collection
+    /// contains no elements.</returns>
+    public TItem[] ToArray() =>
+        [.. this];
 
     /// <summary>
     /// Returns an enumerator that iterates through the collection.

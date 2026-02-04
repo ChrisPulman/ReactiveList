@@ -99,6 +99,7 @@ public class ReactiveListConnectTests
 
     /// <summary>
     /// Connect emits clear changes when collection is cleared.
+    /// Clear emits individual Remove changes for each cleared item (consistent with DynamicData behavior).
     /// </summary>
     [Fact]
     public void Connect_EmitsClearChanges_WhenCleared()
@@ -111,10 +112,13 @@ public class ReactiveListConnectTests
         // Act
         list.Clear();
 
-        // Assert
+        // Assert - Clear emits Remove changes for each item (DynamicData compatible behavior)
         receivedChanges.Should().HaveCount(1);
-        receivedChanges[0].Count.Should().Be(1);
-        receivedChanges[0][0].Reason.Should().Be(ChangeReason.Clear);
+        receivedChanges[0].Count.Should().Be(3); // One Remove change per cleared item
+        receivedChanges[0].Removes.Should().Be(3);
+        receivedChanges[0][0].Reason.Should().Be(ChangeReason.Remove);
+        receivedChanges[0][1].Reason.Should().Be(ChangeReason.Remove);
+        receivedChanges[0][2].Reason.Should().Be(ChangeReason.Remove);
     }
 
     /// <summary>

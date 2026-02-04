@@ -20,7 +20,7 @@ namespace CP.Reactive.Collections;
 /// </remarks>
 /// <typeparam name="T">The type of elements in the list.</typeparam>
 [SkipLocalsInit]
-public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
+public sealed class QuadList<T> : IDisposable, IQuad<T>
 {
     private const int MinimumSize = 16;
 
@@ -313,7 +313,7 @@ public sealed class QuadList<T> : IDisposable, IEnumerable<T>, IQuad<T>
     /// <summary>
     /// Wrapper to implement IEnumerator for foreach support.
     /// </summary>
-    private struct QuadListEnumerator : IEnumerator<T>
+    private record struct QuadListEnumerator : IEnumerator<T>
     {
         private readonly QuadList<T> _list;
         private int _index;

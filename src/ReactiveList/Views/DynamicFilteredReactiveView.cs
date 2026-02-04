@@ -19,8 +19,8 @@ namespace CP.Reactive.Views;
 /// updates when the source list changes or the filter predicate changes.
 /// </summary>
 /// <typeparam name="T">The type of elements in the view.</typeparam>
-public sealed class DynamicFilteredReactiveView<T> : IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, IDisposable
-    where T : notnull
+public sealed class DynamicFilteredReactiveView<T> : IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<DynamicFilteredReactiveView<T>, T>, IDisposable
+where T : notnull
 {
     private readonly IReactiveList<T> _source;
     private readonly ObservableCollection<T> _filteredItems;
@@ -119,6 +119,39 @@ public sealed class DynamicFilteredReactiveView<T> : IReadOnlyList<T>, INotifyCo
         }
 
         OnPropertyChanged(nameof(Count));
+    }
+
+    /// <summary>
+    /// Assigns the current collection of items to a property using the specified setter action.
+    /// </summary>
+    /// <remarks>This method is typically used to bind the internal collection to an external property, such
+    /// as a view model property, in a reactive UI pattern.</remarks>
+    /// <param name="propertySetter">An action that sets a property to the current read-only observable collection of items. Cannot be null.</param>
+    /// <returns>The current instance of <see cref="DynamicFilteredReactiveView{T}"/> to enable method chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
+    public DynamicFilteredReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
+    {
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(propertySetter);
+#else
+        if (propertySetter == null)
+        {
+            throw new ArgumentNullException(nameof(propertySetter));
+        }
+#endif
+        propertySetter(Items);
+        return this;
+    }
+
+    /// <summary>
+    /// Returns the current instance and provides a read-only observable collection of items contained in the view.
+    /// </summary>
+    /// <param name="collection">When this method returns, contains a read-only observable collection of items managed by this view.</param>
+    /// <returns>The current <see cref="DynamicFilteredReactiveView{T}"/> instance.</returns>
+    public DynamicFilteredReactiveView<T> ToProperty(out ReadOnlyObservableCollection<T> collection)
+    {
+        collection = Items;
+        return this;
     }
 
     /// <inheritdoc/>

@@ -11,7 +11,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionConfig", "SolutionC
 		..\.gitignore = ..\.gitignore
 		..\Directory.Build.props = ..\Directory.Build.props
 		..\LICENSE = ..\LICENSE
-		..\Quaternary_Collection_Technical_Specification_and_Design.md = ..\Quaternary_Collection_Technical_Specification_and_Design.md
 		..\README.md = ..\README.md
 		..\stylecop.json = ..\stylecop.json
 		..\version.json = ..\version.json

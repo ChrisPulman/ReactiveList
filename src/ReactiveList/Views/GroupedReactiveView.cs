@@ -20,9 +20,9 @@ namespace CP.Reactive.Views;
 /// </summary>
 /// <typeparam name="T">The type of elements in the view.</typeparam>
 /// <typeparam name="TKey">The type of the grouping key.</typeparam>
-public sealed class GroupedReactiveView<T, TKey> : IReadOnlyDictionary<TKey, IReadOnlyList<T>>, INotifyCollectionChanged, INotifyPropertyChanged, IDisposable
-    where T : notnull
-    where TKey : notnull
+public sealed class GroupedReactiveView<T, TKey> : IReadOnlyDictionary<TKey, IReadOnlyList<T>>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<GroupedReactiveView<T, TKey>, ReactiveGroup<TKey, T>>, IDisposable
+where T : notnull
+where TKey : notnull
 {
     private readonly IReactiveList<T> _source;
     private readonly Func<T, TKey> _keySelector;
@@ -82,6 +82,12 @@ public sealed class GroupedReactiveView<T, TKey> : IReadOnlyDictionary<TKey, IRe
     public ReadOnlyObservableCollection<ReactiveGroup<TKey, T>> Groups { get; }
 
     /// <summary>
+    /// Gets the collection of groups for UI binding. This is an alias for <see cref="Groups"/>.
+    /// </summary>
+    /// <remarks>This property exists to satisfy the <see cref="IReactiveView{TView, TItem}"/> interface.</remarks>
+    public ReadOnlyObservableCollection<ReactiveGroup<TKey, T>> Items => Groups;
+
+    /// <summary>
     /// Gets the keys of all groups.
     /// </summary>
     public IEnumerable<TKey> Keys => _groups.Keys;
@@ -139,6 +145,39 @@ public sealed class GroupedReactiveView<T, TKey> : IReadOnlyDictionary<TKey, IRe
         {
             RebuildView();
         }
+    }
+
+    /// <summary>
+    /// Assigns the current collection of groups to a property using the specified setter action.
+    /// </summary>
+    /// <remarks>This method is typically used to bind the internal collection to an external property, such
+    /// as a view model property, in a reactive UI pattern.</remarks>
+    /// <param name="propertySetter">An action that sets a property to the current read-only observable collection of groups. Cannot be null.</param>
+    /// <returns>The current instance of <see cref="GroupedReactiveView{T, TKey}"/> to enable method chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
+    public GroupedReactiveView<T, TKey> ToProperty(Action<ReadOnlyObservableCollection<ReactiveGroup<TKey, T>>> propertySetter)
+    {
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(propertySetter);
+#else
+        if (propertySetter == null)
+        {
+            throw new ArgumentNullException(nameof(propertySetter));
+        }
+#endif
+        propertySetter(Groups);
+        return this;
+    }
+
+    /// <summary>
+    /// Returns the current instance and provides a read-only observable collection of groups contained in the view.
+    /// </summary>
+    /// <param name="collection">When this method returns, contains a read-only observable collection of groups managed by this view.</param>
+    /// <returns>The current <see cref="GroupedReactiveView{T, TKey}"/> instance.</returns>
+    public GroupedReactiveView<T, TKey> ToProperty(out ReadOnlyObservableCollection<ReactiveGroup<TKey, T>> collection)
+    {
+        collection = Groups;
+        return this;
     }
 
     /// <inheritdoc/>
