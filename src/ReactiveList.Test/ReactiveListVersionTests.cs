@@ -3,6 +3,8 @@
 
 using System.Linq;
 using CP.Reactive;
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
 using FluentAssertions;
 using Xunit;
 

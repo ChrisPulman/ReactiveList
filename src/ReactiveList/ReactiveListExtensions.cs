@@ -6,6 +6,10 @@ using System.Collections.ObjectModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using CP.Reactive.Views;
 
 namespace CP.Reactive;
 
@@ -26,6 +30,10 @@ public static class ReactiveListExtensions
         this IObservable<ChangeSet<T>> source,
         Func<Change<T>, bool> predicate)
     {
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(predicate);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
@@ -35,20 +43,49 @@ public static class ReactiveListExtensions
         {
             throw new ArgumentNullException(nameof(predicate));
         }
+#endif
 
         return source.Select(changeSet =>
         {
-            var filtered = new List<Change<T>>();
+            if (changeSet.Count == 0)
+            {
+                return ChangeSet<T>.Empty;
+            }
+
+            // Count matching items first to avoid resizing
+            var matchCount = 0;
+            for (var i = 0; i < changeSet.Count; i++)
+            {
+                if (predicate(changeSet[i]))
+                {
+                    matchCount++;
+                }
+            }
+
+            if (matchCount == 0)
+            {
+                return ChangeSet<T>.Empty;
+            }
+
+            // If all match, return original (avoid copy)
+            if (matchCount == changeSet.Count)
+            {
+                return changeSet;
+            }
+
+            // Allocate exactly what's needed
+            var filtered = new Change<T>[matchCount];
+            var idx = 0;
             for (var i = 0; i < changeSet.Count; i++)
             {
                 var change = changeSet[i];
                 if (predicate(change))
                 {
-                    filtered.Add(change);
+                    filtered[idx++] = change;
                 }
             }
 
-            return filtered.Count > 0 ? new ChangeSet<T>([.. filtered]) : ChangeSet<T>.Empty;
+            return new ChangeSet<T>(filtered);
         }).Where(cs => cs.Count > 0);
     }
 
@@ -62,24 +99,28 @@ public static class ReactiveListExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IObservable<ChangeSet<T>> WhereReason<T>(
         this IObservable<ChangeSet<T>> source,
-        ChangeReason reason)
-    {
-        return source.WhereChanges(c => c.Reason == reason);
-    }
+        ChangeReason reason) => source.WhereChanges(c => c.Reason == reason);
 
     /// <summary>
-    /// Projects each change in the change stream into a new form.
+    /// Projects each item in a sequence of change sets into a new form using the specified selector
+    /// function.
     /// </summary>
-    /// <typeparam name="TSource">The type of elements in the source collection.</typeparam>
-    /// <typeparam name="TResult">The type of elements in the result.</typeparam>
-    /// <param name="source">The source observable of change sets.</param>
-    /// <param name="selector">A transform function to apply to each change's current item.</param>
-    /// <returns>An observable of transformed results.</returns>
+    /// <remarks>This method preserves the change reasons and indices from the source change sets while
+    /// transforming the items. The selector function is applied to each item as changes are observed.</remarks>
+    /// <typeparam name="T">The type of the elements contained in the source change set.</typeparam>
+    /// <typeparam name="TResult">The type of the elements produced by the selector function.</typeparam>
+    /// <param name="source">An observable sequence of change sets whose items will be transformed.</param>
+    /// <param name="selector">A function that projects each item in the change set to a new result value.</param>
+    /// <returns>An observable sequence of change sets containing the projected result items.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static IObservable<TResult> SelectChanges<TSource, TResult>(
-        this IObservable<ChangeSet<TSource>> source,
-        Func<TSource, TResult> selector)
+    public static IObservable<ChangeSet<TResult>> SelectChanges<T, TResult>(
+        this IObservable<ChangeSet<T>> source,
+        Func<T, TResult> selector)
     {
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(selector);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
@@ -89,16 +130,28 @@ public static class ReactiveListExtensions
         {
             throw new ArgumentNullException(nameof(selector));
         }
+#endif
 
-        return source.SelectMany(changeSet =>
+        return source.Select(changes =>
         {
-            var results = new List<TResult>(changeSet.Count);
-            for (var i = 0; i < changeSet.Count; i++)
+            if (changes.Count == 0)
             {
-                results.Add(selector(changeSet[i].Current));
+                return ChangeSet<TResult>.Empty;
             }
 
-            return results;
+            var transformed = new Change<TResult>[changes.Count];
+            for (var i = 0; i < changes.Count; i++)
+            {
+                var c = changes[i];
+                transformed[i] = new Change<TResult>(
+                    c.Reason,
+                    selector(c.Current),
+                    c.Previous != null ? selector(c.Previous) : default,
+                    c.CurrentIndex,
+                    c.PreviousIndex);
+            }
+
+            return new ChangeSet<TResult>(transformed);
         });
     }
 
@@ -115,6 +168,10 @@ public static class ReactiveListExtensions
         this IObservable<ChangeSet<TSource>> source,
         Func<Change<TSource>, TResult> selector)
     {
+#if NET8_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(selector);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
@@ -124,13 +181,19 @@ public static class ReactiveListExtensions
         {
             throw new ArgumentNullException(nameof(selector));
         }
+#endif
 
         return source.SelectMany(changeSet =>
         {
-            var results = new List<TResult>(changeSet.Count);
+            if (changeSet.Count == 0)
+            {
+                return Array.Empty<TResult>();
+            }
+
+            var results = new TResult[changeSet.Count];
             for (var i = 0; i < changeSet.Count; i++)
             {
-                results.Add(selector(changeSet[i]));
+                results[i] = selector(changeSet[i]);
             }
 
             return results;
@@ -177,7 +240,6 @@ public static class ReactiveListExtensions
     public static IObservable<(T Item, int OldIndex, int NewIndex)> OnMove<T>(this IObservable<ChangeSet<T>> source) =>
         source.WhereReason(ChangeReason.Move).SelectChanges(c => (c.Current, c.PreviousIndex, c.CurrentIndex));
 
-#if NET6_0_OR_GREATER
     /// <summary>
     /// Creates a filtered view of the reactive list that updates automatically when the source changes.
     /// </summary>
@@ -194,8 +256,20 @@ public static class ReactiveListExtensions
         int throttleMs = 50)
         where T : notnull
     {
+#if NET8_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(filter);
+#else
+        if (list == null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
+        if (filter == null)
+        {
+            throw new ArgumentNullException(nameof(filter));
+        }
+#endif
 
         return new FilteredReactiveView<T>(list, filter, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
@@ -212,10 +286,7 @@ public static class ReactiveListExtensions
         this IReactiveList<T> list,
         IScheduler? scheduler = null,
         int throttleMs = 50)
-        where T : notnull
-    {
-        return list.CreateView(_ => true, scheduler, throttleMs);
-    }
+        where T : notnull => list.CreateView(_ => true, scheduler, throttleMs);
 
     /// <summary>
     /// Creates a dynamically filtered view that rebuilds when the filter predicate changes.
@@ -233,8 +304,20 @@ public static class ReactiveListExtensions
         int throttleMs = 50)
         where T : notnull
     {
+#if NET8_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(filterObservable);
+#else
+        if (list == null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
+        if (filterObservable == null)
+        {
+            throw new ArgumentNullException(nameof(filterObservable));
+        }
+#endif
 
         return new DynamicFilteredReactiveView<T>(list, filterObservable, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
@@ -255,8 +338,20 @@ public static class ReactiveListExtensions
         int throttleMs = 50)
         where T : notnull
     {
+#if NET8_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(comparer);
+#else
+        if (list == null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
+        if (comparer == null)
+        {
+            throw new ArgumentNullException(nameof(comparer));
+        }
+#endif
 
         return new SortedReactiveView<T>(list, comparer, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
@@ -280,8 +375,20 @@ public static class ReactiveListExtensions
         int throttleMs = 50)
         where T : notnull
     {
+#if NET8_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(keySelector);
+#else
+        if (list == null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
+        if (keySelector == null)
+        {
+            throw new ArgumentNullException(nameof(keySelector));
+        }
+#endif
 
         var comparer = descending
             ? Comparer<T>.Create((x, y) => Comparer<TKey>.Default.Compare(keySelector(y), keySelector(x)))
@@ -351,12 +458,23 @@ public static class ReactiveListExtensions
         where T : notnull
         where TKey : notnull
     {
+#if NET8_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(keySelector);
+#else
+        if (list == null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
+        if (keySelector == null)
+        {
+            throw new ArgumentNullException(nameof(keySelector));
+        }
+#endif
 
         return new GroupedReactiveView<T, TKey>(list, keySelector, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
-#endif
 
     /// <summary>
     /// Automatically refreshes items when the specified property changes (via INotifyPropertyChanged).
@@ -401,7 +519,7 @@ public static class ReactiveListExtensions
                 }
             }
 
-            return Observable.Merge(results);
+            return results.Merge();
         });
     }
 
@@ -412,8 +530,26 @@ public static class ReactiveListExtensions
     /// <param name="source">The source observable of change sets.</param>
     /// <returns>An observable that includes refresh notifications when any property changes.</returns>
     public static IObservable<ChangeSet<T>> AutoRefresh<T>(this IObservable<ChangeSet<T>> source)
-        where T : System.ComponentModel.INotifyPropertyChanged
+        where T : System.ComponentModel.INotifyPropertyChanged => source.AutoRefresh(string.Empty);
+
+    /// <summary>
+    /// Connects to the change stream and converts to ChangeSet format for compatibility with DynamicData-style processing.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collection.</typeparam>
+    /// <param name="source">The source reactive list.</param>
+    /// <returns>An observable stream of change sets representing all modifications to the list.</returns>
+    /// <remarks>
+    /// This is a convenience method that bridges the Stream-based notification model
+    /// with ChangeSet-based processing patterns.
+    /// </remarks>
+    public static IObservable<ChangeSet<T>> Connect<T>(this IReactiveSource<T> source)
+        where T : notnull
     {
-        return source.AutoRefresh(string.Empty);
+        if (source == null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        return source.Stream.ToChangeSets();
     }
 }

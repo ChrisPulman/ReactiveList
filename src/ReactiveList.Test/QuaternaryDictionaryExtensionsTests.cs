@@ -5,7 +5,8 @@
 using System.Collections.Generic;
 using System.Reactive.Concurrency;
 using System.Threading.Tasks;
-using CP.Reactive.Quaternary;
+using CP.Reactive;
+using CP.Reactive.Collections;
 using Xunit;
 
 namespace ReactiveList.Test;

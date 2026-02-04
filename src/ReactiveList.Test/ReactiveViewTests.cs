@@ -1,14 +1,15 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET6_0_OR_GREATER
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Reactive.Concurrency;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
-using CP.Reactive.Quaternary;
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+using CP.Reactive.Views;
 using FluentAssertions;
 using Xunit;
 
@@ -522,4 +523,3 @@ public class ReactiveViewTests
         view.Items.Should().BeEquivalentTo(["original"]);
     }
 }
-#endif

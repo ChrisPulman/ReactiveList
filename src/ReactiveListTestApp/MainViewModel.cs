@@ -4,7 +4,7 @@
 using System.Reactive;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using CP.Reactive;
+using CP.Reactive.Collections;
 using CrissCross;
 using ReactiveUI;
 

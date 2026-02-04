@@ -3,7 +3,7 @@
 
 #if NET6_0_OR_GREATER
 using System;
-using CP.Reactive.Quaternary;
+using CP.Reactive.Core;
 using FluentAssertions;
 using Xunit;
 

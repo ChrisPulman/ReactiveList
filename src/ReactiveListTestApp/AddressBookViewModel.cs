@@ -6,7 +6,8 @@ using System.Reactive;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using CP.Reactive.Quaternary;
+using CP.Reactive;
+using CP.Reactive.Collections;
 using CrissCross;
 using ReactiveUI;
 
