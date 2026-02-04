@@ -24,11 +24,11 @@ namespace CP.Reactive.Views;
 /// when its contents are updated. Thread safety is provided for UI-bound scenarios by observing updates on the
 /// specified scheduler.</remarks>
 /// <typeparam name="T">The type of items contained in the view. Must be non-nullable.</typeparam>
-public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
-    where T : notnull
+public class DynamicReactiveView<T> : INotifyPropertyChanged, IReactiveView<DynamicReactiveView<T>, T>
+where T : notnull
 {
     private readonly ObservableCollection<T> _target = [];
-    private readonly IQuaternarySource<T> _source;
+    private readonly IReactiveSource<T> _source;
     private readonly CompositeDisposable _disposables = [];
     private readonly IScheduler _scheduler;
     private readonly TimeSpan _throttle;
@@ -51,9 +51,9 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
     /// appropriate thread (such as the UI thread).</param>
     /// <exception cref="ArgumentNullException">Thrown if source, filterObservable, or scheduler is null.</exception>
  #if NET8_0_OR_GREATER
-    public DynamicReactiveView(IQuaternarySource<T> source, IObservable<Func<T, bool>> filterObservable, in TimeSpan throttle, IScheduler scheduler)
+    public DynamicReactiveView(IReactiveSource<T> source, IObservable<Func<T, bool>> filterObservable, in TimeSpan throttle, IScheduler scheduler)
 #else
-    public DynamicReactiveView(IQuaternarySource<T> source, IObservable<Func<T, bool>> filterObservable, TimeSpan throttle, IScheduler scheduler)
+    public DynamicReactiveView(IReactiveSource<T> source, IObservable<Func<T, bool>> filterObservable, TimeSpan throttle, IScheduler scheduler)
 #endif
     {
 #if NET8_0_OR_GREATER
@@ -82,8 +82,22 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
         _scheduler = scheduler;
         Items = new ReadOnlyObservableCollection<T>(_target);
 
-        // Subscribe to filter changes - this rebuilds the view
+        // Get initial filter - for BehaviorSubject/ReplaySubject this should return immediately
+        try
+        {
+            _currentFilter = filterObservable.FirstAsync().GetAwaiter().GetResult() ?? (static _ => true);
+        }
+        catch
+        {
+            _currentFilter = static _ => true;
+        }
+
+        RebuildView();
+        SubscribeToStream();
+
+        // Subscribe to subsequent filter changes with scheduler observation
         filterObservable
+            .Skip(1)
             .ObserveOn(scheduler)
             .Subscribe(newFilter =>
             {
@@ -91,10 +105,6 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IDisposable
                 RebuildView();
                 SubscribeToStream();
             }).DisposeWith(_disposables);
-
-        // Initial population
-        RebuildView();
-        SubscribeToStream();
     }
 
     /// <summary>

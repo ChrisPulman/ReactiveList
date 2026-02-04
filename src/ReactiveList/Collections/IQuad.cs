@@ -12,7 +12,7 @@ namespace CP.Reactive.Collections;
 /// by the parent QuaternaryBase collection through its Stream pipeline.
 /// </remarks>
 /// <typeparam name="T">The type of each element in the shard.</typeparam>
-public interface IQuad<T>
+public interface IQuad<T> : IEnumerable<T>, IDisposable
 {
     /// <summary>
     /// Gets the number of elements contained in the shard.

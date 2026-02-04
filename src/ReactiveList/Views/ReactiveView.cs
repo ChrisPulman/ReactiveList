@@ -20,8 +20,8 @@ namespace CP.Reactive.Views;
 /// its contents are updated. Thread safety is provided for UI-bound scenarios by observing updates on the current
 /// synchronization context.</remarks>
 /// <typeparam name="T">The type of items contained in the view. Must be non-nullable.</typeparam>
-public class ReactiveView<T> : INotifyPropertyChanged, IDisposable
-    where T : notnull
+public class ReactiveView<T> : INotifyPropertyChanged, IReactiveView<ReactiveView<T>, T>
+where T : notnull
 {
     private readonly ObservableCollection<T> _target = [];
     private readonly IDisposable? _sub;

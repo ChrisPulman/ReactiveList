@@ -317,5 +317,360 @@ public class QuaternaryDictionaryBenchmarks
         return count;
     }
 
+    [Benchmark]
+    public bool Dictionary_ContainsKey()
+    {
+        var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
+        return dict.ContainsKey(Count - 1);
+    }
+
+    [Benchmark]
+    public bool QuaternaryDictionary_Contains()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        return dict.Contains(new KeyValuePair<int, int>(Count - 1, Count - 1));
+    }
+
+    [Benchmark]
+    public int Dictionary_IndexerGet()
+    {
+        var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
+        var sum = 0;
+        for (var i = 0; i < Count; i++)
+        {
+            sum += dict[i];
+        }
+
+        return sum;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_IndexerGet()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        var sum = 0;
+        for (var i = 0; i < Count; i++)
+        {
+            sum += dict[i];
+        }
+
+        return sum;
+    }
+
+    [Benchmark]
+    public int Dictionary_IndexerSet()
+    {
+        var dict = new Dictionary<int, int>();
+        for (var i = 0; i < Count; i++)
+        {
+            dict[i] = i;
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_IndexerSet()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        for (var i = 0; i < Count; i++)
+        {
+            dict[i] = i;
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int Dictionary_Keys()
+    {
+        var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
+        return dict.Keys.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_Keys()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        return cache.Keys.ToList().Count;
+    }
+
+    [Benchmark]
+    public int Dictionary_Values()
+    {
+        var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
+        return dict.Values.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_Values()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        return cache.Items.ToList().Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_IterateAll()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        var sum = 0;
+        foreach (var item in cache.Items)
+        {
+            sum += item.Value;
+        }
+
+        return sum;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_Stream_Remove()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        var events = 0;
+        using var sub = dict.Stream.Subscribe(_ => events++);
+        dict.RemoveKeys(Enumerable.Range(0, Count / 2));
+        return events;
+    }
+
+    [Benchmark]
+    public int SourceCache_Stream_Remove()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        var events = 0;
+        using var sub = cache.Connect().Subscribe(_ => events++);
+        cache.RemoveKeys(Enumerable.Range(0, Count / 2));
+        return events;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_AddValueIndex()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        dict.AddValueIndex("Mod2", v => v % 2);
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_QueryValueIndex()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddRange(_kvps);
+        return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
+    }
+
+    [Benchmark]
+    public bool QuaternaryDictionary_ValueMatchesSecondaryIndex()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddRange(_kvps);
+        return dict.ValueMatchesSecondaryIndex("Mod2", 4, 0);
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_MultipleValueIndices()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddValueIndex("Mod3", v => v % 3);
+        dict.AddValueIndex("Mod5", v => v % 5);
+        dict.AddRange(_kvps);
+        return dict.GetValuesBySecondaryIndex("Mod2", 0).Count() +
+               dict.GetValuesBySecondaryIndex("Mod3", 0).Count() +
+               dict.GetValuesBySecondaryIndex("Mod5", 0).Count();
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_IndexWithAddRemove()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddRange(_kvps);
+        dict.RemoveMany(kvp => kvp.Key % 4 == 0);
+        return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
+    }
+
+    [Benchmark]
+    public int Dictionary_Count()
+    {
+        var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_Count()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_Count()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        return cache.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_MixedOperations()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        dict.AddRange(_kvps);
+        dict.AddOrUpdate(Count, Count);
+        dict.Remove(0);
+        dict.RemoveMany(kvp => kvp.Key % 10 == 0);
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_MixedOperations()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(new Item(Count, Count));
+        cache.Remove(0);
+        cache.RemoveKeys(cache.Keys.Where(k => k % 10 == 0));
+        return cache.Count;
+    }
+
+    [Benchmark]
+    public int Dictionary_MixedOperations()
+    {
+        var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
+        dict[Count] = Count;
+        dict.Remove(0);
+        foreach (var key in dict.Keys.Where(k => k % 10 == 0).ToList())
+        {
+            dict.Remove(key);
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int Dictionary_Add()
+    {
+        var dict = new Dictionary<int, int>();
+        for (var i = 0; i < Count; i++)
+        {
+            dict.Add(i, i);
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_Add()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        for (var i = 0; i < Count; i++)
+        {
+            dict.Add(i, i);
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_Add()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        for (var i = 0; i < Count; i++)
+        {
+            cache.AddOrUpdate(new Item(i, i));
+        }
+
+        return cache.Count;
+    }
+
+    [Benchmark]
+    public int Dictionary_TryAdd()
+    {
+        var dict = new Dictionary<int, int>();
+        for (var i = 0; i < Count; i++)
+        {
+            dict.TryAdd(i, i);
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int QuaternaryDictionary_TryAdd()
+    {
+        using var dict = new QuaternaryDictionary<int, int>();
+        for (var i = 0; i < Count; i++)
+        {
+            dict.TryAdd(i, i);
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int Dictionary_AddOrUpdate()
+    {
+        var dict = new Dictionary<int, int>();
+        for (var i = 0; i < Count; i++)
+        {
+            dict[i] = i;
+        }
+
+        // Update existing
+        for (var i = 0; i < Count / 2; i++)
+        {
+            dict[i] = i * 2;
+        }
+
+        return dict.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_AddOrUpdate()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        for (var i = 0; i < Count; i++)
+        {
+            cache.AddOrUpdate(new Item(i, i));
+        }
+
+        // Update existing
+        for (var i = 0; i < Count / 2; i++)
+        {
+            cache.AddOrUpdate(new Item(i, i * 2));
+        }
+
+        return cache.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_RemoveKeys()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.RemoveKeys(Enumerable.Range(0, Count / 2));
+        return cache.Count;
+    }
+
+    [Benchmark]
+    public int SourceCache_RemoveMany()
+    {
+        using var cache = new SourceCache<Item, int>(x => x.Id);
+        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.RemoveKeys(cache.Keys.Where(k => k % 2 == 0));
+        return cache.Count;
+    }
+
     private record Item(int Id, int Value);
 }

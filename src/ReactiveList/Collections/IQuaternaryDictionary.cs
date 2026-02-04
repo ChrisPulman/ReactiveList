@@ -13,7 +13,7 @@ namespace CP.Reactive.Collections;
 /// required beyond those provided by typical dictionary implementations.</remarks>
 /// <typeparam name="TKey">The type of keys in the dictionary. Must be non-nullable.</typeparam>
 /// <typeparam name="TValue">The type of values stored in the dictionary.</typeparam>
-public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IQuaternarySource<KeyValuePair<TKey, TValue>>
+public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReactiveSource<KeyValuePair<TKey, TValue>>
     where TKey : notnull
 {
     /// <summary>

@@ -14,7 +14,7 @@ namespace CP.Reactive.Collections;
 /// explicitly added before they can be used for querying. This interface is suitable for scenarios where frequent
 /// lookups by specific keys are required in addition to sequential access.</remarks>
 /// <typeparam name="T">The type of elements contained in the list.</typeparam>
-public interface IQuaternaryList<T> : ICollection<T>, IQuaternarySource<T>
+public interface IQuaternaryList<T> : ICollection<T>, IReactiveSource<T>
     where T : notnull
 {
     /// <summary>

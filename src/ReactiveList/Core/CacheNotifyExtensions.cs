@@ -129,10 +129,7 @@ public static class CacheNotifyExtensions
     /// <param name="source">The source observable of cache notifications.</param>
     /// <returns>An observable of added items.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static IObservable<T> OnItemAdded<T>(this IObservable<CacheNotify<T>> source)
-    {
-        return source.WhereAdded().SelectAllItems();
-    }
+    public static IObservable<T> OnItemAdded<T>(this IObservable<CacheNotify<T>> source) => source.WhereAdded().SelectAllItems();
 
     /// <summary>
     /// Subscribes to removed items only from the stream.
@@ -141,10 +138,7 @@ public static class CacheNotifyExtensions
     /// <param name="source">The source observable of cache notifications.</param>
     /// <returns>An observable of removed items.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static IObservable<T> OnItemRemoved<T>(this IObservable<CacheNotify<T>> source)
-    {
-        return source.WhereRemoved().SelectAllItems();
-    }
+    public static IObservable<T> OnItemRemoved<T>(this IObservable<CacheNotify<T>> source) => source.WhereRemoved().SelectAllItems();
 
     /// <summary>
     /// Subscribes to updated items only from the stream.
@@ -153,10 +147,7 @@ public static class CacheNotifyExtensions
     /// <param name="source">The source observable of cache notifications.</param>
     /// <returns>An observable of updated items.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static IObservable<T> OnItemUpdated<T>(this IObservable<CacheNotify<T>> source)
-    {
-        return source.WhereAction(CacheAction.Updated).SelectItems();
-    }
+    public static IObservable<T> OnItemUpdated<T>(this IObservable<CacheNotify<T>> source) => source.WhereAction(CacheAction.Updated).SelectItems();
 
     /// <summary>
     /// Subscribes to moved items only from the stream.
@@ -185,10 +176,7 @@ public static class CacheNotifyExtensions
     /// <param name="source">The source observable of cache notifications.</param>
     /// <returns>An observable that emits when the collection is cleared.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static IObservable<CacheNotify<T>> OnCleared<T>(this IObservable<CacheNotify<T>> source)
-    {
-        return source.WhereAction(CacheAction.Cleared);
-    }
+    public static IObservable<CacheNotify<T>> OnCleared<T>(this IObservable<CacheNotify<T>> source) => source.WhereAction(CacheAction.Cleared);
 
     /// <summary>
     /// Buffers notifications over a time period and flattens batch items for efficient processing.
@@ -200,7 +188,11 @@ public static class CacheNotifyExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IObservable<IList<CacheNotify<T>>> BufferNotifications<T>(
         this IObservable<CacheNotify<T>> source,
+#if NET8_0_OR_GREATER
+        in TimeSpan bufferTime)
+#else
         TimeSpan bufferTime)
+#endif
     {
         if (source == null)
         {
@@ -222,7 +214,11 @@ public static class CacheNotifyExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IObservable<CacheNotify<T>> ThrottleNotifications<T>(
         this IObservable<CacheNotify<T>> source,
+#if NET8_0_OR_GREATER
+        in TimeSpan throttleTime)
+#else
         TimeSpan throttleTime)
+#endif
     {
         if (source == null)
         {
@@ -367,7 +363,7 @@ public static class CacheNotifyExtensions
             CacheAction.Removed when notification.Item != null =>
                 Change<T>.CreateRemove(notification.Item, notification.CurrentIndex),
             CacheAction.Updated when notification.Item != null =>
-                new Change<T>(ChangeReason.Update, notification.Item, currentIndex: notification.CurrentIndex, previousIndex: notification.PreviousIndex),
+                Change<T>.CreateUpdate(notification.Item, notification.Previous!, notification.CurrentIndex),
             CacheAction.Moved when notification.Item != null =>
                 Change<T>.CreateMove(notification.Item, notification.CurrentIndex, notification.PreviousIndex),
             CacheAction.Refreshed when notification.Item != null =>
@@ -387,6 +383,7 @@ public static class CacheNotifyExtensions
     /// <remarks>
     /// This method bridges the gap between the Stream-based notifications and ChangeSet-based processing.
     /// Batch operations are expanded into individual changes within the change set.
+    /// Clear operations emit a change set with individual Remove changes for each cleared item (consistent with DynamicData).
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IObservable<ChangeSet<T>> ToChangeSets<T>(this IObservable<CacheNotify<T>> source)
@@ -398,7 +395,7 @@ public static class CacheNotifyExtensions
 
         return source.Select(notification =>
         {
-            // Handle batch operations
+            // Handle batch operations (including Cleared which contains the removed items)
             if (notification.Batch != null && notification.Batch.Count > 0)
             {
                 var changes = new Change<T>[notification.Batch.Count];
@@ -406,6 +403,7 @@ public static class CacheNotifyExtensions
                 {
                     CacheAction.BatchAdded => ChangeReason.Add,
                     CacheAction.BatchRemoved => ChangeReason.Remove,
+                    CacheAction.Cleared => ChangeReason.Remove, // Clear is semantically a bulk remove
                     _ => ChangeReason.Refresh
                 };
 
@@ -421,6 +419,12 @@ public static class CacheNotifyExtensions
                 }
 
                 return new ChangeSet<T>(changes);
+            }
+
+            // Handle Cleared action without batch (empty collection was cleared)
+            if (notification.Action == CacheAction.Cleared)
+            {
+                return ChangeSet<T>.Empty;
             }
 
             // Handle single item operations

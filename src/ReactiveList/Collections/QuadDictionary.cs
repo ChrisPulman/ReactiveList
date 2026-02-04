@@ -26,7 +26,7 @@ namespace CP.Reactive.Collections;
 /// <typeparam name="TKey">The type of keys in the dictionary. Can be null if the comparer supports it.</typeparam>
 /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
 [SkipLocalsInit]
-public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyValuePair<TKey, TValue>>, IQuad<KeyValuePair<TKey, TValue>>
+public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TValue>>
 {
     private const int MinimumSize = 16; // minimum arraypool size(power of 2)
     private const double LoadFactor = 0.72;
@@ -590,7 +590,7 @@ public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyV
     /// <remarks>The enumerator exposes each key/value pair in the dictionary in sequence. If the dictionary
     /// is modified after the enumerator is created, the behavior of the enumerator is undefined. This struct is
     /// intended for internal use and is not thread-safe.</remarks>
-    private struct EnumeratorWrapper : IEnumerator<KeyValuePair<TKey, TValue>>
+    private record struct EnumeratorWrapper : IEnumerator<KeyValuePair<TKey, TValue>>
     {
         private readonly QuadDictionary<TKey, TValue> _dictionary;
         private int _index;
@@ -676,7 +676,7 @@ public sealed class QuadDictionary<TKey, TValue> : IDisposable, IEnumerable<KeyV
     /// value, computed hash code, and the index of the next entry in the chain.</remarks>
     [StructLayout(LayoutKind.Auto)]
     [DebuggerDisplay("HashCode = {HashCode}, Key = {Key}, Value = {Value}, Next = {Next}")]
-    private struct Entry
+    private record struct Entry
     {
         public uint HashCode;
         public TKey Key;
