@@ -281,21 +281,27 @@ dict.Edit(d =>
 
 ## Benchmark Results
 
-### ReactiveList vs SourceList (DynamicData) - 10,000 items, .NET 10
+> Benchmarks run on Windows 11, 12th Gen Intel Core i7-12650H, .NET 10.0.2
 
-| Operation | ReactiveList | SourceList | Notes |
-|-----------|--------------|------------|-------|
-| AddRange | ~40 KB | ~172 KB | **4.3x less memory** |
-| RemoveRange | ~15x faster | Baseline | Significant advantage |
-| RemoveMany | ~7x faster | Baseline | Significant advantage |
+### `ReactiveList<T>` vs `SourceList<T>` (DynamicData) - .NET 10
 
-### QuaternaryList vs SourceList - 10,000 items, .NET 10
+ADD RESULTS TABLE HERE WHEN AVAILABLE
 
-| Operation | QuaternaryList | SourceList | Notes |
-|-----------|----------------|------------|-------|
-| AddRange | 72 KB | 172 KB | **2.4x less memory** |
-| RemoveRange | ~16x faster | Baseline | Significant advantage |
-| RemoveMany | ~7x faster | Baseline | Significant advantage |
+### `ReactiveList<T>` vs `List<T>` (DynamicData) - .NET 10
+
+ADD RESULTS TABLE HERE WHEN AVAILABLE
+
+### `QuaternaryList<T>` vs `SourceList<T>` (DynamicData) - .NET 10
+
+ADD RESULTS TABLE HERE WHEN AVAILABLE
+
+### `QuaternaryDictionary<TKey TValue>` vs `SourceCache<TValue, TKey>` (DynamicData) - .NET 10
+
+ADD RESULTS TABLE HERE WHEN AVAILABLE
+
+### `QuaternaryDictionary<TKey TValue>` vs `Dictionary<TKey, TValue>` (DynamicData) - .NET 10
+
+ADD RESULTS TABLE HERE WHEN AVAILABLE
 
 ### When to Use Which Collection
 
