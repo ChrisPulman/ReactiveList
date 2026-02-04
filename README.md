@@ -1,281 +1,202 @@
-﻿# ReactiveList
+# ReactiveList
 
 [![NuGet](https://img.shields.io/nuget/v/ReactiveList.svg?style=flat-square)](https://www.nuget.org/packages/ReactiveList/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ReactiveList.svg?style=flat-square)](https://www.nuget.org/packages/ReactiveList/)
 [![License](https://img.shields.io/github/license/ChrisPulman/ReactiveList.svg?style=flat-square)](LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ChrisPulman/ReactiveList/BuildOnly.yml?branch=main&style=flat-square)](https://github.com/ChrisPulman/ReactiveList/actions)
 
-A lightweight, high-performance reactive collection library with fine-grained change tracking built on [System.Reactive](https://github.com/dotnet/reactive).
+A high-performance, thread-safe, observable collection library for .NET that combines the power of reactive extensions with standard list operations. ReactiveList provides real-time change notifications, making it ideal for data-binding, reactive programming, and scenarios where collection changes need to be tracked and responded to.
 
-**Targets:** .NET Framework 4.7.2 / 4.8 | .NET 8 | .NET 9 | .NET 10
+## Features
+
+- **Thread-Safe Operations**: All public methods are thread-safe
+- **Reactive Notifications**: Observe additions, removals, and changes in real-time via `IObservable<T>`
+- **Batch Operations**: Efficient `AddRange`, `RemoveRange`, `InsertRange`, and `ReplaceAll` methods
+- **Views**: Create filtered, sorted, grouped, and secondary-indexed views that auto-update
+- **Change Sets**: Fine-grained change tracking with `ChangeSet<T>` for advanced scenarios
+- **AOT Compatible**: Supports Native AOT on .NET 8+
+- **Cross-Platform**: Targets .NET 8, .NET 9, .NET 10, and .NET Framework 4.7.2/4.8
 
 ## Installation
 
-```bash
-dotnet add package ReactiveList
+```shell
+dotnet add package CP.ReactiveList
 ```
-
-Or via the NuGet Package Manager:
-
-```powershell
-Install-Package ReactiveList
-```
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Namespace Structure](#namespace-structure)
-- [Quick Start](#quick-start)
-- [ReactiveList&lt;T&gt;](#reactivelistt)
-- [Reactive2DList&lt;T&gt;](#reactive2dlistt)
-- [QuaternaryList&lt;T&gt;](#quaternarylistt) (.NET 8+)
-- [QuaternaryDictionary&lt;TKey, TValue&gt;](#quaternarydictionarytkey-tvalue) (.NET 8+)
-- [Benchmark Results](#benchmark-results)
-- [UI Binding](#ui-binding)
-- [Migrating from DynamicData](#migrating-from-dynamicdata)
-- [License](#license)
-
----
-
-## Overview
-
-This library provides four reactive collection types:
-
-| Collection | Description | Targets |
-|------------|-------------|---------|
-| `ReactiveList<T>` | Observable list with fine-grained change tracking | All |
-| `Reactive2DList<T>` | Two-dimensional reactive list (list of lists) | All |
-| `QuaternaryList<T>` | High-performance sharded list for large datasets | .NET 8+ |
-| `QuaternaryDictionary<TKey, TValue>` | High-performance sharded dictionary | .NET 8+ |
-
----
-
-## Namespace Structure
-
-The library is organized into the following namespaces:
-
-| Namespace | Description |
-|-----------|-------------|
-| `CP.Reactive` | Root namespace with extension methods (`ReactiveListExtensions`, `QuaternaryExtensions`) |
-| `CP.Reactive.Collections` | Core collection types (`ReactiveList<T>`, `Reactive2DList<T>`, `QuaternaryList<T>`, `QuaternaryDictionary<TKey, TValue>`) |
-| `CP.Reactive.Core` | Core types (`Change<T>`, `ChangeSet<T>`, `ChangeReason`, `CacheNotify<T>`, `CacheAction`) |
-| `CP.Reactive.Views` | View types (`FilteredReactiveView<T>`, `SortedReactiveView<T>`, `GroupedReactiveView<T, TKey>`) |
-
-### Common Using Statements
-
-```csharp
-// For basic ReactiveList usage
-using CP.Reactive;
-using CP.Reactive.Collections;
-
-// For working with changes and change sets
-using CP.Reactive.Core;
-
-// For views (.NET 6+)
-using CP.Reactive.Views;
-```
-
----
 
 ## Quick Start
 
+### Basic Usage
+
 ```csharp
-using CP.Reactive;
 using CP.Reactive.Collections;
 
 // Create a reactive list
 var list = new ReactiveList<string>();
 
-// Subscribe to changes
-list.Added.Subscribe(items => Console.WriteLine($"Added: {string.Join(", ", items)}"));
-list.Removed.Subscribe(items => Console.WriteLine($"Removed: {string.Join(", ", items)}"));
+// Subscribe to additions
+list.Added.Subscribe(items => 
+    Console.WriteLine($"Added: {string.Join(", ", items)}"));
 
-// Work with it like a normal list
-list.Add("one");
-list.AddRange(["two", "three"]);
-list.Remove("two");
+// Subscribe to removals
+list.Removed.Subscribe(items => 
+    Console.WriteLine($"Removed: {string.Join(", ", items)}"));
 
-// Batch multiple operations with a single notification
-list.Edit(l =>
-{
-    l.Add("four");
-    l.Add("five");
-    l.RemoveAt(0);
-});
+// Add items (triggers Added notification)
+list.Add("Hello");
+list.AddRange(["World", "!"]);
 
-// Subscribe to the Stream for detailed change notifications
-list.Stream.Subscribe(notification =>
-{
-    Console.WriteLine($"{notification.Action}: {notification.Item}");
-});
-
-// Or use Connect() extension for ChangeSet-based processing
-list.Connect().Subscribe(changeSet =>
-{
-    foreach (var change in changeSet)
-    {
-        Console.WriteLine($"{change.Reason}: {change.Current}");
-    }
-});
-
-// Cleanup
-list.Dispose();
+// Remove items (triggers Removed notification)
+list.Remove("World");
 ```
 
----
-
-## ReactiveList&lt;T&gt;
-
-A reactive, observable list that notifies subscribers of changes in real-time.
-
-### Basic Operations
+### Observing Changes with Stream
 
 ```csharp
+using CP.Reactive;
 using CP.Reactive.Collections;
 
-var list = new ReactiveList<string>();
+var list = new ReactiveList<int>();
 
-// Adding items
-list.Add("item");
-list.AddRange(["a", "b", "c"]);
-
-// Removing items
-list.Remove("item");
-list.RemoveAt(0);
-list.RemoveRange(0, 2);
-list.RemoveMany(x => x.StartsWith("a"));
-list.Clear();
-
-// Replacing all items
-list.ReplaceAll(["new", "items"]);
-
-// Moving items
-list.Move(0, 2);
-
-// Batch operations (single notification)
-list.Edit(l =>
+// Subscribe to the change stream
+list.Stream.Subscribe(notification =>
 {
-    l.Add("item");
-    l.RemoveAt(0);
+    Console.WriteLine($"Action: {notification.Action}, Item: {notification.Item}");
 });
+
+list.Add(1);      // Action: Add, Item: 1
+list.Add(2);      // Action: Add, Item: 2
+list.Remove(1);   // Action: Remove, Item: 1
 ```
 
-### Extension Methods
+### Batch Edit Operations
+
+```csharp
+var list = new ReactiveList<int>();
+
+// Batch multiple operations for efficiency
+list.Edit(editor =>
+{
+    editor.Add(1);
+    editor.Add(2);
+    editor.Add(3);
+    editor.RemoveAt(0);
+});
+// Single change notification emitted after Edit completes
+```
+
+### Creating Views
+
+#### Filtered View
+
+```csharp
+using CP.Reactive;
+
+var list = new ReactiveList<int>();
+list.AddRange([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+// Create a filtered view that only shows even numbers
+var evenNumbers = list.ToFilteredView(x => x % 2 == 0);
+
+// evenNumbers.Items contains: [2, 4, 6, 8, 10]
+// Adding/removing items from list automatically updates the view
+```
+
+#### Sorted View
+
+```csharp
+var list = new ReactiveList<Person>();
+list.AddRange(people);
+
+// Create a sorted view by name
+var sortedByName = list.ToSortedView(
+    Comparer<Person>.Create((a, b) => string.Compare(a.Name, b.Name)));
+
+// The view automatically re-sorts when items change
+```
+
+#### Grouped View
+
+```csharp
+var list = new ReactiveList<Person>();
+
+// Group people by department
+var byDepartment = list.ToGroupedView(p => p.Department);
+
+// Access groups
+foreach (var group in byDepartment)
+{
+    Console.WriteLine($"{group.Key}: {group.Count} people");
+}
+```
+
+### Working with Change Sets
 
 ```csharp
 using CP.Reactive;
 using CP.Reactive.Core;
 
-// Filter changes by predicate
-list.Connect()
-    .WhereChanges(change => change.Current.StartsWith("A"))
-    .Subscribe(changeSet => { });
+var list = new ReactiveList<string>();
 
-// Filter by change reason
-list.Connect()
+// Convert stream to change sets for fine-grained control
+list.Stream
+    .ToChangeSets()
     .WhereReason(ChangeReason.Add)
-    .Subscribe(changeSet => { });
-
-// Subscribe to specific change types
-list.Connect().OnAdd().Subscribe(item => Console.WriteLine($"Added: {item}"));
-list.Connect().OnRemove().Subscribe(item => Console.WriteLine($"Removed: {item}"));
-
-// Project changes using Change metadata
-list.Connect()
-    .SelectChanges((Change<User> change) => change.Current.Name)
-    .Subscribe(name => Console.WriteLine(name));
-
-// Create a filtered view (.NET 6+)
-var activeUsers = list.CreateView(user => user.IsActive, scheduler: RxApp.MainThreadScheduler, throttleMs: 50);
-
-// Create a sorted view
-var sortedByName = list.SortBy(user => user.Name);
-
-// Create a grouped view
-var groupedByDepartment = list.GroupBy(user => user.Department);
+    .Subscribe(changeSet =>
+    {
+        foreach (var change in changeSet)
+        {
+            Console.WriteLine($"New item added: {change.Item}");
+        }
+    });
 ```
 
----
+## Available Observables
 
-## Reactive2DList&lt;T&gt;
+| Property | Description |
+|----------|-------------|
+| `Added` | Observable of items added to the list |
+| `Removed` | Observable of items removed from the list |
+| `Changed` | Observable of items that changed |
+| `CurrentItems` | Observable that emits current items on subscription and after changes |
+| `Stream` | Observable of `CacheNotify<T>` for detailed change information |
 
-A two-dimensional reactive list for managing grid-like or tabular data.
+## Available Collections
+
+| Collection | Description |
+|------------|-------------|
+| `ReactiveList<T>` | Thread-safe observable list with reactive notifications |
+| `Reactive2DList<T>` | Two-dimensional reactive list |
+| `QuaternaryDictionary<TKey, TValue>` | High-performance dictionary with quaternary structure |
+| `QuaternaryList<T>` | High-performance list with quaternary structure |
+
+## Available Views
+
+| View | Description |
+|------|-------------|
+| `FilteredReactiveView<T>` | Filtered, auto-updating view |
+| `SortedReactiveView<T>` | Sorted, auto-updating view |
+| `GroupedReactiveView<T, TKey>` | Grouped, auto-updating view |
+| `DynamicFilteredReactiveView<T>` | Filtered view with dynamic filter changes |
+| `SecondaryIndexReactiveView<T, TKey>` | View with secondary index for fast lookups |
+
+## Thread Safety
+
+`ReactiveList<T>` is designed to be thread-safe. All public operations use appropriate synchronization:
 
 ```csharp
-using CP.Reactive.Collections;
+var list = new ReactiveList<int>();
 
-var grid = new Reactive2DList<int>(new[]
-{
-    new[] { 1, 2, 3 },
-    new[] { 4, 5, 6 },
-    new[] { 7, 8, 9 }
-});
-
-var item = grid.GetItem(1, 0);  // Row 1, Column 0 = 4
-grid.SetItem(2, 1, 100);
-grid.AddToInner(0, 10);
-var flattened = grid.Flatten().ToList();
+// Safe to call from multiple threads
+Parallel.For(0, 1000, i => list.Add(i));
 ```
 
----
+## Performance Considerations
 
-## QuaternaryList&lt;T&gt;
+- Use `Edit()` for batch operations to minimize change notifications
+- Views use throttling by default to batch rapid changes
+- The library uses object pooling and buffer reuse for reduced allocations
+- AOT-compatible on .NET 8+ for improved startup performance
 
-High-performance, thread-safe, sharded list optimized for large datasets (.NET 8+).
-
-### Key Features
-
-- **Sharded architecture**: Data distributed across 4 partitions for parallel access
-- **Thread-safe**: Uses `ReaderWriterLockSlim` with fine-grained locking
-- **Low allocation**: Uses `ArrayPool<T>` and custom pooled collections
-- **Secondary indices**: O(1) lookup by custom keys
-
-```csharp
-using CP.Reactive.Collections;
-
-var list = new QuaternaryList<Contact>();
-
-// Add indices for O(1) lookups
-list.AddIndex("ByDepartment", c => c.Department);
-
-// Bulk add
-list.AddRange(contacts);
-
-// Fast O(1) query by index
-var engineers = list.GetItemsBySecondaryIndex("ByDepartment", "Engineering");
-
-// Batch operations (single notification)
-list.Edit(l =>
-{
-    l.Add(new Contact("Bob", "Sales"));
-    l.Clear();
-});
-```
-
----
-
-## QuaternaryDictionary&lt;TKey, TValue&gt;
-
-High-performance, thread-safe, sharded dictionary optimized for large datasets (.NET 8+).
-
-```csharp
-using CP.Reactive.Collections;
-
-var dict = new QuaternaryDictionary<Guid, User>();
-
-dict.AddOrUpdate(user.Id, user);
-dict.AddValueIndex("ByDepartment", u => u.Department);
-
-var engineers = dict.GetValuesBySecondaryIndex("ByDepartment", "Engineering");
-
-dict.Edit(d =>
-{
-    d[Guid.NewGuid()] = new User("Alice");
-    d.Remove(oldUserId);
-});
-```
 
 ---
 
@@ -374,64 +295,16 @@ dict.Edit(d =>
 
 ---
 
-## UI Binding
-
-```csharp
-using CP.Reactive.Collections;
-
-public class MainViewModel : IDisposable
-{
-    public IReactiveList<string> Items { get; } = new ReactiveList<string>();
-    public void Dispose() => Items.Dispose();
-}
-```
-
-```xml
-<ListBox ItemsSource="{Binding Items}" />
-```
-
----
-
-## Migrating from DynamicData
-
-| DynamicData | ReactiveList |
-|-------------|--------------|
-| `SourceList<T>` | `ReactiveList<T>` or `QuaternaryList<T>` |
-| `SourceCache<T, TKey>` | `QuaternaryDictionary<TKey, T>` |
-| `Connect()` | `Stream` property or `Connect()` extension |
-| `Filter()` | `CreateView()` or `WhereChanges()` |
-| `Transform()` | `SelectChanges()` |
-
-```csharp
-using CP.Reactive;
-using CP.Reactive.Core;
-
-// Using Stream directly
-list.Stream.Subscribe(notification =>
-{
-    switch (notification.Action)
-    {
-        case CacheAction.Added:
-            Console.WriteLine($"Added: {notification.Item}");
-            break;
-        case CacheAction.BatchAdded:
-            Console.WriteLine($"Batch added: {notification.Batch?.Count} items");
-            break;
-    }
-});
-
-// Using Connect() for ChangeSet-based processing
-list.Connect()
-    .WhereReason(ChangeReason.Add)
-    .Subscribe(changeSet => { });
-```
-
----
 
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
 **ReactiveList** - Empowering Reactive Applications with Observable Collections
+
