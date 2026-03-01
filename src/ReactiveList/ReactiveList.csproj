@@ -19,7 +19,7 @@
 
   <!-- System.Buffers and System.Memory for .NET Framework -->
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <PackageReference Include="Polyfill" Version="9.9.0">
+    <PackageReference Include="Polyfill" Version="9.13.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
