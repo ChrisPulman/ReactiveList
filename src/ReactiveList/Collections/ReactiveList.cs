@@ -40,6 +40,14 @@ public class ReactiveList<T> : IReactiveList<T>
     private const string ItemArray = "Item[]";
     private readonly List<T> _internalList = [];
 
+#if NET9_0_OR_GREATER
+    [NonSerialized]
+    private readonly Lock _lock = new();
+#else
+    [NonSerialized]
+    private readonly object _lock = new();
+#endif
+
     [NonSerialized]
     private CompositeDisposable? _cleanUp;
 
@@ -56,33 +64,25 @@ public class ReactiveList<T> : IReactiveList<T>
     private IObservable<IEnumerable<T>>? _removed;
 
     [NonSerialized]
-    private ReadOnlyObservableCollection<T>? _items;
+    private ReadOnlyObservableCollection<T> _items;
 
     [NonSerialized]
-    private ReadOnlyObservableCollection<T>? _itemsAdded;
+    private ReadOnlyObservableCollection<T> _itemsAdded;
 
     [NonSerialized]
     private ObservableCollection<T>? _itemsAddedCollection;
 
     [NonSerialized]
-    private ReadOnlyObservableCollection<T>? _itemsChanged;
+    private ReadOnlyObservableCollection<T> _itemsChanged;
 
     [NonSerialized]
     private ObservableCollection<T>? _itemsChangedCollection;
 
     [NonSerialized]
-    private ReadOnlyObservableCollection<T>? _itemsRemoved;
+    private ReadOnlyObservableCollection<T> _itemsRemoved;
 
     [NonSerialized]
     private ObservableCollection<T>? _itemsRemovedCollection;
-
-#if NET9_0_OR_GREATER
-    [NonSerialized]
-    private Lock? _lock;
-#else
-    [NonSerialized]
-    private object? _lock;
-#endif
 
     [NonSerialized]
     private ObservableCollection<T>? _observableItems;
@@ -99,7 +99,9 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <summary>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
     /// </summary>
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public ReactiveList() => InitializeNonSerializedFields();
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
@@ -166,25 +168,25 @@ public class ReactiveList<T> : IReactiveList<T>
     /// Gets the items.
     /// </summary>
     /// <value>The items.</value>
-    public ReadOnlyObservableCollection<T> Items => _items!;
+    public ReadOnlyObservableCollection<T> Items => _items;
 
     /// <summary>
     /// Gets the items added during the last change.
     /// </summary>
     /// <value>The items added.</value>
-    public ReadOnlyObservableCollection<T> ItemsAdded => _itemsAdded!;
+    public ReadOnlyObservableCollection<T> ItemsAdded => _itemsAdded;
 
     /// <summary>
     /// Gets the items changed during the last change.
     /// </summary>
     /// <value>The items changed.</value>
-    public ReadOnlyObservableCollection<T> ItemsChanged => _itemsChanged!;
+    public ReadOnlyObservableCollection<T> ItemsChanged => _itemsChanged;
 
     /// <summary>
     /// Gets the items removed during the last change.
     /// </summary>
     /// <value>The items removed.</value>
-    public ReadOnlyObservableCollection<T> ItemsRemoved => _itemsRemoved!;
+    public ReadOnlyObservableCollection<T> ItemsRemoved => _itemsRemoved;
 
     /// <summary>
     /// Gets an observable sequence that emits cache change notifications as they occur.
@@ -234,7 +236,7 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Add(T item)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             _internalList.Add(item);
             _observableItems!.Add(item);
@@ -250,7 +252,7 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T[] ToArray()
     {
-        lock (_lock!)
+        lock (_lock)
         {
             return [.. _internalList];
         }
@@ -267,7 +269,7 @@ public class ReactiveList<T> : IReactiveList<T>
             return;
         }
 
-        lock (_lock!)
+        lock (_lock)
         {
             _internalList.EnsureCapacity(_internalList.Count + items.Length);
             foreach (var item in items)
@@ -289,7 +291,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <exception cref="ArgumentException">Thrown when destination is too small.</exception>
     public void CopyTo(Span<T> destination)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             if (destination.Length < _internalList.Count)
             {
@@ -330,7 +332,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="notifyChange">Whether to emit change notifications. Defaults to true.</param>
     public void ClearWithoutDeallocation(bool notifyChange = true)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             if (_internalList.Count == 0)
             {
@@ -390,7 +392,7 @@ public class ReactiveList<T> : IReactiveList<T>
             return;
         }
 
-        lock (_lock!)
+        lock (_lock)
         {
 #if NET6_0_OR_GREATER
             // Use AddRange with capacity hint for List
@@ -415,7 +417,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void Clear()
     {
-        lock (_lock!)
+        lock (_lock)
         {
             if (_internalList.Count == 0)
             {
@@ -434,7 +436,7 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Contains(T item)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             return _internalList.Contains(item);
         }
@@ -454,7 +456,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void CopyTo(T[] array, int arrayIndex)
     {
-        lock (_lock!)
+        lock (_lock)
         {
 #if NET6_0_OR_GREATER
             CollectionsMarshal.AsSpan(_internalList).CopyTo(array.AsSpan(arrayIndex));
@@ -500,7 +502,7 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             try
             {
-                lock (_lock!)
+                lock (_lock)
                 {
                     foreach (var item in _internalList)
                     {
@@ -526,7 +528,7 @@ public class ReactiveList<T> : IReactiveList<T>
             throw new ArgumentNullException(nameof(editAction));
         }
 
-        lock (_lock!)
+        lock (_lock)
         {
             var snapshotSet = new HashSet<T>(_internalList);
             var wrapper = new EditableListWrapper<T>(_internalList, _observableItems);
@@ -570,7 +572,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public IEnumerator<T> GetEnumerator()
     {
-        lock (_lock!)
+        lock (_lock)
         {
             return _internalList.ToList().GetEnumerator();
         }
@@ -583,7 +585,7 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int IndexOf(T item)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             return _internalList.IndexOf(item);
         }
@@ -604,10 +606,10 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Insert(int index, T item)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             _internalList.Insert(index, item);
-            _observableItems!.Insert(index, item);
+            _observableItems?.Insert(index, item);
             NotifyAdded(item, index);
         }
     }
@@ -638,12 +640,12 @@ public class ReactiveList<T> : IReactiveList<T>
             return;
         }
 
-        lock (_lock!)
+        lock (_lock)
         {
             _internalList.InsertRange(index, itemArray);
             for (var i = 0; i < itemArray.Length; i++)
             {
-                _observableItems!.Insert(index + i, itemArray[i]);
+                _observableItems?.Insert(index + i, itemArray[i]);
             }
 
             NotifyAddedRange(itemArray, index);
@@ -673,14 +675,13 @@ public class ReactiveList<T> : IReactiveList<T>
             return;
         }
 
-        lock (_lock!)
+        lock (_lock)
         {
             var item = _internalList[oldIndex];
             _internalList.RemoveAt(oldIndex);
             _internalList.Insert(newIndex, item);
             _observableItems!.Move(oldIndex, newIndex);
             NotifyChangedSingle(item, ChangeReason.Move, newIndex, oldIndex);
-            OnPropertyChanged(ItemArray);
         }
     }
 
@@ -688,7 +689,7 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Remove(T item)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             var index = _internalList.IndexOf(item);
             if (index < 0)
@@ -712,7 +713,7 @@ public class ReactiveList<T> : IReactiveList<T>
             return;
         }
 
-        lock (_lock!)
+        lock (_lock)
         {
             var removed = new List<T>();
             foreach (var item in itemArray)
@@ -751,7 +752,7 @@ public class ReactiveList<T> : IReactiveList<T>
             throw new ArgumentNullException(nameof(predicate));
         }
 
-        lock (_lock!)
+        lock (_lock)
         {
 #if NET6_0_OR_GREATER
             // Use pooled buffer for better memory efficiency
@@ -831,7 +832,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void RemoveAt(int index)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             if (index < 0 || index >= _internalList.Count)
             {
@@ -853,7 +854,7 @@ public class ReactiveList<T> : IReactiveList<T>
             return;
         }
 
-        lock (_lock!)
+        lock (_lock)
         {
             if (index < 0 || index >= _internalList.Count)
             {
@@ -892,7 +893,7 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         var itemArray = items as T[] ?? items.ToArray();
 
-        lock (_lock!)
+        lock (_lock)
         {
             var oldItems = _internalList.ToArray();
             _internalList.Clear();
@@ -955,7 +956,7 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Update(T item, T newValue)
     {
-        lock (_lock!)
+        lock (_lock)
         {
             var index = _internalList.IndexOf(item);
             if (index >= 0)
@@ -1059,11 +1060,6 @@ public class ReactiveList<T> : IReactiveList<T>
     /// called directly in normal application code.</remarks>
     private void InitializeNonSerializedFields()
     {
-#if NET9_0_OR_GREATER
-        _lock = new Lock();
-#else
-        _lock = new object();
-#endif
         _cleanUp = [];
         _observableItems = new(_internalList);
         _itemsAddedCollection = [];
@@ -1142,6 +1138,9 @@ public class ReactiveList<T> : IReactiveList<T>
             });
 
         _cleanUp.Add(internalSubscription);
+
+        OnPropertyChanged(nameof(Count));
+        OnPropertyChanged(ItemArray);
     }
 
     /// <summary>
@@ -1318,6 +1317,7 @@ public class ReactiveList<T> : IReactiveList<T>
             _ => CacheAction.Updated
         };
         EmitStream(cacheAction, item, currentIndex: currentIndex, previousIndex: previousIndex, previous: previous);
+        OnPropertyChanged(ItemArray);
     }
 
     /// <summary>
