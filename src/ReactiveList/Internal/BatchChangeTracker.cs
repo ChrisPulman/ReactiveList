@@ -1,6 +1,6 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Buffers;
 using System.Runtime.CompilerServices;
@@ -74,13 +74,13 @@ internal struct BatchChangeTracker<T> : IDisposable
     {
         if (_addedItems != null)
         {
-            ArrayPool<T>.Shared.Return(_addedItems, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+            ArrayPool<T>.Shared.Return(_addedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             _addedItems = null;
         }
 
         if (_removedItems != null)
         {
-            ArrayPool<T>.Shared.Return(_removedItems, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+            ArrayPool<T>.Shared.Return(_removedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             _removedItems = null;
         }
 
@@ -93,7 +93,7 @@ internal struct BatchChangeTracker<T> : IDisposable
     {
         var newArray = ArrayPool<T>.Shared.Rent(_addedItems!.Length * 2);
         _addedItems.AsSpan(0, _addedCount).CopyTo(newArray);
-        ArrayPool<T>.Shared.Return(_addedItems, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_addedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _addedItems = newArray;
     }
 
@@ -102,7 +102,7 @@ internal struct BatchChangeTracker<T> : IDisposable
     {
         var newArray = ArrayPool<T>.Shared.Rent(_removedItems!.Length * 2);
         _removedItems.AsSpan(0, _removedCount).CopyTo(newArray);
-        ArrayPool<T>.Shared.Return(_removedItems, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_removedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _removedItems = newArray;
     }
 }

@@ -114,7 +114,7 @@ where T : notnull
     public FilteredReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(propertySetter);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
 #else
         if (propertySetter == null)
         {

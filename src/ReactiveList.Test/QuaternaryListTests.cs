@@ -1,7 +1,7 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,7 @@ using System.Reactive.Linq;
 using System.Threading;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -24,7 +24,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that adding an item to a QuaternaryList increases the count and that the item is present in the list.
     /// </summary>
-    [Fact]
+    [Test]
     public void Add_ShouldIncreaseCountAndContainItem()
     {
         using var list = new QuaternaryList<int>();
@@ -39,7 +39,7 @@ public class QuaternaryListTests
     /// Verifies that the AddRange method emits a batch notification and correctly copies the added items to the
     /// underlying collection.
     /// </summary>
-    [Fact]
+    [Test]
     public void AddRange_ShouldEmitBatchAndCopyItems()
     {
         using var list = new QuaternaryList<int>();
@@ -73,7 +73,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that the indexer of the QuaternaryList returns the correct items across multiple shards.
     /// </summary>
-    [Fact]
+    [Test]
     public void Indexer_ShouldReturnItemsAcrossShards()
     {
         using var list = new QuaternaryList<int>();
@@ -90,7 +90,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that setting an item via the indexer throws NotSupportedException.
     /// </summary>
-    [Fact]
+    [Test]
     public void IndexerSetter_ShouldThrowNotSupportedException()
     {
         using var list = new QuaternaryList<int> { 1, 2, 3 };
@@ -102,7 +102,7 @@ public class QuaternaryListTests
     /// Verifies that adding an index to a QuaternaryList and querying by that index correctly tracks and updates
     /// results as items are added and removed.
     /// </summary>
-    [Fact]
+    [Test]
     public void AddIndexAndQuery_ShouldTrackAndUpdate()
     {
         using var list = new QuaternaryList<TestPerson>();
@@ -133,7 +133,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that calling Clear on a QuaternaryList resets the item collection and all associated indices.
     /// </summary>
-    [Fact]
+    [Test]
     public void Clear_ShouldResetItemsAndIndices()
     {
         using var list = new QuaternaryList<TestPerson>();
@@ -153,7 +153,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that the RemoveRange method removes the specified items from the list and emits a batch removed notification.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveRange_ShouldRemoveItemsAndEmitBatchRemoved()
     {
         using var list = new QuaternaryList<int>();
@@ -189,7 +189,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that RemoveMany with a predicate removes matching items and emits a batch removed notification.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveMany_WithPredicate_ShouldRemoveMatchingItems()
     {
         using var list = new QuaternaryList<int>();
@@ -220,7 +220,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that the Edit method allows batch modifications with a single notification.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldPerformBatchModificationsWithSingleNotification()
     {
         using var list = new QuaternaryList<int>();
@@ -258,7 +258,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that Edit updates indices correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldUpdateIndicesCorrectly()
     {
         using var list = new QuaternaryList<TestPerson>();
@@ -288,7 +288,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that Remove returns true when item exists and false when it doesn't.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldReturnCorrectResult()
     {
         using var list = new QuaternaryList<int>();
@@ -302,7 +302,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that Contains returns correct results.
     /// </summary>
-    [Fact]
+    [Test]
     public void Contains_ShouldReturnCorrectResult()
     {
         using var list = new QuaternaryList<int>();
@@ -315,7 +315,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that CopyTo copies all items to the target array.
     /// </summary>
-    [Fact]
+    [Test]
     public void CopyTo_ShouldCopyAllItems()
     {
         using var list = new QuaternaryList<int>();
@@ -335,7 +335,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that GetEnumerator iterates over all items.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetEnumerator_ShouldIterateAllItems()
     {
         using var list = new QuaternaryList<int>();
@@ -354,7 +354,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that IsReadOnly returns false.
     /// </summary>
-    [Fact]
+    [Test]
     public void IsReadOnly_ShouldReturnFalse()
     {
         using var list = new QuaternaryList<int>();
@@ -364,7 +364,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that ItemMatchesSecondaryIndex returns correct results.
     /// </summary>
-    [Fact]
+    [Test]
     public void ItemMatchesSecondaryIndex_ShouldReturnCorrectResult()
     {
         using var list = new QuaternaryList<TestPerson>();
@@ -383,7 +383,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that GetItemsBySecondaryIndex returns empty when index doesn't exist.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetItemsBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
     {
         using var list = new QuaternaryList<TestPerson>();
@@ -394,7 +394,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that Stream emits Added notification for single item add.
     /// </summary>
-    [Fact]
+    [Test]
     public void Stream_ShouldEmitAddedNotification()
     {
         using var list = new QuaternaryList<int>();
@@ -417,7 +417,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that Stream emits Removed notification for single item remove.
     /// </summary>
-    [Fact]
+    [Test]
     public void Stream_ShouldEmitRemovedNotification()
     {
         using var list = new QuaternaryList<int>();
@@ -445,7 +445,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that Stream emits Cleared notification.
     /// </summary>
-    [Fact]
+    [Test]
     public void Stream_ShouldEmitClearedNotification()
     {
         using var list = new QuaternaryList<int>();
@@ -472,7 +472,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that ReplaceAll replaces all items atomically.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReplaceAll_ShouldReplaceAllItemsAtomically()
     {
         using var list = new QuaternaryList<int>();
@@ -491,7 +491,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that ReplaceAll emits a single batch notification.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReplaceAll_ShouldEmitSingleBatchNotification()
     {
         using var list = new QuaternaryList<int>();
@@ -513,7 +513,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that ReplaceAll with empty collection clears the list.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReplaceAll_WithEmptyCollection_ShouldClearList()
     {
         using var list = new QuaternaryList<int>();
@@ -527,7 +527,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that ReplaceAll updates secondary indices correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReplaceAll_ShouldUpdateSecondaryIndices()
     {
         using var list = new QuaternaryList<int>();
@@ -547,7 +547,7 @@ public class QuaternaryListTests
     /// <summary>
     /// Verifies that ReplaceAll throws ArgumentNullException when items is null.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReplaceAll_WithNull_ShouldThrowArgumentNullException()
     {
         using var list = new QuaternaryList<int>();

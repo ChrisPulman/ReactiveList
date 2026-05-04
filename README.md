@@ -21,19 +21,26 @@ A high-performance, thread-safe, observable collection library for .NET that com
 - [Collections](#collections)
   - [ReactiveList\<T\>](#reactivelistt)
   - [Reactive2DList\<T\>](#reactive2dlistt)
-  - [QuaternaryList\<T\>](#quaternarylistt-net-8-only)
-  - [QuaternaryDictionary\<TKey, TValue\>](#quaternarydictionarytkey-tvalue-net-8-only)
+  - [QuaternaryList\<T\>](#quaternarylistt)
+  - [QuaternaryDictionary\<TKey, TValue\>](#quaternarydictionarytkey-tvalue)
 - [Views](#views)
   - [FilteredReactiveView\<T\>](#filteredreactiveviewt)
   - [SortedReactiveView\<T\>](#sortedreactiveviewt)
   - [GroupedReactiveView\<T, TKey\>](#groupedreactiveviewt-tkey)
   - [DynamicFilteredReactiveView\<T\>](#dynamicfilteredreactiveviewt)
+  - [DynamicReactiveView\<T\>](#dynamicreactiveviewt)
   - [ReactiveView\<T\>](#reactiveviewt)
   - [Secondary Index Views](#secondary-index-views)
 - [Extension Methods Reference](#extension-methods-reference)
   - [Stream Extensions](#stream-extensions-cachenotifyextensions)
   - [ChangeSet Extensions](#changeset-extensions-reactivelistextensions)
   - [View Creation Extensions](#view-creation-extensions)
+- [API Reference](#api-reference)
+  - [Core Contracts](#core-contracts)
+  - [Core Records and Batches](#core-records-and-batches)
+  - [Collection-Specific APIs](#collection-specific-apis)
+  - [View APIs](#view-apis)
+  - [Advanced Shard APIs](#advanced-shard-apis)
 - [Real-World Examples](#real-world-examples)
   - [Live Stock Ticker](#live-stock-ticker)
   - [IoT Sensor Dashboard](#iot-sensor-dashboard)
@@ -57,8 +64,8 @@ A high-performance, thread-safe, observable collection library for .NET that com
 - **Change Sets**: Fine-grained change tracking with `ChangeSet<T>` for DynamicData-compatible processing
 - **Secondary Indices**: O(1) lookups by custom keys for high-performance filtering
 - **AOT Compatible**: Supports Native AOT on .NET 8+
-- **Cross-Platform**: Targets .NET 8, .NET 9, .NET 10, and .NET Framework 4.7.2/4.8
-- **High Performance**: QuaternaryList/Dictionary provide 6-17x faster remove operations at scale
+- **Cross-Platform**: Targets `net462`, `net472`, `net48`, `net481`, `net8.0`, `net9.0`, `net10.0`, and matching Windows TFMs
+- **High Performance**: QuaternaryList/Dictionary provide low-allocation sharded storage and outperform DynamicData in the measured large-list and dictionary benchmarks
 
 ---
 
@@ -533,16 +540,16 @@ spreadsheet.Stream.Subscribe(notification =>
 
 ---
 
-### QuaternaryList\<T\> (.NET 8+ Only)
+### QuaternaryList\<T\>
 
 A high-performance, thread-safe list that partitions elements across four internal shards for efficient concurrent access. Optimized for large datasets with frequent remove operations.
 
-> **Note:** Available only on .NET 8 and later.
+> **Target support:** Available on the .NET Framework and modern .NET target frameworks supported by the package. It is best for large sets, batch operations, secondary-index lookups, and keyed or hash-distributed workloads. For very small ordered batches, `SourceList<T>` can still be marginally faster.
 
 #### Key Advantages
 
-- **6-17x faster** remove operations compared to SourceList
-- **3-4x less memory** usage at scale
+- Faster and lower-allocation than DynamicData `SourceList<T>` for measured 1,000 and 10,000 item `AddRange` workloads
+- Much lower memory usage at scale in current benchmarks
 - Built-in **secondary indices** for O(1) lookups
 - Optimized for **parallel** operations on large datasets
 
@@ -754,16 +761,16 @@ public record Product
 
 ---
 
-### QuaternaryDictionary\<TKey, TValue\> (.NET 8+ Only)
+### QuaternaryDictionary\<TKey, TValue\>
 
 A high-performance, thread-safe dictionary that distributes key-value pairs across four internal shards for improved concurrency. Optimized for large datasets with frequent lookups and modifications.
 
-> **Note:** Available only on .NET 8 and later.
+> **Target support:** Available on the .NET Framework and modern .NET target frameworks supported by the package. It is the cache-style collection to prefer when you need key lookup, value-based secondary indices, reactive notifications, and low allocation bulk writes.
 
 #### Key Advantages
 
-- **3-5x faster** than SourceCache for bulk operations
-- **3-4x less memory** usage at scale
+- Faster and lower-allocation than DynamicData `SourceCache<TValue, TKey>` for measured `AddRange` workloads
+- Lower memory usage at each measured size in current benchmarks
 - Built-in **secondary value indices** for O(1) lookups by value properties
 - Thread-safe with fine-grained locking per shard
 
@@ -1214,6 +1221,9 @@ Extensions for working with `IObservable<CacheNotify<T>>`:
 | `ObserveOnScheduler(scheduler)` | Observe on specific scheduler | `stream.ObserveOnScheduler(Scheduler.Default)` |
 | `TransformItems(selector)` | Transform items | `stream.TransformItems(x => x.ToString())` |
 | `FilterItems(predicate)` | Filter items | `stream.FilterItems(x => x.IsValid)` |
+| `AutoDisposeBatches()` | Dispose pooled batch payloads after processing | `stream.AutoDisposeBatches()` |
+| `CountByAction()` | Project notifications to action/count tuples | `stream.CountByAction()` |
+| `ToChange()` | Convert one notification to a single change when possible | `notification.ToChange()` |
 | `ToChangeSets()` | Convert to ChangeSet stream | `stream.ToChangeSets()` |
 
 ### ChangeSet Extensions (ReactiveListExtensions)
@@ -1235,6 +1245,7 @@ Extensions for working with `IObservable<ChangeSet<T>>`:
 | `AutoRefresh(propertyName)` | Refresh on property changes | `changeSets.AutoRefresh("Price")` |
 | `AutoRefresh()` | Refresh on any property change | `changeSets.AutoRefresh()` |
 | `FilterDynamic(filterObservable)` | Dynamic filtering | `stream.FilterDynamic(filterSubject)` |
+| `WhereItems(predicate)` | Filter cache notifications by item predicate | `stream.WhereItems(x => x.IsActive)` |
 | `Connect()` | Connect to stream as ChangeSet | `source.Connect()` |
 
 ### View Creation Extensions
@@ -1256,8 +1267,316 @@ Extensions for creating views:
 | `CreateViewBySecondaryIndex(indexName, keys, scheduler, throttleMs)` | `QuaternaryList<T>` | View by multiple keys |
 | `CreateDynamicViewBySecondaryIndex(indexName, keysObservable, scheduler, throttleMs)` | `QuaternaryList<T>` | Dynamic secondary index view |
 | `CreateViewBySecondaryIndex(indexName, key, scheduler, throttleMs)` | `QuaternaryDictionary<K,V>` | Dictionary secondary index view |
+| `CreateViewBySecondaryIndex(indexName, keys, scheduler, throttleMs)` | `QuaternaryDictionary<K,V>` | Dictionary view by multiple value-index keys |
+| `CreateDynamicViewBySecondaryIndex(indexName, keysObservable, scheduler, throttleMs)` | `QuaternaryDictionary<K,V>` | Dynamic dictionary secondary index view |
 | `FilterBySecondaryIndex(list, indexName, key)` | Stream | Filter stream by index |
 | `FilterBySecondaryIndex(list, indexName, keys)` | Stream | Filter stream by multiple keys |
+| `FilterBySecondaryIndex(dict, indexName, key)` | Dictionary stream | Filter dictionary stream by value index |
+| `FilterBySecondaryIndex(dict, indexName, keys)` | Dictionary stream | Filter dictionary stream by multiple value-index keys |
+
+---
+
+## API Reference
+
+This section is the compact API map for the package. All examples assume:
+
+```csharp
+using CP.Reactive;
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+using CP.Reactive.Views;
+using System.Collections;
+using System.Collections.ObjectModel;
+using System.Reactive.Concurrency;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
+```
+
+### Core Contracts
+
+| Contract | Purpose | Main Members |
+|----------|---------|--------------|
+| `IReactiveSource<T>` | Common reactive source for lists, dictionaries, quaternary collections, and views over them. | `Count`, `IsReadOnly`, `Version`, `Stream`, `ToArray()`, `CollectionChanged`, `Dispose()` |
+| `IReactiveList<T>` | Ordered, UI-friendly reactive list contract. | `Items`, `ItemsAdded`, `ItemsRemoved`, `ItemsChanged`, `Added`, `Removed`, `Changed`, `CurrentItems`, `AddRange`, `InsertRange`, `RemoveRange`, `RemoveMany`, `Move`, `Update`, `ReplaceAll`, `Edit` |
+| `IQuaternaryList<T>` | Thread-safe sharded list with secondary indices. | `AddRange`, `RemoveRange`, `RemoveMany`, `ReplaceAll`, `Edit`, `AddIndex`, `GetItemsBySecondaryIndex` |
+| `IQuaternaryDictionary<TKey,TValue>` | Thread-safe sharded dictionary with value indices. | `AddOrUpdate`, `TryAdd`, `Lookup`, `AddRange`, `RemoveKeys`, `RemoveMany`, `Edit`, `AddValueIndex`, `GetValuesBySecondaryIndex`, `ValueMatchesSecondaryIndex` |
+| `IReactiveView<TView,TItem>` | Common view contract for bindable read-only views. | `Items`, `ToProperty(Action<ReadOnlyObservableCollection<TItem>>)`, `ToProperty(out ReadOnlyObservableCollection<TItem>)`, `Dispose()` |
+
+```csharp
+IReactiveSource<Order> source = new QuaternaryList<Order>();
+
+using var subscription = source.Stream
+    .CountByAction()
+    .Subscribe(change => Console.WriteLine($"{change.Action}: {change.Count}"));
+
+Console.WriteLine($"Version before edit: {source.Version}");
+```
+
+```csharp
+IReactiveList<Order> orders = new ReactiveList<Order>();
+
+orders.Added.Subscribe(batch => Console.WriteLine($"Added {batch.Count()} orders"));
+orders.CurrentItems.Subscribe(snapshot => Console.WriteLine($"Current count: {snapshot.Count()}"));
+
+orders.AddRange([new Order(1, "Open"), new Order(2, "Open")]);
+orders.Update(orders[0], orders[0] with { Status = "Packed" });
+orders.Move(oldIndex: 1, newIndex: 0);
+orders.RemoveMany(order => order.Status == "Cancelled");
+```
+
+```csharp
+IQuaternaryList<Order> indexedOrders = new QuaternaryList<Order>();
+
+indexedOrders.AddIndex("ByStatus", order => order?.Status ?? "");
+indexedOrders.AddRange([new Order(1, "Open"), new Order(2, "Closed")]);
+
+IEnumerable<Order> openOrders = indexedOrders.GetItemsBySecondaryIndex("ByStatus", "Open");
+indexedOrders.ReplaceAll(openOrders.Select(order => order with { Status = "Reviewed" }));
+```
+
+```csharp
+IQuaternaryDictionary<int, Customer> customers = new QuaternaryDictionary<int, Customer>();
+
+customers.AddValueIndex("ByRegion", customer => customer?.Region ?? "");
+customers.AddOrUpdate(42, new Customer(42, "Alice", "EMEA"));
+
+var lookup = customers.Lookup(42);
+var emeaCustomers = customers.GetValuesBySecondaryIndex("ByRegion", "EMEA");
+customers.RemoveKeys([42]);
+```
+
+```csharp
+using var activeView = orders.CreateView(order => order.Status == "Open", Scheduler.Default);
+activeView.ToProperty(out var bindableOrders);
+```
+
+### Core Records and Batches
+
+`CacheNotify<T>` is the low-level stream payload. `Action` identifies the operation, `Item` is set for single-item notifications, `Batch` is set for batch notifications, `CurrentIndex` and `PreviousIndex` describe moves or indexed list operations, and `Previous` is set for updates.
+
+```csharp
+using var sub = orders.Stream.Subscribe(notification =>
+{
+    if (notification.Action == CacheAction.Updated)
+    {
+        Console.WriteLine($"{notification.Previous} -> {notification.Item}");
+    }
+});
+```
+
+`PooledBatch<T>` wraps an array rented from `ArrayPool<T>`. If you manually handle `CacheNotify<T>.Batch`, dispose it after processing. `AutoDisposeBatches()` is the easiest way to make a stream own that lifecycle.
+
+```csharp
+using var sub = indexedOrders.Stream
+    .Do(notification =>
+    {
+        if (notification.Batch is { } batch)
+        {
+            for (var i = 0; i < batch.Count; i++)
+            {
+                Console.WriteLine(batch.Items[i]);
+            }
+        }
+    })
+    .AutoDisposeBatches()
+    .Subscribe();
+```
+
+`Change<T>` is the struct form used by DynamicData-style pipelines. Use factory methods for clarity.
+
+```csharp
+var added = Change<Order>.CreateAdd(new Order(3, "Open"), index: 0);
+var updated = Change<Order>.CreateUpdate(
+    current: new Order(3, "Closed"),
+    previous: new Order(3, "Open"),
+    index: 0);
+```
+
+`ChangeSet<T>` is an ordered batch of `Change<T>`. It exposes `Count`, `Adds`, `Removes`, `Updates`, `Moves`, an indexer, enumeration, and `AsSpan()` on supported TFMs. Dispose it when you own a manually created instance or when a downstream pipeline keeps it past immediate processing.
+
+```csharp
+using var changes = new ChangeSet<Order>([
+    Change<Order>.CreateAdd(new Order(4, "Open")),
+    Change<Order>.CreateRemove(new Order(5, "Cancelled"))
+]);
+
+foreach (var change in changes)
+{
+    Console.WriteLine($"{change.Reason}: {change.Current}");
+}
+```
+
+```csharp
+using var sub = orders.Connect().Subscribe(changeSet =>
+{
+    try
+    {
+        Console.WriteLine($"Adds={changeSet.Adds}, Removes={changeSet.Removes}");
+
+#if NET6_0_OR_GREATER
+        foreach (var change in changeSet.AsSpan())
+        {
+            Console.WriteLine(change.Current);
+        }
+#endif
+    }
+    finally
+    {
+        changeSet.Dispose();
+    }
+});
+```
+
+### Collection-Specific APIs
+
+#### ReactiveList<T>
+
+Use `ReactiveList<T>` when you need ordered list semantics, UI binding, `ReadOnlyObservableCollection<T>` projections, and familiar `IList<T>` behavior.
+
+```csharp
+var tasks = new ReactiveList<TodoItem>();
+
+tasks.CollectionChanged += (_, args) => Console.WriteLine(args.Action);
+tasks.PropertyChanged += (_, args) => Console.WriteLine(args.PropertyName);
+
+tasks.AddRange([new TodoItem("Write docs", false), new TodoItem("Run tests", false)]);
+tasks.InsertRange(1, [new TodoItem("Review benchmarks", false)]);
+tasks[0] = tasks[0] with { Done = true };
+tasks.RemoveRange(index: 1, count: 1);
+
+TodoItem[] copy = new TodoItem[tasks.Count];
+tasks.CopyTo(copy, 0);
+
+Span<TodoItem> buffer = new TodoItem[tasks.Count];
+tasks.CopyTo(buffer);
+
+IList nonGeneric = tasks;
+nonGeneric.Add(new TodoItem("Legacy IList consumer", false));
+
+tasks.Subscribe(snapshot => Console.WriteLine($"Snapshot size: {snapshot.Count()}"));
+tasks.ClearWithoutDeallocation(notifyChange: true);
+```
+
+#### Reactive2DList<T>
+
+Use `Reactive2DList<T>` for row/column style data where each row is itself a reactive list.
+
+```csharp
+var grid = new Reactive2DList<string>();
+
+grid.Add(new ReactiveList<string>(["Name", "Region"]));
+grid.Add(new ReactiveList<string>(["Alice", "EMEA"]));
+grid.SetItem(row: 1, column: 1, value: "APAC");
+grid.AddToInner(row: 0, item: "Status");
+
+IEnumerable<string> cells = grid.Flatten();
+int totalCells = grid.TotalCount();
+```
+
+#### QuaternaryList<T>
+
+`QuaternaryList<T>` distributes items across four internal shards by hash. It is not a positional list for insert/set operations; use add, remove, batch, predicate, replace, and secondary-index APIs.
+
+```csharp
+var readings = new QuaternaryList<SensorReading>();
+var selectedDeviceIds = new BehaviorSubject<string[]>(["pump-1"]);
+
+readings.AddIndex("ByDevice", reading => reading.DeviceId);
+readings.AddIndex("BySeverity", reading => reading.Severity);
+readings.AddRange(batch);
+
+var critical = readings.GetItemsBySecondaryIndex("BySeverity", Severity.Critical);
+readings.RemoveMany(reading => reading.Timestamp < cutoff);
+
+using var view = readings.CreateDynamicViewBySecondaryIndex(
+    "ByDevice",
+    selectedDeviceIds,
+    Scheduler.Default);
+```
+
+#### QuaternaryDictionary<TKey,TValue>
+
+`QuaternaryDictionary<TKey,TValue>` is the cache-style API. Use dictionary keys for identity and secondary value indices for alternative lookups.
+
+```csharp
+var sessions = new QuaternaryDictionary<string, UserSession>();
+
+sessions.AddValueIndex("ByTenant", session => session?.TenantId ?? "");
+sessions.AddRange(incoming.Select(s => KeyValuePair.Create(s.SessionId, s)));
+sessions.AddOrUpdate("abc", new UserSession("abc", "tenant-1", DateTimeOffset.UtcNow));
+
+if (sessions.TryGetValue("abc", out var session))
+{
+    Console.WriteLine(session.TenantId);
+}
+
+var tenantSessions = sessions.GetValuesBySecondaryIndex("ByTenant", "tenant-1");
+using var tenantView = sessions.CreateViewBySecondaryIndex("ByTenant", "tenant-1", Scheduler.Default);
+sessions.RemoveMany(pair => pair.Value.LastSeen < cutoff);
+```
+
+### View APIs
+
+All view types expose a read-only `Items` collection and implement `IDisposable`. Dispose views when the screen, component, or pipeline that owns them is closed.
+
+| View | Create With | Use For |
+|------|-------------|---------|
+| `FilteredReactiveView<T>` | `list.CreateView(predicate)` | Static predicate over `IReactiveList<T>` |
+| `SortedReactiveView<T>` | `list.SortBy(...)` | Sorted bindable projection |
+| `GroupedReactiveView<T,TKey>` | `list.GroupBy(keySelector)` | Bindable groups |
+| `DynamicFilteredReactiveView<T>` | `list.CreateView(filterObservable)` | Dynamic predicate over `IReactiveList<T>` |
+| `DynamicReactiveView<T>` | `source.CreateView(filterObservable)` or query overloads | Dynamic predicate over any `IReactiveSource<T>` |
+| `ReactiveView<T>` | `source.CreateView(...)` or secondary-index helpers | General source view |
+| `SecondaryIndexReactiveView<TKey,TValue,TIndexKey>` | `dict.CreateViewBySecondaryIndex(...)` | Dictionary value-index view |
+| `DynamicSecondaryIndexReactiveView<T,TKey>` | `list.CreateDynamicViewBySecondaryIndex(...)` | List secondary-index keys that change over time |
+| `DynamicSecondaryIndexDictionaryReactiveView<TKey,TValue,TIndexKey>` | `dict.CreateDynamicViewBySecondaryIndex(...)` | Dictionary value-index keys that change over time |
+
+```csharp
+var search = new BehaviorSubject<string>("");
+
+using var searchView = readings.CreateView(
+    queryObservable: search,
+    filter: (query, reading) => reading.DeviceId.Contains(query, StringComparison.OrdinalIgnoreCase),
+    scheduler: Scheduler.Default);
+
+search.OnNext("pump-");
+```
+
+```csharp
+using var grouped = tasks.GroupBy(task => task.Done ? "Done" : "Open", Scheduler.Default);
+
+if (grouped.TryGetValue("Open", out var openTasks))
+{
+    Console.WriteLine(openTasks.Count);
+}
+```
+
+### Advanced Shard APIs
+
+`QuadList<T>`, `QuadDictionary<TKey,TValue>`, `IQuad<T>`, and `QuaternaryBase<TItem,TQuad,TValue>` are public for advanced scenarios and testing, but most application code should use `QuaternaryList<T>` or `QuaternaryDictionary<TKey,TValue>`.
+
+| Type | Purpose | Notes |
+|------|---------|-------|
+| `IQuad<T>` | Minimal shard contract. | `Count`, `Clear()`, enumeration, `Dispose()` |
+| `QuadList<T>` | Pooled, non-thread-safe shard list. | Supports indexer, `Add`, `AddRange(ReadOnlySpan<T>)`, `Remove`, `RemoveAt`, `Contains`, `AsSpan()`, `Clear`, `Dispose()` |
+| `QuadDictionary<TKey,TValue>` | Pooled, non-thread-safe shard dictionary. | Supports `Add`, `TryAdd`, `TryGetValue`, `GetValueRefOrAddDefault`, `Remove`, `ContainsKey`, key/value enumeration, `EnsureCapacity`, `Dispose()` |
+| `QuaternaryBase<TItem,TQuad,TValue>` | Shared base for the quaternary collections. | Owns shards, locks, versioning, notification stream, and secondary-index storage |
+
+```csharp
+using var shard = new QuadList<int>();
+shard.AddRange([1, 2, 3]);
+
+foreach (var value in shard)
+{
+    Console.WriteLine(value);
+}
+```
+
+```csharp
+using var shard = new QuadDictionary<string, int>();
+ref var value = ref shard.GetValueRefOrAddDefault("count", out var exists);
+value = exists ? value + 1 : 1;
+```
 
 ---
 
@@ -1942,7 +2261,7 @@ list.Stream
 // For datasets > 1000 items with frequent removes
 var largeList = new QuaternaryList<DataPoint>();
 
-// 6-17x faster removes
+// Low-allocation sharded storage for large batches
 largeList.RemoveMany(dp => dp.Timestamp < cutoff);
 ```
 
@@ -1970,98 +2289,46 @@ view.Dispose();
 
 ## Benchmark Results
 
-> Benchmarks run on Windows 11, 12th Gen Intel Core i7-12650H, .NET 10.0.2
+> Benchmarks run May 4, 2026 on Windows 11, Intel Core Ultra 9 185H, .NET SDK 10.0.203, .NET 10.0.7, BenchmarkDotNet 0.15.8, ShortRun. DynamicData comparisons use `ReactiveMarbles.DynamicData`. The `SourceCache<TObject,TKey>` `AddRange` benchmark uses prebuilt `Item[]` values so object creation and LINQ projection are not charged to DynamicData.
 
-### `ReactiveList<T>` vs `SourceList<T>` (DynamicData) - .NET 10
-
-| Method | Count | Mean | Allocated |
-|--------|------:|-----:|----------:|
-| ReactiveList_AddRange | 10,000 | 602,415 ns | 3,462 KB |
-| SourceList_AddRange | 10,000 | 76,536 ns | 172.2 KB |
-| ReactiveList_Clear | 10,000 | 1,055,010 ns | 5,619 KB |
-| SourceList_Clear | 10,000 | 156,889 ns | 252.9 KB |
-| ReactiveList_Connect | 10,000 | 1,037,696 ns | 3,990 KB |
-| SourceList_Connect | 10,000 | 77,675 ns | 172.8 KB |
-| ReactiveList_RemoveMany | 10,000 | 20,227,197 ns | 5,001 KB |
-| SourceList_RemoveMany | 10,000 | 10,773,439 ns | 2,759 KB |
-
-**Summary**: SourceList is faster. ReactiveList provides fine-grained change tracking with higher overhead.
-
-### `ReactiveList<T>` vs `List<T>` - .NET 10
+### `QuaternaryList<T>` vs `SourceList<T>` AddRange
 
 | Method | Count | Mean | Allocated |
 |--------|------:|-----:|----------:|
-| List_AddRange | 10,000 | 3,821 ns | 40.1 KB |
-| ReactiveList_AddRange | 10,000 | 602,415 ns | 3,462 KB |
-| List_Clear | 10,000 | 4,036 ns | 40.1 KB |
-| ReactiveList_Clear | 10,000 | 1,055,010 ns | 5,619 KB |
-| List_Filter | 10,000 | 7,044 ns | 40.1 KB |
-| ReactiveList_Filter | 10,000 | 598,058 ns | 3,462 KB |
+| QuaternaryList_AddRange | 100 | 1,268.94 ns | 2,576 B |
+| SourceList_AddRange | 100 | 1,278.49 ns | 2,456 B |
+| QuaternaryList_AddRange | 1,000 | 3,262.75 ns | 6,160 B |
+| SourceList_AddRange | 1,000 | 9,160.45 ns | 13,296 B |
+| QuaternaryList_AddRange | 10,000 | 25,206.70 ns | 67,600 B |
+| SourceList_AddRange | 10,000 | 93,731.01 ns | 172,272 B |
 
-**Summary**: List is ~100x faster for raw operations. Use ReactiveList when you need reactive notifications.
+**Summary:** `QuaternaryList<T>` now edges `SourceList<T>` in the measured 100 item micro-batch and has wider wins at 1,000 and 10,000 items while allocating much less memory. Prefer it for larger batches, sharded workloads, secondary-index lookups, and memory-sensitive streams.
 
-### `QuaternaryList<T>` vs `SourceList<T>` (DynamicData) - .NET 10
-
-| Method | Count | Mean | Allocated |
-|--------|------:|-----:|----------:|
-| QuaternaryList_AddRange | 10,000 | 101,599 ns | 72.4 KB |
-| SourceList_AddRange | 10,000 | 77,280 ns | 172.3 KB |
-| QuaternaryList_RemoveRange | 10,000 | 1,363,441 ns | 75.1 KB |
-| SourceList_RemoveRange | 10,000 | 24,111,156 ns | 2,373 KB |
-| QuaternaryList_Remove | 10,000 | 5,243,958 ns | 72.4 KB |
-| SourceList_Remove | 10,000 | 34,751,282 ns | 1,333 KB |
-| QuaternaryList_RemoveMany | 10,000 | 1,294,411 ns | 72.4 KB |
-| SourceList_RemoveMany | 10,000 | 10,546,519 ns | 2,759 KB |
-| QuaternaryList_MixedOperations | 10,000 | 607,775 ns | 72.4 KB |
-| SourceList_MixedOperations | 10,000 | 4,500,532 ns | 1,842 KB |
-
-**Summary**: QuaternaryList is **6-17x faster** for Remove operations and uses **3-4x less memory** at scale.
-
-### `QuaternaryDictionary<TKey, TValue>` vs `SourceCache<TValue, TKey>` (DynamicData) - .NET 10
+### `QuaternaryDictionary<TKey, TValue>` vs `SourceCache<TValue, TKey>` AddRange
 
 | Method | Count | Mean | Allocated |
 |--------|------:|-----:|----------:|
-| QuaternaryDictionary_AddRange | 10,000 | 132.2 us | 327.2 KB |
-| SourceCache_AddRange | 10,000 | 602.3 us | 1,155.7 KB |
-| QuaternaryDictionary_Clear | 10,000 | 142.4 us | 327.2 KB |
-| SourceCache_Clear | 10,000 | 486.7 us | 1,155.7 KB |
-| QuaternaryDictionary_Lookup | 10,000 | 133.7 us | 327.2 KB |
-| SourceCache_Lookup | 10,000 | 302.4 us | 1,155.6 KB |
-| QuaternaryDictionary_Stream_Add | 10,000 | 180.7 us | 455.8 KB |
-| SourceCache_Stream_Add | 10,000 | 665.6 us | 2,437.8 KB |
-| QuaternaryDictionary_IterateAll | 10,000 | 220.6 us | 327.2 KB |
-| SourceCache_IterateAll | 10,000 | 349.1 us | 1,233.9 KB |
+| QuaternaryDictionary_AddRange | 100 | 2.349 us | 7.23 KB |
+| SourceCache_AddRange | 100 | 2.697 us | 10.68 KB |
+| QuaternaryDictionary_AddRange | 1,000 | 10.413 us | 42.23 KB |
+| SourceCache_AddRange | 1,000 | 25.070 us | 100.55 KB |
+| QuaternaryDictionary_AddRange | 10,000 | 80.972 us | 322.24 KB |
+| SourceCache_AddRange | 10,000 | 545.788 us | 920.76 KB |
 
-**Summary**: QuaternaryDictionary is **3-5x faster** and uses **3-4x less memory** than SourceCache at scale.
-
-### `QuaternaryDictionary<TKey, TValue>` vs `Dictionary<TKey, TValue>` - .NET 10
-
-| Method | Count | Mean | Allocated |
-|--------|------:|-----:|----------:|
-| Dictionary_AddRange | 10,000 | 235.9 us | 657.6 KB |
-| QuaternaryDictionary_AddRange | 10,000 | 132.2 us | 327.2 KB |
-| Dictionary_Clear | 10,000 | 113.3 us | 197.5 KB |
-| QuaternaryDictionary_Clear | 10,000 | 142.4 us | 327.2 KB |
-| Dictionary_TryGetValue | 10,000 | 91.9 us | 197.5 KB |
-| QuaternaryDictionary_TryGetValue | 10,000 | 134.3 us | 327.2 KB |
-| Dictionary_IterateAll | 10,000 | 87.1 us | 197.5 KB |
-| QuaternaryDictionary_IterateAll | 10,000 | 220.6 us | 327.2 KB |
-
-**Summary**: Dictionary is faster for raw operations. QuaternaryDictionary is **1.8x faster for bulk AddRange** and adds thread-safety, reactive notifications, and secondary indices.
+**Summary:** `QuaternaryDictionary<TKey,TValue>` is faster and allocates less memory than `SourceCache<TValue,TKey>` at every measured size. Prefer it when you need a thread-safe reactive cache with bulk writes, key lookup, and optional value-based secondary indices.
 
 ### When to Use Which Collection
 
 | Scenario | Recommendation |
 |----------|---------------|
-| Small datasets (<1,000 items) | `ReactiveList<T>` |
-| Large datasets with frequent removes | `QuaternaryList<T>` **(6-17x faster)** |
-| Large key-value datasets | `QuaternaryDictionary<TKey,TValue>` **(3-5x faster)** |
-| Memory-constrained environments | `QuaternaryList/Dictionary` **(3-4x less memory)** |
-| Rich LINQ operators needed | DynamicData `SourceList<T>` / `SourceCache<TValue, TKey>` |
-| Secondary indices for O(1) lookups | `QuaternaryList<T>` / `QuaternaryDictionary<TKey,TValue>` |
-| Thread-safe concurrent access | All ReactiveList collections |
-| 2D/Matrix data structures | `Reactive2DList<T>` |
-| .NET Framework 4.7.2/4.8 | `ReactiveList<T>` / `Reactive2DList<T>` |
+| Ordered, UI-bound lists with familiar `IList<T>` behavior | `ReactiveList<T>` |
+| Two-dimensional row/column data | `Reactive2DList<T>` |
+| Small ordered batches where DynamicData operators are already central | DynamicData `SourceList<T>` |
+| Large list batches, frequent removes, secondary-index lookups, or lower allocation pressure | `QuaternaryList<T>` |
+| Key-value cache workloads with bulk writes and value indices | `QuaternaryDictionary<TKey,TValue>` |
+| Rich DynamicData operator graph already required | DynamicData `SourceList<T>` / `SourceCache<TValue,TKey>` |
+| Thread-safe concurrent access with reactive notifications | All ReactiveList collections |
+| .NET Framework `net462`, `net472`, `net48`, or `net481` | `ReactiveList<T>`, `Reactive2DList<T>`, `QuaternaryList<T>`, `QuaternaryDictionary<TKey,TValue>` |
 
 ---
 

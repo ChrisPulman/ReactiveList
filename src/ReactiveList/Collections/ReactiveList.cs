@@ -42,10 +42,10 @@ public class ReactiveList<T> : IReactiveList<T>
 
 #if NET9_0_OR_GREATER
     [NonSerialized]
-    private readonly Lock _lock = new();
+    private Lock _lock = new();
 #else
     [NonSerialized]
-    private readonly object _lock = new();
+    private object _lock = new();
 #endif
 
     [NonSerialized]
@@ -70,22 +70,22 @@ public class ReactiveList<T> : IReactiveList<T>
     private ReadOnlyObservableCollection<T> _itemsAdded;
 
     [NonSerialized]
-    private ObservableCollection<T>? _itemsAddedCollection;
+    private RangeObservableCollection? _itemsAddedCollection;
 
     [NonSerialized]
     private ReadOnlyObservableCollection<T> _itemsChanged;
 
     [NonSerialized]
-    private ObservableCollection<T>? _itemsChangedCollection;
+    private RangeObservableCollection? _itemsChangedCollection;
 
     [NonSerialized]
     private ReadOnlyObservableCollection<T> _itemsRemoved;
 
     [NonSerialized]
-    private ObservableCollection<T>? _itemsRemovedCollection;
+    private RangeObservableCollection? _itemsRemovedCollection;
 
     [NonSerialized]
-    private ObservableCollection<T>? _observableItems;
+    private RangeObservableCollection? _observableItems;
 
     [NonSerialized]
     private Subject<CacheNotify<T>>? _streamPipeline;
@@ -107,15 +107,35 @@ public class ReactiveList<T> : IReactiveList<T>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
     /// </summary>
     /// <param name="items">The items.</param>
+#pragma warning disable CS8618 // Non-nullable fields are initialized by InitializeNonSerializedFields.
     public ReactiveList(IEnumerable<T> items)
-        : this() => AddRange(items);
+    {
+        var itemArray = items as T[] ?? items.ToArray();
+        if (itemArray.Length > 0)
+        {
+            _internalList.AddRange(itemArray);
+        }
+
+        InitializeNonSerializedFields();
+        if (itemArray.Length > 0)
+        {
+            _currentItems!.OnNext(_internalList);
+        }
+    }
+#pragma warning restore CS8618
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReactiveList{T}"/> class.
     /// </summary>
     /// <param name="item">The item.</param>
+#pragma warning disable CS8618 // Non-nullable fields are initialized by InitializeNonSerializedFields.
     public ReactiveList(T item)
-        : this() => Add(item);
+    {
+        _internalList.Add(item);
+        InitializeNonSerializedFields();
+        _currentItems!.OnNext(_internalList);
+    }
+#pragma warning restore CS8618
 
     /// <inheritdoc/>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
@@ -244,7 +264,7 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
-#if NET6_0_OR_GREATER
+#if NET6_0_OR_GREATER || NETFRAMEWORK
     /// <summary>
     /// Creates a snapshot of current items as an array.
     /// </summary>
@@ -271,7 +291,12 @@ public class ReactiveList<T> : IReactiveList<T>
 
         lock (_lock)
         {
-            _internalList.EnsureCapacity(_internalList.Count + items.Length);
+            var requiredCapacity = _internalList.Count + items.Length;
+            if (_internalList.Capacity < requiredCapacity)
+            {
+                _internalList.Capacity = requiredCapacity;
+            }
+
             foreach (var item in items)
             {
                 _internalList.Add(item);
@@ -298,7 +323,11 @@ public class ReactiveList<T> : IReactiveList<T>
                 throw new ArgumentException("Destination span is too small.", nameof(destination));
             }
 
+#if NET6_0_OR_GREATER
             CollectionsMarshal.AsSpan(_internalList).CopyTo(destination);
+#else
+            _internalList.ToArray().AsSpan().CopyTo(destination);
+#endif
         }
     }
 
@@ -310,7 +339,14 @@ public class ReactiveList<T> : IReactiveList<T>
     /// The returned span is only valid while no modifications are made to the list.
     /// </remarks>
     /// <returns>A read-only span over the internal items.</returns>
-    public ReadOnlySpan<T> AsSpan() => CollectionsMarshal.AsSpan(_internalList);
+    public ReadOnlySpan<T> AsSpan()
+    {
+#if NET6_0_OR_GREATER
+        return CollectionsMarshal.AsSpan(_internalList);
+#else
+        return _internalList.ToArray().AsSpan();
+#endif
+    }
 
     /// <summary>
     /// Gets a memory region over the internal list for async operations.
@@ -399,10 +435,7 @@ public class ReactiveList<T> : IReactiveList<T>
             _internalList.EnsureCapacity(_internalList.Count + itemArray.Length);
 #endif
             _internalList.AddRange(itemArray);
-            foreach (var item in itemArray)
-            {
-                _observableItems!.Add(item);
-            }
+            _observableItems!.AddRange(itemArray);
 
             NotifyAddedRange(itemArray);
         }
@@ -643,10 +676,7 @@ public class ReactiveList<T> : IReactiveList<T>
         lock (_lock)
         {
             _internalList.InsertRange(index, itemArray);
-            for (var i = 0; i < itemArray.Length; i++)
-            {
-                _observableItems?.Insert(index + i, itemArray[i]);
-            }
+            _observableItems?.InsertRange(index, itemArray);
 
             NotifyAddedRange(itemArray, index);
         }
@@ -870,10 +900,7 @@ public class ReactiveList<T> : IReactiveList<T>
             // Use GetRange + RemoveRange for better performance
             var removed = _internalList.GetRange(index, count).ToArray();
             _internalList.RemoveRange(index, count);
-            for (var i = 0; i < count; i++)
-            {
-                _observableItems!.RemoveAt(index);
-            }
+            _observableItems!.RemoveRange(index, count);
 #else
             var removed = new T[count];
             for (var i = 0; i < count; i++)
@@ -897,16 +924,12 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             var oldItems = _internalList.ToArray();
             _internalList.Clear();
-            _observableItems!.Clear();
 
 #if NET6_0_OR_GREATER
             _internalList.EnsureCapacity(itemArray.Length);
 #endif
             _internalList.AddRange(itemArray);
-            foreach (var item in itemArray)
-            {
-                _observableItems.Add(item);
-            }
+            _observableItems!.ReplaceAll(itemArray);
 
             Interlocked.Increment(ref _version);
 
@@ -1008,14 +1031,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="items">The array of items to add to the collection. The collection will contain these items after the operation
     /// completes.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UpdateTrackingCollection(ObservableCollection<T> target, T[] items)
-    {
-        target.Clear();
-        foreach (var item in items)
-        {
-            target.Add(item);
-        }
-    }
+    private static void UpdateTrackingCollection(RangeObservableCollection target, T[] items) => target.ReplaceAll(items);
 
     /// <summary>
     /// Extracts items from a cache notification.
@@ -1060,6 +1076,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// called directly in normal application code.</remarks>
     private void InitializeNonSerializedFields()
     {
+        _lock = new();
         _cleanUp = [];
         _observableItems = new(_internalList);
         _itemsAddedCollection = [];
@@ -1349,4 +1366,94 @@ public class ReactiveList<T> : IReactiveList<T>
 
         // Always emit to pipeline - internal subscription needs events for tracking collections
         _streamPipeline?.OnNext(new CacheNotify<T>(action, item, batch, currentIndex, previousIndex, previous));
+
+    private sealed class RangeObservableCollection : ObservableCollection<T>
+    {
+        public RangeObservableCollection()
+        {
+        }
+
+        public RangeObservableCollection(IEnumerable<T> items)
+            : base(items.ToList())
+        {
+        }
+
+        public void AddRange(IReadOnlyList<T> items)
+        {
+            if (items.Count == 0)
+            {
+                return;
+            }
+
+            CheckReentrancy();
+            EnsureCapacity(Items.Count + items.Count);
+            for (var i = 0; i < items.Count; i++)
+            {
+                Items.Add(items[i]);
+            }
+
+            RaiseReset();
+        }
+
+        public void InsertRange(int index, IReadOnlyList<T> items)
+        {
+            if (items.Count == 0)
+            {
+                return;
+            }
+
+            CheckReentrancy();
+            EnsureCapacity(Items.Count + items.Count);
+            for (var i = 0; i < items.Count; i++)
+            {
+                Items.Insert(index + i, items[i]);
+            }
+
+            RaiseReset();
+        }
+
+        public void RemoveRange(int index, int count)
+        {
+            if (count == 0)
+            {
+                return;
+            }
+
+            CheckReentrancy();
+            for (var i = 0; i < count; i++)
+            {
+                Items.RemoveAt(index);
+            }
+
+            RaiseReset();
+        }
+
+        public void ReplaceAll(IReadOnlyList<T> items)
+        {
+            CheckReentrancy();
+            Items.Clear();
+            EnsureCapacity(items.Count);
+            for (var i = 0; i < items.Count; i++)
+            {
+                Items.Add(items[i]);
+            }
+
+            RaiseReset();
+        }
+
+        private void RaiseReset()
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+            OnPropertyChanged(new PropertyChangedEventArgs(ItemArray));
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+
+        private void EnsureCapacity(int capacity)
+        {
+            if (Items is List<T> list && list.Capacity < capacity)
+            {
+                list.Capacity = capacity;
+            }
+        }
+    }
 }

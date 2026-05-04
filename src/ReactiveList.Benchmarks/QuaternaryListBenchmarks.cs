@@ -217,7 +217,8 @@ public class QuaternaryListBenchmarks
     {
         using var list = new QuaternaryList<int>();
         list.AddRange(_data);
-        return list.RemoveMany(x => x % 2 == 0);
+        list.RemoveMany(x => x % 2 == 0);
+        return list.Count;
     }
 
     [Benchmark]

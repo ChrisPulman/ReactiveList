@@ -5,7 +5,7 @@ using System;
 using System.Buffers;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -17,7 +17,7 @@ public class CacheNotifyTests
     /// <summary>
     /// Constructor should initialize Action and Item.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_WithActionAndItem_ShouldInitialize()
     {
         var notify = new CacheNotify<string>(CacheAction.Added, "test");
@@ -30,7 +30,7 @@ public class CacheNotifyTests
     /// <summary>
     /// Constructor should initialize with batch.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_WithBatch_ShouldInitialize()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -50,7 +50,7 @@ public class CacheNotifyTests
     /// <summary>
     /// Constructor with null item should be valid.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_WithNullItem_ShouldBeValid()
     {
         var notify = new CacheNotify<string>(CacheAction.Cleared, null);
@@ -62,7 +62,7 @@ public class CacheNotifyTests
     /// <summary>
     /// Record equality should work correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void RecordEquality_ShouldWorkCorrectly()
     {
         var notify1 = new CacheNotify<string>(CacheAction.Added, "test");
@@ -75,7 +75,7 @@ public class CacheNotifyTests
     /// <summary>
     /// Record inequality for different actions.
     /// </summary>
-    [Fact]
+    [Test]
     public void RecordInequality_DifferentActions_ShouldNotBeEqual()
     {
         var notify1 = new CacheNotify<string>(CacheAction.Added, "test");
@@ -88,7 +88,7 @@ public class CacheNotifyTests
     /// <summary>
     /// Record inequality for different items.
     /// </summary>
-    [Fact]
+    [Test]
     public void RecordInequality_DifferentItems_ShouldNotBeEqual()
     {
         var notify1 = new CacheNotify<string>(CacheAction.Added, "test1");
@@ -100,7 +100,7 @@ public class CacheNotifyTests
     /// <summary>
     /// CacheNotify for Added action.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheNotify_AddedAction_ShouldHaveCorrectState()
     {
         var notify = new CacheNotify<int>(CacheAction.Added, 42);
@@ -112,7 +112,7 @@ public class CacheNotifyTests
     /// <summary>
     /// CacheNotify for Removed action.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheNotify_RemovedAction_ShouldHaveCorrectState()
     {
         var notify = new CacheNotify<int>(CacheAction.Removed, 42);
@@ -124,7 +124,7 @@ public class CacheNotifyTests
     /// <summary>
     /// CacheNotify for Updated action.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheNotify_UpdatedAction_ShouldHaveCorrectState()
     {
         var notify = new CacheNotify<string>(CacheAction.Updated, "updated");
@@ -136,7 +136,7 @@ public class CacheNotifyTests
     /// <summary>
     /// CacheNotify for Cleared action.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheNotify_ClearedAction_ShouldHaveCorrectState()
     {
         var notify = new CacheNotify<string>(CacheAction.Cleared, null);
@@ -148,7 +148,7 @@ public class CacheNotifyTests
     /// <summary>
     /// CacheNotify for BatchOperation action.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheNotify_BatchOperationAction_ShouldHaveCorrectState()
     {
         var array = ArrayPool<string>.Shared.Rent(10);
@@ -168,7 +168,7 @@ public class CacheNotifyTests
     /// <summary>
     /// CacheNotify with expression should work.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheNotify_WithExpression_ShouldWork()
     {
         var notify1 = new CacheNotify<int>(CacheAction.Added, 10);
@@ -182,7 +182,7 @@ public class CacheNotifyTests
     /// <summary>
     /// GetHashCode should be consistent.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetHashCode_ShouldBeConsistent()
     {
         var notify = new CacheNotify<string>(CacheAction.Added, "test");
@@ -196,7 +196,7 @@ public class CacheNotifyTests
     /// <summary>
     /// ToString should return meaningful representation.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToString_ShouldReturnMeaningfulRepresentation()
     {
         var notify = new CacheNotify<string>(CacheAction.Added, "test");
@@ -211,7 +211,7 @@ public class CacheNotifyTests
     /// <summary>
     /// CacheNotify with value types.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheNotify_WithValueTypes_ShouldWork()
     {
         var notify = new CacheNotify<DateTime>(CacheAction.Added, DateTime.Today);
@@ -222,7 +222,7 @@ public class CacheNotifyTests
     /// <summary>
     /// CacheNotify with complex types.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheNotify_WithComplexTypes_ShouldWork()
     {
         var person = new { Id = 1, Name = "John" };

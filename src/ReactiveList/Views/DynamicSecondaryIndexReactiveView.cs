@@ -1,7 +1,7 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -50,7 +50,7 @@ where TKey : notnull
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _indexName = indexName ?? throw new ArgumentNullException(nameof(indexName));
-        ArgumentNullException.ThrowIfNull(keysObservable);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keysObservable);
 
         _filteredItems = [];
         Items = new ReadOnlyObservableCollection<T>(_filteredItems);
@@ -136,7 +136,7 @@ where TKey : notnull
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
     public DynamicSecondaryIndexReactiveView<T, TKey> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
     {
-        ArgumentNullException.ThrowIfNull(propertySetter);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
         propertySetter(Items);
         return this;
     }

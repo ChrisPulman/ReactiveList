@@ -1,7 +1,7 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -11,7 +11,7 @@ using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive.Collections;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -24,7 +24,7 @@ public class DynamicSearchTests
     /// Search should return matching items when query matches LastName.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task SearchByLastName_WhenQueryMatchesShouldReturnMatchingItemsAsync()
     {
         // Arrange
@@ -71,7 +71,7 @@ public class DynamicSearchTests
     /// Search should return matching items when query matches Email.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task SearchByEmail_WhenQueryMatchesShouldReturnMatchingItemsAsync()
     {
         // Arrange
@@ -116,7 +116,7 @@ public class DynamicSearchTests
     /// Empty search query should return all items.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task EmptyQuery_ShouldReturnAllItemsAsync()
     {
         // Arrange
@@ -158,7 +158,7 @@ public class DynamicSearchTests
     /// Search should be case insensitive.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task Search_ShouldBeCaseInsensitiveAsync()
     {
         // Arrange
@@ -205,7 +205,7 @@ public class DynamicSearchTests
     /// Search results should update when contacts are added after search.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task SearchResults_ShouldUpdateWhenContactsAddedAsync()
     {
         // Arrange
@@ -265,7 +265,7 @@ public class DynamicSearchTests
     /// Non-matching query should return empty results.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task NonMatchingQuery_ShouldReturnEmptyResultsAsync()
     {
         // Arrange

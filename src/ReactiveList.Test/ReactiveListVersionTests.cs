@@ -6,7 +6,7 @@ using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -18,7 +18,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that Version increments when adding an item.
     /// </summary>
-    [Fact]
+    [Test]
     public void Version_IncrementsOnAdd()
     {
         // Arrange
@@ -35,7 +35,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that Version increments when adding a range.
     /// </summary>
-    [Fact]
+    [Test]
     public void Version_IncrementsOnAddRange()
     {
         // Arrange
@@ -52,7 +52,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that Version increments when removing an item.
     /// </summary>
-    [Fact]
+    [Test]
     public void Version_IncrementsOnRemove()
     {
         // Arrange
@@ -69,7 +69,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that Version increments when clearing.
     /// </summary>
-    [Fact]
+    [Test]
     public void Version_IncrementsOnClear()
     {
         // Arrange
@@ -86,7 +86,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that Version increments when updating.
     /// </summary>
-    [Fact]
+    [Test]
     public void Version_IncrementsOnUpdate()
     {
         // Arrange
@@ -103,7 +103,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that Version increments when moving.
     /// </summary>
-    [Fact]
+    [Test]
     public void Version_IncrementsOnMove()
     {
         // Arrange
@@ -117,11 +117,11 @@ public class ReactiveListVersionTests
         list.Version.Should().Be(initialVersion + 1);
     }
 
-#if NET6_0_OR_GREATER
+#if NET6_0_OR_GREATER || NETFRAMEWORK
     /// <summary>
     /// Tests that ClearWithoutDeallocation clears items but preserves capacity.
     /// </summary>
-    [Fact]
+    [Test]
     public void ClearWithoutDeallocation_ClearsItemsPreservesCapacity()
     {
         // Arrange
@@ -140,7 +140,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that ClearWithoutDeallocation emits change notification.
     /// </summary>
-    [Fact]
+    [Test]
     public void ClearWithoutDeallocation_EmitsChangeNotification()
     {
         // Arrange
@@ -161,7 +161,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that ClearWithoutDeallocation with notifyChange=false does not emit.
     /// </summary>
-    [Fact]
+    [Test]
     public void ClearWithoutDeallocation_WithNotifyFalse_DoesNotEmit()
     {
         // Arrange
@@ -184,7 +184,7 @@ public class ReactiveListVersionTests
     /// <summary>
     /// Tests that ClearWithoutDeallocation increments version.
     /// </summary>
-    [Fact]
+    [Test]
     public void ClearWithoutDeallocation_IncrementsVersion()
     {
         // Arrange

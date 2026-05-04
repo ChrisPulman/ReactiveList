@@ -1,6 +1,6 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
+// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Buffers;
 using System.Runtime.CompilerServices;
@@ -43,7 +43,7 @@ internal sealed class PooledBuffer<T>(T[] buffer, int length) : IDisposable
     {
         if (buffer != null)
         {
-            ArrayPool<T>.Shared.Return(buffer, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+            ArrayPool<T>.Shared.Return(buffer, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             buffer = null!;
         }
     }

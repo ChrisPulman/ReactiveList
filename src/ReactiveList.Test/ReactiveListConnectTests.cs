@@ -8,7 +8,7 @@ using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -20,7 +20,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// Connect returns observable stream.
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_ReturnsObservableStream()
     {
         // Arrange
@@ -36,7 +36,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// Connect emits add changes when items are added.
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_EmitsAddChanges_WhenItemsAdded()
     {
         // Arrange
@@ -58,7 +58,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// Connect emits batch add changes when AddRange is called.
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_EmitsBatchAddChanges_WhenAddRangeCalled()
     {
         // Arrange
@@ -78,7 +78,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// Connect emits remove changes when items are removed.
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_EmitsRemoveChanges_WhenItemsRemoved()
     {
         // Arrange
@@ -101,7 +101,7 @@ public class ReactiveListConnectTests
     /// Connect emits clear changes when collection is cleared.
     /// Clear emits individual Remove changes for each cleared item (consistent with DynamicData behavior).
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_EmitsClearChanges_WhenCleared()
     {
         // Arrange
@@ -124,7 +124,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// Connect emits move changes when item is moved.
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_EmitsMoveChanges_WhenItemMoved()
     {
         // Arrange
@@ -148,7 +148,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// Connect emits update changes when item is updated.
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_EmitsUpdateChanges_WhenItemUpdated()
     {
         // Arrange
@@ -170,7 +170,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// ChangeSet correctly counts different change types.
     /// </summary>
-    [Fact]
+    [Test]
     public void ChangeSet_CorrectlyCounts_DifferentChangeTypes()
     {
         // Arrange
@@ -197,7 +197,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// ChangeSet can be enumerated.
     /// </summary>
-    [Fact]
+    [Test]
     public void ChangeSet_CanBeEnumerated()
     {
         // Arrange
@@ -222,7 +222,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// ChangeSet indexer returns correct change.
     /// </summary>
-    [Fact]
+    [Test]
     public void ChangeSet_Indexer_ReturnsCorrectChange()
     {
         // Arrange
@@ -243,7 +243,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// ChangeSet indexer throws on out of range.
     /// </summary>
-    [Fact]
+    [Test]
     public void ChangeSet_Indexer_ThrowsOnOutOfRange()
     {
         // Arrange
@@ -257,7 +257,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// Change factory methods create correct change types.
     /// </summary>
-    [Fact]
+    [Test]
     public void Change_FactoryMethods_CreateCorrectChangeTypes()
     {
         // Act
@@ -291,11 +291,11 @@ public class ReactiveListConnectTests
         refresh.CurrentIndex.Should().Be(2);
     }
 
-#if NET6_0_OR_GREATER
+#if NET6_0_OR_GREATER || NETFRAMEWORK
     /// <summary>
     /// ToArray returns snapshot of current items.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToArray_ReturnsSnapshot()
     {
         // Arrange
@@ -311,7 +311,7 @@ public class ReactiveListConnectTests
     /// <summary>
     /// ToArray returns empty array for empty list.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToArray_ReturnsEmptyArray_ForEmptyList()
     {
         // Arrange

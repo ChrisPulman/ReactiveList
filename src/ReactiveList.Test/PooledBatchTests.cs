@@ -5,7 +5,7 @@ using System;
 using System.Buffers;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -17,7 +17,7 @@ public class PooledBatchTests
     /// <summary>
     /// Constructor should initialize Items and Count.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_ShouldInitializeProperties()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -34,7 +34,7 @@ public class PooledBatchTests
     /// <summary>
     /// Items should be accessible before dispose.
     /// </summary>
-    [Fact]
+    [Test]
     public void Items_BeforeDispose_ShouldBeAccessible()
     {
         var array = ArrayPool<string>.Shared.Rent(5);
@@ -50,7 +50,7 @@ public class PooledBatchTests
     /// <summary>
     /// Count should reflect actual item count.
     /// </summary>
-    [Fact]
+    [Test]
     public void Count_ShouldReflectActualItemCount()
     {
         var array = ArrayPool<double>.Shared.Rent(100);
@@ -63,7 +63,7 @@ public class PooledBatchTests
     /// <summary>
     /// Dispose should return array to pool.
     /// </summary>
-    [Fact]
+    [Test]
     public void Dispose_ShouldReturnArrayToPool()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -77,7 +77,7 @@ public class PooledBatchTests
     /// <summary>
     /// Multiple dispose calls should be safe.
     /// </summary>
-    [Fact]
+    [Test]
     public void Dispose_MultipleCalls_ShouldBeSafe()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -92,7 +92,7 @@ public class PooledBatchTests
     /// <summary>
     /// Record equality should work correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void RecordEquality_ShouldWorkCorrectly()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -109,7 +109,7 @@ public class PooledBatchTests
     /// <summary>
     /// Record inequality should work for different counts.
     /// </summary>
-    [Fact]
+    [Test]
     public void RecordInequality_DifferentCounts_ShouldNotBeEqual()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -126,7 +126,7 @@ public class PooledBatchTests
     /// <summary>
     /// PooledBatch should work with reference types.
     /// </summary>
-    [Fact]
+    [Test]
     public void PooledBatch_WithReferenceTypes_ShouldWork()
     {
         var array = ArrayPool<string>.Shared.Rent(5);
@@ -143,7 +143,7 @@ public class PooledBatchTests
     /// <summary>
     /// PooledBatch with zero count should be valid.
     /// </summary>
-    [Fact]
+    [Test]
     public void PooledBatch_WithZeroCount_ShouldBeValid()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -157,7 +157,7 @@ public class PooledBatchTests
     /// <summary>
     /// PooledBatch should support with expression.
     /// </summary>
-    [Fact]
+    [Test]
     public void PooledBatch_WithExpression_ShouldWork()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -175,7 +175,7 @@ public class PooledBatchTests
     /// <summary>
     /// GetHashCode should be consistent.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetHashCode_ShouldBeConsistent()
     {
         var array = ArrayPool<int>.Shared.Rent(10);
@@ -192,7 +192,7 @@ public class PooledBatchTests
     /// <summary>
     /// ToString should return meaningful representation.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToString_ShouldReturnMeaningfulRepresentation()
     {
         var array = ArrayPool<int>.Shared.Rent(10);

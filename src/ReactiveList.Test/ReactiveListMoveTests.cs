@@ -4,7 +4,7 @@
 using System;
 using CP.Reactive.Collections;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -16,7 +16,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should reorder item forward in list.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldReorderItemForwardInList()
     {
         ReactiveList<string> fixture = ["one", "two", "three", "four"];
@@ -33,7 +33,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should reorder item backward in list.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldReorderItemBackwardInList()
     {
         ReactiveList<string> fixture = ["one", "two", "three", "four"];
@@ -50,7 +50,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should handle moving to first position.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldHandleMovingToFirstPosition()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -66,7 +66,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should handle moving to last position.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldHandleMovingToLastPosition()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -82,7 +82,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should do nothing when same index.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldDoNothingWhenSameIndex()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -98,7 +98,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should throw when old index is negative.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldThrowWhenOldIndexIsNegative()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -112,7 +112,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should throw when old index exceeds count.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldThrowWhenOldIndexExceedsCount()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -126,7 +126,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should throw when new index is negative.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldThrowWhenNewIndexIsNegative()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -140,7 +140,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should throw when new index exceeds count.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldThrowWhenNewIndexExceedsCount()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -154,7 +154,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should raise property changed for item array.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldRaisePropertyChangedForItemArray()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -169,7 +169,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should work with complex types.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldWorkWithComplexTypes()
     {
         ReactiveList<TestData> fixture =
@@ -190,7 +190,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should handle adjacent positions forward.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldHandleAdjacentPositionsForward()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -206,7 +206,7 @@ public class ReactiveListMoveTests
     /// <summary>
     /// Move should handle adjacent positions backward.
     /// </summary>
-    [Fact]
+    [Test]
     public void Move_ShouldHandleAdjacentPositionsBackward()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];

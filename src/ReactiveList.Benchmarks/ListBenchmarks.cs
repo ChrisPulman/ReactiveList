@@ -127,7 +127,7 @@ public class ListBenchmarks
     {
         using var list = new SourceList<int>();
         var total = 0;
-        using var sub = list.Connect().Subscribe(_ => total++);
+        using var sub = list.Connect().Subscribe(changes => total += changes.TotalChanges);
         list.AddRange(_data);
         return total;
     }
@@ -169,8 +169,27 @@ public class ListBenchmarks
     {
         using var list = new SourceList<int>();
         var total = 0;
-        using var sub = list.Connect().Subscribe(changes => total += changes.Count);
+        using var sub = list.Connect().Subscribe(changes => total += changes.TotalChanges);
         list.AddRange(_data);
+        return total;
+    }
+
+    [Benchmark]
+    public int ReactiveList_Connect_Preloaded()
+    {
+        using var list = new ReactiveList<int>(_data);
+        var total = 0;
+        using var sub = list.Connect().Subscribe(changes => total += changes.Count);
+        return total;
+    }
+
+    [Benchmark]
+    public int SourceList_Connect_Preloaded()
+    {
+        using var list = new SourceList<int>();
+        list.AddRange(_data);
+        var total = 0;
+        using var sub = list.Connect().Subscribe(changes => total += changes.TotalChanges);
         return total;
     }
 
@@ -218,7 +237,8 @@ public class ListBenchmarks
     public int ReactiveList_RemoveMany()
     {
         using var list = new ReactiveList<int>(_data);
-        return list.RemoveMany(x => x % 2 == 0);
+        list.RemoveMany(x => x % 2 == 0);
+        return list.Count;
     }
 
     [Benchmark]

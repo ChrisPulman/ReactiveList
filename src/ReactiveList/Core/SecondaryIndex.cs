@@ -33,6 +33,13 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         var key = selector(item);
         var s = GetShardIndex(key);
 
+#if NETFRAMEWORK
+        var set = _shards[s].GetOrAdd(key, _ => []);
+        lock (set)
+        {
+            set.Add(item);
+        }
+#else
         _shards[s].AddOrUpdate(
             key,
             addValueFactory: static (_, newItem) => [newItem],
@@ -46,6 +53,7 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
                 return set;
             },
             factoryArgument: item);
+#endif
     }
 
     /// <summary>
