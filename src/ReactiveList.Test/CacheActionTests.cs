@@ -1,11 +1,12 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET6_0_OR_GREATER
+#if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
+using System.Linq;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -17,7 +18,7 @@ public class CacheActionTests
     /// <summary>
     /// CacheAction should have correct values.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheAction_ShouldHaveCorrectValues()
     {
         ((int)CacheAction.Added).Should().Be(0);
@@ -34,10 +35,10 @@ public class CacheActionTests
     /// <summary>
     /// All CacheAction values should be defined.
     /// </summary>
-    [Fact]
+    [Test]
     public void CacheAction_AllValuesShouldBeDefined()
     {
-        var values = Enum.GetValues<CacheAction>();
+        var values = Enum.GetValues(typeof(CacheAction)).Cast<CacheAction>().ToArray();
 
         values.Should().HaveCount(9);
         values.Should().Contain(CacheAction.Added);

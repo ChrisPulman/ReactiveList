@@ -1,13 +1,13 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET6_0_OR_GREATER
+#if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -19,7 +19,7 @@ public class EditableListWrapperPoolTests
     /// <summary>
     /// Tests that Rent returns a new wrapper when pool is empty.
     /// </summary>
-    [Fact]
+    [Test]
     public void Rent_ReturnsNewWrapperWhenPoolEmpty()
     {
         // Arrange
@@ -37,7 +37,7 @@ public class EditableListWrapperPoolTests
     /// <summary>
     /// Tests that Return adds wrapper to pool.
     /// </summary>
-    [Fact]
+    [Test]
     public void Return_AddsWrapperToPool()
     {
         // Arrange
@@ -55,7 +55,7 @@ public class EditableListWrapperPoolTests
     /// <summary>
     /// Tests that Rent reuses wrapper from pool.
     /// </summary>
-    [Fact]
+    [Test]
     public void Rent_ReusesWrapperFromPool()
     {
         // Arrange
@@ -80,7 +80,7 @@ public class EditableListWrapperPoolTests
     /// <summary>
     /// Tests that wrapper operations work correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void PooledWrapper_OperationsWork()
     {
         // Arrange
@@ -110,7 +110,7 @@ public class EditableListWrapperPoolTests
     /// <summary>
     /// Tests that wrapper syncs with observable collection.
     /// </summary>
-    [Fact]
+    [Test]
     public void PooledWrapper_SyncsWithObservableCollection()
     {
         // Arrange
@@ -130,7 +130,7 @@ public class EditableListWrapperPoolTests
     /// <summary>
     /// Tests that disposed wrapper throws when used.
     /// </summary>
-    [Fact]
+    [Test]
     public void PooledWrapper_ThrowsAfterDispose()
     {
         // Arrange
@@ -146,7 +146,7 @@ public class EditableListWrapperPoolTests
     /// <summary>
     /// Tests that MaxPoolSize limits pool growth.
     /// </summary>
-    [Fact]
+    [Test]
     public void MaxPoolSize_LimitsPoolGrowth()
     {
         // Arrange
@@ -181,7 +181,7 @@ public class EditableListWrapperPoolTests
     /// <summary>
     /// Tests that IResettable.Reset clears wrapper state.
     /// </summary>
-    [Fact]
+    [Test]
     public void IResettable_Reset_ClearsState()
     {
         // Arrange

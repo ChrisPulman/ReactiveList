@@ -1,14 +1,14 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET6_0_OR_GREATER
+#if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -20,7 +20,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// OnAdded should add item to index.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnAdded_ShouldAddItemToIndex()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -34,7 +34,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// OnAdded should add multiple items with same key.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnAdded_WithSameKey_ShouldAddMultipleItems()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -53,7 +53,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// OnAdded should handle items with different keys.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnAdded_WithDifferentKeys_ShouldIndexSeparately()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -70,7 +70,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// OnRemoved should remove item from index.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnRemoved_ShouldRemoveItemFromIndex()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -85,7 +85,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// OnRemoved should only remove specified item.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnRemoved_ShouldOnlyRemoveSpecifiedItem()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -103,7 +103,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// OnRemoved should handle non-existing item gracefully.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnRemoved_WithNonExistingItem_ShouldNotThrow()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -117,7 +117,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// OnUpdated should update index with new key.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnUpdated_ShouldUpdateIndex()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -134,7 +134,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// Lookup should return empty for non-existing key.
     /// </summary>
-    [Fact]
+    [Test]
     public void Lookup_WithNonExistingKey_ShouldReturnEmpty()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -147,7 +147,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// Clear should remove all items.
     /// </summary>
-    [Fact]
+    [Test]
     public void Clear_ShouldRemoveAllItems()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -165,7 +165,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// Index should handle integer keys.
     /// </summary>
-    [Fact]
+    [Test]
     public void Index_WithIntegerKey_ShouldWork()
     {
         var index = new SecondaryIndex<Person, int>(p => p.Id);
@@ -179,7 +179,7 @@ public class SecondaryIndexTests
     /// <summary>
     /// Index should distribute items across shards.
     /// </summary>
-    [Fact]
+    [Test]
     public void Index_ShouldDistributeAcrossShards()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -201,7 +201,7 @@ public class SecondaryIndexTests
     /// Index should be thread-safe for concurrent adds.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task Index_ShouldBeThreadSafeForConcurrentAdds()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);
@@ -222,7 +222,7 @@ public class SecondaryIndexTests
     /// Index should be thread-safe for concurrent removes.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task Index_ShouldBeThreadSafeForConcurrentRemoves()
     {
         var index = new SecondaryIndex<Person, string>(p => p.Department);

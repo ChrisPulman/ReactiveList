@@ -1,7 +1,7 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET6_0_OR_GREATER
+#if NET6_0_OR_GREATER || NETFRAMEWORK
 
 using System;
 using System.Collections.Concurrent;
@@ -12,7 +12,7 @@ using System.Threading;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -31,7 +31,7 @@ public class QuaternaryDictionaryTests
     /// </summary>
     /// <remarks>This test ensures that adding a key-value pair stores the value, updating the value via the
     /// indexer replaces the existing value, and the dictionary maintains the correct count and key presence.</remarks>
-    [Fact]
+    [Test]
     public void AddAndIndexer_ShouldStoreAndUpdateValues()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -53,7 +53,7 @@ public class QuaternaryDictionaryTests
     /// </summary>
     /// <remarks>This test ensures that when an attempt is made to add a key that already exists in the
     /// dictionary, TryAdd returns <see langword="false"/> and does not overwrite the existing value.</remarks>
-    [Fact]
+    [Test]
     public void TryAdd_ShouldPreventDuplicateKeys()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -71,7 +71,7 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that the observable stream associated with the dictionary emits a
     /// CacheAction.Added event when a new entry is added and a CacheAction.Updated event when an existing entry is
     /// updated. It also verifies that the final value for the key reflects the most recent update.</remarks>
-    [Fact]
+    [Test]
     public void AddOrUpdate_ShouldEmitCorrectActions()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -101,7 +101,7 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that the Remove method returns <see langword="true"/> when an existing key
     /// is removed and <see langword="false"/> when attempting to remove a key that is not present in the
     /// dictionary.</remarks>
-    [Fact]
+    [Test]
     public void Remove_ShouldRemoveExistingAndReturnFalseForMissing()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -119,7 +119,7 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that the AddRange method triggers a batch added event on the Stream,
     /// and that the dictionary's Keys and Values properties reflect the newly added items. It also checks that the
     /// batch notification contains all added items and that the dictionary's count is updated accordingly.</remarks>
-    [Fact]
+    [Test]
     public void AddRange_ShouldEmitBatchAndExposeKeysAndValues()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -159,7 +159,7 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that the CopyTo method correctly transfers all key-value pairs to the
     /// target array without omitting or duplicating entries. It also checks that the entries are placed at the correct
     /// position in the array.</remarks>
-    [Fact]
+    [Test]
     public void CopyTo_ShouldCopyAllEntries()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -170,7 +170,7 @@ public class QuaternaryDictionaryTests
 
         dict.CopyTo(array, 1);
 
-        array[1..].Should().BeEquivalentTo(dict.ToArray());
+        array.Skip(1).Should().BeEquivalentTo(dict.ToArray());
     }
 
     /// <summary>
@@ -179,7 +179,7 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that when items are added to or removed from the dictionary, the associated
     /// value index reflects these changes as expected. It also verifies that clearing the dictionary updates the value
     /// index accordingly.</remarks>
-    [Fact]
+    [Test]
     public void ValueIndex_ShouldTrackAddsAndRemovals()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -205,7 +205,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that the Lookup method returns the correct result for existing and non-existing keys.
     /// </summary>
-    [Fact]
+    [Test]
     public void Lookup_ShouldReturnCorrectResult()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -224,7 +224,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that RemoveKeys removes multiple keys in a batch operation.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveKeys_ShouldRemoveMultipleKeysAndEmitBatch()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -260,7 +260,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that RemoveMany with a predicate removes matching entries.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveMany_WithPredicate_ShouldRemoveMatchingEntries()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -282,7 +282,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that the Edit method allows batch modifications with a single notification.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldPerformBatchModificationsWithSingleNotification()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -320,7 +320,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that Edit updates value indices correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldUpdateValueIndicesCorrectly()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -346,7 +346,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that GetValuesBySecondaryIndex returns matching values.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetValuesBySecondaryIndex_ShouldReturnMatchingValues()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -371,7 +371,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that GetValuesBySecondaryIndex returns empty for non-existent index.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetValuesBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -384,7 +384,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that ValueMatchesSecondaryIndex returns correct results.
     /// </summary>
-    [Fact]
+    [Test]
     public void ValueMatchesSecondaryIndex_ShouldReturnCorrectResult()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -399,7 +399,7 @@ public class QuaternaryDictionaryTests
     /// <summary>
     /// Verifies that GetValuesBySecondaryIndex updates after additions and removals.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetValuesBySecondaryIndex_ShouldUpdateAfterAdditionsAndRemovals()
     {
         using var dict = new QuaternaryDictionary<int, string>();

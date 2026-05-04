@@ -11,7 +11,7 @@ using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Tests;
 
@@ -23,7 +23,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that WhereChanges filters changes by predicate.
     /// </summary>
-    [Fact]
+    [Test]
     public void WhereChanges_FiltersChangesByPredicate()
     {
         // Arrange
@@ -53,7 +53,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that WhereReason filters by specific change reason.
     /// </summary>
-    [Fact]
+    [Test]
     public void WhereReason_FiltersAddOnly()
     {
         // Arrange
@@ -76,7 +76,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that OnAdd returns only added items.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnAdd_ReturnsAddedItems()
     {
         // Arrange
@@ -99,7 +99,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that OnRemove returns only removed items.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnRemove_ReturnsRemovedItems()
     {
         // Arrange
@@ -122,7 +122,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that SelectChanges transforms items correctly using change selector.
     /// </summary>
-    [Fact]
+    [Test]
     public void SelectChanges_TransformsItems()
     {
         // Arrange
@@ -143,12 +143,12 @@ public class ReactiveListExtensionsTests
         transformedItems.Should().BeEquivalentTo(new[] { "Item_1", "Item_2", "Item_3" });
     }
 
-#if NET6_0_OR_GREATER
+#if NET6_0_OR_GREATER || NETFRAMEWORK
     /// <summary>
     /// Tests that CreateView creates a filtered view.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateView_CreatesFilteredView()
     {
         // Arrange
@@ -170,7 +170,7 @@ public class ReactiveListExtensionsTests
     /// Tests that CreateView updates when source changes.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateView_UpdatesOnSourceChange()
     {
         // Arrange
@@ -192,7 +192,7 @@ public class ReactiveListExtensionsTests
     /// Tests that DynamicFilteredView updates when filter changes.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task DynamicCreateView_UpdatesOnFilterChange()
     {
         // Arrange
@@ -218,7 +218,7 @@ public class ReactiveListExtensionsTests
     /// Tests that SortBy creates a sorted view.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task SortBy_CreatesSortedView()
     {
         // Arrange
@@ -237,7 +237,7 @@ public class ReactiveListExtensionsTests
     /// Tests that SortBy with key selector creates a sorted view.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task SortBy_WithKeySelector_CreatesSortedView()
     {
         // Arrange
@@ -257,7 +257,7 @@ public class ReactiveListExtensionsTests
     /// Tests that GroupBy creates a grouped view.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task GroupBy_CreatesGroupedView()
     {
         // Arrange
@@ -280,7 +280,7 @@ public class ReactiveListExtensionsTests
     /// Tests that GroupBy updates when items are added.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task GroupBy_UpdatesOnAdd()
     {
         // Arrange
@@ -301,7 +301,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that AddRange with ReadOnlySpan works correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void AddRange_WithSpan_AddsItems()
     {
         // Arrange
@@ -319,7 +319,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that CopyTo with Span works correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void CopyTo_WithSpan_CopiesItems()
     {
         // Arrange
@@ -337,7 +337,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that AsSpan returns correct data.
     /// </summary>
-    [Fact]
+    [Test]
     public void AsSpan_ReturnsItems()
     {
         // Arrange
@@ -357,7 +357,7 @@ public class ReactiveListExtensionsTests
     /// <summary>
     /// Tests that AsMemory returns correct data.
     /// </summary>
-    [Fact]
+    [Test]
     public void AsMemory_ReturnsItems()
     {
         // Arrange

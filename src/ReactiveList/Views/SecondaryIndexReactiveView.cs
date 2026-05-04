@@ -1,7 +1,7 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -120,7 +120,7 @@ where TIndexKey : notnull
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
     public SecondaryIndexReactiveView<TKey, TValue, TIndexKey> ToProperty(Action<ReadOnlyObservableCollection<TValue>> propertySetter)
     {
-        ArgumentNullException.ThrowIfNull(propertySetter);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
         propertySetter(Items);
         return this;
     }
@@ -168,18 +168,7 @@ where TIndexKey : notnull
                 case CacheAction.Updated:
                     if (notification.Item.Value != null)
                     {
-                        // Check if the updated item's index key changed
-                        var wasInView = _filteredItems.Contains(notification.Item.Value);
-                        var shouldBeInView = _source.ValueMatchesSecondaryIndex(_indexName, notification.Item.Value, _indexKey);
-
-                        if (wasInView && !shouldBeInView)
-                        {
-                            _filteredItems.Remove(notification.Item.Value);
-                        }
-                        else if (!wasInView && shouldBeInView)
-                        {
-                            _filteredItems.Add(notification.Item.Value);
-                        }
+                        RebuildView();
                     }
 
                     break;

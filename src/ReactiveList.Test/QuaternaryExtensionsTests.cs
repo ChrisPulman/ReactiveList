@@ -1,12 +1,12 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Reactive.Concurrency;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -18,7 +18,7 @@ public class QuaternaryExtensionsTests
     /// <summary>
     /// Verifies that CreateView returns a view with all items when no filter is applied.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateView_WithoutFilter_ShouldContainAllItems()
     {
         using var list = new QuaternaryList<int>();
@@ -32,7 +32,7 @@ public class QuaternaryExtensionsTests
     /// <summary>
     /// Verifies that CreateView with filter returns only matching items.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateView_WithFilter_ShouldContainOnlyMatchingItems()
     {
         using var list = new QuaternaryList<int>();
@@ -48,7 +48,7 @@ public class QuaternaryExtensionsTests
     /// <summary>
     /// Verifies that CreateViewBySecondaryIndex filters items by the secondary index key.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateViewBySecondaryIndex_ShouldFilterByKey()
     {
         using var list = new QuaternaryList<TestPerson>();
@@ -68,7 +68,7 @@ public class QuaternaryExtensionsTests
     /// <summary>
     /// Verifies that CreateViewBySecondaryIndex with multiple keys includes items matching any key.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
     {
         using var list = new QuaternaryList<TestPerson>();
@@ -88,7 +88,7 @@ public class QuaternaryExtensionsTests
     /// <summary>
     /// Verifies that ToProperty sets the property correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToProperty_ShouldSetProperty()
     {
         using var list = new QuaternaryList<int>();
@@ -106,7 +106,7 @@ public class QuaternaryExtensionsTests
     /// Verifies that ReactiveView updates when items are added to the source list.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task ReactiveView_ShouldUpdateOnAdd()
     {
         using var list = new QuaternaryList<int>();
@@ -125,7 +125,7 @@ public class QuaternaryExtensionsTests
     /// Verifies that ReactiveView updates when items are removed from the source list.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task ReactiveView_ShouldUpdateOnRemove()
     {
         using var list = new QuaternaryList<int>();
@@ -149,7 +149,7 @@ public class QuaternaryExtensionsTests
     /// Verifies that ReactiveView updates when RemoveRange is called.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task ReactiveView_ShouldUpdateOnRemoveRange()
     {
         using var list = new QuaternaryList<int>();
@@ -174,7 +174,7 @@ public class QuaternaryExtensionsTests
     /// Verifies that CreateViewBySecondaryIndex updates when new matching items are added.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task CreateViewBySecondaryIndex_ShouldUpdateOnAdd()
     {
         using var list = new QuaternaryList<TestPerson>();
@@ -197,7 +197,7 @@ public class QuaternaryExtensionsTests
     /// Verifies that CreateViewBySecondaryIndex doesn't include non-matching items when added.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task CreateViewBySecondaryIndex_ShouldNotIncludeNonMatchingItems()
     {
         using var list = new QuaternaryList<TestPerson>();

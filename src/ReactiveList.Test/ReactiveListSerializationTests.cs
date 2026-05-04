@@ -10,7 +10,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using CP.Reactive;
 using CP.Reactive.Collections;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -23,7 +23,7 @@ public class ReactiveListSerializationTests
     /// <summary>
     /// ReactiveList should be serializable.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReactiveList_ShouldBeSerializable()
     {
         var list = new ReactiveList<string>();
@@ -46,7 +46,7 @@ public class ReactiveListSerializationTests
     /// <summary>
     /// Deserialized ReactiveList should work normally.
     /// </summary>
-    [Fact]
+    [Test]
     public void DeserializedReactiveList_ShouldWorkNormally()
     {
         var list = new ReactiveList<int>();
@@ -76,7 +76,7 @@ public class ReactiveListSerializationTests
     /// <summary>
     /// Deserialized ReactiveList should support remove operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void DeserializedReactiveList_ShouldSupportRemoveOperations()
     {
         var list = new ReactiveList<string>();
@@ -96,7 +96,7 @@ public class ReactiveListSerializationTests
     /// <summary>
     /// Deserialized ReactiveList should support clear operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void DeserializedReactiveList_ShouldSupportClearOperations()
     {
         var list = new ReactiveList<int>();
@@ -116,7 +116,7 @@ public class ReactiveListSerializationTests
     /// <summary>
     /// Empty ReactiveList should be serializable.
     /// </summary>
-    [Fact]
+    [Test]
     public void EmptyReactiveList_ShouldBeSerializable()
     {
         var list = new ReactiveList<string>();
@@ -134,7 +134,7 @@ public class ReactiveListSerializationTests
     /// <summary>
     /// ReactiveList with complex types should be serializable.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReactiveListWithComplexTypes_ShouldBeSerializable()
     {
         var list = new ReactiveList<TestData>();

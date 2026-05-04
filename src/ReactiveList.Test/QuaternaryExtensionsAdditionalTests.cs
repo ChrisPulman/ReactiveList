@@ -1,7 +1,7 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -25,7 +25,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// Tests that CreateViewBySecondaryIndex with observable keys rebuilds when keys change.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateViewBySecondaryIndex_WithObservableKeys_RebuildsWhenKeysChange()
     {
         // Arrange
@@ -93,7 +93,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// Tests that CreateViewBySecondaryIndex with observable keys handles empty key array.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateViewBySecondaryIndex_WithObservableKeys_HandlesEmptyKeyArray()
     {
         // Arrange
@@ -124,7 +124,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// <summary>
     /// Tests that CreateViewBySecondaryIndex throws for null list.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateViewBySecondaryIndex_ThrowsForNullList()
     {
         // Arrange
@@ -138,7 +138,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// <summary>
     /// Tests that CreateViewBySecondaryIndex throws for null index name.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateViewBySecondaryIndex_ThrowsForNullIndexName()
     {
         // Arrange
@@ -154,7 +154,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// Tests that views handle rapid key changes gracefully.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateViewBySecondaryIndex_HandlesRapidKeyChanges()
     {
         // Arrange
@@ -187,7 +187,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// Tests a real-world scenario of filtering employees by multiple criteria.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task RealWorldScenario_EmployeeFilteringByDepartment()
     {
         // Arrange - Company employee directory
@@ -241,7 +241,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// Tests dictionary CreateViewBySecondaryIndex with single key.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task Dictionary_CreateViewBySecondaryIndex_FiltersByValueIndexKey()
     {
         // Arrange
@@ -266,7 +266,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// Tests dictionary CreateViewBySecondaryIndex with multiple keys via extension method.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task Dictionary_CreateViewBySecondaryIndex_HandlesMultipleIndexKeys()
     {
         // Arrange
@@ -290,7 +290,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// Tests dictionary CreateViewBySecondaryIndex with observable keys.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task Dictionary_CreateViewBySecondaryIndex_WithObservableKeys_RebuildsWhenKeysChange()
     {
         // Arrange
@@ -320,7 +320,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// <summary>
     /// Tests that DynamicSecondaryIndexReactiveView initializes correctly with direct construction.
     /// </summary>
-    [Fact]
+    [Test]
     public void DynamicSecondaryIndexReactiveView_DirectConstruction_InitializesCorrectly()
     {
         // Arrange
@@ -354,7 +354,7 @@ public class QuaternaryExtensionsAdditionalTests
     /// <summary>
     /// Tests that CreateDynamicViewBySecondaryIndex extension method works same as direct construction.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateDynamicViewBySecondaryIndex_ExtensionMethod_WorksCorrectly()
     {
         // Arrange

@@ -13,7 +13,7 @@ using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Tests;
 
@@ -26,7 +26,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that OnUpdate returns previous and current values when items are updated.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnUpdate_ReturnsPreviousAndCurrentValues()
     {
         // Arrange
@@ -50,7 +50,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that OnUpdate does not emit for add operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnUpdate_DoesNotEmitForAddOperations()
     {
         // Arrange
@@ -73,7 +73,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that OnUpdate handles multiple sequential updates with previous values.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnUpdate_HandlesMultipleSequentialUpdates()
     {
         // Arrange
@@ -103,7 +103,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that OnMove returns item and indices when items are moved.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnMove_ReturnsItemAndIndices()
     {
         // Arrange
@@ -128,7 +128,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that OnMove does not emit for add or remove operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnMove_DoesNotEmitForAddRemove()
     {
         // Arrange
@@ -151,7 +151,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that OnMove handles multiple move operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnMove_HandlesMultipleMoves()
     {
         // Arrange
@@ -174,7 +174,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that FilterDynamic filters items based on dynamic predicate.
     /// </summary>
-    [Fact]
+    [Test]
     public void FilterDynamic_FiltersBasedOnDynamicPredicate()
     {
         // Arrange
@@ -213,7 +213,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that FilterDynamic always passes removed items.
     /// </summary>
-    [Fact]
+    [Test]
     public void FilterDynamic_AlwaysPassesRemovedItems()
     {
         // Arrange
@@ -243,7 +243,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that FilterDynamic passes Cleared notifications.
     /// </summary>
-    [Fact]
+    [Test]
     public void FilterDynamic_PassesClearedNotifications()
     {
         // Arrange
@@ -273,7 +273,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// Tests that CreateView without filter contains all items.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateView_WithoutFilter_ContainsAllItems()
     {
         // Arrange
@@ -293,7 +293,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// Tests that CreateView without filter updates when source changes.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateView_WithoutFilter_UpdatesOnSourceChange()
     {
         // Arrange
@@ -311,13 +311,13 @@ public class ReactiveListExtensionsAdditionalTests
         view.Should().BeEquivalentTo(new[] { 1, 2, 3, 4 });
     }
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 
     /// <summary>
     /// Tests that CreateView with query observable filters based on query.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateView_WithQueryObservable_FiltersBasedOnQuery()
     {
         // Arrange
@@ -355,7 +355,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// Tests that CreateView with query observable updates when source changes.
     /// </summary>
     /// <returns>A task representing the async test.</returns>
-    [Fact]
+    [Test]
     public async Task CreateView_WithQueryObservable_UpdatesWhenSourceChanges()
     {
         // Arrange
@@ -392,7 +392,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that GroupByChanges groups items by key selector.
     /// </summary>
-    [Fact]
+    [Test]
     public void GroupByChanges_GroupsItemsByKeySelector()
     {
         // Arrange
@@ -427,7 +427,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that GroupByChanges handles string keys.
     /// </summary>
-    [Fact]
+    [Test]
     public void GroupByChanges_HandlesStringKeys()
     {
         // Arrange
@@ -461,7 +461,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that GroupingByChanges creates proper groupings.
     /// </summary>
-    [Fact]
+    [Test]
     public void GroupingByChanges_CreatesProperGroupings()
     {
         // Arrange
@@ -482,7 +482,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that GroupingByChanges handles batch operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void GroupingByChanges_HandlesBatchAdd()
     {
         // Arrange
@@ -507,7 +507,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that AutoRefresh emits refresh when property changes.
     /// </summary>
-    [Fact]
+    [Test]
     public void AutoRefresh_EmitsRefreshWhenPropertyChanges()
     {
         // Arrange
@@ -532,7 +532,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that AutoRefresh does not emit for unrelated property changes.
     /// </summary>
-    [Fact]
+    [Test]
     public void AutoRefresh_DoesNotEmitForUnrelatedPropertyChanges()
     {
         // Arrange
@@ -557,7 +557,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that AutoRefresh without property name watches all property changes.
     /// </summary>
-    [Fact]
+    [Test]
     public void AutoRefresh_WithoutPropertyName_WatchesAllProperties()
     {
         // Arrange
@@ -583,7 +583,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that Connect returns observable of change sets.
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_ReturnsObservableOfChangeSets()
     {
         // Arrange
@@ -606,7 +606,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that Connect throws for null source.
     /// </summary>
-    [Fact]
+    [Test]
     public void Connect_ThrowsForNullSource()
     {
         // Arrange
@@ -620,7 +620,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that WhereItems filters notifications by predicate.
     /// </summary>
-    [Fact]
+    [Test]
     public void WhereItems_FiltersNotificationsByPredicate()
     {
         // Arrange
@@ -650,7 +650,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that WhereItems passes Cleared notifications.
     /// </summary>
-    [Fact]
+    [Test]
     public void WhereItems_PassesClearedNotifications()
     {
         // Arrange
@@ -678,7 +678,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that WhereItems passes BatchOperation notifications.
     /// </summary>
-    [Fact]
+    [Test]
     public void WhereItems_PassesBatchOperations()
     {
         // Arrange
@@ -706,7 +706,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that WhereItems correctly filters value types including zero.
     /// </summary>
-    [Fact]
+    [Test]
     public void WhereItems_HandlesValueTypesIncludingZero()
     {
         // Arrange
@@ -737,7 +737,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that SortBy sorts change sets by key selector.
     /// </summary>
-    [Fact]
+    [Test]
     public void SortBy_SortsChangeSetsByKeySelector()
     {
         // Arrange
@@ -765,7 +765,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that SortBy handles string sorting.
     /// </summary>
-    [Fact]
+    [Test]
     public void SortBy_HandlesStringSorting()
     {
         // Arrange
@@ -793,7 +793,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that SelectChanges transforms to different type maintaining change metadata.
     /// </summary>
-    [Fact]
+    [Test]
     public void SelectChanges_TransformsToDifferentType()
     {
         // Arrange
@@ -817,7 +817,7 @@ public class ReactiveListExtensionsAdditionalTests
     /// <summary>
     /// Tests that SelectChanges preserves change reason.
     /// </summary>
-    [Fact]
+    [Test]
     public void SelectChanges_PreservesChangeReason()
     {
         // Arrange

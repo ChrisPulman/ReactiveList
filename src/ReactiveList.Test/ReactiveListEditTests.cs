@@ -4,7 +4,7 @@
 using System;
 using CP.Reactive.Collections;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -16,7 +16,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow batch add operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowBatchAddOperations()
     {
         ReactiveList<string> fixture = [];
@@ -37,7 +37,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow batch remove operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowBatchRemoveOperations()
     {
         ReactiveList<string> fixture = ["one", "two", "three", "four"];
@@ -56,7 +56,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow mixed operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowMixedOperations()
     {
         ReactiveList<string> fixture = ["one", "two"];
@@ -78,7 +78,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow clear and repopulate.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowClearAndRepopulate()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -98,7 +98,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should throw when action is null.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldThrowWhenActionIsNull()
     {
         ReactiveList<string> fixture = [];
@@ -112,7 +112,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should raise property changed once for count.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldRaisePropertyChanged()
     {
         ReactiveList<string> fixture = [];
@@ -145,7 +145,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow insert at index.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowInsertAtIndex()
     {
         ReactiveList<string> fixture = ["one", "three"];
@@ -161,7 +161,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow remove at index.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowRemoveAtIndex()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -176,7 +176,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow add range.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowAddRange()
     {
         ReactiveList<string> fixture = ["one"];
@@ -193,7 +193,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow replace operation.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowReplaceOperation()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -214,7 +214,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should work with complex types.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldWorkWithComplexTypes()
     {
         ReactiveList<TestData> fixture = [];
@@ -233,7 +233,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should handle empty action gracefully.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldHandleEmptyActionGracefully()
     {
         ReactiveList<string> fixture = ["one", "two"];
@@ -248,7 +248,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow move operation.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowMoveOperation()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -264,7 +264,7 @@ public class ReactiveListEditTests
     /// <summary>
     /// Edit should allow multiple operations in sequence.
     /// </summary>
-    [Fact]
+    [Test]
     public void Edit_ShouldAllowMultipleOperationsInSequence()
     {
         ReactiveList<int> fixture = [];

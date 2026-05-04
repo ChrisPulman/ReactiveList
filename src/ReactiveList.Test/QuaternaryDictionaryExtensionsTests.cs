@@ -1,13 +1,13 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Collections.Generic;
 using System.Reactive.Concurrency;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -19,7 +19,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// <summary>
     /// Verifies that CreateView returns a view with all items when no filter is applied.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateView_WithoutFilter_ShouldContainAllItems()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -37,7 +37,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// <summary>
     /// Verifies that CreateView with filter returns only matching items.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateView_WithFilter_ShouldContainOnlyMatchingItems()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -57,7 +57,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// <summary>
     /// Verifies that CreateViewBySecondaryIndex filters items by the secondary value index key.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateViewBySecondaryIndex_ShouldFilterByKey()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
@@ -77,7 +77,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// <summary>
     /// Verifies that CreateViewBySecondaryIndex with multiple keys includes items matching any key.
     /// </summary>
-    [Fact]
+    [Test]
     public void CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
@@ -97,7 +97,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// <summary>
     /// Verifies that ToProperty sets the property correctly.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToProperty_ShouldSetProperty()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -119,7 +119,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// Verifies that ReactiveView updates when items are added to the source dictionary.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task ReactiveView_ShouldUpdateOnAdd()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -138,7 +138,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// Verifies that ReactiveView updates when items are removed from the source dictionary.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task ReactiveView_ShouldUpdateOnRemove()
     {
         using var dict = new QuaternaryDictionary<int, string>();
@@ -166,7 +166,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// Verifies that CreateViewBySecondaryIndex updates when new matching items are added.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task CreateViewBySecondaryIndex_ShouldUpdateOnAdd()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
@@ -189,7 +189,7 @@ public class QuaternaryDictionaryExtensionsTests
     /// Verifies that CreateViewBySecondaryIndex doesn't include non-matching items when added.
     /// </summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
-    [Fact]
+    [Test]
     public async Task CreateViewBySecondaryIndex_ShouldNotIncludeNonMatchingItems()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();

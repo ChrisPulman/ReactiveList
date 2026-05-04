@@ -1,7 +1,7 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Buffers;
 using System.Collections;
 using System.Runtime.CompilerServices;
@@ -133,7 +133,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             Array.Copy(_items, index + 1, _items, index, _count - index);
         }
 
-        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+        if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
         {
             _items[_count] = default!;
         }
@@ -178,7 +178,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     /// </summary>
     public void Clear()
     {
-        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+        if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
         {
             Array.Clear(_items, 0, _count);
         }
@@ -234,10 +234,13 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     {
         if (_items != null)
         {
-            ArrayPool<T>.Shared.Return(_items, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+            ArrayPool<T>.Shared.Return(_items, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             _items = null!;
         }
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void AddAssumeCapacity(T item) => _items[_count++] = item;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ThrowIndexOutOfRange() => throw new IndexOutOfRangeException();
@@ -256,7 +259,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
         var newCapacity = _items.Length == 0 ? MinimumSize : _items.Length * 2;
         if (newCapacity < minCapacity)
         {
-            newCapacity = (int)System.Numerics.BitOperations.RoundUpToPowerOf2((uint)minCapacity);
+            newCapacity = (int)CP.Reactive.Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)minCapacity);
         }
 
         var newItems = ArrayPool<T>.Shared.Rent(newCapacity);
@@ -265,7 +268,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             Array.Copy(_items, newItems, _count);
         }
 
-        ArrayPool<T>.Shared.Return(_items, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_items, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _items = newItems;
     }
 

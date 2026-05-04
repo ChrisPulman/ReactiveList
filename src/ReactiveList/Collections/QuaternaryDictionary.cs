@@ -1,6 +1,6 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
+// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Buffers;
 using System.Collections;
@@ -209,13 +209,19 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="value">When this method returns, contains the value if found.</param>
     /// <returns>true if the key was found; otherwise, false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#if NETFRAMEWORK
+    public bool TryGetValue(TKey key, out TValue value)
+#else
     public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+#endif
     {
         var idx = GetShard(key);
         Locks[idx].EnterReadLock();
         try
         {
-            return Quads[idx].TryGetValue(key, out value);
+            var found = Quads[idx].TryGetValue(key, out var result);
+            value = result!;
+            return found;
         }
         finally
         {
@@ -383,7 +389,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="keys">The collection of keys to remove.</param>
     public void RemoveKeys(IEnumerable<TKey> keys)
     {
-        ArgumentNullException.ThrowIfNull(keys);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keys);
 
         // Fast path for arrays
         if (keys is TKey[] array)
@@ -410,7 +416,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <returns>The number of entries removed from the dictionary.</returns>
     public int RemoveMany(Func<KeyValuePair<TKey, TValue>, bool> predicate)
     {
-        ArgumentNullException.ThrowIfNull(predicate);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(predicate);
 
         var totalRemoved = 0;
 
@@ -438,7 +444,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                             {
                                 var newBuffer = ArrayPool<TKey>.Shared.Rent(keysBuffer.Length * 2);
                                 keysBuffer.AsSpan(0, keysCount).CopyTo(newBuffer);
-                                ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<TKey>());
+                                ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
                                 keysBuffer = newBuffer;
                             }
 
@@ -475,7 +481,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
         finally
         {
-            ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<TKey>());
+            ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
         }
 
         return totalRemoved;
@@ -487,7 +493,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="editAction">An action that receives the dictionary interface to perform modifications.</param>
     public void Edit(Action<IDictionary<TKey, TValue>> editAction)
     {
-        ArgumentNullException.ThrowIfNull(editAction);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(editAction);
 
         // Acquire all locks for the edit operation
         for (var i = 0; i < ShardCount; i++)
@@ -520,7 +526,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <exception cref="ArgumentNullException">Thrown when array is null.</exception>
     public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
     {
-        ArgumentNullException.ThrowIfNull(array);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(array);
 
         for (var i = 0; i < ShardCount; i++)
         {
@@ -603,115 +609,74 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             return;
         }
 
-        var bucketCountsArray = new int[ShardCount];
-        var bucketIndicesArray = new int[ShardCount];
-        var itemsSpan = items.AsSpan();
-
-        for (var i = 0; i < count; i++)
-        {
-            var shardIdx = GetShard(itemsSpan[i].Key);
-            bucketCountsArray[shardIdx]++;
-        }
-
-        var bucketArrays = new KeyValuePair<TKey, TValue>[ShardCount][];
-
-        for (var i = 0; i < ShardCount; i++)
-        {
-            bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<KeyValuePair<TKey, TValue>>.Shared.Rent(bucketCountsArray[i]) : [];
-        }
+        var rentedShardIndexes = (int[]?)null;
+        var shardIndexes = count <= 1024
+            ? stackalloc int[count]
+            : (rentedShardIndexes = ArrayPool<int>.Shared.Rent(count)).AsSpan(0, count);
 
         try
         {
+            Span<int> shardCounts = stackalloc int[ShardCount];
+            shardCounts.Clear();
+            var itemsSpan = items.AsSpan();
             for (var i = 0; i < count; i++)
             {
-                var kvp = itemsSpan[i];
-                var shardIdx = GetShard(kvp.Key);
-                bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = kvp;
+                var shardIndex = GetShard(itemsSpan[i].Key);
+                shardIndexes[i] = shardIndex;
+                shardCounts[shardIndex]++;
             }
 
-            if (count >= ParallelThreshold)
+            for (var i = 0; i < ShardCount; i++)
             {
-                Parallel.For(0, ShardCount, sIdx =>
-                {
-                    var bucketCount = bucketCountsArray[sIdx];
-                    if (bucketCount == 0)
-                    {
-                        return;
-                    }
-
-                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                    Locks[sIdx].EnterWriteLock();
-                    try
-                    {
-                        var dict = Quads[sIdx];
-                        dict.EnsureCapacity(dict.Count + bucketCount);
-
-                        var hasIndices = !Indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
-                        {
-                            var kvp = bucket[i];
-                            ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out _);
-                            valueRef = kvp.Value;
-                            if (hasIndices)
-                            {
-                                NotifyIndicesAdded(kvp.Value);
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Locks[sIdx].ExitWriteLock();
-                    }
-                });
+                Locks[i].EnterWriteLock();
             }
-            else
+
+            try
             {
-                for (var sIdx = 0; sIdx < ShardCount; sIdx++)
+                for (var i = 0; i < ShardCount; i++)
                 {
-                    var bucketCount = bucketCountsArray[sIdx];
-                    if (bucketCount == 0)
+                    if (shardCounts[i] > 0)
                     {
-                        continue;
+                        var dict = Quads[i];
+                        dict.EnsureCapacity(dict.Count + shardCounts[i]);
+                    }
+                }
+
+                var hasIndices = !Indices.IsEmpty;
+                for (var i = 0; i < count; i++)
+                {
+                    var kvp = itemsSpan[i];
+                    var dict = Quads[shardIndexes[i]];
+                    ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out var exists);
+                    if (hasIndices && exists)
+                    {
+                        NotifyIndicesRemoved(valueRef!);
                     }
 
-                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                    Locks[sIdx].EnterWriteLock();
-                    try
+                    valueRef = kvp.Value;
+                    if (hasIndices)
                     {
-                        var dict = Quads[sIdx];
-                        dict.EnsureCapacity(dict.Count + bucketCount);
-
-                        var hasIndices = !Indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
-                        {
-                            var kvp = bucket[i];
-                            ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out _);
-                            valueRef = kvp.Value;
-                            if (hasIndices)
-                            {
-                                NotifyIndicesAdded(kvp.Value);
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Locks[sIdx].ExitWriteLock();
+                        NotifyIndicesAdded(kvp.Value);
                     }
                 }
             }
-
-            EmitBatchAddedDirect(items, count);
+            finally
+            {
+                for (var i = ShardCount - 1; i >= 0; i--)
+                {
+                    Locks[i].ExitWriteLock();
+                }
+            }
         }
         finally
         {
-            for (var i = 0; i < ShardCount; i++)
+            if (rentedShardIndexes != null)
             {
-                if (bucketCountsArray[i] > 0)
-                {
-                    ArrayPool<KeyValuePair<TKey, TValue>>.Shared.Return(bucketArrays[i], clearArray: true);
-                }
+                ArrayPool<int>.Shared.Return(rentedShardIndexes, clearArray: false);
             }
         }
+
+        EmitBatchAddedDirect(items, count);
     }
 
     /// <summary>
@@ -730,114 +695,73 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             return;
         }
 
-        var bucketCountsArray = new int[ShardCount];
-        var bucketIndicesArray = new int[ShardCount];
-
-        for (var i = 0; i < count; i++)
-        {
-            var shardIdx = GetShard(items[i].Key);
-            bucketCountsArray[shardIdx]++;
-        }
-
-        var bucketArrays = new KeyValuePair<TKey, TValue>[ShardCount][];
-
-        for (var i = 0; i < ShardCount; i++)
-        {
-            bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<KeyValuePair<TKey, TValue>>.Shared.Rent(bucketCountsArray[i]) : [];
-        }
+        var rentedShardIndexes = (int[]?)null;
+        var shardIndexes = count <= 1024
+            ? stackalloc int[count]
+            : (rentedShardIndexes = ArrayPool<int>.Shared.Rent(count)).AsSpan(0, count);
 
         try
         {
+            Span<int> shardCounts = stackalloc int[ShardCount];
+            shardCounts.Clear();
             for (var i = 0; i < count; i++)
             {
-                var kvp = items[i];
-                var shardIdx = GetShard(kvp.Key);
-                bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = kvp;
+                var shardIndex = GetShard(items[i].Key);
+                shardIndexes[i] = shardIndex;
+                shardCounts[shardIndex]++;
             }
 
-            if (count >= ParallelThreshold)
+            for (var i = 0; i < ShardCount; i++)
             {
-                Parallel.For(0, ShardCount, sIdx =>
-                {
-                    var bucketCount = bucketCountsArray[sIdx];
-                    if (bucketCount == 0)
-                    {
-                        return;
-                    }
-
-                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                    Locks[sIdx].EnterWriteLock();
-                    try
-                    {
-                        var dict = Quads[sIdx];
-                        dict.EnsureCapacity(dict.Count + bucketCount);
-
-                        var hasIndices = !Indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
-                        {
-                            var kvp = bucket[i];
-                            ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out _);
-                            valueRef = kvp.Value;
-                            if (hasIndices)
-                            {
-                                NotifyIndicesAdded(kvp.Value);
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Locks[sIdx].ExitWriteLock();
-                    }
-                });
+                Locks[i].EnterWriteLock();
             }
-            else
+
+            try
             {
-                for (var sIdx = 0; sIdx < ShardCount; sIdx++)
+                for (var i = 0; i < ShardCount; i++)
                 {
-                    var bucketCount = bucketCountsArray[sIdx];
-                    if (bucketCount == 0)
+                    if (shardCounts[i] > 0)
                     {
-                        continue;
+                        var dict = Quads[i];
+                        dict.EnsureCapacity(dict.Count + shardCounts[i]);
+                    }
+                }
+
+                var hasIndices = !Indices.IsEmpty;
+                for (var i = 0; i < count; i++)
+                {
+                    var kvp = items[i];
+                    var dict = Quads[shardIndexes[i]];
+                    ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out var exists);
+                    if (hasIndices && exists)
+                    {
+                        NotifyIndicesRemoved(valueRef!);
                     }
 
-                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                    Locks[sIdx].EnterWriteLock();
-                    try
+                    valueRef = kvp.Value;
+                    if (hasIndices)
                     {
-                        var dict = Quads[sIdx];
-                        dict.EnsureCapacity(dict.Count + bucketCount);
-
-                        var hasIndices = !Indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
-                        {
-                            var kvp = bucket[i];
-                            ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out _);
-                            valueRef = kvp.Value;
-                            if (hasIndices)
-                            {
-                                NotifyIndicesAdded(kvp.Value);
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Locks[sIdx].ExitWriteLock();
+                        NotifyIndicesAdded(kvp.Value);
                     }
                 }
             }
-
-            EmitBatchAddedFromList(items, count);
+            finally
+            {
+                for (var i = ShardCount - 1; i >= 0; i--)
+                {
+                    Locks[i].ExitWriteLock();
+                }
+            }
         }
         finally
         {
-            for (var i = 0; i < ShardCount; i++)
+            if (rentedShardIndexes != null)
             {
-                if (bucketCountsArray[i] > 0)
-                {
-                    ArrayPool<KeyValuePair<TKey, TValue>>.Shared.Return(bucketArrays[i], clearArray: true);
-                }
+                ArrayPool<int>.Shared.Return(rentedShardIndexes, clearArray: false);
             }
         }
+
+        EmitBatchAddedFromList(items, count);
     }
 
     /// <summary>
@@ -953,7 +877,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             {
                 if (bucketCountsArray[i] > 0)
                 {
-                    ArrayPool<TKey>.Shared.Return(bucketArrays[i], clearArray: true);
+                    ArrayPool<TKey>.Shared.Return(bucketArrays[i], clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
                 }
             }
         }
@@ -1071,7 +995,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             {
                 if (bucketCountsArray[i] > 0)
                 {
-                    ArrayPool<TKey>.Shared.Return(bucketArrays[i], clearArray: true);
+                    ArrayPool<TKey>.Shared.Return(bucketArrays[i], clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
                 }
             }
         }
@@ -1225,10 +1149,16 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         /// <param name="value">When this method returns, contains the value associated with the specified key, if the key is found;
         /// otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.</param>
         /// <returns>true if the object that implements the method contains an element with the specified key; otherwise, false.</returns>
+#if NETFRAMEWORK
+        public bool TryGetValue(TKey key, out TValue value)
+#else
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
+#endif
         {
             var idx = GetShard(key);
-            return _parent.Quads[idx].TryGetValue(key, out value);
+            var found = _parent.Quads[idx].TryGetValue(key, out var result);
+            value = result!;
+            return found;
         }
 
         /// <summary>

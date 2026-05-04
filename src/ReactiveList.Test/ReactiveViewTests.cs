@@ -11,7 +11,7 @@ using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using CP.Reactive.Views;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -23,7 +23,7 @@ public class ReactiveViewTests
     /// <summary>
     /// Constructor should throw when stream is null.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_WithNullStream_ShouldThrow()
     {
         var act = () => new ReactiveView<string>(
@@ -40,7 +40,7 @@ public class ReactiveViewTests
     /// <summary>
     /// Constructor should throw when filter is null.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_WithNullFilter_ShouldThrow()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -59,7 +59,7 @@ public class ReactiveViewTests
     /// <summary>
     /// Constructor should load initial snapshot.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_WithSnapshot_ShouldLoadItems()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -78,7 +78,7 @@ public class ReactiveViewTests
     /// <summary>
     /// Constructor should filter snapshot items.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_WithFilter_ShouldFilterSnapshot()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -97,7 +97,7 @@ public class ReactiveViewTests
     /// <summary>
     /// Constructor with null snapshot should not throw.
     /// </summary>
-    [Fact]
+    [Test]
     public void Constructor_WithNullSnapshot_ShouldNotThrow()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -118,7 +118,7 @@ public class ReactiveViewTests
     /// <summary>
     /// Items property should be read-only.
     /// </summary>
-    [Fact]
+    [Test]
     public void Items_ShouldBeReadOnly()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -137,7 +137,7 @@ public class ReactiveViewTests
     /// Added notification should add item to view.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task AddedNotification_ShouldAddItemToView()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -160,7 +160,7 @@ public class ReactiveViewTests
     /// Added notification with filter should only add matching items.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task AddedNotification_WithFilter_ShouldOnlyAddMatchingItems()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -184,7 +184,7 @@ public class ReactiveViewTests
     /// Removed notification should remove item from view.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task RemovedNotification_ShouldRemoveItemFromView()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -207,7 +207,7 @@ public class ReactiveViewTests
     /// Cleared notification should clear view.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task ClearedNotification_ShouldClearView()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -230,7 +230,7 @@ public class ReactiveViewTests
     /// BatchOperation notification should add batch items.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task BatchOperationNotification_ShouldAddBatchItems()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -259,7 +259,7 @@ public class ReactiveViewTests
     /// BatchOperation with filter should only add matching items.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task BatchOperationNotification_WithFilter_ShouldFilterItems()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -287,7 +287,7 @@ public class ReactiveViewTests
     /// <summary>
     /// ToProperty should set property.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToProperty_ShouldSetProperty()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -309,7 +309,7 @@ public class ReactiveViewTests
     /// <summary>
     /// ToProperty should throw when setter is null.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToProperty_WithNullSetter_ShouldThrow()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -330,7 +330,7 @@ public class ReactiveViewTests
     /// <summary>
     /// Dispose should clean up subscription.
     /// </summary>
-    [Fact]
+    [Test]
     public void Dispose_ShouldCleanUpSubscription()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -350,7 +350,7 @@ public class ReactiveViewTests
     /// <summary>
     /// Multiple dispose should be safe.
     /// </summary>
-    [Fact]
+    [Test]
     public void Dispose_MultipleCalls_ShouldBeSafe()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -372,7 +372,7 @@ public class ReactiveViewTests
     /// PropertyChanged should fire when items updated.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task PropertyChanged_ShouldFireWhenItemsUpdated()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -404,7 +404,7 @@ public class ReactiveViewTests
     /// Added notification with null item should not add anything.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task AddedNotification_WithNullItem_ShouldNotAdd()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -427,7 +427,7 @@ public class ReactiveViewTests
     /// Removed notification with null item should not throw.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task RemovedNotification_WithNullItem_ShouldNotThrow()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -452,7 +452,7 @@ public class ReactiveViewTests
     /// Batch notification with null batch should not throw.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task BatchNotification_WithNullBatch_ShouldNotThrow()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -477,7 +477,7 @@ public class ReactiveViewTests
     /// View should buffer multiple notifications.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task View_ShouldBufferMultipleNotifications()
     {
         var subject = new Subject<CacheNotify<string>>();
@@ -503,7 +503,7 @@ public class ReactiveViewTests
     /// Updated action should not add or remove.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task UpdatedAction_ShouldNotChangeItems()
     {
         var subject = new Subject<CacheNotify<string>>();

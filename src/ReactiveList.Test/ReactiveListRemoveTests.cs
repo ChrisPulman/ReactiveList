@@ -6,7 +6,7 @@ using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -18,7 +18,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should remove existing item for string type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldRemoveExistingItem_String()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -35,7 +35,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should return false for non-existing item for string type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldReturnFalseForNonExistingItem_String()
     {
         ReactiveList<string> fixture = ["one", "two"];
@@ -49,7 +49,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should raise property changed for string type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldRaisePropertyChanged_String()
     {
         ReactiveList<string> fixture = ["one", "two"];
@@ -77,7 +77,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should remove existing item for int type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldRemoveExistingItem_Int()
     {
         ReactiveList<int> fixture = [1, 2, 3];
@@ -94,7 +94,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should return false for non-existing item for int type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldReturnFalseForNonExistingItem_Int()
     {
         ReactiveList<int> fixture = [1, 2];
@@ -108,7 +108,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should raise property changed for int type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldRaisePropertyChanged_Int()
     {
         ReactiveList<int> fixture = [1, 2];
@@ -136,7 +136,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should remove existing item for TestData type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldRemoveExistingItem_TestData()
     {
         ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30), new("Charlie", 35)];
@@ -153,7 +153,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should return false for non-existing item for TestData type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldReturnFalseForNonExistingItem_TestData()
     {
         ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30)];
@@ -167,7 +167,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// Remove should raise property changed for TestData type.
     /// </summary>
-    [Fact]
+    [Test]
     public void Remove_ShouldRaisePropertyChanged_TestData()
     {
         ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30)];
@@ -196,7 +196,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should remove item at index for string type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldRemoveItemAtIndex_String()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -211,7 +211,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should throw for invalid index for string type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldThrowForInvalidIndex_String()
     {
         ReactiveList<string> fixture = ["one", "two"];
@@ -224,7 +224,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should raise property changed for string type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldRaisePropertyChanged_String()
     {
         ReactiveList<string> fixture = ["one", "two"];
@@ -252,7 +252,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should remove item at index for int type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldRemoveItemAtIndex_Int()
     {
         ReactiveList<int> fixture = [1, 2, 3];
@@ -267,7 +267,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should throw for invalid index for int type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldThrowForInvalidIndex_Int()
     {
         ReactiveList<int> fixture = [1, 2];
@@ -280,7 +280,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should raise property changed for int type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldRaisePropertyChanged_Int()
     {
         ReactiveList<int> fixture = [1, 2];
@@ -308,7 +308,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should remove item at index for TestData type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldRemoveItemAtIndex_TestData()
     {
         ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30), new("Charlie", 35)];
@@ -323,7 +323,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should throw for invalid index for TestData type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldThrowForInvalidIndex_TestData()
     {
         ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30)];
@@ -336,7 +336,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveAt should raise property changed for TestData type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveAt_ShouldRaisePropertyChanged_TestData()
     {
         ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30)];
@@ -364,7 +364,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveMany should remove items matching predicate for string type.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveMany_ShouldRemoveMatchingItems_String()
     {
         ReactiveList<string> fixture = ["apple", "banana", "apricot", "cherry", "avocado"];
@@ -383,7 +383,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveMany should return zero when no items match predicate.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveMany_ShouldReturnZeroWhenNoMatch()
     {
         ReactiveList<string> fixture = ["one", "two", "three"];
@@ -397,7 +397,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveMany should throw ArgumentNullException for null predicate.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveMany_ShouldThrowForNullPredicate()
     {
         ReactiveList<string> fixture = ["one", "two"];
@@ -410,7 +410,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveMany should raise property changed events.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveMany_ShouldRaisePropertyChanged()
     {
         ReactiveList<int> fixture = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -433,7 +433,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveMany should emit change notification via Connect.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveMany_ShouldEmitChangeNotification()
     {
         using var fixture = new ReactiveList<int>([1, 2, 3, 4, 5]);
@@ -450,7 +450,7 @@ public class ReactiveListRemoveTests
     /// <summary>
     /// RemoveMany should work with complex types.
     /// </summary>
-    [Fact]
+    [Test]
     public void RemoveMany_ShouldWorkWithComplexTypes()
     {
         ReactiveList<TestData> fixture =

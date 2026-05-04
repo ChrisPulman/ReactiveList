@@ -12,6 +12,7 @@ public class QuaternaryDictionaryBenchmarks
     public int Count { get; set; }
 
     private KeyValuePair<int, int>[] _kvps = [];
+    private Item[] _items = [];
 
     [GlobalSetup]
     public void Setup()
@@ -19,6 +20,7 @@ public class QuaternaryDictionaryBenchmarks
         _kvps = Enumerable.Range(0, Count)
             .Select(i => new KeyValuePair<int, int>(i, i))
             .ToArray();
+        _items = _kvps.Select(k => new Item(k.Key, k.Value)).ToArray();
     }
 
     [Benchmark]
@@ -45,7 +47,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_AddRange()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         return cache.Count;
     }
 
@@ -78,7 +80,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_Remove()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         cache.RemoveKeys(Enumerable.Range(0, Count / 2));
         return cache.Count;
     }
@@ -113,7 +115,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_Clear()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         cache.Clear();
         return cache.Count;
     }
@@ -145,7 +147,7 @@ public class QuaternaryDictionaryBenchmarks
     public bool SourceCache_Lookup()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         return cache.Lookup(Count - 1).HasValue;
     }
 
@@ -165,7 +167,7 @@ public class QuaternaryDictionaryBenchmarks
         using var cache = new SourceCache<Item, int>(x => x.Id);
         var events = 0;
         using var sub = cache.Connect().Subscribe(_ => events++);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         return events;
     }
 
@@ -189,7 +191,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_Edit()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         cache.Edit(innerCache =>
         {
             innerCache.Clear();
@@ -206,7 +208,8 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var dict = new QuaternaryDictionary<int, int>();
         dict.AddRange(_kvps);
-        return dict.RemoveMany(kvp => kvp.Key % 2 == 0);
+        dict.RemoveMany(kvp => kvp.Key % 2 == 0);
+        return dict.Count;
     }
 
     [Benchmark]
@@ -394,7 +397,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_Keys()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         return cache.Keys.ToList().Count;
     }
 
@@ -409,7 +412,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_Values()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         return cache.Items.ToList().Count;
     }
 
@@ -417,7 +420,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_IterateAll()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         var sum = 0;
         foreach (var item in cache.Items)
         {
@@ -442,7 +445,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_Stream_Remove()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         var events = 0;
         using var sub = cache.Connect().Subscribe(_ => events++);
         cache.RemoveKeys(Enumerable.Range(0, Count / 2));
@@ -518,7 +521,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_Count()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         return cache.Count;
     }
 
@@ -537,7 +540,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_MixedOperations()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         cache.AddOrUpdate(new Item(Count, Count));
         cache.Remove(0);
         cache.RemoveKeys(cache.Keys.Where(k => k % 10 == 0));
@@ -658,7 +661,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_RemoveKeys()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         cache.RemoveKeys(Enumerable.Range(0, Count / 2));
         return cache.Count;
     }
@@ -667,7 +670,7 @@ public class QuaternaryDictionaryBenchmarks
     public int SourceCache_RemoveMany()
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
-        cache.AddOrUpdate(_kvps.Select(k => new Item(k.Key, k.Value)));
+        cache.AddOrUpdate(_items);
         cache.RemoveKeys(cache.Keys.Where(k => k % 2 == 0));
         return cache.Count;
     }

@@ -1,6 +1,6 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Buffers;
 using System.Runtime.CompilerServices;
@@ -39,7 +39,7 @@ internal ref struct ValueBuffer<T>
     /// </summary>
     public readonly ReadOnlySpan<T> Span => _rentedArray != null
         ? _rentedArray.AsSpan(0, _count)
-        : _stackBuffer[.._count];
+        : _stackBuffer.Slice(0, _count);
 
     /// <summary>
     /// Adds an item to the buffer, growing if necessary.
@@ -79,7 +79,7 @@ internal ref struct ValueBuffer<T>
     {
         if (_rentedArray != null)
         {
-            ArrayPool<T>.Shared.Return(_rentedArray, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+            ArrayPool<T>.Shared.Return(_rentedArray, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             _rentedArray = null;
         }
     }
@@ -89,7 +89,7 @@ internal ref struct ValueBuffer<T>
     {
         var newCapacity = _stackBuffer.Length * 2;
         _rentedArray = ArrayPool<T>.Shared.Rent(newCapacity);
-        _stackBuffer[.._count].CopyTo(_rentedArray);
+        _stackBuffer.Slice(0, _count).CopyTo(_rentedArray);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -98,7 +98,7 @@ internal ref struct ValueBuffer<T>
         var newCapacity = _rentedArray!.Length * 2;
         var newArray = ArrayPool<T>.Shared.Rent(newCapacity);
         _rentedArray.AsSpan(0, _count).CopyTo(newArray);
-        ArrayPool<T>.Shared.Return(_rentedArray, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_rentedArray, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _rentedArray = newArray;
     }
 }

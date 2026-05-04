@@ -30,8 +30,8 @@ public static class ReactiveListExtensions
         Func<Change<T>, bool> predicate)
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(predicate);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(predicate);
 #else
         if (source == null)
         {
@@ -117,8 +117,8 @@ public static class ReactiveListExtensions
         Func<T, TResult> selector)
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(selector);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(selector);
 #else
         if (source == null)
         {
@@ -168,8 +168,8 @@ public static class ReactiveListExtensions
         Func<Change<TSource>, TResult> selector)
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(selector);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(selector);
 #else
         if (source == null)
         {
@@ -254,8 +254,8 @@ public static class ReactiveListExtensions
         where TKey : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(filterObservable);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
 #else
         if (stream == null)
         {
@@ -296,8 +296,8 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(filterObservable);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
 #else
         if (stream == null)
         {
@@ -340,8 +340,8 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(filter);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filter);
 #else
         if (list == null)
         {
@@ -388,8 +388,8 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(filterObservable);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
 #else
         if (list == null)
         {
@@ -428,9 +428,9 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(queryObservable);
-        ArgumentNullException.ThrowIfNull(filter);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(queryObservable);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filter);
 #else
         if (list == null)
         {
@@ -471,8 +471,8 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(filterObservable);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
 #else
         if (list == null)
         {
@@ -506,7 +506,7 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
 #else
         if (list == null)
         {
@@ -539,7 +539,7 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
 #else
         if (list == null)
         {
@@ -569,8 +569,8 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(comparer);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(comparer);
 #else
         if (list == null)
         {
@@ -606,8 +606,8 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(keySelector);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keySelector);
 #else
         if (list == null)
         {
@@ -708,8 +708,8 @@ public static class ReactiveListExtensions
         where TKey : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(keySelector);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keySelector);
 #else
         if (list == null)
         {
@@ -872,8 +872,8 @@ public static class ReactiveListExtensions
         where T : notnull
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(property);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(property);
 #else
         if (source == null)
         {

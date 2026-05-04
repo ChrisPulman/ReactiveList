@@ -1,4 +1,4 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
+// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CP.Reactive.Collections;
 using FluentAssertions;
-using Xunit;
+using TUnit.Core;
 
 namespace ReactiveList.Test;
 
@@ -19,7 +19,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add array item].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddArrayItem()
     {
         ReactiveList<string> fixture = [];
@@ -32,7 +32,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add complex array item].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddComplexArrayItem()
     {
         ReactiveList<TestData> fixture = [];
@@ -45,7 +45,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add multiple single complex items].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddMultipleSingleComplexItems()
     {
         ReactiveList<TestData> fixture = [];
@@ -62,7 +62,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add multiple single complex items and edit].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddMultipleSingleComplexItemsAndEdit()
     {
         ReactiveList<string> fixture = [];
@@ -81,7 +81,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add multiple single items].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddMultipleSingleItems()
     {
         ReactiveList<string> fixture = [];
@@ -98,7 +98,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add single complex item].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddSingleComplexItem()
     {
         ReactiveList<TestData> fixture = [];
@@ -111,7 +111,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add single item].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddSingleItem()
     {
         ReactiveList<string> fixture = [];
@@ -124,7 +124,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can clear and add item].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanClearAndAddItem()
     {
         ReactiveList<string> fixture = [];
@@ -158,7 +158,7 @@ public class ReactiveListAddTests
     /// Determines whether this instance [can observe add array of item asynchronous].
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task CanObserveAddArrayOfItemAsync()
     {
         ReactiveList<string> fixture = [];
@@ -181,7 +181,7 @@ public class ReactiveListAddTests
     /// Determines whether this instance [can observe add single item asynchronous].
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
-    [Fact]
+    [Test]
     public async Task CanObserveAddSingleItemAsync()
     {
         ReactiveList<string> fixture = [];
@@ -204,7 +204,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can replace all items].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanReplaceAllItems()
     {
         ReactiveList<string> fixture = [];
@@ -227,7 +227,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can replace all items many times].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanReplaceAllItemsManyTimes()
     {
         ReactiveList<string> fixture = [];
@@ -256,7 +256,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can replace all items with complex items].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanReplaceAllItemsWithComplexItems()
     {
         ReactiveList<TestData> fixture = [];
@@ -279,7 +279,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can replace all items with complex items and edit].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanReplaceAllItemsWithComplexItemsAndEdit()
     {
         ReactiveList<TestData> fixture = [];
@@ -308,7 +308,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can replace all items with complex items and edit and remove].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanReplaceAllItemsWithComplexItemsAndEditAndRemove()
     {
         ReactiveList<TestData> fixture = [];
@@ -342,7 +342,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can replace all items with complex items and edit and remove and add].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanReplaceAllItemsWithComplexItemsAndEditAndRemoveAndAdd()
     {
         ReactiveList<TestData> fixture = [];
@@ -387,7 +387,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can replace all items with complex items and edit and remove and add and clear].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanReplaceAllItemsWithComplexItemsAndEditAndRemoveAndAddAndClear()
     {
         ReactiveList<TestData> fixture = [];
@@ -431,7 +431,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add items and insert items].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddItemsAndInsertItems()
     {
         ReactiveList<string> fixture = [];
@@ -454,7 +454,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add items and insert items and remove at index].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddItemsAndInsertItemsAndRemoveAtIndex()
     {
         ReactiveList<string> fixture = [];
@@ -482,7 +482,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance can enumerate.
     /// </summary>
-    [Fact]
+    [Test]
     public void CanEnumerate()
     {
         ReactiveList<string> fixture = [];
@@ -498,7 +498,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can get an element at the index or return default].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanGetElementAtOrDefault()
     {
         ReactiveList<string> fixture = [];
@@ -513,7 +513,7 @@ public class ReactiveListAddTests
     /// <summary>
     /// Determines whether this instance [can add items to a list then add to fixture].
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAddItemsToAListThenAddToFixture()
     {
         List<string> fixture = [];

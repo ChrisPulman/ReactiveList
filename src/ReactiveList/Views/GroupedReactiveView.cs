@@ -158,7 +158,7 @@ where TKey : notnull
     public GroupedReactiveView<T, TKey> ToProperty(Action<ReadOnlyObservableCollection<ReactiveGroup<TKey, T>>> propertySetter)
     {
 #if NET8_0_OR_GREATER
-        ArgumentNullException.ThrowIfNull(propertySetter);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
 #else
         if (propertySetter == null)
         {

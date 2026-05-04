@@ -1,6 +1,6 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
+// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-#if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -40,8 +40,8 @@ public static class QuaternaryExtensions
         where T : notnull
         where TKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
 
         // Get initial snapshot from the secondary index
         var snapshot = list.GetItemsBySecondaryIndex(indexName, key);
@@ -70,9 +70,9 @@ public static class QuaternaryExtensions
         where T : notnull
         where TKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(indexName);
-        ArgumentNullException.ThrowIfNull(keys);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keys);
 
         // Get initial snapshot from the secondary index for all keys
         var snapshot = keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key));
@@ -106,9 +106,9 @@ public static class QuaternaryExtensions
         where T : notnull
         where TKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(indexName);
-        ArgumentNullException.ThrowIfNull(keysObservable);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keysObservable);
 
         return new DynamicSecondaryIndexReactiveView<T, TKey>(list, indexName, keysObservable, scheduler, TimeSpan.FromMilliseconds(throttleMs));
     }
@@ -130,20 +130,20 @@ public static class QuaternaryExtensions
         where T : notnull
         where TKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
 
         return stream.Select(notification =>
         {
-            // Get the current set of items matching the key from the secondary index
-            var matchingItems = list.GetItemsBySecondaryIndex(indexName, key).Where(x => x != null).ToHashSet()!;
+            bool Matches(T item) => list.ItemMatchesSecondaryIndex(indexName, item, key);
 
             return notification.Action switch
             {
-                CacheAction.Added when notification.Item != null && matchingItems.Contains(notification.Item) => notification,
-                CacheAction.Removed when notification.Item != null && matchingItems.Contains(notification.Item) => notification,
-                CacheAction.BatchOperation when notification.Batch != null => ReactiveListExtensions.FilterBatch(notification, matchingItems!),
+                CacheAction.Added when notification.Item != null && Matches(notification.Item) => notification,
+                CacheAction.Removed when notification.Item != null && Matches(notification.Item) => notification,
+                CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
+                    ReactiveListExtensions.FilterBatchByPredicate(notification, Matches),
                 CacheAction.Cleared => notification,
                 _ => null
             };
@@ -168,21 +168,21 @@ public static class QuaternaryExtensions
         where T : notnull
         where TKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(list);
-        ArgumentNullException.ThrowIfNull(indexName);
-        ArgumentNullException.ThrowIfNull(keys);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keys);
 
         return stream.Select(notification =>
         {
-            // Get the current set of items matching all keys from the secondary index
-            var matchingItems = keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key)).Where(x => x != null).ToHashSet()!;
+            bool Matches(T item) => keys.Any(key => list.ItemMatchesSecondaryIndex(indexName, item, key));
 
             return notification.Action switch
             {
-                CacheAction.Added when notification.Item != null && matchingItems.Contains(notification.Item) => notification,
-                CacheAction.Removed when notification.Item != null && matchingItems.Contains(notification.Item) => notification,
-                CacheAction.BatchOperation when notification.Batch != null => ReactiveListExtensions.FilterBatch(notification, matchingItems!),
+                CacheAction.Added when notification.Item != null && Matches(notification.Item) => notification,
+                CacheAction.Removed when notification.Item != null && Matches(notification.Item) => notification,
+                CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
+                    ReactiveListExtensions.FilterBatchByPredicate(notification, Matches),
                 CacheAction.Cleared => notification,
                 _ => null
             };
@@ -209,8 +209,8 @@ public static class QuaternaryExtensions
         where TKey : notnull
         where TIndexKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(dict);
-        ArgumentNullException.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
 
         // Get initial snapshot from the secondary index - map values back to key-value pairs
         var matchingValues = dict.GetValuesBySecondaryIndex(indexName, indexKey).ToHashSet();
@@ -245,9 +245,9 @@ public static class QuaternaryExtensions
         where TKey : notnull
         where TIndexKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(dict);
-        ArgumentNullException.ThrowIfNull(indexName);
-        ArgumentNullException.ThrowIfNull(indexKeys);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexKeys);
 
         // Get initial snapshot from the secondary index for all keys
         var matchingValues = indexKeys.SelectMany(k => dict.GetValuesBySecondaryIndex(indexName, k)).ToHashSet();
@@ -283,9 +283,9 @@ public static class QuaternaryExtensions
         where TKey : notnull
         where TIndexKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(dict);
-        ArgumentNullException.ThrowIfNull(indexName);
-        ArgumentNullException.ThrowIfNull(keysObservable);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keysObservable);
 
         return new DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue, TIndexKey>(dict, indexName, keysObservable, scheduler, TimeSpan.FromMilliseconds(throttleMs));
     }
@@ -307,21 +307,21 @@ public static class QuaternaryExtensions
         where TKey : notnull
         where TIndexKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(dict);
-        ArgumentNullException.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
 
         return stream.Select(notification =>
         {
-            // Get the current set of values matching the key from the secondary index
-            var matchingValues = new HashSet<TValue>(dict.GetValuesBySecondaryIndex(indexName, indexKey));
+            bool Matches(KeyValuePair<TKey, TValue> item) =>
+                item.Value != null && dict.ValueMatchesSecondaryIndex(indexName, item.Value, indexKey);
 
             return notification.Action switch
             {
-                CacheAction.Added when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
-                CacheAction.Removed when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
+                CacheAction.Added when Matches(notification.Item) => notification,
+                CacheAction.Removed when Matches(notification.Item) => notification,
                 CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
-                    ReactiveListExtensions.FilterBatch(notification, dict.Where(kvp => matchingValues.Contains(kvp.Value)).Select(kvp => new KeyValuePair<TKey, TValue>(kvp.Key, kvp.Value!)).ToHashSet()),
+                    ReactiveListExtensions.FilterBatchByPredicate(notification, Matches),
                 CacheAction.Cleared => notification,
                 _ => null
             };
@@ -347,22 +347,22 @@ public static class QuaternaryExtensions
         where TKey : notnull
         where TIndexKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(dict);
-        ArgumentNullException.ThrowIfNull(indexName);
-        ArgumentNullException.ThrowIfNull(indexKeys);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexKeys);
 
         return stream.Select(notification =>
         {
-            // Get the current set of values matching all keys from the secondary index
-            var matchingValues = new HashSet<TValue>(indexKeys.SelectMany(key => dict.GetValuesBySecondaryIndex(indexName, key)));
+            bool Matches(KeyValuePair<TKey, TValue> item) =>
+                item.Value != null && indexKeys.Any(key => dict.ValueMatchesSecondaryIndex(indexName, item.Value, key));
 
             return notification.Action switch
             {
-                CacheAction.Added when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
-                CacheAction.Removed when notification.Item.Value != null && matchingValues.Contains(notification.Item.Value) => notification,
+                CacheAction.Added when Matches(notification.Item) => notification,
+                CacheAction.Removed when Matches(notification.Item) => notification,
                 CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
-                    ReactiveListExtensions.FilterBatch(notification, dict.Where(kvp => matchingValues.Contains(kvp.Value)).Select(kvp => new KeyValuePair<TKey, TValue>(kvp.Key, kvp.Value!)).ToHashSet()),
+                    ReactiveListExtensions.FilterBatchByPredicate(notification, Matches),
                 CacheAction.Cleared => notification,
                 _ => null
             };
