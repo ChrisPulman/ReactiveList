@@ -41,7 +41,7 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.203" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
-    <PackageReference Include="TUnit" Version="1.43.41" />
+    <PackageReference Include="TUnit" Version="1.44.0" />
     <PackageReference Include="FluentAssertions" Version="8.9.0" />
   </ItemGroup>
   <ItemGroup>
