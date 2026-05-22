@@ -5,6 +5,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
@@ -78,6 +79,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     private Subject<CacheNotify<TItem>>? _pipeline;
     private CancellationTokenSource? _cts;
     private NotifyCollectionChangedEventHandler? _collectionChanged;
+    private int _count;
     private int _eventProcessorStarted;
     private int _hasSubscribers;
     private long _version;
@@ -123,24 +125,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     public int Count
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get
-        {
-            var count = 0;
-            for (var i = 0; i < ShardCount; i++)
-            {
-                Locks[i].EnterReadLock();
-                try
-                {
-                    count += Quads[i].Count;
-                }
-                finally
-                {
-                    Locks[i].ExitReadLock();
-                }
-            }
-
-            return count;
-        }
+        get => Volatile.Read(ref _count);
     }
 
     /// <summary>
@@ -160,9 +145,17 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     {
         get
         {
-            Volatile.Write(ref _hasSubscribers, 1);
-            EnsureEventProcessorStarted();
-            return _pipeline!.AsObservable();
+            return Observable.Create<CacheNotify<TItem>>(observer =>
+            {
+                EnsureEventProcessorStarted();
+                Interlocked.Increment(ref _hasSubscribers);
+                var subscription = _pipeline!.Subscribe(observer);
+                return Disposable.Create(() =>
+                {
+                    subscription.Dispose();
+                    Interlocked.Decrement(ref _hasSubscribers);
+                });
+            });
         }
     }
 
@@ -195,6 +188,8 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
             {
                 Quads[i].Clear();
             }
+
+            SetCount(0);
         }
         finally
         {
@@ -369,6 +364,23 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     }
 
     /// <summary>
+    /// Emits a batch removed notification using an already-owned array.
+    /// </summary>
+    /// <param name="items">The owned array containing removed items.</param>
+    /// <param name="count">The number of valid items in <paramref name="items"/>.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void EmitOwnedBatchRemoved(TItem[] items, int count)
+    {
+        if (!HasChangeObservers())
+        {
+            Emit(CacheAction.BatchRemoved, default);
+            return;
+        }
+
+        Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(items, count, ReturnToPool: false));
+    }
+
+    /// <summary>
     /// Emits a notification that a batch of items has been removed from the list.
     /// </summary>
     /// <param name="items">The list containing the items that were removed. The first <paramref name="count"/> elements are considered
@@ -458,6 +470,28 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
             IsDisposed = true;
         }
     }
+
+    /// <summary>
+    /// Atomically adds the specified delta to the cached item count.
+    /// </summary>
+    /// <param name="value">The count delta to apply.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void AddToCount(int value) => Interlocked.Add(ref _count, value);
+
+    /// <summary>
+    /// Sets the cached item count to the specified value.
+    /// </summary>
+    /// <param name="value">The new count value.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void SetCount(int value) => Volatile.Write(ref _count, value);
+
+    /// <summary>
+    /// Gets a value indicating whether the collection has observable or INCC subscribers.
+    /// </summary>
+    /// <returns><see langword="true"/> when change notifications need to be materialized; otherwise, <see langword="false"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected bool HasChangeObservers() =>
+        Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) != 0 || _collectionChanged != null;
 
     private static PooledBatch<TItem> CreateBatch(TItem[] items, int count)
     {
@@ -564,9 +598,6 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
             handler.Invoke(this, args);
         }
     }
-
-    private bool HasChangeObservers() =>
-        Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) != 0 || _collectionChanged != null;
 
     private void OnPropertyChanged(PropertyChangedEventArgs args) =>
         PropertyChanged?.Invoke(this, args);

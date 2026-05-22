@@ -64,6 +64,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
         try
         {
             Quads[idx].Add(item);
+            AddToCount(1);
             NotifyIndicesAdded(item);
         }
         finally
@@ -90,6 +91,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
             removed = Quads[idx].Remove(item);
             if (removed)
             {
+                AddToCount(-1);
                 NotifyIndicesRemoved(item);
             }
         }
@@ -183,6 +185,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                         if (predicate(item))
                         {
                             quad.RemoveAt(j);
+                            AddToCount(-1);
                             NotifyIndicesRemoved(item);
 
                             // Grow buffer if needed
@@ -236,6 +239,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
         {
             var wrapper = new QuaternaryEditWrapper(this);
             editAction(wrapper);
+            SetCount(GetCountUnsafe());
         }
         finally
         {
@@ -274,6 +278,8 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
             {
                 Quads[i].Clear();
             }
+
+            SetCount(0);
 
             foreach (var idx in Indices.Values)
             {
@@ -318,6 +324,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
 
                         var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
                         Quads[sIdx].AddRange(bucket);
+                        AddToCount(bucketCount);
 
                         if (!Indices.IsEmpty)
                         {
@@ -627,6 +634,8 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                         NotifyIndicesAdded(item);
                     }
                 }
+
+                AddToCount(count);
             }
             finally
             {
@@ -706,6 +715,8 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                         NotifyIndicesAdded(item);
                     }
                 }
+
+                AddToCount(count);
             }
             finally
             {
@@ -742,116 +753,19 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
             return;
         }
 
-        var bucketCountsArray = new int[ShardCount];
-        var bucketIndicesArray = new int[ShardCount];
-        var removedByShard = new List<T>?[ShardCount];
+        Dictionary<T, int>? remove0 = null;
+        Dictionary<T, int>? remove1 = null;
+        Dictionary<T, int>? remove2 = null;
+        Dictionary<T, int>? remove3 = null;
         var itemsSpan = items.AsSpan();
 
         for (var i = 0; i < count; i++)
         {
-            var shardIdx = GetShardIndex(itemsSpan[i]);
-            bucketCountsArray[shardIdx]++;
+            var item = itemsSpan[i];
+            AddRemoveCount(GetShardIndex(item), item, ref remove0, ref remove1, ref remove2, ref remove3);
         }
 
-        var bucketArrays = new T[ShardCount][];
-
-        for (var i = 0; i < ShardCount; i++)
-        {
-            bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : Array.Empty<T>();
-        }
-
-        try
-        {
-            for (var i = 0; i < count; i++)
-            {
-                var item = itemsSpan[i];
-                var shardIdx = GetShardIndex(item);
-                bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = item;
-            }
-
-            if (count >= ParallelThreshold)
-            {
-                Parallel.For(0, ShardCount, sIdx =>
-                {
-                    var bucketCount = bucketCountsArray[sIdx];
-                    if (bucketCount == 0)
-                    {
-                        return;
-                    }
-
-                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                    Locks[sIdx].EnterWriteLock();
-                    try
-                    {
-                        var quad = Quads[sIdx];
-                        var hasIndices = !Indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
-                        {
-                            var item = bucket[i];
-                            if (quad.Remove(item))
-                            {
-                                (removedByShard[sIdx] ??= []).Add(item);
-                                if (hasIndices)
-                                {
-                                    NotifyIndicesRemoved(item);
-                                }
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Locks[sIdx].ExitWriteLock();
-                    }
-                });
-            }
-            else
-            {
-                for (var sIdx = 0; sIdx < ShardCount; sIdx++)
-                {
-                    var bucketCount = bucketCountsArray[sIdx];
-                    if (bucketCount == 0)
-                    {
-                        continue;
-                    }
-
-                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                    Locks[sIdx].EnterWriteLock();
-                    try
-                    {
-                        var quad = Quads[sIdx];
-                        var hasIndices = !Indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
-                        {
-                            var item = bucket[i];
-                            if (quad.Remove(item))
-                            {
-                                (removedByShard[sIdx] ??= []).Add(item);
-                                if (hasIndices)
-                                {
-                                    NotifyIndicesRemoved(item);
-                                }
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Locks[sIdx].ExitWriteLock();
-                    }
-                }
-            }
-
-            EmitRemovedItems(removedByShard);
-        }
-        finally
-        {
-            for (var i = 0; i < ShardCount; i++)
-            {
-                if (bucketCountsArray[i] > 0)
-                {
-                    ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
-                }
-            }
-        }
+        RemoveFromShards(remove0, remove1, remove2, remove3);
     }
 
     /// <summary>
@@ -869,145 +783,148 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
             return;
         }
 
-        var bucketCountsArray = new int[ShardCount];
-        var bucketIndicesArray = new int[ShardCount];
-        var removedByShard = new List<T>?[ShardCount];
+        Dictionary<T, int>? remove0 = null;
+        Dictionary<T, int>? remove1 = null;
+        Dictionary<T, int>? remove2 = null;
+        Dictionary<T, int>? remove3 = null;
 
         for (var i = 0; i < count; i++)
         {
-            var shardIdx = GetShardIndex(items[i]);
-            bucketCountsArray[shardIdx]++;
+            var item = items[i];
+            AddRemoveCount(GetShardIndex(item), item, ref remove0, ref remove1, ref remove2, ref remove3);
         }
 
-        var bucketArrays = new T[ShardCount][];
-
-        for (var i = 0; i < ShardCount; i++)
-        {
-            bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : Array.Empty<T>();
-        }
-
-        try
-        {
-            for (var i = 0; i < count; i++)
-            {
-                var item = items[i];
-                var shardIdx = GetShardIndex(item);
-                bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = item;
-            }
-
-            if (count >= ParallelThreshold)
-            {
-                Parallel.For(0, ShardCount, sIdx =>
-                {
-                    var bucketCount = bucketCountsArray[sIdx];
-                    if (bucketCount == 0)
-                    {
-                        return;
-                    }
-
-                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                    Locks[sIdx].EnterWriteLock();
-                    try
-                    {
-                        var quad = Quads[sIdx];
-                        var hasIndices = !Indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
-                        {
-                            var item = bucket[i];
-                            if (quad.Remove(item))
-                            {
-                                (removedByShard[sIdx] ??= []).Add(item);
-                                if (hasIndices)
-                                {
-                                    NotifyIndicesRemoved(item);
-                                }
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Locks[sIdx].ExitWriteLock();
-                    }
-                });
-            }
-            else
-            {
-                for (var sIdx = 0; sIdx < ShardCount; sIdx++)
-                {
-                    var bucketCount = bucketCountsArray[sIdx];
-                    if (bucketCount == 0)
-                    {
-                        continue;
-                    }
-
-                    var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                    Locks[sIdx].EnterWriteLock();
-                    try
-                    {
-                        var quad = Quads[sIdx];
-                        var hasIndices = !Indices.IsEmpty;
-                        for (var i = 0; i < bucketCount; i++)
-                        {
-                            var item = bucket[i];
-                            if (quad.Remove(item))
-                            {
-                                (removedByShard[sIdx] ??= []).Add(item);
-                                if (hasIndices)
-                                {
-                                    NotifyIndicesRemoved(item);
-                                }
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Locks[sIdx].ExitWriteLock();
-                    }
-                }
-            }
-
-            EmitRemovedItems(removedByShard);
-        }
-        finally
-        {
-            for (var i = 0; i < ShardCount; i++)
-            {
-                if (bucketCountsArray[i] > 0)
-                {
-                    ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
-                }
-            }
-        }
+        RemoveFromShards(remove0, remove1, remove2, remove3);
     }
 
-    private void EmitRemovedItems(List<T>?[] removedByShard)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Kept near related instance helpers to satisfy member ordering.")]
+    private void AddRemoveCount(
+        int shardIndex,
+        T item,
+        ref Dictionary<T, int>? remove0,
+        ref Dictionary<T, int>? remove1,
+        ref Dictionary<T, int>? remove2,
+        ref Dictionary<T, int>? remove3)
     {
-        var totalRemoved = 0;
-        for (var i = 0; i < removedByShard.Length; i++)
+        Dictionary<T, int>? counts;
+        switch (shardIndex)
         {
-            totalRemoved += removedByShard[i]?.Count ?? 0;
+            case 0:
+                counts = remove0 ??= [];
+                break;
+            case 1:
+                counts = remove1 ??= [];
+                break;
+            case 2:
+                counts = remove2 ??= [];
+                break;
+            default:
+                counts = remove3 ??= [];
+                break;
         }
+
+        counts[item] = counts.TryGetValue(item, out var existing) ? existing + 1 : 1;
+    }
+
+    private void RemoveFromShards(
+        Dictionary<T, int>? remove0,
+        Dictionary<T, int>? remove1,
+        Dictionary<T, int>? remove2,
+        Dictionary<T, int>? remove3)
+    {
+        var hasIndices = !Indices.IsEmpty;
+        var captureRemovedItems = hasIndices || HasChangeObservers();
+        var totalRemoved = 0;
+
+        var removed0 = RemoveFromShard(0, remove0, captureRemovedItems, hasIndices, ref totalRemoved);
+        var removed1 = RemoveFromShard(1, remove1, captureRemovedItems, hasIndices, ref totalRemoved);
+        var removed2 = RemoveFromShard(2, remove2, captureRemovedItems, hasIndices, ref totalRemoved);
+        var removed3 = RemoveFromShard(3, remove3, captureRemovedItems, hasIndices, ref totalRemoved);
 
         if (totalRemoved == 0)
         {
             return;
         }
 
-        var removed = new T[totalRemoved];
-        var offset = 0;
-        for (var i = 0; i < removedByShard.Length; i++)
-        {
-            var shardItems = removedByShard[i];
-            if (shardItems == null)
-            {
-                continue;
-            }
+        AddToCount(-totalRemoved);
+        EmitRemovedItems(totalRemoved, removed0, removed1, removed2, removed3);
+    }
 
-            shardItems.CopyTo(removed, offset);
-            offset += shardItems.Count;
+    private List<T>? RemoveFromShard(
+        int shardIndex,
+        Dictionary<T, int>? removeCounts,
+        bool captureRemovedItems,
+        bool hasIndices,
+        ref int totalRemoved)
+    {
+        if (removeCounts == null)
+        {
+            return null;
         }
 
-        EmitBatchRemoved(removed, removed.Length);
+        var removedItems = captureRemovedItems ? new List<T>(Math.Min(removeCounts.Count, Quads[shardIndex].Count)) : null;
+        Locks[shardIndex].EnterWriteLock();
+        try
+        {
+            totalRemoved += Quads[shardIndex].RemoveMatching(removeCounts, removedItems);
+        }
+        finally
+        {
+            Locks[shardIndex].ExitWriteLock();
+        }
+
+        if (hasIndices && removedItems != null)
+        {
+            for (var i = 0; i < removedItems.Count; i++)
+            {
+                NotifyIndicesRemoved(removedItems[i]);
+            }
+        }
+
+        return removedItems;
+    }
+
+    private void EmitRemovedItems(int totalRemoved, List<T>? removed0, List<T>? removed1, List<T>? removed2, List<T>? removed3)
+    {
+        if (!HasChangeObservers())
+        {
+            Emit(CacheAction.BatchRemoved, default);
+            return;
+        }
+
+        var removed = new T[totalRemoved];
+        var offset = 0;
+        CopyRemoved(removed0, removed, ref offset);
+        CopyRemoved(removed1, removed, ref offset);
+        CopyRemoved(removed2, removed, ref offset);
+        CopyRemoved(removed3, removed, ref offset);
+
+        EmitOwnedBatchRemoved(removed, removed.Length);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Kept near related instance helpers to satisfy member ordering.")]
+    private void CopyRemoved(List<T>? source, T[] destination, ref int offset)
+    {
+        if (source == null)
+        {
+            return;
+        }
+
+        source.CopyTo(destination, offset);
+        offset += source.Count;
+    }
+
+    private int GetCountUnsafe()
+    {
+        var count = 0;
+        for (var i = 0; i < ShardCount; i++)
+        {
+            count += Quads[i].Count;
+        }
+
+        return count;
     }
 
     /// <summary>

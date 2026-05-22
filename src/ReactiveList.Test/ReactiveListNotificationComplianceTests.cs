@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Threading;
 using System.Threading.Tasks;
 using CP.Reactive.Collections;
 using CP.Reactive.Views;
@@ -159,6 +160,60 @@ public class ReactiveListNotificationComplianceTests
 
         dictionaryProperties.Should().Contain(nameof(dictionary.Count));
         dictionaryProperties.Should().Contain("Item[]");
+    }
+
+    /// <summary>
+    /// Optimized quaternary list range removal should preserve multiset semantics for duplicate values.
+    /// </summary>
+    [Test]
+    public void QuaternaryList_RemoveRange_ShouldRemoveOnlyRequestedDuplicateCount()
+    {
+        using var list = new QuaternaryList<int>();
+        list.AddRange([1, 1, 1, 2, 3]);
+
+        list.RemoveRange([1, 1, 4]);
+
+        list.Count.Should().Be(3);
+        list.ToArray().Should().BeEquivalentTo([1, 2, 3]);
+    }
+
+    /// <summary>
+    /// Dictionary range operations should keep count exact for overwrites and no-op removals.
+    /// </summary>
+    [Test]
+    public void QuaternaryDictionary_RangeOperations_ShouldMaintainCountAndSkipNoOpRemoveNotification()
+    {
+        using var dictionary = new QuaternaryDictionary<int, string>();
+        var notifications = 0;
+        using var received = new ManualResetEventSlim();
+        using var subscription = dictionary.Stream.Subscribe(_ =>
+        {
+            Interlocked.Increment(ref notifications);
+            received.Set();
+        });
+
+        dictionary.AddRange(
+        [
+            new KeyValuePair<int, string>(1, "one"),
+            new KeyValuePair<int, string>(1, "uno"),
+            new KeyValuePair<int, string>(2, "two")
+        ]);
+
+        dictionary.Count.Should().Be(2);
+        received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        notifications.Should().Be(1);
+
+        received.Reset();
+        dictionary.RemoveKeys([99]);
+        dictionary.Count.Should().Be(2);
+        received.Wait(TimeSpan.FromMilliseconds(50)).Should().BeFalse();
+        notifications.Should().Be(1);
+
+        received.Reset();
+        dictionary.RemoveKeys([1]);
+        dictionary.Count.Should().Be(1);
+        received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        notifications.Should().Be(2);
     }
 #endif
 
