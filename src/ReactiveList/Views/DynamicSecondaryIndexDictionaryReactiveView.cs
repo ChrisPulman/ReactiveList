@@ -57,14 +57,13 @@ where TIndexKey : notnull
         _filteredItems = [];
         Items = new ReadOnlyObservableCollection<KeyValuePair<TKey, TValue>>(_filteredItems);
 
-        // Get initial keys synchronously for BehaviorSubject/ReplaySubject
-        var initialKeys = keysObservable.FirstAsync().GetAwaiter().GetResult();
+        var hasInitialKeys = TryGetLatest(keysObservable, out var initialKeys);
         _currentKeys = initialKeys?.ToHashSet() ?? [];
         RebuildView();
 
         // Subscribe to key changes (skip the first since we already processed it)
-        keysObservable
-            .Skip(1)
+        var keyChanges = hasInitialKeys ? keysObservable.Skip(1) : keysObservable;
+        keyChanges
             .Subscribe(keys =>
             {
                 lock (_lock)
@@ -158,6 +157,27 @@ where TIndexKey : notnull
     public void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    private static bool TryGetLatest(IObservable<TIndexKey[]> source, out TIndexKey[]? value)
+    {
+        var hasValue = false;
+        TIndexKey[]? current = null;
+        using (source.Subscribe(
+            next =>
+            {
+                if (!hasValue)
+                {
+                    current = next;
+                    hasValue = true;
+                }
+            },
+            _ => { }))
+        {
+        }
+
+        value = current;
+        return hasValue;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

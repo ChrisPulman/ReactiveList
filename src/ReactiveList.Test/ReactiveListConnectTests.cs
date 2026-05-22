@@ -34,6 +34,23 @@ public class ReactiveListConnectTests
     }
 
     /// <summary>
+    /// Connect emits the current snapshot for preloaded sources.
+    /// </summary>
+    [Test]
+    public void Connect_EmitsInitialSnapshot_WhenSourceHasItems()
+    {
+        using var list = new ReactiveList<int>([1, 2, 3]);
+        var receivedChanges = new List<ChangeSet<int>>();
+
+        using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+
+        receivedChanges.Should().ContainSingle();
+        receivedChanges[0].Count.Should().Be(3);
+        receivedChanges[0].Adds.Should().Be(3);
+        receivedChanges[0].Select(change => change.Current).Should().Equal(1, 2, 3);
+    }
+
+    /// <summary>
     /// Connect emits add changes when items are added.
     /// </summary>
     [Test]
@@ -85,6 +102,7 @@ public class ReactiveListConnectTests
         using var list = new ReactiveList<int>([1, 2, 3]);
         var receivedChanges = new List<ChangeSet<int>>();
         using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        receivedChanges.Clear();
 
         // Act
         list.Remove(2);
@@ -108,6 +126,7 @@ public class ReactiveListConnectTests
         using var list = new ReactiveList<int>([1, 2, 3]);
         var receivedChanges = new List<ChangeSet<int>>();
         using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        receivedChanges.Clear();
 
         // Act
         list.Clear();
@@ -131,6 +150,7 @@ public class ReactiveListConnectTests
         using var list = new ReactiveList<int>([1, 2, 3, 4, 5]);
         var receivedChanges = new List<ChangeSet<int>>();
         using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        receivedChanges.Clear();
 
         // Act
         list.Move(0, 4);
@@ -155,6 +175,7 @@ public class ReactiveListConnectTests
         using var list = new ReactiveList<int>([1, 2, 3]);
         var receivedChanges = new List<ChangeSet<int>>();
         using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        receivedChanges.Clear();
 
         // Act
         list.Update(2, 20);

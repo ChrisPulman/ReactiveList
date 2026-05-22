@@ -21,6 +21,7 @@ namespace CP.Reactive.Collections;
 /// <typeparam name="T">The type of elements in the list.</typeparam>
 [SkipLocalsInit]
 public sealed class QuadList<T> : IDisposable, IQuad<T>
+    where T : notnull
 {
     private const int MinimumSize = 16;
 
@@ -241,6 +242,54 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void AddAssumeCapacity(T item) => _items[_count++] = item;
+
+    internal int RemoveMatching(Dictionary<T, int> removeCounts, List<T>? removedItems)
+    {
+        var items = _items;
+        var count = _count;
+        var writeIndex = 0;
+        var removed = 0;
+
+        for (var readIndex = 0; readIndex < count; readIndex++)
+        {
+            var item = items[readIndex];
+            if (removeCounts.TryGetValue(item, out var remaining))
+            {
+                if (remaining == 1)
+                {
+                    removeCounts.Remove(item);
+                }
+                else
+                {
+                    removeCounts[item] = remaining - 1;
+                }
+
+                removedItems?.Add(item);
+                removed++;
+                continue;
+            }
+
+            if (writeIndex != readIndex)
+            {
+                items[writeIndex] = item;
+            }
+
+            writeIndex++;
+        }
+
+        if (removed == 0)
+        {
+            return 0;
+        }
+
+        if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
+        {
+            Array.Clear(items, writeIndex, removed);
+        }
+
+        _count = writeIndex;
+        return removed;
+    }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ThrowIndexOutOfRange() => throw new IndexOutOfRangeException();

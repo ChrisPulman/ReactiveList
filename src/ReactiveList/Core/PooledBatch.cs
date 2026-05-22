@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using CP.Reactive.Internal;
 
 namespace CP.Reactive.Core;
 
@@ -15,7 +16,8 @@ namespace CP.Reactive.Core;
 /// <param name="Items">The array of items provided by the array pool. Must not be null.</param>
 /// <param name="Count">The number of valid items in the batch. Must be between 0 and the length of the <paramref name="Items"/> array,
 /// inclusive.</param>
-public sealed record PooledBatch<T>(T[] Items, int Count) : IDisposable
+/// <param name="ReturnToPool">A value indicating whether <paramref name="Items"/> should be returned to <see cref="ArrayPool{T}"/> when disposed.</param>
+public sealed record PooledBatch<T>(T[] Items, int Count, bool ReturnToPool = true) : IDisposable
 {
     private int _isDisposed;
 
@@ -28,7 +30,10 @@ public sealed record PooledBatch<T>(T[] Items, int Count) : IDisposable
     {
         if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
         {
-            ArrayPool<T>.Shared.Return(Items);
+            if (ReturnToPool)
+            {
+                ArrayPool<T>.Shared.Return(Items, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+            }
         }
     }
 }

@@ -88,10 +88,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
             throw new ArgumentNullException(nameof(items));
         }
 
-        foreach (var item in items)
-        {
-            Add([.. item]);
-        }
+        base.AddRange(items.Select(static item => new ReactiveList<T>(item)).ToArray());
     }
 
     /// <summary>
@@ -106,10 +103,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
             throw new ArgumentNullException(nameof(items));
         }
 
-        foreach (var item in items)
-        {
-            Add(new ReactiveList<T>(item));
-        }
+        base.AddRange(items.Select(static item => new ReactiveList<T>(item)).ToArray());
     }
 
     /// <summary>

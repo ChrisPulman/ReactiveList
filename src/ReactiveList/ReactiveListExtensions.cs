@@ -316,7 +316,8 @@ public static class ReactiveListExtensions
             {
                 CacheAction.Added when notification.Item != null && filter(notification.Item) => notification,
                 CacheAction.Removed when notification.Item != null => notification, // Always pass removed items
-                CacheAction.BatchOperation when notification.Batch != null => FilterBatchByPredicate(notification, filter),
+                CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch != null =>
+                    FilterBatchByPredicate(notification, filter),
                 CacheAction.Cleared => notification,
                 _ => null
             }).Where(n => n != null).Select(n => n!))
@@ -796,7 +797,23 @@ public static class ReactiveListExtensions
             throw new ArgumentNullException(nameof(source));
         }
 
-        return source.Stream.ToChangeSets();
+        return Observable.Defer(() =>
+        {
+            var initialItems = source.ToArray();
+            var changeStream = source.Stream.ToChangeSets();
+            if (initialItems.Length == 0)
+            {
+                return changeStream;
+            }
+
+            var initialChanges = new Change<T>[initialItems.Length];
+            for (var i = 0; i < initialItems.Length; i++)
+            {
+                initialChanges[i] = Change<T>.CreateAdd(initialItems[i], i);
+            }
+
+            return Observable.Return(new ChangeSet<T>(initialChanges)).Concat(changeStream);
+        });
     }
 
     /// <summary>
@@ -912,28 +929,33 @@ public static class ReactiveListExtensions
             return null;
         }
 
-        var filteredItems = new List<T>();
+        var matchCount = 0;
         for (var i = 0; i < notification.Batch.Count; i++)
         {
             var item = notification.Batch.Items[i];
             if (filter(item))
             {
-                filteredItems.Add(item);
+                matchCount++;
             }
         }
 
-        if (filteredItems.Count == 0)
+        if (matchCount == 0)
         {
             return null;
         }
 
-        var pooledArray = System.Buffers.ArrayPool<T>.Shared.Rent(filteredItems.Count);
-        for (var i = 0; i < filteredItems.Count; i++)
+        var filteredItems = new T[matchCount];
+        var index = 0;
+        for (var i = 0; i < notification.Batch.Count; i++)
         {
-            pooledArray[i] = filteredItems[i];
+            var item = notification.Batch.Items[i];
+            if (filter(item))
+            {
+                filteredItems[index++] = item;
+            }
         }
 
-        return new CacheNotify<T>(CacheAction.BatchOperation, default, new PooledBatch<T>(pooledArray, filteredItems.Count));
+        return new CacheNotify<T>(CacheAction.BatchOperation, default, new PooledBatch<T>(filteredItems, filteredItems.Length, ReturnToPool: false));
     }
 
     /// <summary>
@@ -953,27 +975,31 @@ public static class ReactiveListExtensions
             return null;
         }
 
-        var filteredItems = new List<T>();
+        var matchCount = 0;
+        for (var i = 0; i < notification.Batch.Count; i++)
+        {
+            if (matchingItems.Contains(notification.Batch.Items[i]))
+            {
+                matchCount++;
+            }
+        }
+
+        if (matchCount == 0)
+        {
+            return null;
+        }
+
+        var filteredItems = new T[matchCount];
+        var index = 0;
         for (var i = 0; i < notification.Batch.Count; i++)
         {
             var item = notification.Batch.Items[i];
             if (matchingItems.Contains(item))
             {
-                filteredItems.Add(item);
+                filteredItems[index++] = item;
             }
         }
 
-        if (filteredItems.Count == 0)
-        {
-            return null;
-        }
-
-        var pooledArray = System.Buffers.ArrayPool<T>.Shared.Rent(filteredItems.Count);
-        for (var i = 0; i < filteredItems.Count; i++)
-        {
-            pooledArray[i] = filteredItems[i];
-        }
-
-        return new CacheNotify<T>(CacheAction.BatchOperation, default, new PooledBatch<T>(pooledArray, filteredItems.Count));
+        return new CacheNotify<T>(CacheAction.BatchOperation, default, new PooledBatch<T>(filteredItems, filteredItems.Length, ReturnToPool: false));
     }
 }
