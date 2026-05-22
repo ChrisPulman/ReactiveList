@@ -82,22 +82,18 @@ where T : notnull
         _scheduler = scheduler;
         Items = new ReadOnlyObservableCollection<T>(_target);
 
-        // Get initial filter - for BehaviorSubject/ReplaySubject this should return immediately
-        try
+        var hasInitialFilter = TryGetLatest(filterObservable, out var initialFilter);
+        if (hasInitialFilter)
         {
-            _currentFilter = filterObservable.FirstAsync().GetAwaiter().GetResult() ?? (static _ => true);
-        }
-        catch
-        {
-            _currentFilter = static _ => true;
+            _currentFilter = initialFilter ?? (static _ => true);
         }
 
         RebuildView();
         SubscribeToStream();
 
         // Subscribe to subsequent filter changes with scheduler observation
-        filterObservable
-            .Skip(1)
+        var filterChanges = hasInitialFilter ? filterObservable.Skip(1) : filterObservable;
+        filterChanges
             .ObserveOn(scheduler)
             .Subscribe(newFilter =>
             {
@@ -188,50 +184,25 @@ where T : notnull
         }
     }
 
-    /// <summary>
-    /// Refreshes the view by reapplying the current filter to the source collection and updating the target collection
-    /// accordingly.
-    /// </summary>
-    /// <remarks>Call this method to ensure that the target collection reflects the latest state of the source
-    /// collection and filter. This method also raises the PropertyChanged event for the Items property to notify
-    /// listeners of the update.</remarks>
-    private void RebuildView()
+    private static bool TryGetLatest(IObservable<Func<T, bool>> source, out Func<T, bool>? value)
     {
-        _target.Clear();
-        foreach (var item in _source.Where(item => _currentFilter(item)))
+        var hasValue = false;
+        Func<T, bool>? current = null;
+        using (source.Subscribe(
+            next =>
+            {
+                if (!hasValue)
+                {
+                    current = next;
+                    hasValue = true;
+                }
+            },
+            _ => { }))
         {
-            _target.Add(item);
         }
 
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
-    }
-
-    /// <summary>
-    /// Subscribes to the data stream and updates the collection when new items are received.
-    /// </summary>
-    /// <remarks>Disposes any existing stream subscription before creating a new one. Updates to the
-    /// collection are batched and processed on the specified scheduler. Raises the PropertyChanged event for the Items
-    /// property after each batch is applied.</remarks>
-    private void SubscribeToStream()
-    {
-        // Dispose previous subscription
-        _streamSubscription?.Dispose();
-
-        // Subscribe to stream with current filter
-        _streamSubscription = _source.Stream
-            .Buffer(_throttle)
-            .Where(b => b.Count > 0)
-            .ObserveOn(_scheduler)
-            .Subscribe(batch =>
-            {
-                foreach (var notify in batch)
-                {
-                    ApplyChange(notify);
-                    notify.Batch?.Dispose();
-                }
-
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
-            });
+        value = current;
+        return hasValue;
     }
 
     /// <summary>
@@ -290,5 +261,51 @@ where T : notnull
                 _target.Clear();
                 break;
         }
+    }
+
+    /// <summary>
+    /// Refreshes the view by reapplying the current filter to the source collection and updating the target collection
+    /// accordingly.
+    /// </summary>
+    /// <remarks>Call this method to ensure that the target collection reflects the latest state of the source
+    /// collection and filter. This method also raises the PropertyChanged event for the Items property to notify
+    /// listeners of the update.</remarks>
+    private void RebuildView()
+    {
+        _target.Clear();
+        foreach (var item in _source.Where(item => _currentFilter(item)))
+        {
+            _target.Add(item);
+        }
+
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
+    }
+
+    /// <summary>
+    /// Subscribes to the data stream and updates the collection when new items are received.
+    /// </summary>
+    /// <remarks>Disposes any existing stream subscription before creating a new one. Updates to the
+    /// collection are batched and processed on the specified scheduler. Raises the PropertyChanged event for the Items
+    /// property after each batch is applied.</remarks>
+    private void SubscribeToStream()
+    {
+        // Dispose previous subscription
+        _streamSubscription?.Dispose();
+
+        // Subscribe to stream with current filter
+        _streamSubscription = _source.Stream
+            .Buffer(_throttle)
+            .Where(b => b.Count > 0)
+            .ObserveOn(_scheduler)
+            .Subscribe(batch =>
+            {
+                foreach (var notify in batch)
+                {
+                    ApplyChange(notify);
+                    notify.Batch?.Dispose();
+                }
+
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
+            });
     }
 }

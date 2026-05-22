@@ -744,6 +744,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
 
         var bucketCountsArray = new int[ShardCount];
         var bucketIndicesArray = new int[ShardCount];
+        var removedByShard = new List<T>?[ShardCount];
         var itemsSpan = items.AsSpan();
 
         for (var i = 0; i < count; i++)
@@ -787,9 +788,13 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var item = bucket[i];
-                            if (quad.Remove(item) && hasIndices)
+                            if (quad.Remove(item))
                             {
-                                NotifyIndicesRemoved(item);
+                                (removedByShard[sIdx] ??= []).Add(item);
+                                if (hasIndices)
+                                {
+                                    NotifyIndicesRemoved(item);
+                                }
                             }
                         }
                     }
@@ -818,9 +823,13 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var item = bucket[i];
-                            if (quad.Remove(item) && hasIndices)
+                            if (quad.Remove(item))
                             {
-                                NotifyIndicesRemoved(item);
+                                (removedByShard[sIdx] ??= []).Add(item);
+                                if (hasIndices)
+                                {
+                                    NotifyIndicesRemoved(item);
+                                }
                             }
                         }
                     }
@@ -831,7 +840,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                 }
             }
 
-            EmitBatchRemoved(items, count);
+            EmitRemovedItems(removedByShard);
         }
         finally
         {
@@ -862,6 +871,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
 
         var bucketCountsArray = new int[ShardCount];
         var bucketIndicesArray = new int[ShardCount];
+        var removedByShard = new List<T>?[ShardCount];
 
         for (var i = 0; i < count; i++)
         {
@@ -904,9 +914,13 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var item = bucket[i];
-                            if (quad.Remove(item) && hasIndices)
+                            if (quad.Remove(item))
                             {
-                                NotifyIndicesRemoved(item);
+                                (removedByShard[sIdx] ??= []).Add(item);
+                                if (hasIndices)
+                                {
+                                    NotifyIndicesRemoved(item);
+                                }
                             }
                         }
                     }
@@ -935,9 +949,13 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                         for (var i = 0; i < bucketCount; i++)
                         {
                             var item = bucket[i];
-                            if (quad.Remove(item) && hasIndices)
+                            if (quad.Remove(item))
                             {
-                                NotifyIndicesRemoved(item);
+                                (removedByShard[sIdx] ??= []).Add(item);
+                                if (hasIndices)
+                                {
+                                    NotifyIndicesRemoved(item);
+                                }
                             }
                         }
                     }
@@ -948,7 +966,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                 }
             }
 
-            EmitBatchRemovedFromList(items, count);
+            EmitRemovedItems(removedByShard);
         }
         finally
         {
@@ -960,6 +978,36 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
                 }
             }
         }
+    }
+
+    private void EmitRemovedItems(List<T>?[] removedByShard)
+    {
+        var totalRemoved = 0;
+        for (var i = 0; i < removedByShard.Length; i++)
+        {
+            totalRemoved += removedByShard[i]?.Count ?? 0;
+        }
+
+        if (totalRemoved == 0)
+        {
+            return;
+        }
+
+        var removed = new T[totalRemoved];
+        var offset = 0;
+        for (var i = 0; i < removedByShard.Length; i++)
+        {
+            var shardItems = removedByShard[i];
+            if (shardItems == null)
+            {
+                continue;
+            }
+
+            shardItems.CopyTo(removed, offset);
+            offset += shardItems.Count;
+        }
+
+        EmitBatchRemoved(removed, removed.Length);
     }
 
     /// <summary>

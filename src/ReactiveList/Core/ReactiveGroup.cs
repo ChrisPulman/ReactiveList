@@ -4,6 +4,7 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 
 namespace CP.Reactive.Core;
 
@@ -12,7 +13,7 @@ namespace CP.Reactive.Core;
 /// </summary>
 /// <typeparam name="TKey">The type of the grouping key.</typeparam>
 /// <typeparam name="T">The type of elements in the group.</typeparam>
-public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollectionChanged
+public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollectionChanged, INotifyPropertyChanged
     where TKey : notnull
 {
     private readonly ObservableCollection<T> _items;
@@ -27,11 +28,19 @@ public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollecti
         Key = key;
         _items = items;
         Items = new ReadOnlyObservableCollection<T>(_items);
-        _items.CollectionChanged += (s, e) => CollectionChanged?.Invoke(this, e);
+        _items.CollectionChanged += (s, e) =>
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
+            CollectionChanged?.Invoke(this, e);
+        };
     }
 
     /// <inheritdoc/>
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
     /// Gets the group key.

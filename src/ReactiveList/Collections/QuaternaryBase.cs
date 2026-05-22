@@ -2,9 +2,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
@@ -25,7 +25,7 @@ namespace CP.Reactive.Collections;
 /// <typeparam name="TItem">The type of items stored in the collection. Must be non-nullable.</typeparam>
 /// <typeparam name="TQuad">The type representing a quad (shard) within the collection. Must implement <see cref="IQuad{TItem}"/>.</typeparam>
 /// <typeparam name="TValue">The type used for secondary indexing within the collection.</typeparam>
-public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TItem>
+public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TItem>, INotifyPropertyChanged
     where TItem : notnull
     where TQuad : IQuad<TItem>, new()
 {
@@ -69,6 +69,9 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         new TQuad()
     ];
 
+    private const string ItemArray = "Item[]";
+    private static readonly PropertyChangedEventArgs CountPropertyChangedEventArgs = new(nameof(Count));
+    private static readonly PropertyChangedEventArgs ItemArrayPropertyChangedEventArgs = new(ItemArray);
     private readonly SynchronizationContext? _syncContext;
     private Channel<CacheNotify<TItem>>? _eventChannel;
     private object? _eventGate;
@@ -110,6 +113,9 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
 
         remove => _collectionChanged -= value;
     }
+
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
     /// Gets the total number of items contained in all quads.
@@ -250,6 +256,8 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     {
         // Increment version atomically for change tracking
         Interlocked.Increment(ref _version);
+        OnPropertyChanged(CountPropertyChangedEventArgs);
+        OnPropertyChanged(ItemArrayPropertyChangedEventArgs);
 
         // Fast path: skip channel write if no subscribers and no INCC
         if (!HasChangeObservers())
@@ -259,7 +267,10 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         }
 
         EnsureEventProcessorStarted();
-        _eventChannel!.Writer.TryWrite(new(action, item, batch));
+        if (!_eventChannel!.Writer.TryWrite(new(action, item, batch)))
+        {
+            batch?.Dispose();
+        }
     }
 
     /// <summary>
@@ -280,9 +291,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
             return;
         }
 
-        var pool = ArrayPool<TItem>.Shared.Rent(count);
-        Array.Copy(items, pool, count);
-        Emit(CacheAction.BatchOperation, default, new PooledBatch<TItem>(pool, count));
+        Emit(CacheAction.BatchOperation, default, CreateBatch(items, count));
     }
 
     /// <summary>
@@ -303,9 +312,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
             return;
         }
 
-        var pool = ArrayPool<TItem>.Shared.Rent(count);
-        Array.Copy(items, pool, count);
-        Emit(CacheAction.BatchAdded, default, new PooledBatch<TItem>(pool, count));
+        Emit(CacheAction.BatchAdded, default, CreateBatch(items, count));
     }
 
     /// <summary>
@@ -331,13 +338,13 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
             return;
         }
 
-        var pool = ArrayPool<TItem>.Shared.Rent(count);
+        var pool = new TItem[count];
         for (var i = 0; i < count; i++)
         {
             pool[i] = items[i];
         }
 
-        Emit(CacheAction.BatchAdded, default, new PooledBatch<TItem>(pool, count));
+        Emit(CacheAction.BatchAdded, default, new PooledBatch<TItem>(pool, count, ReturnToPool: false));
     }
 
     /// <summary>
@@ -358,9 +365,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
             return;
         }
 
-        var pool = ArrayPool<TItem>.Shared.Rent(count);
-        Array.Copy(items, pool, count);
-        Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(pool, count));
+        Emit(CacheAction.BatchRemoved, default, CreateBatch(items, count));
     }
 
     /// <summary>
@@ -384,13 +389,13 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
             return;
         }
 
-        var pool = ArrayPool<TItem>.Shared.Rent(count);
+        var pool = new TItem[count];
         for (var i = 0; i < count; i++)
         {
             pool[i] = items[i];
         }
 
-        Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(pool, count));
+        Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(pool, count, ReturnToPool: false));
     }
 
     /// <summary>
@@ -452,6 +457,13 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
 
             IsDisposed = true;
         }
+    }
+
+    private static PooledBatch<TItem> CreateBatch(TItem[] items, int count)
+    {
+        var batchItems = new TItem[count];
+        Array.Copy(items, batchItems, count);
+        return new PooledBatch<TItem>(batchItems, count, ReturnToPool: false);
     }
 
     /// <summary>
@@ -555,6 +567,9 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
 
     private bool HasChangeObservers() =>
         Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) != 0 || _collectionChanged != null;
+
+    private void OnPropertyChanged(PropertyChangedEventArgs args) =>
+        PropertyChanged?.Invoke(this, args);
 
     private void EnsureEventProcessorStarted()
     {

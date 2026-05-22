@@ -38,6 +38,9 @@ public class ReactiveList<T> : IReactiveList<T>
     where T : notnull
 {
     private const string ItemArray = "Item[]";
+    private static readonly PropertyChangedEventArgs CountPropertyChangedEventArgs = new(nameof(Count));
+    private static readonly PropertyChangedEventArgs ItemArrayPropertyChangedEventArgs = new(ItemArray);
+    private static readonly NotifyCollectionChangedEventArgs ResetCollectionChangedEventArgs = new(NotifyCollectionChangedAction.Reset);
     private readonly List<T> _internalList = [];
 
 #if NET9_0_OR_GREATER
@@ -91,7 +94,7 @@ public class ReactiveList<T> : IReactiveList<T>
     private Subject<CacheNotify<T>>? _streamPipeline;
 
     [NonSerialized]
-    private bool _skipInternalSubscription;
+    private int _skipInternalNotifications;
 
     [NonSerialized]
     private long _version;
@@ -234,22 +237,14 @@ public class ReactiveList<T> : IReactiveList<T>
     object? IList.this[int index]
     {
         get => _internalList[index];
-        set
-        {
-            RemoveAt(index);
-            Insert(index, (T)value!);
-        }
+        set => SetItem(index, (T)value!);
     }
 
     /// <inheritdoc/>
     public T this[int index]
     {
         get => _internalList[index];
-        set
-        {
-            RemoveAt(index);
-            Insert(index, value);
-        }
+        set => SetItem(index, value);
     }
 
     /// <inheritdoc/>
@@ -289,22 +284,17 @@ public class ReactiveList<T> : IReactiveList<T>
             return;
         }
 
+        var itemArray = items.ToArray();
         lock (_lock)
         {
-            var requiredCapacity = _internalList.Count + items.Length;
+            var requiredCapacity = _internalList.Count + itemArray.Length;
             if (_internalList.Capacity < requiredCapacity)
             {
                 _internalList.Capacity = requiredCapacity;
             }
 
-            foreach (var item in items)
-            {
-                _internalList.Add(item);
-                _observableItems!.Add(item);
-            }
-
-            // Notify with array copy
-            var itemArray = items.ToArray();
+            _internalList.AddRange(itemArray);
+            _observableItems!.AddRange(itemArray);
             NotifyAddedRange(itemArray);
         }
     }
@@ -563,38 +553,23 @@ public class ReactiveList<T> : IReactiveList<T>
 
         lock (_lock)
         {
-            var snapshotSet = new HashSet<T>(_internalList);
-            var wrapper = new EditableListWrapper<T>(_internalList, _observableItems);
+            var snapshot = _internalList.ToArray();
+            var wrapper = new EditableListWrapper<T>(_internalList);
             editAction(wrapper);
 
-            var currentSet = new HashSet<T>(_internalList);
-            var added = new List<T>();
-            var removed = new List<T>();
+            _observableItems!.ReplaceAll(_internalList);
 
-            foreach (var item in _internalList)
+            var added = GetMultisetDifference(_internalList, snapshot);
+            var removed = GetMultisetDifference(snapshot, _internalList);
+
+            if (added.Length > 0)
             {
-                if (!snapshotSet.Contains(item))
-                {
-                    added.Add(item);
-                }
+                NotifyAddedRange(added, notifyINPC: false);
             }
 
-            foreach (var item in snapshotSet)
+            if (removed.Length > 0)
             {
-                if (!currentSet.Contains(item))
-                {
-                    removed.Add(item);
-                }
-            }
-
-            if (added.Count > 0)
-            {
-                NotifyAddedRange([.. added], notifyINPC: false);
-            }
-
-            if (removed.Count > 0)
-            {
-                NotifyRemovedRange([.. removed], notifyINPC: false);
+                NotifyRemovedRange(removed, notifyINPC: false);
             }
 
             OnPropertyChanged(nameof(Count));
@@ -752,13 +727,13 @@ public class ReactiveList<T> : IReactiveList<T>
                 if (index >= 0)
                 {
                     _internalList.RemoveAt(index);
-                    _observableItems!.RemoveAt(index);
                     removed.Add(item);
                 }
             }
 
             if (removed.Count > 0)
             {
+                _observableItems!.ReplaceAll(_internalList);
                 NotifyRemovedRange([.. removed]);
             }
         }
@@ -798,7 +773,6 @@ public class ReactiveList<T> : IReactiveList<T>
                     if (predicate(item))
                     {
                         _internalList.RemoveAt(i);
-                        _observableItems!.RemoveAt(i);
 
                         // Grow buffer if needed
                         if (removedCount >= removedBuffer.Length)
@@ -815,6 +789,8 @@ public class ReactiveList<T> : IReactiveList<T>
 
                 if (removedCount > 0)
                 {
+                    _observableItems!.ReplaceAll(_internalList);
+
                     // Reverse in-place to maintain original order
                     removedBuffer.AsSpan(0, removedCount).Reverse();
                     NotifyRemovedRange(removedBuffer.AsSpan(0, removedCount).ToArray());
@@ -836,13 +812,14 @@ public class ReactiveList<T> : IReactiveList<T>
                 if (predicate(item))
                 {
                     _internalList.RemoveAt(i);
-                    _observableItems!.RemoveAt(i);
                     removed.Add(item);
                 }
             }
 
             if (removed.Count > 0)
             {
+                _observableItems!.ReplaceAll(_internalList);
+
                 // Reverse to maintain original order in notification
                 removed.Reverse();
                 NotifyRemovedRange([.. removed]);
@@ -942,25 +919,32 @@ public class ReactiveList<T> : IReactiveList<T>
             UpdateTrackingCollection(_itemsChangedCollection!, oldItems);
             _currentItems!.OnNext(_internalList);
 
-            // Set flag to skip internal subscription processing for the following events
-            _skipInternalSubscription = true;
-
-            // Emit events to Stream for external subscribers
+            var emittedNotifications = 0;
             if (oldItems.Length > 0)
             {
-                var removedPool = ArrayPool<T>.Shared.Rent(oldItems.Length);
-                Array.Copy(oldItems, removedPool, oldItems.Length);
-                _streamPipeline?.OnNext(new CacheNotify<T>(CacheAction.BatchRemoved, default, new PooledBatch<T>(removedPool, oldItems.Length)));
+                emittedNotifications++;
             }
-
-            // Keep flag set for the second event
-            _skipInternalSubscription = true;
 
             if (itemArray.Length > 0)
             {
-                var addedPool = ArrayPool<T>.Shared.Rent(itemArray.Length);
-                Array.Copy(itemArray, addedPool, itemArray.Length);
-                _streamPipeline?.OnNext(new CacheNotify<T>(CacheAction.BatchAdded, default, new PooledBatch<T>(addedPool, itemArray.Length)));
+                emittedNotifications++;
+            }
+
+            _skipInternalNotifications += emittedNotifications;
+
+            if (oldItems.Length > 0)
+            {
+                _streamPipeline?.OnNext(new CacheNotify<T>(CacheAction.BatchRemoved, default, CreateBatch(oldItems)));
+            }
+
+            if (itemArray.Length > 0)
+            {
+                _streamPipeline?.OnNext(new CacheNotify<T>(CacheAction.BatchAdded, default, CreateBatch(itemArray)));
+            }
+
+            if (emittedNotifications > 0)
+            {
+                RaiseCollectionChanged(new CacheNotify<T>(CacheAction.BatchOperation, default));
             }
 
             OnPropertyChanged(nameof(Count));
@@ -1011,7 +995,15 @@ public class ReactiveList<T> : IReactiveList<T>
     /// Raises a PropertyChanged event (per <see cref="INotifyPropertyChanged" />).
     /// </summary>
     /// <param name="propertyName">Name of the property.</param>
-    protected virtual void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    protected virtual void OnPropertyChanged(string propertyName)
+    {
+        var args = propertyName == nameof(Count)
+            ? CountPropertyChangedEventArgs
+            : propertyName == ItemArray
+                ? ItemArrayPropertyChangedEventArgs
+                : new PropertyChangedEventArgs(propertyName);
+        PropertyChanged?.Invoke(this, args);
+    }
 
     /// <summary>
     /// Determines whether the specified object is compatible with the generic type parameter T.
@@ -1032,6 +1024,45 @@ public class ReactiveList<T> : IReactiveList<T>
     /// completes.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void UpdateTrackingCollection(RangeObservableCollection target, T[] items) => target.ReplaceAll(items);
+
+    private static PooledBatch<T> CreateBatch(T[] items)
+    {
+        var batchItems = new T[items.Length];
+        Array.Copy(items, batchItems, items.Length);
+        return new PooledBatch<T>(batchItems, items.Length, ReturnToPool: false);
+    }
+
+    private static T[] GetMultisetDifference(IReadOnlyList<T> source, IReadOnlyList<T> subtract)
+    {
+        if (source.Count == 0)
+        {
+            return Array.Empty<T>();
+        }
+
+        var counts = new Dictionary<T, int>(subtract.Count);
+        for (var i = 0; i < subtract.Count; i++)
+        {
+            var item = subtract[i];
+            counts.TryGetValue(item, out var count);
+            counts[item] = count + 1;
+        }
+
+        List<T>? difference = null;
+        for (var i = 0; i < source.Count; i++)
+        {
+            var item = source[i];
+            if (counts.TryGetValue(item, out var count) && count > 0)
+            {
+                counts[item] = count - 1;
+                continue;
+            }
+
+            difference ??= [];
+            difference.Add(item);
+        }
+
+        return difference == null || difference.Count == 0 ? Array.Empty<T>() : [.. difference];
+    }
 
     /// <summary>
     /// Extracts items from a cache notification.
@@ -1056,6 +1087,22 @@ public class ReactiveList<T> : IReactiveList<T>
         }
 
         return Array.Empty<T>();
+    }
+
+    private void SetItem(int index, T value)
+    {
+        lock (_lock)
+        {
+            if (index < 0 || index >= _internalList.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            var oldValue = _internalList[index];
+            _internalList[index] = value;
+            _observableItems![index] = value;
+            NotifyChangedSingle(value, ChangeReason.Update, index, index, previous: oldValue);
+        }
     }
 
     /// <summary>
@@ -1111,10 +1158,9 @@ public class ReactiveList<T> : IReactiveList<T>
             .Subscribe(notification =>
             {
                 // Skip if tracking collections were already updated directly (e.g., ReplaceAll)
-                if (_skipInternalSubscription)
+                if (_skipInternalNotifications > 0)
                 {
-                    _skipInternalSubscription = false;
-                    RaiseCollectionChanged(notification);
+                    _skipInternalNotifications--;
                     return;
                 }
 
@@ -1187,7 +1233,12 @@ public class ReactiveList<T> : IReactiveList<T>
                 notification.Item,
                 notification.CurrentIndex,
                 notification.PreviousIndex),
-            _ => new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset)
+            CacheAction.Updated => new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Replace,
+                notification.Item,
+                notification.Previous,
+                notification.CurrentIndex),
+            _ => ResetCollectionChangedEventArgs
         };
 
         CollectionChanged.Invoke(this, args);
@@ -1227,9 +1278,7 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         Interlocked.Increment(ref _version);
         var startIndex = index >= 0 ? index : _internalList.Count - items.Length;
-        var pool = ArrayPool<T>.Shared.Rent(items.Length);
-        Array.Copy(items, pool, items.Length);
-        EmitStream(CacheAction.BatchAdded, default, new PooledBatch<T>(pool, items.Length), startIndex);
+        EmitStream(CacheAction.BatchAdded, default, CreateBatch(items), startIndex);
 
         if (notifyINPC)
         {
@@ -1269,9 +1318,7 @@ public class ReactiveList<T> : IReactiveList<T>
     private void NotifyRemovedRange(T[] items, bool notifyINPC = true)
     {
         Interlocked.Increment(ref _version);
-        var pool = ArrayPool<T>.Shared.Rent(items.Length);
-        Array.Copy(items, pool, items.Length);
-        EmitStream(CacheAction.BatchRemoved, default, new PooledBatch<T>(pool, items.Length));
+        EmitStream(CacheAction.BatchRemoved, default, CreateBatch(items));
 
         if (notifyINPC)
         {
@@ -1294,9 +1341,7 @@ public class ReactiveList<T> : IReactiveList<T>
         Interlocked.Increment(ref _version);
         if (clearedItems.Length > 0)
         {
-            var pool = ArrayPool<T>.Shared.Rent(clearedItems.Length);
-            Array.Copy(clearedItems, pool, clearedItems.Length);
-            EmitStream(CacheAction.Cleared, default, new PooledBatch<T>(pool, clearedItems.Length));
+            EmitStream(CacheAction.Cleared, default, CreateBatch(clearedItems));
         }
         else
         {
@@ -1443,9 +1488,9 @@ public class ReactiveList<T> : IReactiveList<T>
 
         private void RaiseReset()
         {
-            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
-            OnPropertyChanged(new PropertyChangedEventArgs(ItemArray));
-            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            OnPropertyChanged(CountPropertyChangedEventArgs);
+            OnPropertyChanged(ItemArrayPropertyChangedEventArgs);
+            OnCollectionChanged(ResetCollectionChangedEventArgs);
         }
 
         private void EnsureCapacity(int capacity)
