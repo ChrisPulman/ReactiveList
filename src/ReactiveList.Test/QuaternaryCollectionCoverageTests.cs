@@ -8,7 +8,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
-using System.Reactive.Concurrency;
 using System.Reflection;
 using System.Threading;
 using CP.Reactive.Collections;
@@ -217,7 +216,7 @@ public class QuaternaryCollectionCoverageTests
             new KeyValuePair<int, string>(3, "three")));
         dictionary.AddValueIndex("Length", value => value.Length);
 
-        using var view = dictionary.CreateViewBySecondaryIndex("Length", 3, ImmediateScheduler.Instance, throttleMs: 1);
+        using var view = dictionary.CreateViewBySecondaryIndex("Length", 3, Sequencer.Immediate, throttleMs: 1);
         view.Count.Should().Be(2);
 
         dictionary.AddRange(new List<KeyValuePair<int, string>>
@@ -239,8 +238,8 @@ public class QuaternaryCollectionCoverageTests
         dictionary.GetValuesBySecondaryIndex("Length", 3).Should().BeEquivalentTo(new[] { "two", "six" });
         dictionary.GetValuesBySecondaryIndex("Length", 4).Should().ContainSingle().Which.Should().Be("five");
 
-        Action missingIndex = () => dictionary.CreateViewBySecondaryIndex("Missing", 3, ImmediateScheduler.Instance);
-        Action incompatibleIndex = () => dictionary.CreateViewBySecondaryIndex("Length", "three", ImmediateScheduler.Instance);
+        Action missingIndex = () => dictionary.CreateViewBySecondaryIndex("Missing", 3, Sequencer.Immediate);
+        Action incompatibleIndex = () => dictionary.CreateViewBySecondaryIndex("Length", "three", Sequencer.Immediate);
 
         missingIndex.Should().Throw<InvalidOperationException>();
         incompatibleIndex.Should().Throw<InvalidOperationException>();

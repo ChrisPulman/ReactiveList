@@ -1,8 +1,9 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
+// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
 
 namespace CP.Reactive.Collections;
 

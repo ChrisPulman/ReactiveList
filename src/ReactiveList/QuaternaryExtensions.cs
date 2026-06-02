@@ -2,12 +2,13 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
 using CP.Reactive.Views;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace CP.Reactive;
 
@@ -36,7 +37,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the source list matching the specified
     /// secondary index key.</returns>
-    public static ReactiveView<T> CreateViewBySecondaryIndex<T, TKey>(this QuaternaryList<T> list, string indexName, TKey key, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<T> CreateViewBySecondaryIndex<T, TKey>(this QuaternaryList<T> list, string indexName, TKey key, ISequencer scheduler, int throttleMs = 50)
         where T : notnull
         where TKey : notnull
     {
@@ -66,7 +67,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the source list matching any of the
     /// specified secondary index keys.</returns>
-    public static ReactiveView<T> CreateViewBySecondaryIndex<T, TKey>(this QuaternaryList<T> list, string indexName, TKey[] keys, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<T> CreateViewBySecondaryIndex<T, TKey>(this QuaternaryList<T> list, string indexName, TKey[] keys, ISequencer scheduler, int throttleMs = 50)
         where T : notnull
         where TKey : notnull
     {
@@ -102,7 +103,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="DynamicSecondaryIndexReactiveView{T, TKey}"/> that reflects the filtered contents of the source list matching the
     /// specified secondary index keys and updates when the keys change.</returns>
-    public static DynamicSecondaryIndexReactiveView<T, TKey> CreateDynamicViewBySecondaryIndex<T, TKey>(this QuaternaryList<T> list, string indexName, IObservable<TKey[]> keysObservable, IScheduler scheduler, int throttleMs = 50)
+    public static DynamicSecondaryIndexReactiveView<T, TKey> CreateDynamicViewBySecondaryIndex<T, TKey>(this QuaternaryList<T> list, string indexName, IObservable<TKey[]> keysObservable, ISequencer scheduler, int throttleMs = 50)
         where T : notnull
         where TKey : notnull
     {
@@ -205,7 +206,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the dictionary matching the specified
     /// secondary index key.</returns>
-    public static ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, TIndexKey indexKey, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, TIndexKey indexKey, ISequencer scheduler, int throttleMs = 50)
         where TKey : notnull
         where TIndexKey : notnull
     {
@@ -241,7 +242,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the dictionary matching any of the
     /// specified secondary index keys.</returns>
-    public static ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, TIndexKey[] indexKeys, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, TIndexKey[] indexKeys, ISequencer scheduler, int throttleMs = 50)
         where TKey : notnull
         where TIndexKey : notnull
     {
@@ -279,7 +280,7 @@ public static class QuaternaryExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="DynamicSecondaryIndexDictionaryReactiveView{TKey, TValue, TIndexKey}"/> that reflects the filtered contents of the dictionary matching the
     /// specified secondary index keys and updates when the keys change.</returns>
-    public static DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue, TIndexKey> CreateDynamicViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, IObservable<TIndexKey[]> keysObservable, IScheduler scheduler, int throttleMs = 50)
+    public static DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue, TIndexKey> CreateDynamicViewBySecondaryIndex<TKey, TValue, TIndexKey>(this QuaternaryDictionary<TKey, TValue> dict, string indexName, IObservable<TIndexKey[]> keysObservable, ISequencer scheduler, int throttleMs = 50)
         where TKey : notnull
         where TIndexKey : notnull
     {

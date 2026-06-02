@@ -2,7 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.Specialized;
-using System.Reactive.Disposables;
 using CP.Reactive.Core;
 
 namespace CP.Reactive.Collections;
@@ -15,7 +14,7 @@ namespace CP.Reactive.Collections;
 /// All implementations should support change tracking via IObservable streams.
 /// </remarks>
 /// <typeparam name="T">The type of elements in the collection. Must be non-nullable.</typeparam>
-public interface IReactiveSource<T> : IEnumerable<T>, INotifyCollectionChanged, ICancelable
+public interface IReactiveSource<T> : IEnumerable<T>, INotifyCollectionChanged, IDisposable
     where T : notnull
 {
     /// <summary>
@@ -27,6 +26,11 @@ public interface IReactiveSource<T> : IEnumerable<T>, INotifyCollectionChanged, 
     /// Gets a value indicating whether the collection is read-only.
     /// </summary>
     bool IsReadOnly { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the source has been disposed.
+    /// </summary>
+    bool IsDisposed { get; }
 
     /// <summary>
     /// Gets the current version number of the collection, which is incremented on each modification.

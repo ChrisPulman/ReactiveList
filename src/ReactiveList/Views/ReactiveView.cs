@@ -1,11 +1,12 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
+// Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 
 namespace CP.Reactive.Views;
 
@@ -44,9 +45,9 @@ where T : notnull
     /// appropriate thread (such as the UI thread).</param>
     /// <exception cref="ArgumentNullException">Thrown if stream or filter is null.</exception>
 #if NET8_0_OR_GREATER
-    public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T> snapshot, Func<T, bool> filter, in TimeSpan throttle, IScheduler sheduler)
+    public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T> snapshot, Func<T, bool> filter, in TimeSpan throttle, ISequencer sheduler)
 #else
-    public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T> snapshot, Func<T, bool> filter, TimeSpan throttle, IScheduler sheduler)
+    public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T> snapshot, Func<T, bool> filter, TimeSpan throttle, ISequencer sheduler)
 #endif
     {
         Items = new ReadOnlyObservableCollection<T>(_target);

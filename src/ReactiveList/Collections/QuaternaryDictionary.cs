@@ -30,13 +30,13 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     {
         get
         {
-            var result = new List<TKey>();
+            var result = new List<TKey>(Count);
             for (var i = 0; i < ShardCount; i++)
             {
                 Locks[i].EnterReadLock();
                 try
                 {
-                    result.AddRange(Quads[i].GetKeys());
+                    Quads[i].CopyKeysTo(result);
                 }
                 finally
                 {
@@ -55,13 +55,13 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     {
         get
         {
-            var result = new List<TValue>();
+            var result = new List<TValue>(Count);
             for (var i = 0; i < ShardCount; i++)
             {
                 Locks[i].EnterReadLock();
                 try
                 {
-                    result.AddRange(Quads[i].GetValues());
+                    Quads[i].CopyValuesTo(result);
                 }
                 finally
                 {
@@ -126,7 +126,11 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         {
             if (Quads[idx].TryAdd(key, value))
             {
-                NotifyIndicesAdded(value);
+                if (!Indices.IsEmpty)
+                {
+                    NotifyIndicesAdded(value);
+                }
+
                 AddToCount(1);
                 added = true;
             }
@@ -161,17 +165,29 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
 
             // Use direct ref access - avoids double lookup
             ref var valueRef = ref dict.GetValueRefOrAddDefault(key, out var exists);
+            var hasIndices = !Indices.IsEmpty;
 
             if (exists)
             {
-                NotifyIndicesRemoved(valueRef!);
+                if (hasIndices)
+                {
+                    NotifyIndicesRemoved(valueRef!);
+                }
+
                 valueRef = value;
-                NotifyIndicesAdded(value);
+                if (hasIndices)
+                {
+                    NotifyIndicesAdded(value);
+                }
             }
             else
             {
                 valueRef = value;
-                NotifyIndicesAdded(value);
+                if (hasIndices)
+                {
+                    NotifyIndicesAdded(value);
+                }
+
                 AddToCount(1);
                 action = CacheAction.Added;
             }
@@ -200,7 +216,11 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         {
             if (Quads[idx].Remove(key, out var val))
             {
-                NotifyIndicesRemoved(val);
+                if (!Indices.IsEmpty)
+                {
+                    NotifyIndicesRemoved(val);
+                }
+
                 AddToCount(-1);
                 removedValue = val;
                 removed = true;
@@ -327,7 +347,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     public SecondaryIndexReactiveView<TKey, TValue, TIndexKey> CreateViewBySecondaryIndex<TIndexKey>(
         string indexName,
         TIndexKey key,
-        System.Reactive.Concurrency.IScheduler scheduler,
+        ReactiveUI.Primitives.Concurrency.ISequencer scheduler,
         int throttleMs = 50)
         where TIndexKey : notnull
     {
@@ -940,10 +960,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         {
             get
             {
-                var result = new List<TKey>();
+                var result = new List<TKey>(Count);
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    result.AddRange(_parent.Quads[i].GetKeys());
+                    _parent.Quads[i].CopyKeysTo(result);
                 }
 
                 return result;
@@ -960,10 +980,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         {
             get
             {
-                var result = new List<TValue>();
+                var result = new List<TValue>(Count);
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    result.AddRange(_parent.Quads[i].GetValues());
+                    _parent.Quads[i].CopyValuesTo(result);
                 }
 
                 return result;

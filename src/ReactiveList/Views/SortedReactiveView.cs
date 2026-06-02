@@ -5,12 +5,13 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 namespace CP.Reactive.Views;
 
@@ -25,7 +26,7 @@ where T : notnull
     private readonly IReactiveList<T> _source;
     private readonly IComparer<T> _comparer;
     private readonly ObservableCollection<T> _sortedItems;
-    private readonly CompositeDisposable _disposables = [];
+    private readonly MultipleDisposable _disposables = new();
 #if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
 #else
@@ -42,7 +43,7 @@ where T : notnull
     public SortedReactiveView(
         IReactiveList<T> source,
         IComparer<T> comparer,
-        IScheduler scheduler,
+        ISequencer scheduler,
 #if NET8_0_OR_GREATER
         in TimeSpan throttle)
 #else

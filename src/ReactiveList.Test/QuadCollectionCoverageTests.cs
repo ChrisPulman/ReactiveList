@@ -8,7 +8,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using CP.Reactive.Collections;
-using CP.Reactive.Internal;
 using FluentAssertions;
 using TUnit.Core;
 

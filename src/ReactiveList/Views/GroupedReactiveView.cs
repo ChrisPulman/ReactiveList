@@ -5,12 +5,13 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 namespace CP.Reactive.Views;
 
@@ -28,7 +29,7 @@ where TKey : notnull
     private readonly Func<T, TKey> _keySelector;
     private readonly Dictionary<TKey, ObservableCollection<T>> _groups = [];
     private readonly ObservableCollection<ReactiveGroup<TKey, T>> _groupCollection = [];
-    private readonly CompositeDisposable _disposables = [];
+    private readonly MultipleDisposable _disposables = new();
     private readonly object _lock = new();
 
     /// <summary>
@@ -41,7 +42,7 @@ where TKey : notnull
     public GroupedReactiveView(
         IReactiveList<T> source,
         Func<T, TKey> keySelector,
-        IScheduler scheduler,
+        ISequencer scheduler,
         TimeSpan throttle)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));

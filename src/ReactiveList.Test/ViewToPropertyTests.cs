@@ -4,8 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Subjects;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using CP.Reactive.Views;
@@ -25,7 +23,7 @@ public class ViewToPropertyTests
     [Test]
     public void ReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
         ReadOnlyObservableCollection<string>? capturedItems = null;
 
         using var view = new ReactiveView<string>(
@@ -33,7 +31,7 @@ public class ViewToPropertyTests
             ["test"],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var result = view.ToProperty(items => capturedItems = items);
 
@@ -47,14 +45,14 @@ public class ViewToPropertyTests
     [Test]
     public void ReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<string>>)null!);
 
@@ -68,14 +66,14 @@ public class ViewToPropertyTests
     [Test]
     public void ReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             ["test"],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var result = view.ToProperty(out var collection);
 
@@ -92,14 +90,14 @@ public class ViewToPropertyTests
     {
         using var list = new QuaternaryList<string>();
         list.Add("test");
-        var filterSubject = new BehaviorSubject<Func<string, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<string, bool>>(_ => true);
         ReadOnlyObservableCollection<string>? capturedItems = null;
 
         using var view = new DynamicReactiveView<string>(
             list,
             filterSubject,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var result = view.ToProperty(items => capturedItems = items);
 
@@ -114,13 +112,13 @@ public class ViewToPropertyTests
     public void DynamicReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
         using var list = new QuaternaryList<string>();
-        var filterSubject = new BehaviorSubject<Func<string, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<string, bool>>(_ => true);
 
         using var view = new DynamicReactiveView<string>(
             list,
             filterSubject,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<string>>)null!);
 
@@ -136,13 +134,13 @@ public class ViewToPropertyTests
     {
         using var list = new QuaternaryList<string>();
         list.Add("test");
-        var filterSubject = new BehaviorSubject<Func<string, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<string, bool>>(_ => true);
 
         using var view = new DynamicReactiveView<string>(
             list,
             filterSubject,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var result = view.ToProperty(out var collection);
 
@@ -166,7 +164,7 @@ public class ViewToPropertyTests
         using var view = new SortedReactiveView<int>(
             list,
             Comparer<int>.Default,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(items => capturedItems = items);
@@ -187,7 +185,7 @@ public class ViewToPropertyTests
         using var view = new SortedReactiveView<int>(
             list,
             Comparer<int>.Default,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<int>>)null!);
@@ -210,7 +208,7 @@ public class ViewToPropertyTests
         using var view = new SortedReactiveView<int>(
             list,
             Comparer<int>.Default,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(out var collection);
@@ -233,7 +231,7 @@ public class ViewToPropertyTests
         using var view = new FilteredReactiveView<int>(
             list,
             x => x > 2,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(items => capturedItems = items);
@@ -254,7 +252,7 @@ public class ViewToPropertyTests
         using var view = new FilteredReactiveView<int>(
             list,
             _ => true,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<int>>)null!);
@@ -275,7 +273,7 @@ public class ViewToPropertyTests
         using var view = new FilteredReactiveView<int>(
             list,
             x => x > 2,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(out var collection);
@@ -298,7 +296,7 @@ public class ViewToPropertyTests
         using var view = new GroupedReactiveView<string, char>(
             list,
             s => s[0],
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(groups => capturedGroups = groups);
@@ -319,7 +317,7 @@ public class ViewToPropertyTests
         using var view = new GroupedReactiveView<string, char>(
             list,
             s => s[0],
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<ReactiveGroup<char, string>>>)null!);
@@ -340,7 +338,7 @@ public class ViewToPropertyTests
         using var view = new GroupedReactiveView<string, char>(
             list,
             s => s[0],
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(out var collection);
@@ -361,7 +359,7 @@ public class ViewToPropertyTests
         using var view = new GroupedReactiveView<string, char>(
             list,
             s => s[0],
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         view.Items.Should().BeSameAs(view.Groups);
@@ -375,13 +373,13 @@ public class ViewToPropertyTests
     {
         using var list = new ReactiveList<int>();
         list.AddRange([1, 2, 3, 4, 5]);
-        var filterSubject = new BehaviorSubject<Func<int, bool>>(x => x > 2);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(x => x > 2);
         ReadOnlyObservableCollection<int>? capturedItems = null;
 
         using var view = new DynamicFilteredReactiveView<int>(
             list,
             filterSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(items => capturedItems = items);
@@ -397,12 +395,12 @@ public class ViewToPropertyTests
     public void DynamicFilteredReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSubject<Func<int, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(_ => true);
 
         using var view = new DynamicFilteredReactiveView<int>(
             list,
             filterSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<int>>)null!);
@@ -419,12 +417,12 @@ public class ViewToPropertyTests
     {
         using var list = new ReactiveList<int>();
         list.AddRange([1, 2, 3, 4, 5]);
-        var filterSubject = new BehaviorSubject<Func<int, bool>>(x => x > 2);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(x => x > 2);
 
         using var view = new DynamicFilteredReactiveView<int>(
             list,
             filterSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(out var collection);
@@ -451,7 +449,7 @@ public class ViewToPropertyTests
             dict,
             "Category",
             "A",
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(items => capturedItems = items);
@@ -474,7 +472,7 @@ public class ViewToPropertyTests
             dict,
             "Category",
             "A",
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<TestPerson>>)null!);
@@ -498,7 +496,7 @@ public class ViewToPropertyTests
             dict,
             "Category",
             "A",
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(out var collection);
@@ -517,14 +515,14 @@ public class ViewToPropertyTests
         list.AddIndex<string>("Category", p => p.Category);
         list.Add(new TestPerson("Alice", "A"));
         list.Add(new TestPerson("Bob", "B"));
-        var keysSubject = new BehaviorSubject<string[]>(["A"]);
+        var keysSubject = new BehaviorSignal<string[]>(["A"]);
         ReadOnlyObservableCollection<TestPerson>? capturedItems = null;
 
         using var view = new DynamicSecondaryIndexReactiveView<TestPerson, string>(
             list,
             "Category",
             keysSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(items => capturedItems = items);
@@ -541,13 +539,13 @@ public class ViewToPropertyTests
     {
         using var list = new QuaternaryList<TestPerson>();
         list.AddIndex<string>("Category", p => p.Category);
-        var keysSubject = new BehaviorSubject<string[]>(["A"]);
+        var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
         using var view = new DynamicSecondaryIndexReactiveView<TestPerson, string>(
             list,
             "Category",
             keysSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<TestPerson>>)null!);
@@ -565,13 +563,13 @@ public class ViewToPropertyTests
         using var list = new QuaternaryList<TestPerson>();
         list.AddIndex<string>("Category", p => p.Category);
         list.Add(new TestPerson("Alice", "A"));
-        var keysSubject = new BehaviorSubject<string[]>(["A"]);
+        var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
         using var view = new DynamicSecondaryIndexReactiveView<TestPerson, string>(
             list,
             "Category",
             keysSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(out var collection);
@@ -590,14 +588,14 @@ public class ViewToPropertyTests
         dict.AddValueIndex<string>("Category", p => p.Category);
         dict[1] = new TestPerson("Alice", "A");
         dict[2] = new TestPerson("Bob", "B");
-        var keysSubject = new BehaviorSubject<string[]>(["A"]);
+        var keysSubject = new BehaviorSignal<string[]>(["A"]);
         ReadOnlyObservableCollection<KeyValuePair<int, TestPerson>>? capturedItems = null;
 
         using var view = new DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson, string>(
             dict,
             "Category",
             keysSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(items => capturedItems = items);
@@ -614,13 +612,13 @@ public class ViewToPropertyTests
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
         dict.AddValueIndex<string>("Category", p => p.Category);
-        var keysSubject = new BehaviorSubject<string[]>(["A"]);
+        var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
         using var view = new DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson, string>(
             dict,
             "Category",
             keysSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<KeyValuePair<int, TestPerson>>>)null!);
@@ -638,13 +636,13 @@ public class ViewToPropertyTests
         using var dict = new QuaternaryDictionary<int, TestPerson>();
         dict.AddValueIndex<string>("Category", p => p.Category);
         dict[1] = new TestPerson("Alice", "A");
-        var keysSubject = new BehaviorSubject<string[]>(["A"]);
+        var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
         using var view = new DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson, string>(
             dict,
             "Category",
             keysSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         var result = view.ToProperty(out var collection);
@@ -660,14 +658,14 @@ public class ViewToPropertyTests
     [Test]
     public void AllViews_ShouldImplementIReactiveViewInterface()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var reactiveView = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         reactiveView.Should().BeAssignableTo<IReactiveView<ReactiveView<string>, string>>();
     }
@@ -683,7 +681,7 @@ public class ViewToPropertyTests
         using var view = new SortedReactiveView<int>(
             list,
             Comparer<int>.Default,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         view.Should().BeAssignableTo<IReactiveView<SortedReactiveView<int>, int>>();
@@ -700,7 +698,7 @@ public class ViewToPropertyTests
         using var view = new FilteredReactiveView<int>(
             list,
             _ => true,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         view.Should().BeAssignableTo<IReactiveView<FilteredReactiveView<int>, int>>();
@@ -717,7 +715,7 @@ public class ViewToPropertyTests
         using var view = new GroupedReactiveView<string, char>(
             list,
             s => s[0],
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         view.Should().BeAssignableTo<IReactiveView<GroupedReactiveView<string, char>, ReactiveGroup<char, string>>>();
@@ -730,12 +728,12 @@ public class ViewToPropertyTests
     public void DynamicFilteredReactiveView_ShouldImplementIReactiveViewInterface()
     {
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSubject<Func<int, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(_ => true);
 
         using var view = new DynamicFilteredReactiveView<int>(
             list,
             filterSubject,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.FromMilliseconds(10));
 
         view.Should().BeAssignableTo<IReactiveView<DynamicFilteredReactiveView<int>, int>>();
@@ -749,13 +747,13 @@ public class ViewToPropertyTests
     public void DynamicReactiveView_ShouldImplementIReactiveViewInterface()
     {
         using var list = new QuaternaryList<string>();
-        var filterSubject = new BehaviorSubject<Func<string, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<string, bool>>(_ => true);
 
         using var view = new DynamicReactiveView<string>(
             list,
             filterSubject,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         view.Should().BeAssignableTo<IReactiveView<DynamicReactiveView<string>, string>>();
     }

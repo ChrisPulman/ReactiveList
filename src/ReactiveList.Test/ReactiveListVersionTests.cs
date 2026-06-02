@@ -146,10 +146,10 @@ public class ReactiveListVersionTests
         // Arrange
         using var list = new ReactiveList<int>([1, 2, 3]);
         var changeReceived = false;
-        using var subscription = list.Connect().Subscribe(new System.Reactive.AnonymousObserver<ChangeSet<int>>(
-            onNext: _ => changeReceived = true,
-            onError: _ => { },
-            onCompleted: () => { }));
+        using var subscription = list.Connect().Subscribe(
+            _ => changeReceived = true,
+            _ => { },
+            () => { });
 
         // Act
         list.ClearWithoutDeallocation();
@@ -167,10 +167,10 @@ public class ReactiveListVersionTests
         // Arrange
         using var list = new ReactiveList<int>([1, 2, 3]);
         var changeCount = 0;
-        using var subscription = list.Connect().Subscribe(new System.Reactive.AnonymousObserver<ChangeSet<int>>(
-            onNext: _ => changeCount++,
-            onError: _ => { },
-            onCompleted: () => { }));
+        using var subscription = list.Connect().Subscribe(
+            _ => changeCount++,
+            _ => { },
+            () => { });
         var countBefore = changeCount;
 
         // Act

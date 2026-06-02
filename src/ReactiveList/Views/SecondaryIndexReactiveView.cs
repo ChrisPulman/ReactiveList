@@ -6,12 +6,13 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 namespace CP.Reactive.Views;
 
@@ -30,7 +31,7 @@ where TIndexKey : notnull
     private readonly string _indexName;
     private readonly TIndexKey _indexKey;
     private readonly ObservableCollection<TValue> _filteredItems;
-    private readonly CompositeDisposable _disposables = [];
+    private readonly MultipleDisposable _disposables = new();
     private readonly object _lock = new();
 
     /// <summary>
@@ -45,7 +46,7 @@ where TIndexKey : notnull
         QuaternaryDictionary<TKey, TValue> source,
         string indexName,
         TIndexKey indexKey,
-        IScheduler scheduler,
+        ISequencer scheduler,
         TimeSpan throttle)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));

@@ -2,13 +2,13 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Linq.Expressions;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using CP.Reactive.Internal;
 using CP.Reactive.Views;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 
 namespace CP.Reactive;
 
@@ -336,7 +336,7 @@ public static class ReactiveListExtensions
     public static FilteredReactiveView<T> CreateView<T>(
         this IReactiveList<T> list,
         Func<T, bool> filter,
-        IScheduler? scheduler = null,
+        ISequencer? scheduler = null,
         int throttleMs = 50)
         where T : notnull
     {
@@ -355,7 +355,7 @@ public static class ReactiveListExtensions
         }
 #endif
 
-        return new FilteredReactiveView<T>(list, filter, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+        return new FilteredReactiveView<T>(list, filter, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
 
     /// <summary>
@@ -368,7 +368,7 @@ public static class ReactiveListExtensions
     /// <returns>A read-only observable collection that stays synchronized with the source.</returns>
     public static FilteredReactiveView<T> CreateView<T>(
         this IReactiveList<T> list,
-        IScheduler? scheduler = null,
+        ISequencer? scheduler = null,
         int throttleMs = 50)
         where T : notnull => list.CreateView(_ => true, scheduler, throttleMs);
 
@@ -384,7 +384,7 @@ public static class ReactiveListExtensions
     public static DynamicFilteredReactiveView<T> CreateView<T>(
         this IReactiveList<T> list,
         IObservable<Func<T, bool>> filterObservable,
-        IScheduler? scheduler = null,
+        ISequencer? scheduler = null,
         int throttleMs = 50)
         where T : notnull
     {
@@ -403,7 +403,7 @@ public static class ReactiveListExtensions
         }
 #endif
 
-        return new DynamicFilteredReactiveView<T>(list, filterObservable, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+        return new DynamicFilteredReactiveView<T>(list, filterObservable, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
 
     /// <summary>
@@ -425,7 +425,7 @@ public static class ReactiveListExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="DynamicReactiveView{T}"/> that reflects the filtered view of the list and updates automatically as
     /// the query observable emits new values.</returns>
-    public static DynamicReactiveView<T> CreateView<T, TQuery>(this IReactiveSource<T> list, IObservable<TQuery> queryObservable, Func<TQuery, T, bool> filter, IScheduler scheduler, int throttleMs = 50)
+    public static DynamicReactiveView<T> CreateView<T, TQuery>(this IReactiveSource<T> list, IObservable<TQuery> queryObservable, Func<TQuery, T, bool> filter, ISequencer scheduler, int throttleMs = 50)
         where T : notnull
     {
 #if NET8_0_OR_GREATER
@@ -468,7 +468,7 @@ public static class ReactiveListExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="DynamicReactiveView{T}"/> that reflects the filtered contents of the source list and updates reactively
     /// as the list changes or the filter predicate changes.</returns>
-    public static DynamicReactiveView<T> CreateView<T>(this IReactiveSource<T> list, IObservable<Func<T, bool>> filterObservable, IScheduler scheduler, int throttleMs = 50)
+    public static DynamicReactiveView<T> CreateView<T>(this IReactiveSource<T> list, IObservable<Func<T, bool>> filterObservable, ISequencer scheduler, int throttleMs = 50)
         where T : notnull
     {
 #if NET8_0_OR_GREATER
@@ -503,7 +503,7 @@ public static class ReactiveListExtensions
     /// default is 50 milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the current state of the list and updates when the list changes, subject to the
     /// specified throttling.</returns>
-    public static ReactiveView<T> CreateView<T>(this IReactiveSource<T> list, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<T> CreateView<T>(this IReactiveSource<T> list, ISequencer scheduler, int throttleMs = 50)
         where T : notnull
     {
 #if NET8_0_OR_GREATER
@@ -536,7 +536,7 @@ public static class ReactiveListExtensions
     /// milliseconds.</param>
     /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the source list and updates reactively as
     /// the list changes.</returns>
-    public static ReactiveView<T> CreateView<T>(this IReactiveSource<T> list, Func<T, bool> filter, IScheduler scheduler, int throttleMs = 50)
+    public static ReactiveView<T> CreateView<T>(this IReactiveSource<T> list, Func<T, bool> filter, ISequencer scheduler, int throttleMs = 50)
         where T : notnull
     {
 #if NET8_0_OR_GREATER
@@ -565,7 +565,7 @@ public static class ReactiveListExtensions
     public static SortedReactiveView<T> SortBy<T>(
         this IReactiveList<T> list,
         IComparer<T> comparer,
-        IScheduler? scheduler = null,
+        ISequencer? scheduler = null,
         int throttleMs = 50)
         where T : notnull
     {
@@ -584,7 +584,7 @@ public static class ReactiveListExtensions
         }
 #endif
 
-        return new SortedReactiveView<T>(list, comparer, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+        return new SortedReactiveView<T>(list, comparer, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
 
     /// <summary>
@@ -602,7 +602,7 @@ public static class ReactiveListExtensions
         this IReactiveList<T> list,
         Func<T, TKey> keySelector,
         bool descending = false,
-        IScheduler? scheduler = null,
+        ISequencer? scheduler = null,
         int throttleMs = 50)
         where T : notnull
     {
@@ -625,7 +625,7 @@ public static class ReactiveListExtensions
             ? Comparer<T>.Create((x, y) => Comparer<TKey>.Default.Compare(keySelector(y), keySelector(x)))
             : Comparer<T>.Create((x, y) => Comparer<TKey>.Default.Compare(keySelector(x), keySelector(y)));
 
-        return new SortedReactiveView<T>(list, comparer, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+        return new SortedReactiveView<T>(list, comparer, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
 
     /// <summary>
@@ -643,9 +643,68 @@ public static class ReactiveListExtensions
     /// they change.</returns>
     public static IObservable<IGroupedObservable<TKey, T>> GroupByChanges<T, TKey>(
     this IObservable<ChangeSet<T>> source,
-    Func<T, TKey> keySelector) => source
-            .SelectMany(set => set)
-            .GroupBy(c => keySelector(c.Current), c => c.Current);
+    Func<T, TKey> keySelector)
+    {
+        if (source == null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        if (keySelector == null)
+        {
+            throw new ArgumentNullException(nameof(keySelector));
+        }
+
+        return Observable.Create<IGroupedObservable<TKey, T>>(observer =>
+        {
+            var groups = new List<GroupedObservable<TKey, T>>();
+            var subscription = source.Subscribe(
+                changeSet =>
+                {
+                    for (var i = 0; i < changeSet.Count; i++)
+                    {
+                        var item = changeSet[i].Current;
+                        var key = keySelector(item);
+                        var group = groups.FirstOrDefault(g => EqualityComparer<TKey>.Default.Equals(g.Key, key));
+                        if (group == null)
+                        {
+                            group = new GroupedObservable<TKey, T>(key);
+                            groups.Add(group);
+                            observer.OnNext(group);
+                        }
+
+                        group.OnNext(item);
+                    }
+                },
+                error =>
+                {
+                    foreach (var group in groups)
+                    {
+                        group.OnError(error);
+                    }
+
+                    observer.OnError(error);
+                },
+                () =>
+                {
+                    foreach (var group in groups)
+                    {
+                        group.OnCompleted();
+                    }
+
+                    observer.OnCompleted();
+                });
+
+            return ReactiveUI.Primitives.Disposables.Disposable.Create(() =>
+            {
+                subscription.Dispose();
+                foreach (var group in groups)
+                {
+                    group.Dispose();
+                }
+            });
+        });
+    }
 
     /// <summary>
     /// Groups the change stream by a key selector.
@@ -703,7 +762,7 @@ public static class ReactiveListExtensions
     public static GroupedReactiveView<T, TKey> GroupBy<T, TKey>(
         this IReactiveList<T> list,
         Func<T, TKey> keySelector,
-        IScheduler? scheduler = null,
+        ISequencer? scheduler = null,
         int throttleMs = 50)
         where T : notnull
         where TKey : notnull
@@ -723,7 +782,7 @@ public static class ReactiveListExtensions
         }
 #endif
 
-        return new GroupedReactiveView<T, TKey>(list, keySelector, scheduler ?? Scheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+        return new GroupedReactiveView<T, TKey>(list, keySelector, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
     }
 
     /// <summary>

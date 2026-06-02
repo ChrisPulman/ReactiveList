@@ -367,6 +367,52 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     }
 
     /// <summary>
+    /// Copies all keys to a list.
+    /// </summary>
+    /// <param name="list">The list to copy to.</param>
+    public void CopyKeysTo(List<TKey> list)
+    {
+        if (list is null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
+        for (var i = 0; i < _entryIndex; i++)
+        {
+            ref var entry = ref _entries[i];
+            if (entry.Next < EndOfChain)
+            {
+                continue; // Skip free entries (Next < -1 means in freelist)
+            }
+
+            list.Add(entry.Key);
+        }
+    }
+
+    /// <summary>
+    /// Copies all values to a list.
+    /// </summary>
+    /// <param name="list">The list to copy to.</param>
+    public void CopyValuesTo(List<TValue> list)
+    {
+        if (list is null)
+        {
+            throw new ArgumentNullException(nameof(list));
+        }
+
+        for (var i = 0; i < _entryIndex; i++)
+        {
+            ref var entry = ref _entries[i];
+            if (entry.Next < EndOfChain)
+            {
+                continue; // Skip free entries (Next < -1 means in freelist)
+            }
+
+            list.Add(entry.Value!);
+        }
+    }
+
+    /// <summary>
     /// Copies all key/value pairs to a list.
     /// </summary>
     /// <param name="list">The list to copy to.</param>

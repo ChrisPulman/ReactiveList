@@ -1,4 +1,3 @@
-using System.Reactive.Linq;
 using BenchmarkDotNet.Attributes;
 using CP.Reactive.Collections;
 using DynamicData;
@@ -165,7 +164,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new QuaternaryList<int>();
         var events = 0;
-        using var sub = list.Stream.Subscribe(_ => events++);
+        using var sub = list.Stream.SubscribeObserver(_ => events++);
         list.AddRange(_data);
         return events;
     }
@@ -175,7 +174,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new SourceList<int>();
         var events = 0;
-        using var sub = list.Connect().Subscribe(_ => events++);
+        using var sub = list.Connect().SubscribeObserver(_ => events++);
         list.AddRange(_data);
         return events;
     }
@@ -429,7 +428,7 @@ public class QuaternaryListBenchmarks
         using var list = new QuaternaryList<int>();
         list.AddRange(_data);
         var events = 0;
-        using var sub = list.Stream.Subscribe(_ => events++);
+        using var sub = list.Stream.SubscribeObserver(_ => events++);
         list.RemoveRange(_data.Take(Count / 2));
         return events;
     }
@@ -440,7 +439,7 @@ public class QuaternaryListBenchmarks
         using var list = new SourceList<int>();
         list.AddRange(_data);
         var events = 0;
-        using var sub = list.Connect().Subscribe(_ => events++);
+        using var sub = list.Connect().SubscribeObserver(_ => events++);
         list.RemoveMany(_data.Take(Count / 2));
         return events;
     }

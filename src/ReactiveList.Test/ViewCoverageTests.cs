@@ -9,9 +9,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
@@ -39,7 +36,7 @@ public class ViewCoverageTests
         using var view = new FilteredReactiveView<int>(
             list,
             static item => item % 2 == 0,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         view.Items.Should().Equal(2, 4);
@@ -86,7 +83,7 @@ public class ViewCoverageTests
         using var view = new SortedReactiveView<int>(
             list,
             Comparer<int>.Default,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         view.Items.Should().Equal(1, 3);
@@ -127,7 +124,7 @@ public class ViewCoverageTests
         using var view = new GroupedReactiveView<ViewItem, string>(
             list,
             static item => item.Region,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         view.Keys.Should().BeEquivalentTo(new[] { "north", "south" });
@@ -176,12 +173,12 @@ public class ViewCoverageTests
     {
         using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3 });
-        using var filters = new BehaviorSubject<Func<int, bool>>(static item => item >= 2);
+        using var filters = new BehaviorSignal<Func<int, bool>>(static item => item >= 2);
 
         using var view = new DynamicFilteredReactiveView<int>(
             list,
             filters,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         await WaitForPipeline();
@@ -236,13 +233,13 @@ public class ViewCoverageTests
     public async Task DynamicReactiveView_StreamActions_ShouldApplyCurrentFilterAndBatches()
     {
         using var source = new ReactiveSourceHarness<int>(new[] { 1, 2, 3 });
-        using var filters = new BehaviorSubject<Func<int, bool>>(static item => item % 2 == 0);
+        using var filters = new BehaviorSignal<Func<int, bool>>(static item => item % 2 == 0);
 
         using var view = new DynamicReactiveView<int>(
             source,
             filters,
             TimeSpan.Zero,
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         view.Items.Should().Equal(2);
 
@@ -299,7 +296,7 @@ public class ViewCoverageTests
             dictionary,
             "region",
             "north",
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         view.Items.Should().ContainSingle().Which.Should().Be(north);
@@ -344,13 +341,13 @@ public class ViewCoverageTests
         list.Add(north);
         list.Add(south);
         list.AddIndex("region", static item => item.Region);
-        using var listKeys = new BehaviorSubject<string[]>(new[] { "north" });
+        using var listKeys = new BehaviorSignal<string[]>(new[] { "north" });
 
         using var listView = new DynamicSecondaryIndexReactiveView<ViewItem, string>(
             list,
             "region",
             listKeys,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         listView.Items.Should().ContainSingle().Which.Should().Be(north);
@@ -387,13 +384,13 @@ public class ViewCoverageTests
         dictionary.Add(1, north);
         dictionary.Add(2, south);
         dictionary.AddValueIndex("region", static item => item.Region);
-        using var dictionaryKeys = new BehaviorSubject<string[]>(new[] { "north" });
+        using var dictionaryKeys = new BehaviorSignal<string[]>(new[] { "north" });
 
         using var dictionaryView = new DynamicSecondaryIndexDictionaryReactiveView<int, ViewItem, string>(
             dictionary,
             "region",
             dictionaryKeys,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         dictionaryView.Items.Should().ContainSingle().Which.Should().Be(new KeyValuePair<int, ViewItem>(1, north));
@@ -457,7 +454,7 @@ public class ViewCoverageTests
         where T : notnull
     {
         private readonly List<T> _items;
-        private readonly Subject<CacheNotify<T>> _stream = new();
+        private readonly Signal<CacheNotify<T>> _stream = new();
 
         public ReactiveSourceHarness(IEnumerable<T> items) => _items = new List<T>(items);
 

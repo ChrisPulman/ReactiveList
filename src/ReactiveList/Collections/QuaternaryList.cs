@@ -4,10 +4,11 @@
 
 using System.Buffers;
 using System.Collections;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
 
 namespace CP.Reactive.Collections;
 
@@ -65,7 +66,10 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
         {
             Quads[idx].Add(item);
             AddToCount(1);
-            NotifyIndicesAdded(item);
+            if (!Indices.IsEmpty)
+            {
+                NotifyIndicesAdded(item);
+            }
         }
         finally
         {
@@ -92,7 +96,10 @@ public class QuaternaryList<T> : QuaternaryBase<T, QuadList<T>, T>, IQuaternaryL
             if (removed)
             {
                 AddToCount(-1);
-                NotifyIndicesRemoved(item);
+                if (!Indices.IsEmpty)
+                {
+                    NotifyIndicesRemoved(item);
+                }
             }
         }
         finally

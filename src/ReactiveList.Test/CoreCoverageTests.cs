@@ -8,11 +8,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using CP.Reactive.Core;
-using CP.Reactive.Internal;
 using FluentAssertions;
 using TUnit.Core;
 
@@ -29,7 +25,7 @@ public class CoreCoverageTests
     [Test]
     public void CacheNotifyExtensions_ShouldFilterProjectAndCountNotifications()
     {
-        using var subject = new Subject<CacheNotify<string>>();
+        using var subject = new Signal<CacheNotify<string>>();
         var whereAction = new List<CacheNotify<string>>();
         var whereAdded = new List<CacheNotify<string>>();
         var whereRemoved = new List<CacheNotify<string>>();
@@ -109,7 +105,7 @@ public class CoreCoverageTests
             .ToEnumerable()
             .ToList();
         var observed = new[] { notification }.ToObservable()
-            .ObserveOnScheduler(ImmediateScheduler.Instance)
+            .ObserveOnScheduler(Sequencer.Immediate)
             .ToEnumerable()
             .ToList();
 
@@ -122,7 +118,7 @@ public class CoreCoverageTests
         observed.Should().ContainSingle()
             .Which.Should().BeSameAs(notification);
 
-        using var subject = new Subject<CacheNotify<int>>();
+        using var subject = new Signal<CacheNotify<int>>();
         var autoDisposed = new List<CacheNotify<int>>();
         using var subscription = subject.AutoDisposeBatches().Subscribe(autoDisposed.Add);
         var batch = CreateBatch(42);
@@ -153,7 +149,7 @@ public class CoreCoverageTests
             () => source.OnItemMoved(),
             () => source.BufferNotifications(TimeSpan.FromMilliseconds(1)),
             () => source.ThrottleNotifications(TimeSpan.FromMilliseconds(1)),
-            () => source.ObserveOnScheduler(ImmediateScheduler.Instance),
+            () => source.ObserveOnScheduler(Sequencer.Immediate),
             () => source.TransformItems(item => item),
             () => source.FilterItems(item => true),
             () => source.AutoDisposeBatches(),

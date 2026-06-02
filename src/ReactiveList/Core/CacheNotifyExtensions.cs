@@ -1,10 +1,11 @@
 // Copyright (c) Chris Pulman. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Collections;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 
 namespace CP.Reactive.Core;
 
@@ -238,7 +239,7 @@ public static class CacheNotifyExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IObservable<CacheNotify<T>> ObserveOnScheduler<T>(
         this IObservable<CacheNotify<T>> source,
-        IScheduler scheduler)
+        ISequencer scheduler)
     {
         if (source == null)
         {

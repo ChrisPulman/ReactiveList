@@ -6,9 +6,6 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
@@ -29,7 +26,7 @@ public class ExtensionCoverageTests
     [Test]
     public void ChangeSetOperators_ShouldHandleEmptyNoMatchPartialAllAndPreviousValues()
     {
-        var source = new Subject<ChangeSet<int>>();
+        var source = new Signal<ChangeSet<int>>();
         var filtered = new List<ChangeSet<int>>();
 
         using var filterSubscription = source
@@ -108,8 +105,8 @@ public class ExtensionCoverageTests
     [Test]
     public void FilterDynamic_GenericStream_ShouldFilterAddsBatchesAndPassRemovesAndClears()
     {
-        using var stream = new Subject<CacheNotify<int>>();
-        using var filters = new BehaviorSubject<Func<int, bool>>(static item => item % 2 == 0);
+        using var stream = new Signal<CacheNotify<int>>();
+        using var filters = new BehaviorSignal<Func<int, bool>>(static item => item % 2 == 0);
         var received = new List<CacheNotify<int>>();
 
         using var subscription = stream
@@ -141,8 +138,8 @@ public class ExtensionCoverageTests
     [Test]
     public void FilterDynamic_DictionaryStream_ShouldFilterAddsBatchesAndPassRemoves()
     {
-        using var stream = new Subject<CacheNotify<KeyValuePair<int, string>>>();
-        using var filters = new BehaviorSubject<Func<KeyValuePair<int, string>, bool>>(static item => item.Value.StartsWith("a", StringComparison.Ordinal));
+        using var stream = new Signal<CacheNotify<KeyValuePair<int, string>>>();
+        using var filters = new BehaviorSignal<Func<KeyValuePair<int, string>, bool>>(static item => item.Value.StartsWith("a", StringComparison.Ordinal));
         var received = new List<CacheNotify<KeyValuePair<int, string>>>();
 
         using var subscription = stream
@@ -237,7 +234,7 @@ public class ExtensionCoverageTests
         groupedValues["north"].Should().HaveCount(2);
         groupedValues["south"].Should().ContainSingle().Which.Should().Be(south);
 
-        using var refreshSource = new Subject<ChangeSet<MutableItem>>();
+        using var refreshSource = new Signal<ChangeSet<MutableItem>>();
         var received = new List<ChangeSet<MutableItem>>();
         using var refreshSubscription = refreshSource
             .AutoRefresh(nameof(MutableItem.Name))
@@ -301,7 +298,7 @@ public class ExtensionCoverageTests
         using var filtered = list.CreateView(static item => item > 1, scheduler: null, throttleMs: 0);
         filtered.Items.Should().BeEquivalentTo(new[] { 2, 3 });
 
-        using var dynamicFilters = new BehaviorSubject<Func<int, bool>>(static item => item == 1);
+        using var dynamicFilters = new BehaviorSignal<Func<int, bool>>(static item => item == 1);
         using var dynamicFiltered = list.CreateView(dynamicFilters, scheduler: null, throttleMs: 0);
         await WaitForPipeline();
         dynamicFiltered.Items.Should().Equal(1);
@@ -317,16 +314,16 @@ public class ExtensionCoverageTests
         quaternary.Add("apple");
         quaternary.Add("banana");
 
-        using var query = new BehaviorSubject<string>("app");
+        using var query = new BehaviorSignal<string>("app");
         using var queryView = quaternary.CreateView(
             query,
             static (queryText, item) => item.StartsWith(queryText, StringComparison.Ordinal),
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             throttleMs: 0);
         queryView.Items.Should().Equal("apple");
 
-        using var sourceFilters = new BehaviorSubject<Func<string, bool>>(static item => item.Contains("a", StringComparison.Ordinal));
-        using var sourceView = quaternary.CreateView(sourceFilters, ImmediateScheduler.Instance, throttleMs: 0);
+        using var sourceFilters = new BehaviorSignal<Func<string, bool>>(static item => item.Contains("a", StringComparison.Ordinal));
+        using var sourceView = quaternary.CreateView(sourceFilters, Sequencer.Immediate, throttleMs: 0);
         sourceView.Items.Should().BeEquivalentTo(new[] { "apple", "banana" });
 #endif
     }

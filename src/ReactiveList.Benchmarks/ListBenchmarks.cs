@@ -117,7 +117,7 @@ public class ListBenchmarks
     {
         using var list = new ReactiveList<int>();
         var total = 0;
-        using var sub = list.Added.Subscribe(items => total += items.Count());
+        using var sub = list.Added.SubscribeObserver(items => total += items.Count());
         list.AddRange(_data);
         return total;
     }
@@ -127,7 +127,7 @@ public class ListBenchmarks
     {
         using var list = new SourceList<int>();
         var total = 0;
-        using var sub = list.Connect().Subscribe(changes => total += changes.TotalChanges);
+        using var sub = list.Connect().SubscribeObserver(changes => total += changes.TotalChanges);
         list.AddRange(_data);
         return total;
     }
@@ -159,7 +159,7 @@ public class ListBenchmarks
     {
         using var list = new ReactiveList<int>();
         var total = 0;
-        using var sub = list.Connect().Subscribe(changes => total += changes.Count);
+        using var sub = list.Connect().SubscribeObserver(changes => total += changes.Count);
         list.AddRange(_data);
         return total;
     }
@@ -169,7 +169,7 @@ public class ListBenchmarks
     {
         using var list = new SourceList<int>();
         var total = 0;
-        using var sub = list.Connect().Subscribe(changes => total += changes.TotalChanges);
+        using var sub = list.Connect().SubscribeObserver(changes => total += changes.TotalChanges);
         list.AddRange(_data);
         return total;
     }
@@ -179,7 +179,7 @@ public class ListBenchmarks
     {
         using var list = new ReactiveList<int>(_data);
         var total = 0;
-        using var sub = list.Connect().Subscribe(changes => total += changes.Count);
+        using var sub = list.Connect().SubscribeObserver(changes => total += changes.Count);
         return total;
     }
 
@@ -189,7 +189,7 @@ public class ListBenchmarks
         using var list = new SourceList<int>();
         list.AddRange(_data);
         var total = 0;
-        using var sub = list.Connect().Subscribe(changes => total += changes.TotalChanges);
+        using var sub = list.Connect().SubscribeObserver(changes => total += changes.TotalChanges);
         return total;
     }
 

@@ -5,12 +5,13 @@
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 
 namespace CP.Reactive.Collections;
 
@@ -76,7 +77,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     private readonly SynchronizationContext? _syncContext;
     private Channel<CacheNotify<TItem>>? _eventChannel;
     private object? _eventGate;
-    private Subject<CacheNotify<TItem>>? _pipeline;
+    private Signal<CacheNotify<TItem>>? _pipeline;
     private CancellationTokenSource? _cts;
     private NotifyCollectionChangedEventHandler? _collectionChanged;
     private int _count;

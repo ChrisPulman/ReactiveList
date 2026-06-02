@@ -6,9 +6,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Threading;
 using System.Threading.Tasks;
 using CP.Reactive.Collections;
@@ -97,13 +94,13 @@ public class ReactiveListNotificationComplianceTests
     public void DynamicReactiveView_WithColdFilterSubject_ShouldConstructImmediately()
     {
         using var source = new ReactiveList<int>([1, 2, 3]);
-        using var filters = new Subject<Func<int, bool>>();
+        using var filters = new Signal<Func<int, bool>>();
 
         using var view = new DynamicReactiveView<int>(
             source,
             filters,
             TimeSpan.Zero,
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         view.Items.Should().Equal(1, 2, 3);
         filters.OnNext(static item => item > 1);
@@ -122,13 +119,13 @@ public class ReactiveListNotificationComplianceTests
         var north = new IndexedItem(1, "north");
         source.Add(north);
         source.AddIndex("region", static item => item.Region);
-        using var keys = new Subject<string[]>();
+        using var keys = new Signal<string[]>();
 
         using var view = new DynamicSecondaryIndexReactiveView<IndexedItem, string>(
             source,
             "region",
             keys,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         view.Items.Should().BeEmpty();

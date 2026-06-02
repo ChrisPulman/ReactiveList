@@ -3,12 +3,12 @@
 
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Disposables.Fluent;
-using System.Reactive.Linq;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 namespace CP.Reactive.Views;
 
@@ -29,8 +29,8 @@ where T : notnull
 {
     private readonly ObservableCollection<T> _target = [];
     private readonly IReactiveSource<T> _source;
-    private readonly CompositeDisposable _disposables = [];
-    private readonly IScheduler _scheduler;
+    private readonly MultipleDisposable _disposables = new();
+    private readonly ISequencer _scheduler;
     private readonly TimeSpan _throttle;
     private Func<T, bool> _currentFilter = static _ => true;
     private IDisposable? _streamSubscription;
@@ -51,9 +51,9 @@ where T : notnull
     /// appropriate thread (such as the UI thread).</param>
     /// <exception cref="ArgumentNullException">Thrown if source, filterObservable, or scheduler is null.</exception>
  #if NET8_0_OR_GREATER
-    public DynamicReactiveView(IReactiveSource<T> source, IObservable<Func<T, bool>> filterObservable, in TimeSpan throttle, IScheduler scheduler)
+    public DynamicReactiveView(IReactiveSource<T> source, IObservable<Func<T, bool>> filterObservable, in TimeSpan throttle, ISequencer scheduler)
 #else
-    public DynamicReactiveView(IReactiveSource<T> source, IObservable<Func<T, bool>> filterObservable, TimeSpan throttle, IScheduler scheduler)
+    public DynamicReactiveView(IReactiveSource<T> source, IObservable<Func<T, bool>> filterObservable, TimeSpan throttle, ISequencer scheduler)
 #endif
     {
 #if NET8_0_OR_GREATER
