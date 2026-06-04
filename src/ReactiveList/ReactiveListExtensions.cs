@@ -9,6 +9,7 @@ using CP.Reactive.Internal;
 using CP.Reactive.Views;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace CP.Reactive;
 
@@ -44,7 +45,7 @@ public static class ReactiveListExtensions
         }
 #endif
 
-        return source.Select(changeSet =>
+        return source.Map(changeSet =>
         {
             if (changeSet.Count == 0)
             {
@@ -131,7 +132,7 @@ public static class ReactiveListExtensions
         }
 #endif
 
-        return source.Select(changes =>
+        return source.Map(changes =>
         {
             if (changes.Count == 0)
             {
@@ -182,7 +183,7 @@ public static class ReactiveListExtensions
         }
 #endif
 
-        return source.SelectMany(changeSet =>
+        return source.FlatMap(changeSet =>
         {
             if (changeSet.Count == 0)
             {
@@ -269,8 +270,8 @@ public static class ReactiveListExtensions
 #endif
 
         return filterObservable
-            .StartWith(static _ => true) // Default to include all items
-            .Select(filter => stream.Select(notification => notification.Action switch
+            .Lead(static _ => true) // Default to include all items
+            .Map(filter => stream.Map(notification => notification.Action switch
             {
                 CacheAction.Added when filter(notification.Item) => notification,
                 CacheAction.Removed => notification, // Always pass removed items
@@ -278,8 +279,8 @@ public static class ReactiveListExtensions
                     ReactiveListExtensions.FilterBatchByPredicate(notification, filter),
                 CacheAction.Cleared => notification,
                 _ => null
-            }).Where(n => n != null).Select(n => n!))
-            .Switch();
+            }).Where(n => n != null).Map(n => n!))
+            .SwitchTo();
     }
 
     /// <summary>
@@ -311,8 +312,8 @@ public static class ReactiveListExtensions
 #endif
 
         return filterObservable
-            .StartWith(static _ => true) // Default to include all items
-            .Select(filter => stream.Select(notification => notification.Action switch
+            .Lead(static _ => true) // Default to include all items
+            .Map(filter => stream.Map(notification => notification.Action switch
             {
                 CacheAction.Added when notification.Item != null && filter(notification.Item) => notification,
                 CacheAction.Removed when notification.Item != null => notification, // Always pass removed items
@@ -320,8 +321,8 @@ public static class ReactiveListExtensions
                     FilterBatchByPredicate(notification, filter),
                 CacheAction.Cleared => notification,
                 _ => null
-            }).Where(n => n != null).Select(n => n!))
-            .Switch();
+            }).Where(n => n != null).Map(n => n!))
+            .SwitchTo();
     }
 
     /// <summary>
@@ -450,7 +451,7 @@ public static class ReactiveListExtensions
 #endif
 
         // Convert query observable to a filter observable
-        var filterObservable = queryObservable.Select<TQuery, Func<T, bool>>(query => item => filter(query, item));
+        var filterObservable = queryObservable.Map<TQuery, Func<T, bool>>(query => item => filter(query, item));
 
         return new DynamicReactiveView<T>(list, filterObservable, TimeSpan.FromMilliseconds(throttleMs), scheduler);
     }
@@ -655,7 +656,7 @@ public static class ReactiveListExtensions
             throw new ArgumentNullException(nameof(keySelector));
         }
 
-        return Observable.Create<IGroupedObservable<TKey, T>>(observer =>
+        return Signal.Create<IGroupedObservable<TKey, T>>(observer =>
         {
             var groups = new List<GroupedObservable<TKey, T>>();
             var subscription = source.Subscribe(
@@ -729,7 +730,7 @@ public static class ReactiveListExtensions
             throw new ArgumentNullException(nameof(keySelector));
         }
 
-        return source.SelectMany(changeSet =>
+        return source.FlatMap(changeSet =>
         {
             var groups = new Dictionary<TKey, List<Change<T>>>();
             for (var i = 0; i < changeSet.Count; i++)
@@ -804,9 +805,9 @@ public static class ReactiveListExtensions
 
         var watchAllProperties = string.IsNullOrEmpty(propertyName);
 
-        return source.SelectMany(changeSet =>
+        return source.FlatMap(changeSet =>
         {
-            var results = new List<IObservable<ChangeSet<T>>> { Observable.Return(changeSet) };
+            var results = new List<IObservable<ChangeSet<T>>> { Signal.Emit(changeSet) };
 
             for (var i = 0; i < changeSet.Count; i++)
             {
@@ -818,14 +819,14 @@ public static class ReactiveListExtensions
                     var refreshObservable = Observable.FromEventPattern<System.ComponentModel.PropertyChangedEventHandler, System.ComponentModel.PropertyChangedEventArgs>(
                         h => item.PropertyChanged += h,
                         h => item.PropertyChanged -= h)
-                        .Where(e => watchAllProperties || e.EventArgs.PropertyName == propertyName || string.IsNullOrEmpty(e.EventArgs.PropertyName))
-                        .Select(_ => new ChangeSet<T>(new[] { Change<T>.CreateRefresh(item, index) }));
+                        .Keep(e => watchAllProperties || e.EventArgs.PropertyName == propertyName || string.IsNullOrEmpty(e.EventArgs.PropertyName))
+                        .Map(_ => new ChangeSet<T>(new[] { Change<T>.CreateRefresh(item, index) }));
 
                     results.Add(refreshObservable);
                 }
             }
 
-            return results.Merge();
+            return results.Blend();
         });
     }
 
@@ -871,7 +872,7 @@ public static class ReactiveListExtensions
                 initialChanges[i] = Change<T>.CreateAdd(initialItems[i], i);
             }
 
-            return Observable.Return(new ChangeSet<T>(initialChanges)).Concat(changeStream);
+            return Signal.Emit(new ChangeSet<T>(initialChanges)).Chain(changeStream);
         });
     }
 
@@ -888,7 +889,7 @@ public static class ReactiveListExtensions
     this IObservable<CacheNotify<T>> source,
     Func<T, bool> predicate)
         where T : notnull =>
-        source.Where(notification =>
+        source.Keep(notification =>
         {
             // Check if this is a single-item action (where Item property is meaningful)
             var isSingleItemAction = notification.Action is CacheAction.Added
@@ -922,7 +923,7 @@ public static class ReactiveListExtensions
     /// selector.</returns>
     public static IObservable<ChangeSet<T>> SortBy<T, TKey>(
     this IObservable<ChangeSet<T>> source,
-    Func<T, TKey> keySelector) => source.Select(changes =>
+    Func<T, TKey> keySelector) => source.Map(changes =>
     {
         var sorted = changes.OrderBy(c => keySelector(c.Current)).ToArray();
         return new ChangeSet<T>(sorted);

@@ -2,7 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Runtime.ExceptionServices;
-using System.Threading;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Disposables;
@@ -15,17 +14,7 @@ namespace CP.Reactive.Internal;
 /// </summary>
 internal static class ObservableMixins
 {
-    public static IObservable<TResult> Select<TSource, TResult>(
-        this IObservable<TSource> source,
-        Func<TSource, TResult> selector) =>
-        source.Map(selector);
-
-    public static IObservable<TSource> Where<TSource>(
-        this IObservable<TSource> source,
-        Func<TSource, bool> predicate) =>
-        source.Keep(predicate);
-
-    public static IObservable<TResult> SelectMany<TSource, TResult>(
+    public static IObservable<TResult> FlatMap<TSource, TResult>(
         this IObservable<TSource> source,
         Func<TSource, IEnumerable<TResult>> selector)
     {
@@ -45,39 +34,9 @@ internal static class ObservableMixins
                 observer.OnCompleted));
     }
 
-    public static IObservable<TResult> SelectMany<TSource, TResult>(
-        this IObservable<TSource> source,
-        Func<TSource, IObservable<TResult>> selector) =>
-        source.FlatMap(selector);
-
-    public static IObservable<TResult> SelectMany<TSource, TCollection, TResult>(
-        this IObservable<TSource> source,
-        Func<TSource, IObservable<TCollection>> collectionSelector,
-        Func<TSource, TCollection, TResult> resultSelector) =>
-        source.FlatMap(collectionSelector, resultSelector);
-
-    public static IObservable<TSource> StartWith<TSource>(
-        this IObservable<TSource> source,
-        TSource value) =>
-        source.Lead(value);
-
-    public static IObservable<TSource> Concat<TSource>(
-        this IObservable<TSource> first,
-        IObservable<TSource> second) =>
-        first.Chain(second);
-
-    public static IObservable<TSource> Merge<TSource>(
+    public static IObservable<TSource> Blend<TSource>(
         this IEnumerable<IObservable<TSource>> sources) =>
         Signal.Blend([.. sources]);
-
-    public static IObservable<TSource> Switch<TSource>(
-        this IObservable<IObservable<TSource>> sources) =>
-        sources.SwitchTo();
-
-    public static IObservable<TSource> Do<TSource>(
-        this IObservable<TSource> source,
-        Action<TSource> onNext) =>
-        source.Tap(onNext);
 
     public static IEnumerable<TSource> ToEnumerable<TSource>(this IObservable<TSource> source)
     {
@@ -120,7 +79,7 @@ internal static class ObservableMixins
 
         if (timeSpan <= TimeSpan.Zero)
         {
-            return source.Select(static value => (IList<TSource>)new[] { value });
+            return source.Map(static value => (IList<TSource>)[value]);
         }
 
         return Signal.Create<IList<TSource>>(observer =>
@@ -169,7 +128,7 @@ internal static class ObservableMixins
                         flushScheduled = true;
                     }
 
-                    disposables.Add(Sequencer.Schedule(sequencer, timeSpan, Flush));
+                    disposables.Add(sequencer.Schedule(timeSpan, Flush));
                 },
                 error =>
                 {
@@ -249,7 +208,7 @@ internal static class ObservableMixins
                         currentVersion = ++version;
                     }
 
-                    disposables.Add(Sequencer.Schedule(sequencer, dueTime, () =>
+                    disposables.Add(sequencer.Schedule(dueTime, () =>
                     {
                         TSource? valueToEmit;
                         lock (gate)

@@ -35,7 +35,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(source));
         }
 
-        return source.Where(n => n.Action == action);
+        return source.Keep(n => n.Action == action);
     }
 
     /// <summary>
@@ -52,7 +52,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(source));
         }
 
-        return source.Where(n => n.Action == CacheAction.Added || n.Action == CacheAction.BatchAdded);
+        return source.Keep(n => n.Action == CacheAction.Added || n.Action == CacheAction.BatchAdded);
     }
 
     /// <summary>
@@ -69,7 +69,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(source));
         }
 
-        return source.Where(n => n.Action == CacheAction.Removed || n.Action == CacheAction.BatchRemoved);
+        return source.Keep(n => n.Action == CacheAction.Removed || n.Action == CacheAction.BatchRemoved);
     }
 
     /// <summary>
@@ -87,8 +87,8 @@ public static class CacheNotifyExtensions
         }
 
         return source
-            .Where(n => n.Item != null)
-            .Select(n => n.Item!);
+            .Keep(n => n.Item != null)
+            .Map(n => n.Item!);
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(source));
         }
 
-        return source.SelectMany(n =>
+        return source.FlatMap(n =>
         {
             if (n.Batch != null)
             {
@@ -166,8 +166,8 @@ public static class CacheNotifyExtensions
 
         return source
             .WhereAction(CacheAction.Moved)
-            .Where(n => n.Item != null)
-            .Select(n => (n.Item!, n.PreviousIndex, n.CurrentIndex));
+            .Keep(n => n.Item != null)
+            .Map(n => (n.Item!, n.PreviousIndex, n.CurrentIndex));
     }
 
     /// <summary>
@@ -202,7 +202,7 @@ public static class CacheNotifyExtensions
 
         return source
             .Buffer(bufferTime)
-            .Where(b => b.Count > 0);
+            .Keep(b => b.Count > 0);
     }
 
     /// <summary>
@@ -277,7 +277,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(selector));
         }
 
-        return source.SelectAllItems().Select(selector);
+        return source.SelectAllItems().Map(selector);
     }
 
     /// <summary>
@@ -302,7 +302,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(predicate));
         }
 
-        return source.SelectAllItems().Where(predicate);
+        return source.SelectAllItems().Keep(predicate);
     }
 
     /// <summary>
@@ -319,7 +319,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(source));
         }
 
-        return source.Do(n => n.Batch?.Dispose());
+        return source.Tap(n => n.Batch?.Dispose());
     }
 
     /// <summary>
@@ -336,7 +336,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(source));
         }
 
-        return source.Select(n =>
+        return source.Map(n =>
         {
             var count = n.Batch?.Count ?? (n.Item != null ? 1 : 0);
             return (n.Action, count);
@@ -394,7 +394,7 @@ public static class CacheNotifyExtensions
             throw new ArgumentNullException(nameof(source));
         }
 
-        return source.Select(notification =>
+        return source.Map(notification =>
         {
             // Handle batch operations (including Cleared which contains the removed items)
             if (notification.Batch != null && notification.Batch.Count > 0)

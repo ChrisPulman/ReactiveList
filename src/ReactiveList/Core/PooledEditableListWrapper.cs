@@ -11,22 +11,16 @@ namespace CP.Reactive.Core;
 /// A pooled version of <see cref="EditableListWrapper{T}"/> that supports reuse through object pooling.
 /// </summary>
 /// <typeparam name="T">The type of elements in the wrapped list.</typeparam>
-public sealed class PooledEditableListWrapper<T> : IEditableList<T>, IResettable, IDisposable
+/// <remarks>
+/// Initializes a new instance of the <see cref="PooledEditableListWrapper{T}"/> class.
+/// </remarks>
+/// <param name="list">The underlying list to wrap.</param>
+/// <param name="observableCollection">The observable collection to keep in sync (optional).</param>
+public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollection<T>? observableCollection = null) : IEditableList<T>, IResettable, IDisposable
 {
-    private List<T>? _list;
-    private ObservableCollection<T>? _observableCollection;
+    private List<T>? _list = list;
+    private ObservableCollection<T>? _observableCollection = observableCollection;
     private bool _isReturned;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PooledEditableListWrapper{T}"/> class.
-    /// </summary>
-    /// <param name="list">The underlying list to wrap.</param>
-    /// <param name="observableCollection">The observable collection to keep in sync (optional).</param>
-    public PooledEditableListWrapper(List<T> list, ObservableCollection<T>? observableCollection = null)
-    {
-        _list = list;
-        _observableCollection = observableCollection;
-    }
 
     /// <inheritdoc/>
     public int Count => _list?.Count ?? 0;
@@ -47,10 +41,7 @@ public sealed class PooledEditableListWrapper<T> : IEditableList<T>, IResettable
         {
             ThrowIfReturned();
             _list![index] = value;
-            if (_observableCollection != null)
-            {
-                _observableCollection[index] = value;
-            }
+            _observableCollection?[index] = value;
         }
     }
 

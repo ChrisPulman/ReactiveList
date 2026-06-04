@@ -295,7 +295,7 @@ where T : notnull
         // Subscribe to stream with current filter
         _streamSubscription = _source.Stream
             .Buffer(_throttle)
-            .Where(b => b.Count > 0)
+            .Keep(b => b.Count > 0)
             .ObserveOn(_scheduler)
             .Subscribe(batch =>
             {

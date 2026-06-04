@@ -77,7 +77,7 @@ where T : notnull
         // 2. Subscribe to Stream with Throttling
         _sub = stream
             .Buffer(throttle) // Batch changes by time
-            .Where(b => b.Count > 0)
+            .Keep(b => b.Count > 0)
             .ObserveOn(sheduler) // Jump to UI Thread
             .Subscribe(batch =>
             {

@@ -28,12 +28,9 @@ public sealed record PooledBatch<T>(T[] Items, int Count, bool ReturnToPool = tr
     /// allow for proper cleanup. After calling this method, the instance should not be used.</remarks>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
+        if (Interlocked.Exchange(ref _isDisposed, 1) == 0 && ReturnToPool)
         {
-            if (ReturnToPool)
-            {
-                ArrayPool<T>.Shared.Return(Items, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
-            }
+            ArrayPool<T>.Shared.Return(Items, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         }
     }
 }

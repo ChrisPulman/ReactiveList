@@ -147,14 +147,14 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <value>The added.</value>
     public IObservable<IEnumerable<T>> Added => _added ??= Stream
-        .Where(n => n.Action == CacheAction.Added || n.Action == CacheAction.BatchAdded)
-        .Select(GetItemsFromNotification);
+        .Keep(n => n.Action == CacheAction.Added || n.Action == CacheAction.BatchAdded)
+        .Map(GetItemsFromNotification);
 
     /// <summary>
     /// Gets the changed during the last change as an Observable.
     /// </summary>
     /// <value>The changed.</value>
-    public IObservable<IEnumerable<T>> Changed => _changed ??= Stream.Select(GetItemsFromNotification);
+    public IObservable<IEnumerable<T>> Changed => _changed ??= Stream.Map(GetItemsFromNotification);
 
     /// <summary>
     /// Gets the current items during the last change as an Observable.
@@ -169,8 +169,8 @@ public class ReactiveList<T> : IReactiveList<T>
     /// </summary>
     /// <value>The removed.</value>
     public IObservable<IEnumerable<T>> Removed => _removed ??= Stream
-        .Where(n => n.Action == CacheAction.Removed || n.Action == CacheAction.BatchRemoved || n.Action == CacheAction.Cleared)
-        .Select(GetItemsFromNotification);
+        .Keep(n => n.Action == CacheAction.Removed || n.Action == CacheAction.BatchRemoved || n.Action == CacheAction.Cleared)
+        .Map(GetItemsFromNotification);
 
     /// <inheritdoc/>
     public int Count => _internalList.Count;

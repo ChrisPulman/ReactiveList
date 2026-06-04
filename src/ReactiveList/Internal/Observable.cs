@@ -12,15 +12,6 @@ namespace CP.Reactive.Internal;
 /// </summary>
 internal static class Observable
 {
-    public static IObservable<T> Create<T>(Func<IObserver<T>, IDisposable> subscribe) =>
-        Signal.Create(subscribe);
-
-    public static IObservable<T> Return<T>(T value) =>
-        Signal.Emit(value);
-
-    public static IObservable<T> Empty<T>() =>
-        Signal.None<T>();
-
     public static IObservable<T> Defer<T>(Func<IObservable<T>> factory)
     {
         ThrowHelper.ThrowIfNull(factory);

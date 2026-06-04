@@ -135,7 +135,7 @@ public static class QuaternaryExtensions
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
 
-        return stream.Select(notification =>
+        return stream.Map(notification =>
         {
             bool Matches(T item) => list.ItemMatchesSecondaryIndex(indexName, item, key);
 
@@ -148,7 +148,7 @@ public static class QuaternaryExtensions
                 CacheAction.Cleared => notification,
                 _ => null
             };
-        }).Where(n => n != null).Select(n => n!);
+        }).Where(n => n != null).Map(n => n!);
     }
 
     /// <summary>
@@ -174,7 +174,7 @@ public static class QuaternaryExtensions
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keys);
 
-        return stream.Select(notification =>
+        return stream.Map(notification =>
         {
             bool Matches(T item) => keys.Any(key => list.ItemMatchesSecondaryIndex(indexName, item, key));
 
@@ -187,7 +187,7 @@ public static class QuaternaryExtensions
                 CacheAction.Cleared => notification,
                 _ => null
             };
-        }).Where(n => n != null).Select(n => n!);
+        }).Where(n => n != null).Map(n => n!);
     }
 
     /// <summary>
@@ -312,7 +312,7 @@ public static class QuaternaryExtensions
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
 
-        return stream.Select(notification =>
+        return stream.Map(notification =>
         {
             bool Matches(KeyValuePair<TKey, TValue> item) =>
                 item.Value != null && dict.ValueMatchesSecondaryIndex(indexName, item.Value, indexKey);
@@ -326,7 +326,7 @@ public static class QuaternaryExtensions
                 CacheAction.Cleared => notification,
                 _ => null
             };
-        }).Where(n => n != null).Select(n => n!);
+        }).Where(n => n != null).Map(n => n!);
     }
 
     /// <summary>
@@ -353,7 +353,7 @@ public static class QuaternaryExtensions
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexKeys);
 
-        return stream.Select(notification =>
+        return stream.Map(notification =>
         {
             bool Matches(KeyValuePair<TKey, TValue> item) =>
                 item.Value != null && indexKeys.Any(key => dict.ValueMatchesSecondaryIndex(indexName, item.Value, key));
@@ -367,7 +367,7 @@ public static class QuaternaryExtensions
                 CacheAction.Cleared => notification,
                 _ => null
             };
-        }).Where(n => n != null).Select(n => n!);
+        }).Where(n => n != null).Map(n => n!);
     }
 }
 #endif

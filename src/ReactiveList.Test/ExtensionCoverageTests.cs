@@ -45,7 +45,7 @@ public class ExtensionCoverageTests
 
         Func<string, string> itemSelector = static item => $"value-{item}";
         var projectedSets = new List<ChangeSet<string>>();
-        using var projectionSubscription = Observable.Return(new ChangeSet<string>(new[]
+        using var projectionSubscription = Signal.Emit(new ChangeSet<string>(new[]
             {
                 Change<string>.CreateUpdate("twenty", "ten", 0),
                 Change<string>.CreateAdd("thirty", 1),
@@ -60,7 +60,7 @@ public class ExtensionCoverageTests
 
         Func<Change<int>, string> changeSelector = static change => $"{change.Reason}:{change.Current}";
         var flattened = new List<string>();
-        using var flattenSubscription = Observable.Return(new ChangeSet<int>(new[]
+        using var flattenSubscription = Signal.Emit(new ChangeSet<int>(new[]
             {
                 Change<int>.CreateRemove(5),
                 Change<int>.CreateMove(6, 2, 0),
@@ -71,7 +71,7 @@ public class ExtensionCoverageTests
         flattened.Should().Equal("Remove:5", "Move:6");
 
         var emptyFlattened = new List<int>();
-        using var emptySubscription = Observable.Return(ChangeSet<int>.Empty)
+        using var emptySubscription = Signal.Emit(ChangeSet<int>.Empty)
             .SelectChanges(static change => change.Current)
             .Subscribe(emptyFlattened.Add);
 
@@ -87,10 +87,10 @@ public class ExtensionCoverageTests
         IObservable<ChangeSet<int>> nullSource = null!;
 
         var whereSource = () => nullSource.WhereChanges(static _ => true);
-        var wherePredicate = () => ReactiveListExtensions.WhereChanges<int>(Observable.Empty<ChangeSet<int>>(), null!);
+        var wherePredicate = () => ReactiveListExtensions.WhereChanges<int>(Signal.None<ChangeSet<int>>(), null!);
         var selectSource = () => ReactiveListExtensions.SelectChanges<int, string>(nullSource, (Func<int, string>)(static item => item.ToString()));
-        var selectItemSelector = () => ReactiveListExtensions.SelectChanges<int, string>(Observable.Empty<ChangeSet<int>>(), (Func<int, string>)null!);
-        var selectChangeSelector = () => ReactiveListExtensions.SelectChanges<int, string>(Observable.Empty<ChangeSet<int>>(), (Func<Change<int>, string>)null!);
+        var selectItemSelector = () => ReactiveListExtensions.SelectChanges<int, string>(Signal.None<ChangeSet<int>>(), (Func<int, string>)null!);
+        var selectChangeSelector = () => ReactiveListExtensions.SelectChanges<int, string>(Signal.None<ChangeSet<int>>(), (Func<Change<int>, string>)null!);
 
         whereSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
         wherePredicate.Should().Throw<ArgumentNullException>().WithParameterName("predicate");
@@ -214,7 +214,7 @@ public class ExtensionCoverageTests
         });
 
         var groupings = new List<IGrouping<string, Change<MutableItem>>>();
-        using var groupingSubscription = Observable.Return(changes)
+        using var groupingSubscription = Signal.Emit(changes)
             .GroupingByChanges(static item => item.Region)
             .Subscribe(groupings.Add);
 
@@ -223,7 +223,7 @@ public class ExtensionCoverageTests
         groupings.Single(static group => group.Key == "south").Should().ContainSingle();
 
         var groupedValues = new Dictionary<string, List<MutableItem>>();
-        using var groupBySubscription = Observable.Return(changes)
+        using var groupBySubscription = Signal.Emit(changes)
             .GroupByChanges(static item => item.Region)
             .Subscribe(group =>
             {

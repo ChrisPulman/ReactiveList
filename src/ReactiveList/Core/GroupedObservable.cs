@@ -5,13 +5,11 @@ using ReactiveUI.Primitives.Signals;
 
 namespace CP.Reactive.Core;
 
-internal sealed class GroupedObservable<TKey, TElement> : IGroupedObservable<TKey, TElement>, IDisposable
+internal sealed class GroupedObservable<TKey, TElement>(TKey key) : IGroupedObservable<TKey, TElement>, IDisposable
 {
     private readonly Signal<TElement> _signal = new();
 
-    public GroupedObservable(TKey key) => Key = key;
-
-    public TKey Key { get; }
+    public TKey Key { get; } = key;
 
     public IDisposable Subscribe(IObserver<TElement> observer) => _signal.Subscribe(observer);
 

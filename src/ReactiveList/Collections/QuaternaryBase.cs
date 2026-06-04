@@ -142,23 +142,17 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     /// including single item changes and batch operations. The Stream uses a channel-based pipeline
     /// for efficient, low-allocation event delivery.
     /// </remarks>
-    public IObservable<CacheNotify<TItem>> Stream
-    {
-        get
-        {
-            return Observable.Create<CacheNotify<TItem>>(observer =>
-            {
-                EnsureEventProcessorStarted();
-                Interlocked.Increment(ref _hasSubscribers);
-                var subscription = _pipeline!.Subscribe(observer);
-                return Disposable.Create(() =>
-                {
-                    subscription.Dispose();
-                    Interlocked.Decrement(ref _hasSubscribers);
-                });
-            });
-        }
-    }
+    public IObservable<CacheNotify<TItem>> Stream => Signal.Create<CacheNotify<TItem>>(observer =>
+                                                              {
+                                                                  EnsureEventProcessorStarted();
+                                                                  Interlocked.Increment(ref _hasSubscribers);
+                                                                  var subscription = _pipeline!.Subscribe(observer);
+                                                                  return Disposable.Create(() =>
+                                                                  {
+                                                                      subscription.Dispose();
+                                                                      Interlocked.Decrement(ref _hasSubscribers);
+                                                                  });
+                                                              });
 
     /// <summary>
     /// Gets a value indicating whether the object has been disposed.
