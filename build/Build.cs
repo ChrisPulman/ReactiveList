@@ -67,10 +67,21 @@ sealed partial class Build : NukeBuild
 
     private Target Compile => _ => _
         .DependsOn(Restore, Print)
-        .Executes(() => DotNetBuild(s => s
-                .SetProjectFile(Solution)
+        .Executes(() =>
+        {
+            var packableProjects = Solution.GetPackableProjects();
+
+            foreach (var project in packableProjects!)
+            {
+                Log.Information("Building {Project}", project.Name);
+            }
+
+            DotNetBuild(settings => settings
                 .SetConfiguration(Configuration)
-                .EnableNoRestore()));
+                .EnableNoRestore()
+                .CombineWith(packableProjects, (buildSettings, project) =>
+                    buildSettings.SetProjectFile(project.Path)));
+        });
 
     private Target Pack => _ => _
     .After(Compile)
