@@ -1,10 +1,12 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using TUnit.Assertions.Exceptions;
 
 namespace ReactiveList.Test;
 
@@ -22,7 +24,7 @@ internal static class Assert
     {
         if (!collection.Contains(expected))
         {
-            throw new InvalidOperationException($"Expected collection to contain {expected}.");
+            Fail($"Expected collection to contain {expected}.");
         }
     }
 
@@ -30,7 +32,7 @@ internal static class Assert
     {
         if (!collection.Any(item => predicate(item)))
         {
-            throw new InvalidOperationException("Expected collection to contain a matching item.");
+            Fail("Expected collection to contain a matching item.");
         }
     }
 
@@ -38,7 +40,7 @@ internal static class Assert
     {
         if (collection.Contains(expected))
         {
-            throw new InvalidOperationException($"Expected collection not to contain {expected}.");
+            Fail($"Expected collection not to contain {expected}.");
         }
     }
 
@@ -46,7 +48,7 @@ internal static class Assert
     {
         if (collection.Any(item => predicate(item)))
         {
-            throw new InvalidOperationException("Expected collection not to contain a matching item.");
+            Fail("Expected collection not to contain a matching item.");
         }
     }
 
@@ -54,7 +56,7 @@ internal static class Assert
     {
         if (collection.GetEnumerator().MoveNext())
         {
-            throw new InvalidOperationException("Expected collection to be empty.");
+            Fail("Expected collection to be empty.");
         }
     }
 
@@ -62,7 +64,7 @@ internal static class Assert
     {
         if (!EqualityComparer<T>.Default.Equals(expected, actual))
         {
-            throw new InvalidOperationException($"Expected {expected}, but found {actual}.");
+            Fail($"Expected {expected}, but found {actual}.");
         }
     }
 
@@ -70,7 +72,7 @@ internal static class Assert
     {
         if (condition)
         {
-            throw new InvalidOperationException("Expected condition to be false.");
+            Fail("Expected condition to be false.");
         }
     }
 
@@ -78,7 +80,7 @@ internal static class Assert
     {
         if (value is null)
         {
-            throw new InvalidOperationException("Expected value not to be null.");
+            Fail("Expected value not to be null.");
         }
 
         return value;
@@ -89,13 +91,13 @@ internal static class Assert
         using var enumerator = collection.GetEnumerator();
         if (!enumerator.MoveNext())
         {
-            throw new InvalidOperationException("Expected exactly one item, but the collection was empty.");
+            Fail("Expected exactly one item, but the collection was empty.");
         }
 
         var item = enumerator.Current;
         if (enumerator.MoveNext())
         {
-            throw new InvalidOperationException("Expected exactly one item, but the collection contained multiple items.");
+            Fail("Expected exactly one item, but the collection contained multiple items.");
         }
 
         return item;
@@ -113,14 +115,19 @@ internal static class Assert
             return exception;
         }
 
-        throw new InvalidOperationException($"Expected exception of type {typeof(T).Name}.");
+        Fail($"Expected exception of type {typeof(T).Name}.");
+        throw new UnreachableException();
     }
 
     public static void True(bool condition)
     {
         if (!condition)
         {
-            throw new InvalidOperationException("Expected condition to be true.");
+            Fail("Expected condition to be true.");
         }
     }
+
+    private static void Fail(string message) => throw new AssertionException(message);
 }
+
+internal sealed class UnreachableException : Exception;

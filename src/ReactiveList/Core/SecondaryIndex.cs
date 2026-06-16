@@ -1,14 +1,13 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace CP.Reactive.Core;
 
-/// <summary>
-/// Provides a thread-safe secondary index for associating items with keys derived from a selector function.
-/// </summary>
+/// <summary>Provides a thread-safe secondary index for associating items with keys derived from a selector function.</summary>
 /// <typeparam name="T">The type of items to be indexed.</typeparam>
 /// <typeparam name="TKey">The type of the key used for indexing. Must be non-nullable.</typeparam>
 /// <param name="selector">A function that extracts the secondary key from an item.</param>
@@ -23,9 +22,7 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         new ConcurrentDictionary<TKey, HashSet<T>>()
     ];
 
-    /// <summary>
-    /// Adds the specified item to the collection.
-    /// </summary>
+    /// <summary>Adds the specified item to the collection.</summary>
     /// <param name="item">The item to add.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void OnAdded(T item)
@@ -56,9 +53,7 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
 #endif
     }
 
-    /// <summary>
-    /// Removes the specified item from the collection.
-    /// </summary>
+    /// <summary>Removes the specified item from the collection.</summary>
     /// <param name="item">The item to remove.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void OnRemoved(T item)
@@ -66,22 +61,22 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         var key = selector(item);
         var s = GetShardIndex(key);
 
-        if (_shards[s].TryGetValue(key, out var set))
+        if (!_shards[s].TryGetValue(key, out var set))
         {
-            lock (set)
+            return;
+        }
+
+        lock (set)
+        {
+            set.Remove(item);
+            if (set.Count == 0)
             {
-                set.Remove(item);
-                if (set.Count == 0)
-                {
-                    _shards[s].TryRemove(key, out _);
-                }
+                _shards[s].TryRemove(key, out _);
             }
         }
     }
 
-    /// <summary>
-    /// Handles the update of an item.
-    /// </summary>
+    /// <summary>Handles the update of an item.</summary>
     /// <param name="oldItem">The old item to remove.</param>
     /// <param name="newItem">The new item to add.</param>
     public void OnUpdated(T oldItem, T newItem)
@@ -90,9 +85,7 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         OnAdded(newItem);
     }
 
-    /// <summary>
-    /// Retrieves all values associated with the specified key.
-    /// </summary>
+    /// <summary>Retrieves all values associated with the specified key.</summary>
     /// <param name="key">The key to look up.</param>
     /// <returns>An enumerable of items matching the key.</returns>
     public IEnumerable<T> Lookup(TKey key)
@@ -109,9 +102,7 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         return [];
     }
 
-    /// <summary>
-    /// Removes all items from the collection.
-    /// </summary>
+    /// <summary>Removes all items from the collection.</summary>
     public void Clear()
     {
         for (var i = 0; i < 4; i++)
@@ -120,9 +111,7 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         }
     }
 
-    /// <summary>
-    /// Determines whether the specified item's key matches the provided key object.
-    /// </summary>
+    /// <summary>Determines whether the specified item's key matches the provided key object.</summary>
     /// <param name="item">The item whose key should be compared.</param>
     /// <param name="key">The key to compare against. Must be of type <typeparamref name="TKey"/>.</param>
     /// <returns><see langword="true"/> if the item's key matches the specified key; otherwise, <see langword="false"/>.</returns>
@@ -137,9 +126,7 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         return EqualityComparer<TKey>.Default.Equals(itemKey, typedKey);
     }
 
-    /// <summary>
-    /// Calculates the shard index for the specified key.
-    /// </summary>
+    /// <summary>Calculates the shard index for the specified key.</summary>
     /// <param name="item">The key for which to compute the shard index.</param>
     /// <returns>An integer representing the zero-based index of the shard to which the key is assigned. The value ranges from 0
     /// to 3.</returns>

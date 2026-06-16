@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.ComponentModel;
 using ReactiveUI.Primitives.Disposables;
@@ -7,11 +8,13 @@ using ReactiveUI.Primitives.Signals;
 
 namespace CP.Reactive.Internal;
 
-/// <summary>
-/// Minimal observable factories used by ReactiveList internals.
-/// </summary>
+/// <summary>Minimal observable factories used by ReactiveList internals.</summary>
 internal static class Observable
 {
+    /// <summary>Creates an observable sequence using a deferred factory.</summary>
+    /// <typeparam name="T">The observable element type.</typeparam>
+    /// <param name="factory">The factory to create the deferred observable.</param>
+    /// <returns>An observable sequence that defers invocation to subscription.</returns>
     public static IObservable<T> Defer<T>(Func<IObservable<T>> factory)
     {
         ThrowHelper.ThrowIfNull(factory);
@@ -26,13 +29,19 @@ internal static class Observable
             catch (Exception ex)
             {
                 observer.OnError(ex);
-                return Disposable.Empty;
+                return Scope.Empty;
             }
 
             return source.Subscribe(observer);
         });
     }
 
+    /// <summary>Creates an observable sequence from an event pattern.</summary>
+    /// <typeparam name="TEventHandler">The delegate type for the event handler.</typeparam>
+    /// <typeparam name="TEventArgs">The event argument type.</typeparam>
+    /// <param name="addHandler">Adds the event handler.</param>
+    /// <param name="removeHandler">Removes the event handler.</param>
+    /// <returns>An observable sequence of event pattern values.</returns>
     public static IObservable<EventPattern<TEventArgs>> FromEventPattern<TEventHandler, TEventArgs>(
         Action<TEventHandler> addHandler,
         Action<TEventHandler> removeHandler)
@@ -63,7 +72,7 @@ internal static class Observable
             }
 
             addHandler(handler);
-            return Disposable.Create(() => removeHandler(handler));
+            return Scope.Create(() => removeHandler(handler));
         });
     }
 }

@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System;
@@ -8,7 +9,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
+using CP.Reactive.Core;
 using FluentAssertions;
+using ReactiveUI.Primitives.Signals;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -371,6 +374,49 @@ public class QuaternaryExtensionsAdditionalTests
 
         // Assert - should have items immediately after construction
         extView.Items.Count.Should().Be(2, "extension method should produce view with 2 items");
+    }
+
+    /// <summary>
+    /// Tests that secondary-index stream filters keep clear notifications for view reset semantics.
+    /// </summary>
+    [Test]
+    public void FilterBySecondaryIndex_ClearNotifications_ShouldPassThroughAllOverloads()
+    {
+        using var list = new QuaternaryList<Employee>();
+        list.AddIndex("ByDepartment", static employee => employee.Department);
+        list.Add(new Employee("Alice", "Engineering"));
+        using var listStream = new Signal<CacheNotify<Employee>>();
+        var listSingle = new List<CacheNotify<Employee>>();
+        var listMultiple = new List<CacheNotify<Employee>>();
+        using var listSingleSubscription = listStream
+            .FilterBySecondaryIndex(list, "ByDepartment", "Engineering")
+            .Subscribe(listSingle.Add);
+        using var listMultipleSubscription = listStream
+            .FilterBySecondaryIndex(list, "ByDepartment", "Engineering", "Sales")
+            .Subscribe(listMultiple.Add);
+
+        listStream.OnNext(new CacheNotify<Employee>(CacheAction.Cleared, default!));
+
+        listSingle.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
+        listMultiple.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
+
+        using var dict = new QuaternaryDictionary<string, OrderInfo>();
+        dict.AddValueIndex("ByStatus", static order => order.Status);
+        dict.Add("ORD001", new OrderInfo("ORD001", "Pending", 100m));
+        using var dictStream = new Signal<CacheNotify<KeyValuePair<string, OrderInfo>>>();
+        var dictSingle = new List<CacheNotify<KeyValuePair<string, OrderInfo>>>();
+        var dictMultiple = new List<CacheNotify<KeyValuePair<string, OrderInfo>>>();
+        using var dictSingleSubscription = dictStream
+            .FilterBySecondaryIndex(dict, "ByStatus", "Pending")
+            .Subscribe(dictSingle.Add);
+        using var dictMultipleSubscription = dictStream
+            .FilterBySecondaryIndex(dict, "ByStatus", "Pending", "Shipped")
+            .Subscribe(dictMultiple.Add);
+
+        dictStream.OnNext(new CacheNotify<KeyValuePair<string, OrderInfo>>(CacheAction.Cleared, default));
+
+        dictSingle.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
+        dictMultiple.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
     }
 
     private record Employee(string Name, string Department);

@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Buffers;
@@ -28,24 +29,37 @@ namespace CP.Reactive.Collections;
 [SkipLocalsInit]
 public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TValue>>
 {
-    private const int MinimumSize = 16; // minimum arraypool size(power of 2)
+    /// <summary>Minimum ArrayPool size as a power of two.</summary>
+    private const int MinimumSize = 16;
+
     private const double LoadFactor = 0.72;
-    private const int FreeListSentinel = -3; // base value for encoding freelist
-    private const int EndOfChain = -1; // marks end of bucket chain
+
+    /// <summary>Base value for encoding the freelist.</summary>
+    private const int FreeListSentinel = -3;
+
+    /// <summary>Marks the end of a bucket chain.</summary>
+    private const int EndOfChain = -1;
 
     private readonly IEqualityComparer<TKey> _comparer;
 
     private Entry[] _entries;
-    private int[] _buckets; // bucket is index of entries, 1-based(0 for empty).
-    private int _bucketsLength; // power of 2
+
+    /// <summary>Bucket value is the 1-based entry index, with zero representing empty.</summary>
+    private int[] _buckets;
+
+    /// <summary>Current bucket array length as a power of two.</summary>
+    private int _bucketsLength;
+
     private int _entryIndex;
+
     private int _resizeThreshold;
-    private int _freeList; // head of free list, -1 if none
+
+    /// <summary>Head of the free list, or -1 when there are no free entries.</summary>
+    private int _freeList;
+
     private int _freeCount;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="QuadDictionary{TKey, TValue}"/> class with default settings.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="QuadDictionary{TKey, TValue}"/> class with default settings.</summary>
     /// <remarks>This constructor creates an empty QuadDictionary using default configuration values. Use this
     /// overload when no custom comparer or options are required.</remarks>
     public QuadDictionary()
@@ -53,9 +67,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="QuadDictionary{TKey, TValue}"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="QuadDictionary{TKey, TValue}"/> class.</summary>
     /// <param name="comparer">Optional equality comparer for keys.</param>
     public QuadDictionary(IEqualityComparer<TKey>? comparer = null)
     {
@@ -69,18 +81,50 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         _buckets.AsSpan().Clear();
     }
 
-    /// <summary>
-    /// Gets the number of key/value pairs contained in the dictionary.
-    /// </summary>
+    /// <summary>Gets the number of key/value pairs contained in the dictionary.</summary>
     public int Count
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => _entryIndex - _freeCount;
     }
 
-    /// <summary>
-    /// Gets or sets the value associated with the specified key.
-    /// </summary>
+    /// <summary>Gets all keys in the dictionary.</summary>
+    public IEnumerable<TKey> Keys
+    {
+        get
+        {
+            for (var i = 0; i < _entryIndex; i++)
+            {
+                ref var entry = ref _entries[i];
+                if (entry.GetNext() < EndOfChain)
+                {
+                    continue; // Skip free entries (Next < -1 means in freelist)
+                }
+
+                yield return entry.GetKey();
+            }
+        }
+    }
+
+    /// <summary>Gets all values in the dictionary.</summary>
+    public IEnumerable<TValue> Values
+    {
+        get
+        {
+            for (var i = 0; i < _entryIndex; i++)
+            {
+                ref var entry = ref _entries[i];
+                if (entry.GetNext() < EndOfChain)
+                {
+                    continue; // Skip free entries (Next < -1 means in freelist)
+                }
+
+                yield return entry.GetValue()!;
+            }
+        }
+    }
+
+    /// <summary>Gets or sets the value associated with the specified key.</summary>
     /// <param name="key">The key of the value to get or set.</param>
     /// <returns>The value associated with the specified key.</returns>
     /// <exception cref="KeyNotFoundException">The key does not exist in the dictionary.</exception>
@@ -105,9 +149,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         }
     }
 
-    /// <summary>
-    /// Gets a reference to the value for the specified key, adding a default entry if the key does not exist.
-    /// </summary>
+    /// <summary>Gets a reference to the value for the specified key, adding a default entry if the key does not exist.</summary>
     /// <param name="key">The key to look up or add.</param>
     /// <param name="exists">When this method returns, true if the key existed; otherwise, false.</param>
     /// <returns>A reference to the value associated with the key.</returns>
@@ -122,13 +164,13 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         while (index >= 0)
         {
             ref var entry = ref _entries[index];
-            if (entry.HashCode == hashCode && _comparer.Equals(entry.Key, key))
+            if (entry.GetHashCodeValue() == hashCode && _comparer.Equals(entry.GetKey(), key))
             {
                 exists = true;
-                return ref entry.Value;
+                return ref Entry.ValueRef(ref entry);
             }
 
-            index = entry.Next;
+            index = entry.GetNext();
         }
 
         // add phase
@@ -136,9 +178,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         return ref AddNewEntry(key, hashCode, ref bucket);
     }
 
-    /// <summary>
-    /// Attempts to add the specified key and value to the dictionary.
-    /// </summary>
+    /// <summary>Attempts to add the specified key and value to the dictionary.</summary>
     /// <param name="key">The key of the element to add.</param>
     /// <param name="value">The value of the element to add.</param>
     /// <returns>true if the key/value pair was added; false if the key already exists.</returns>
@@ -153,12 +193,12 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         while (index >= 0)
         {
             ref var entry = ref _entries[index];
-            if (entry.HashCode == hashCode && _comparer.Equals(entry.Key, key))
+            if (entry.GetHashCodeValue() == hashCode && _comparer.Equals(entry.GetKey(), key))
             {
                 return false; // Key already exists
             }
 
-            index = entry.Next;
+            index = entry.GetNext();
         }
 
         // Add new entry
@@ -167,24 +207,22 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         return true;
     }
 
-    /// <summary>
-    /// Adds the specified key and value to the dictionary.
-    /// </summary>
+    /// <summary>Adds the specified key and value to the dictionary.</summary>
     /// <param name="key">The key of the element to add.</param>
     /// <param name="value">The value of the element to add.</param>
     /// <exception cref="ArgumentException">An element with the same key already exists.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Add(TKey key, TValue value)
     {
-        if (!TryAdd(key, value))
+        if (TryAdd(key, value))
         {
-            throw new ArgumentException("An element with the same key already exists.");
+            return;
         }
+
+        throw new ArgumentException("An element with the same key already exists.");
     }
 
-    /// <summary>
-    /// Gets the value associated with the specified key.
-    /// </summary>
+    /// <summary>Gets the value associated with the specified key.</summary>
     /// <param name="key">The key of the value to get.</param>
     /// <param name="value">When this method returns, the value associated with the specified key, if found.</param>
     /// <returns>true if the key was found; otherwise, false.</returns>
@@ -197,38 +235,32 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         while (index >= 0)
         {
             ref var entry = ref _entries[index];
-            if (entry.HashCode == hashCode && _comparer.Equals(entry.Key, key))
+            if (entry.GetHashCodeValue() == hashCode && _comparer.Equals(entry.GetKey(), key))
             {
-                value = entry.Value!;
+                value = entry.GetValue()!;
                 return true;
             }
 
-            index = entry.Next;
+            index = entry.GetNext();
         }
 
         value = default;
         return false;
     }
 
-    /// <summary>
-    /// Determines whether the dictionary contains the specified key.
-    /// </summary>
+    /// <summary>Determines whether the dictionary contains the specified key.</summary>
     /// <param name="key">The key to locate.</param>
     /// <returns>true if the dictionary contains an element with the specified key; otherwise, false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ContainsKey(TKey key) => TryGetValue(key, out _);
 
-    /// <summary>
-    /// Removes the value with the specified key from the dictionary.
-    /// </summary>
+    /// <summary>Removes the value with the specified key from the dictionary.</summary>
     /// <param name="key">The key of the element to remove.</param>
     /// <returns>true if the element was removed; otherwise, false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Remove(TKey key) => Remove(key, out _);
 
-    /// <summary>
-    /// Removes the value with the specified key from the dictionary, returning the removed value.
-    /// </summary>
+    /// <summary>Removes the value with the specified key from the dictionary, returning the removed value.</summary>
     /// <param name="key">The key of the element to remove.</param>
     /// <param name="value">When this method returns, the removed value, if the key was found.</param>
     /// <returns>true if the element was removed; otherwise, false.</returns>
@@ -243,32 +275,32 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         while (index >= 0)
         {
             ref var entry = ref _entries[index];
-            if (entry.HashCode == hashCode && _comparer.Equals(entry.Key, key))
+            if (entry.GetHashCodeValue() == hashCode && _comparer.Equals(entry.GetKey(), key))
             {
-                value = entry.Value!;
+                value = entry.GetValue()!;
 
                 // Remove from bucket chain
                 if (lastIndex < 0)
                 {
-                    bucket = entry.Next + 1;
+                    bucket = entry.GetNext() + 1;
                 }
                 else
                 {
-                    _entries[lastIndex].Next = entry.Next;
+                    _entries[lastIndex].SetNext(entry.GetNext());
                 }
 
                 // Clear entry and add to free list
                 if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>())
                 {
-                    entry.Key = default!;
+                    entry.SetKey(default!);
                 }
 
                 if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TValue>())
                 {
-                    entry.Value = default;
+                    entry.SetValue(default);
                 }
 
-                entry.Next = FreeListSentinel - _freeList;
+                entry.SetNext(FreeListSentinel - _freeList);
                 _freeList = index;
                 _freeCount++;
 
@@ -276,35 +308,33 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             }
 
             lastIndex = index;
-            index = entry.Next;
+            index = entry.GetNext();
         }
 
         value = default;
         return false;
     }
 
-    /// <summary>
-    /// Removes all keys and values from the dictionary.
-    /// </summary>
+    /// <summary>Removes all keys and values from the dictionary.</summary>
     public void Clear()
     {
-        if (_entryIndex > 0)
+        if (_entryIndex <= 0)
         {
-            _buckets.AsSpan(0, _bucketsLength).Clear();
-            if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>())
-            {
-                _entries.AsSpan(0, _entryIndex).Clear();
-            }
-
-            _entryIndex = 0;
-            _freeList = -1;
-            _freeCount = 0;
+            return;
         }
+
+        _buckets.AsSpan(0, _bucketsLength).Clear();
+        if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>())
+        {
+            _entries.AsSpan(0, _entryIndex).Clear();
+        }
+
+        _entryIndex = 0;
+        _freeList = -1;
+        _freeCount = 0;
     }
 
-    /// <summary>
-    /// Ensures that the dictionary can hold up to the specified number of entries without resizing.
-    /// </summary>
+    /// <summary>Ensures that the dictionary can hold up to the specified number of entries without resizing.</summary>
     /// <param name="capacity">The number of entries the dictionary should be able to hold.</param>
     public void EnsureCapacity(int capacity)
     {
@@ -318,9 +348,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         ResizeTo((int)newSize);
     }
 
-    /// <summary>
-    /// Returns an enumerator that iterates through the dictionary.
-    /// </summary>
+    /// <summary>Returns an enumerator that iterates through the dictionary.</summary>
     /// <returns>An enumerator for the dictionary.</returns>
     public Enumerator GetEnumerator() => new(this);
 
@@ -330,45 +358,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => new EnumeratorWrapper(this);
 
-    /// <summary>
-    /// Gets all keys in the dictionary.
-    /// </summary>
-    /// <returns>An enumerable of all keys.</returns>
-    public IEnumerable<TKey> GetKeys()
-    {
-        for (var i = 0; i < _entryIndex; i++)
-        {
-            ref var entry = ref _entries[i];
-            if (entry.Next < EndOfChain)
-            {
-                continue; // Skip free entries (Next < -1 means in freelist)
-            }
-
-            yield return entry.Key;
-        }
-    }
-
-    /// <summary>
-    /// Gets all values in the dictionary.
-    /// </summary>
-    /// <returns>An enumerable of all values.</returns>
-    public IEnumerable<TValue> GetValues()
-    {
-        for (var i = 0; i < _entryIndex; i++)
-        {
-            ref var entry = ref _entries[i];
-            if (entry.Next < EndOfChain)
-            {
-                continue; // Skip free entries (Next < -1 means in freelist)
-            }
-
-            yield return entry.Value!;
-        }
-    }
-
-    /// <summary>
-    /// Copies all keys to a list.
-    /// </summary>
+    /// <summary>Copies all keys to a list.</summary>
     /// <param name="list">The list to copy to.</param>
     public void CopyKeysTo(List<TKey> list)
     {
@@ -380,18 +370,16 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         for (var i = 0; i < _entryIndex; i++)
         {
             ref var entry = ref _entries[i];
-            if (entry.Next < EndOfChain)
+            if (entry.GetNext() < EndOfChain)
             {
                 continue; // Skip free entries (Next < -1 means in freelist)
             }
 
-            list.Add(entry.Key);
+            list.Add(entry.GetKey());
         }
     }
 
-    /// <summary>
-    /// Copies all values to a list.
-    /// </summary>
+    /// <summary>Copies all values to a list.</summary>
     /// <param name="list">The list to copy to.</param>
     public void CopyValuesTo(List<TValue> list)
     {
@@ -403,18 +391,16 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         for (var i = 0; i < _entryIndex; i++)
         {
             ref var entry = ref _entries[i];
-            if (entry.Next < EndOfChain)
+            if (entry.GetNext() < EndOfChain)
             {
                 continue; // Skip free entries (Next < -1 means in freelist)
             }
 
-            list.Add(entry.Value!);
+            list.Add(entry.GetValue()!);
         }
     }
 
-    /// <summary>
-    /// Copies all key/value pairs to a list.
-    /// </summary>
+    /// <summary>Copies all key/value pairs to a list.</summary>
     /// <param name="list">The list to copy to.</param>
     public void CopyTo(List<KeyValuePair<TKey, TValue>> list)
     {
@@ -426,31 +412,31 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         for (var i = 0; i < _entryIndex; i++)
         {
             ref var entry = ref _entries[i];
-            if (entry.Next < EndOfChain)
+            if (entry.GetNext() < EndOfChain)
             {
                 continue; // Skip free entries (Next < -1 means in freelist)
             }
 
-            list.Add(new KeyValuePair<TKey, TValue>(entry.Key, entry.Value!));
+            list.Add(new KeyValuePair<TKey, TValue>(entry.GetKey(), entry.GetValue()!));
         }
     }
 
-    /// <summary>
-    /// Returns arrays to pool and cleans up resources.
-    /// </summary>
+    /// <summary>Returns arrays to pool and cleans up resources.</summary>
     public void Dispose()
     {
-        if (_buckets != null)
+        if (_buckets is not null)
         {
             ArrayPool<int>.Shared.Return(_buckets, clearArray: false);
             _buckets = null!;
         }
 
-        if (_entries != null)
+        if (_entries is null)
         {
-            ArrayPool<Entry>.Shared.Return(_entries, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>());
-            _entries = null!;
+            return;
         }
+
+        ArrayPool<Entry>.Shared.Return(_entries, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>());
+        _entries = null!;
     }
 
     /// <summary>
@@ -474,7 +460,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         if (_freeCount > 0)
         {
             index = _freeList;
-            _freeList = FreeListSentinel - _entries[index].Next;
+            _freeList = FreeListSentinel - _entries[index].GetNext();
             _freeCount--;
         }
         else
@@ -490,26 +476,19 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         }
 
         ref var newEntry = ref _entries[index];
-        newEntry.HashCode = hashCode;
-        newEntry.Key = key;
-        newEntry.Value = default;
-        newEntry.Next = bucket - 1;
+        newEntry.Initialize(hashCode, key, default, bucket - 1);
         bucket = index + 1;
 
-        return ref newEntry.Value;
+        return ref Entry.ValueRef(ref newEntry);
     }
 
-    /// <summary>
-    /// Doubles the capacity of the internal entries array to accommodate additional elements.
-    /// </summary>
+    /// <summary>Doubles the capacity of the internal entries array to accommodate additional elements.</summary>
     /// <remarks>The new capacity is rounded up to the next power of two to optimize memory usage and
     /// performance. This method is intended for internal use and should not be called directly by consumers of the
     /// class.</remarks>
     private void Resize() => ResizeTo((int)CP.Reactive.Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)_entries.Length * 2));
 
-    /// <summary>
-    /// Resizes the internal storage arrays to accommodate the specified number of entries.
-    /// </summary>
+    /// <summary>Resizes the internal storage arrays to accommodate the specified number of entries.</summary>
     /// <remarks>This method reinitializes the internal buckets and entries arrays to the specified size and
     /// rehashes existing entries. Existing data is preserved and reindexed to maintain correct lookup behavior. This
     /// operation may impact performance due to memory allocation and data copying.</remarks>
@@ -527,14 +506,14 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         {
             ref var entry = ref newEntries[i];
 
-            if (entry.Next < EndOfChain)
+            if (entry.GetNext() < EndOfChain)
             {
                 continue;
             }
 
-            var bucketIndex = GetBucketIndex(entry.HashCode);
+            var bucketIndex = GetBucketIndex(entry.GetHashCodeValue());
             ref var bucket = ref newBuckets[bucketIndex];
-            entry.Next = bucket - 1;
+            entry.SetNext(bucket - 1);
             bucket = i + 1;
         }
 
@@ -545,17 +524,13 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         _buckets = newBuckets;
     }
 
-    /// <summary>
-    /// Calculates a non-negative hash code for the specified key using the configured comparer.
-    /// </summary>
+    /// <summary>Calculates a non-negative hash code for the specified key using the configured comparer.</summary>
     /// <param name="key">The key for which to compute the hash code. Can be null.</param>
     /// <returns>A non-negative 32-bit unsigned integer representing the hash code of the key. Returns 0 if the key is null.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private uint InternalGetHashCode(TKey key) => (uint)(key is null ? 0 : _comparer.GetHashCode(key) & 0x7FFFFFFF);
 
-    /// <summary>
-    /// Calculates the index of the bucket corresponding to the specified hash code within the current bucket array.
-    /// </summary>
+    /// <summary>Calculates the index of the bucket corresponding to the specified hash code within the current bucket array.</summary>
     /// <remarks>This method assumes that the bucket array length is a power of two, which enables efficient
     /// computation of the index using a bitwise operation.</remarks>
     /// <param name="hashCode">The hash code for which to determine the bucket index. Typically generated from a key to be stored or retrieved.</param>
@@ -563,19 +538,16 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private int GetBucketIndex(uint hashCode) => (int)(hashCode & ((uint)_bucketsLength - 1));
 
-    /// <summary>
-    /// Enumerates the elements of a <see cref="QuadDictionary{TKey, TValue}"/>.
-    /// </summary>
-    public record struct Enumerator
+    /// <summary>Enumerates the elements of a <see cref="QuadDictionary{TKey, TValue}"/>.</summary>
+    public struct Enumerator : IEquatable<Enumerator>
     {
         private readonly QuadDictionary<TKey, TValue> _dictionary;
+
         private int _index;
+
         private KeyValuePair<TKey, TValue> _current;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Enumerator"/> struct.
-        /// Initializes a new instance of the Enumerator for the specified QuadDictionary.
-        /// </summary>
+        /// <summary>Initializes a new instance of the <see cref="Enumerator"/> struct.</summary>
         /// <param name="dictionary">The QuadDictionary to enumerate. Must not be null.</param>
         internal Enumerator(QuadDictionary<TKey, TValue> dictionary)
         {
@@ -584,14 +556,22 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             _current = default;
         }
 
-        /// <summary>
-        /// Gets the element at the current position of the enumerator.
-        /// </summary>
+        /// <summary>Gets the element at the current position of the enumerator.</summary>
         public readonly KeyValuePair<TKey, TValue> Current => _current;
 
-        /// <summary>
-        /// Advances the enumerator to the next element of the dictionary.
-        /// </summary>
+        /// <summary>Determines whether two enumerators are equal.</summary>
+        /// <param name="left">The left enumerator.</param>
+        /// <param name="right">The right enumerator.</param>
+        /// <returns>true if the enumerators are equal; otherwise, false.</returns>
+        public static bool operator ==(Enumerator left, Enumerator right) => left.Equals(right);
+
+        /// <summary>Determines whether two enumerators are not equal.</summary>
+        /// <param name="left">The left enumerator.</param>
+        /// <param name="right">The right enumerator.</param>
+        /// <returns>true if the enumerators are not equal; otherwise, false.</returns>
+        public static bool operator !=(Enumerator left, Enumerator right) => !left.Equals(right);
+
+        /// <summary>Advances the enumerator to the next element of the dictionary.</summary>
         /// <returns>true if the enumerator successfully advanced; false if it has passed the end.</returns>
         public bool MoveNext()
         {
@@ -600,12 +580,12 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                 ref var entry = ref _dictionary._entries[_index++];
 
                 // Skip free entries (Next < -1 means in freelist)
-                if (entry.Next < EndOfChain)
+                if (entry.GetNext() < EndOfChain)
                 {
                     continue;
                 }
 
-                _current = new(entry.Key, entry.Value!);
+                _current = new(entry.GetKey(), entry.GetValue()!);
                 return true;
             }
 
@@ -613,9 +593,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             return false;
         }
 
-        /// <summary>
-        /// Attempts to get the next element in the dictionary.
-        /// </summary>
+        /// <summary>Attempts to get the next element in the dictionary.</summary>
         /// <param name="current">When this method returns, the current key/value pair if available.</param>
         /// <returns>true if a next element was found; otherwise, false.</returns>
         public bool TryGetNext(out KeyValuePair<TKey, TValue> current)
@@ -629,23 +607,38 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             current = default;
             return false;
         }
+
+        /// <inheritdoc/>
+        public readonly bool Equals(Enumerator other) =>
+            ReferenceEquals(_dictionary, other._dictionary) &&
+            _index == other._index &&
+            EqualityComparer<KeyValuePair<TKey, TValue>>.Default.Equals(_current, other._current);
+
+        /// <inheritdoc/>
+        public override readonly bool Equals(object? obj) => obj is Enumerator other && Equals(other);
+
+        /// <inheritdoc/>
+        public override readonly int GetHashCode()
+        {
+            var hash = (_dictionary?.GetHashCode() ?? 0) * 397;
+            hash ^= _index;
+            return (hash * 397) ^ EqualityComparer<KeyValuePair<TKey, TValue>>.Default.GetHashCode(_current);
+        }
     }
 
-    /// <summary>
-    /// Provides an enumerator for iterating through the elements of a QuadDictionary.
-    /// </summary>
+    /// <summary>Provides an enumerator for iterating through the elements of a QuadDictionary.</summary>
     /// <remarks>The enumerator exposes each key/value pair in the dictionary in sequence. If the dictionary
     /// is modified after the enumerator is created, the behavior of the enumerator is undefined. This struct is
     /// intended for internal use and is not thread-safe.</remarks>
-    private record struct EnumeratorWrapper : IEnumerator<KeyValuePair<TKey, TValue>>
+    private struct EnumeratorWrapper : IEnumerator<KeyValuePair<TKey, TValue>>
     {
         private readonly QuadDictionary<TKey, TValue> _dictionary;
+
         private int _index;
+
         private KeyValuePair<TKey, TValue> _current;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="EnumeratorWrapper"/> struct.
-        /// </summary>
+        /// <summary>Initializes a new instance of the <see cref="EnumeratorWrapper"/> struct.</summary>
         /// <param name="dictionary">The QuadDictionary to enumerate. Must not be null.</param>
         internal EnumeratorWrapper(QuadDictionary<TKey, TValue> dictionary)
         {
@@ -654,19 +647,13 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             _current = default;
         }
 
-        /// <summary>
-        /// Gets the element in the collection at the current position of the enumerator.
-        /// </summary>
+        /// <summary>Gets the element in the collection at the current position of the enumerator.</summary>
         public readonly KeyValuePair<TKey, TValue> Current => _current;
 
-        /// <summary>
-        /// Gets the current element in the collection.
-        /// </summary>
+        /// <summary>Gets the current element in the collection.</summary>
         readonly object IEnumerator.Current => _current;
 
-        /// <summary>
-        /// Advances the enumerator to the next element in the dictionary.
-        /// </summary>
+        /// <summary>Advances the enumerator to the next element in the dictionary.</summary>
         /// <remarks>After calling MoveNext, the Current property contains the next element in the
         /// dictionary if MoveNext returned true. If the collection is modified after the enumerator is created, the
         /// behavior of MoveNext is undefined.</remarks>
@@ -679,21 +666,19 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                 ref var entry = ref _dictionary._entries[_index++];
 
                 // Skip free entries (Next < -1 means in freelist)
-                if (entry.Next < EndOfChain)
+                if (entry.GetNext() < EndOfChain)
                 {
                     continue;
                 }
 
-                _current = new(entry.Key, entry.Value!);
+                _current = new(entry.GetKey(), entry.GetValue()!);
                 return true;
             }
 
             return false;
         }
 
-        /// <summary>
-        /// Resets the enumerator to its initial position, before the first element in the collection.
-        /// </summary>
+        /// <summary>Resets the enumerator to its initial position, before the first element in the collection.</summary>
         /// <remarks>After calling this method, the enumerator is positioned before the first element. You
         /// must call MoveNext to advance the enumerator to the first element before reading the value of
         /// Current.</remarks>
@@ -703,9 +688,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             _current = default;
         }
 
-        /// <summary>
-        /// Releases all resources used by the current instance.
-        /// </summary>
+        /// <summary>Releases all resources used by the current instance.</summary>
         /// <remarks>Call this method when you are finished using the object to free unmanaged resources
         /// and perform other cleanup operations. After calling <see cref="Dispose"/>, the object should not be
         /// used.</remarks>
@@ -722,13 +705,62 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// pairs and manage collision resolution through chaining. The fields provide direct access to the entry's key,
     /// value, computed hash code, and the index of the next entry in the chain.</remarks>
     [StructLayout(LayoutKind.Auto)]
-    [DebuggerDisplay("HashCode = {HashCode}, Key = {Key}, Value = {Value}, Next = {Next}")]
-    private record struct Entry
+    [DebuggerDisplay("HashCode = {_hashCode}, Key = {_key}, Value = {_value}, Next = {_next}")]
+    private struct Entry
     {
-        public uint HashCode;
-        public TKey Key;
-        public TValue? Value;
-        public int Next; // next entry index in bucket chain, -1 is end of chain, <FreeListSentinel means in free list
+        private uint _hashCode;
+
+        private TKey _key;
+
+        private TValue? _value;
+
+        private int _next;
+
+        /// <summary>Gets a mutable reference to the stored value.</summary>
+        /// <param name="entry">The entry whose value is referenced.</param>
+        /// <returns>A mutable reference to the stored value.</returns>
+        internal static ref TValue? ValueRef(ref Entry entry) => ref entry._value;
+
+        /// <summary>Initializes the entry with stored hash, key, value, and chain link data.</summary>
+        /// <param name="hashCode">The stored key hash code.</param>
+        /// <param name="key">The stored key.</param>
+        /// <param name="value">The stored value.</param>
+        /// <param name="next">The next entry index in the bucket chain.</param>
+        internal void Initialize(uint hashCode, TKey key, TValue? value, int next)
+        {
+            _hashCode = hashCode;
+            _key = key;
+            _value = value;
+            _next = next;
+        }
+
+        /// <summary>Gets the stored hash code.</summary>
+        /// <returns>The stored hash code.</returns>
+        internal readonly uint GetHashCodeValue() => _hashCode;
+
+        /// <summary>Gets the stored key.</summary>
+        /// <returns>The stored key.</returns>
+        internal readonly TKey GetKey() => _key;
+
+        /// <summary>Sets the stored key.</summary>
+        /// <param name="key">The new key value.</param>
+        internal void SetKey(TKey key) => _key = key;
+
+        /// <summary>Gets the stored value.</summary>
+        /// <returns>The stored value.</returns>
+        internal readonly TValue? GetValue() => _value;
+
+        /// <summary>Sets the stored value.</summary>
+        /// <param name="value">The new value.</param>
+        internal void SetValue(TValue? value) => _value = value;
+
+        /// <summary>Gets the next entry index in the bucket chain.</summary>
+        /// <returns>The next entry index.</returns>
+        internal readonly int GetNext() => _next;
+
+        /// <summary>Sets the next entry index in the bucket chain.</summary>
+        /// <param name="next">The next entry index.</param>
+        internal void SetNext(int next) => _next = next;
     }
 }
 #endif

@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ReactiveUI.Primitives" Version="1.3.0" />
+    <PackageReference Include="ReactiveUI.Primitives" Version="5.0.0" />
   </ItemGroup>
 
   <!-- System.Buffers and System.Memory for .NET Framework -->

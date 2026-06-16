@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections;
 using System.Collections.ObjectModel;
@@ -36,10 +37,12 @@ internal sealed class EditableListWrapper<T>(List<T> list, ObservableCollection<
         set
         {
             list[index] = value;
-            if (observableCollection != null)
+            if (observableCollection is null)
             {
-                observableCollection[index] = value;
+                return;
             }
+
+            observableCollection[index] = value;
         }
     }
 
@@ -53,14 +56,16 @@ internal sealed class EditableListWrapper<T>(List<T> list, ObservableCollection<
     /// <inheritdoc/>
     public void AddRange(IEnumerable<T> items)
     {
-        var itemArray = items as T[] ?? items.ToArray();
+        var itemArray = (items as T[]) ?? items.ToArray();
         list.AddRange(itemArray);
-        if (observableCollection != null)
+        if (observableCollection is null)
         {
-            foreach (var item in itemArray)
-            {
-                observableCollection.Add(item);
-            }
+            return;
+        }
+
+        foreach (var item in itemArray)
+        {
+            observableCollection.Add(item);
         }
     }
 

@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System;
 using System.Buffers;
@@ -8,8 +9,11 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Reflection;
+using CP.Reactive;
 using CP.Reactive.Core;
 using FluentAssertions;
+using ReactiveUI.Primitives.Concurrency;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -92,21 +96,17 @@ public class CoreCoverageTests
     public void CacheNotifyExtensions_ShouldBufferThrottleObserveAndDisposeBatches()
     {
         var notification = new CacheNotify<int>(CacheAction.Added, 1);
-        var buffered = new[] { notification }.ToObservable()
-            .BufferNotifications(TimeSpan.FromMilliseconds(1))
-            .ToEnumerable()
+        var buffered = ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
+                .BufferNotifications(TimeSpan.FromMilliseconds(1)))
             .ToList();
-        var emptyBuffered = Array.Empty<CacheNotify<int>>().ToObservable()
-            .BufferNotifications(TimeSpan.FromMilliseconds(1))
-            .ToEnumerable()
+        var emptyBuffered = ObservableMixins.ToEnumerable(Array.Empty<CacheNotify<int>>().ToObservable()
+                .BufferNotifications(TimeSpan.FromMilliseconds(1)))
             .ToList();
-        var throttled = new[] { notification }.ToObservable()
-            .ThrottleNotifications(TimeSpan.Zero)
-            .ToEnumerable()
+        var throttled = ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
+                .ThrottleNotifications(TimeSpan.Zero))
             .ToList();
-        var observed = new[] { notification }.ToObservable()
-            .ObserveOnScheduler(Sequencer.Immediate)
-            .ToEnumerable()
+        var observed = ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
+                .ObserveOnScheduler(Sequencer.Immediate))
             .ToList();
 
         buffered.Should().ContainSingle()
@@ -227,9 +227,8 @@ public class CoreCoverageTests
             new CacheNotify<int>(CacheAction.BatchRemoved, default)
         };
 
-        var changeSets = notifications.ToObservable()
-            .ToChangeSets()
-            .ToEnumerable()
+        var changeSets = ObservableMixins.ToEnumerable(notifications.ToObservable()
+                .ToChangeSets())
             .ToList();
 
         changeSets.Should().HaveCount(5);
@@ -284,6 +283,7 @@ public class CoreCoverageTests
         single.Should().ContainSingle()
             .Which.Should().Be(Change<int>.CreateRefresh(5, 4));
         defaultSet.Adds.Should().Be(0);
+        defaultSet.Dispose();
         set.Equals(set).Should().BeTrue();
         set.Equals(comparison).Should().BeFalse();
         set.GetHashCode().Should().NotBe(0);
@@ -320,7 +320,7 @@ public class CoreCoverageTests
     [Test]
     public void PooledEditableListWrapper_ShouldSynchronizeOperationsAndValidateMoves()
     {
-        EditableListWrapperPool<string>.Clear();
+        EditableListWrapperPool.Clear<string>();
         var list = new List<string> { "one", "two" };
         var observable = new ObservableCollection<string>(list);
         using var wrapper = new PooledEditableListWrapper<string>(list, observable);
@@ -366,7 +366,7 @@ public class CoreCoverageTests
         badNewIndex.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("newIndex");
 
-        EditableListWrapperPool<string>.Clear();
+        EditableListWrapperPool.Clear<string>();
     }
 
     /// <summary>
@@ -375,7 +375,7 @@ public class CoreCoverageTests
     [Test]
     public void PooledEditableListWrapper_WhenReturned_ShouldRejectAccessAndDisposeIdempotently()
     {
-        EditableListWrapperPool<int>.Clear();
+        EditableListWrapperPool.Clear<int>();
         var wrapper = new PooledEditableListWrapper<int>([]);
 
         ((IResettable)wrapper).Reset();
@@ -438,9 +438,280 @@ public class CoreCoverageTests
     public void ChangeGrouping_ShouldExposeNonGenericEnumerator()
     {
         var grouping = new ChangeGrouping<string, int>("numbers", new[] { 1, 2 });
+        var enumerator = ((IEnumerable)grouping).GetEnumerator();
 
         grouping.Key.Should().Be("numbers");
+        enumerator.MoveNext().Should().BeTrue();
+        enumerator.Current.Should().Be(1);
         ((IEnumerable)grouping).Cast<int>().Should().Equal(1, 2);
+    }
+
+    /// <summary>
+    /// Internal observable factories should surface factory errors and event handler variants.
+    /// </summary>
+    [Test]
+    public void InternalObservableFactories_ShouldCoverErrorAndEventBranches()
+    {
+        var factoryError = new InvalidOperationException("factory");
+        var deferredObserver = new RecordingObserver<int>();
+        using var deferredSubscription = Observable
+            .Defer<int>(() => throw factoryError)
+            .Subscribe(deferredObserver);
+
+        deferredObserver.Error.Should().BeSameAs(factoryError);
+
+        var successValues = new List<int>();
+        using var successSubscription = Observable
+            .Defer(() => new[] { 1, 2 }.ToObservable())
+            .Subscribe(successValues.Add);
+
+        successValues.Should().Equal(1, 2);
+
+        var eventSource = new EventSource();
+        var events = new List<EventPattern<EventArgs>>();
+        using var eventSubscription = Observable
+            .FromEventPattern<EventHandler<EventArgs>, EventArgs>(
+                handler => eventSource.Raised += handler,
+                handler => eventSource.Raised -= handler)
+            .Subscribe(events.Add);
+
+        eventSource.Raise();
+        events.Should().ContainSingle();
+
+        Action unsupported = () => Observable
+            .FromEventPattern<Action, EventArgs>(_ => { }, _ => { })
+            .Subscribe(new RecordingObserver<EventPattern<EventArgs>>());
+
+        unsupported.Should().Throw<NotSupportedException>();
+    }
+
+    /// <summary>
+    /// Internal observable operators should cover error and completion branches.
+    /// </summary>
+    [Test]
+    public void ObservableMixins_ShouldCoverErrorAndCompletionBranches()
+    {
+        var toEnumerableError = new InvalidOperationException("enumerable");
+        var throwing = Signal.Create<int>(observer =>
+        {
+            observer.OnError(toEnumerableError);
+            return ReactiveUI.Primitives.Disposables.Scope.Empty;
+        });
+
+        Action enumerate = () => ObservableMixins.ToEnumerable(throwing).ToList();
+        enumerate.Should().Throw<InvalidOperationException>();
+
+        using var bufferSource = new Signal<int>();
+        var buffered = new RecordingObserver<IList<int>>();
+        using var bufferSubscription = bufferSource.Buffer(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(buffered);
+
+        bufferSource.OnNext(1);
+        bufferSource.OnCompleted();
+
+        buffered.Values.SelectMany(static item => item).Should().Contain(1);
+        buffered.Completed.Should().BeTrue();
+
+        using var bufferErrorSource = new Signal<int>();
+        var bufferErrorObserver = new RecordingObserver<IList<int>>();
+        var bufferError = new InvalidOperationException("buffer");
+        using var bufferErrorSubscription = bufferErrorSource.Buffer(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(bufferErrorObserver);
+
+        bufferErrorSource.OnError(bufferError);
+        bufferErrorObserver.Error.Should().BeSameAs(bufferError);
+
+        using var throttleSource = new Signal<int>();
+        var throttled = new RecordingObserver<int>();
+        using var throttleSubscription = throttleSource.Throttle(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(throttled);
+
+        throttleSource.OnNext(42);
+        throttleSource.OnCompleted();
+
+        throttled.Values.Should().Contain(42);
+        throttled.Completed.Should().BeTrue();
+
+        using var throttleErrorSource = new Signal<int>();
+        var throttleErrorObserver = new RecordingObserver<int>();
+        var throttleError = new InvalidOperationException("throttle");
+        using var throttleErrorSubscription = throttleErrorSource.Throttle(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(throttleErrorObserver);
+
+        throttleErrorSource.OnError(throttleError);
+        throttleErrorObserver.Error.Should().BeSameAs(throttleError);
+
+        var manualBufferSequencer = new ManualSequencer();
+        var completedBufferObserver = new RecordingObserver<IList<int>>();
+        var completedThenValue = Signal.Create<int>(observer =>
+        {
+            observer.OnNext(7);
+            observer.OnCompleted();
+            observer.OnNext(8);
+            return ReactiveUI.Primitives.Disposables.Scope.Empty;
+        });
+
+        using var completedBufferSubscription = completedThenValue
+            .Buffer(TimeSpan.FromMilliseconds(1), manualBufferSequencer)
+            .Subscribe(completedBufferObserver);
+
+        completedBufferObserver.Values.Should().ContainSingle()
+            .Which.Should().Equal(7);
+        completedBufferObserver.Completed.Should().BeTrue();
+        manualBufferSequencer.RunAll();
+
+        using var emptyFlushSource = new Signal<int>();
+        var duplicateBufferSequencer = new DuplicateSequencer();
+        var emptyFlushObserver = new RecordingObserver<IList<int>>();
+        using var emptyFlushSubscription = emptyFlushSource
+            .Buffer(TimeSpan.FromMilliseconds(1), duplicateBufferSequencer)
+            .Subscribe(emptyFlushObserver);
+
+        emptyFlushSource.OnNext(11);
+        duplicateBufferSequencer.RunAll();
+
+        emptyFlushObserver.Values.Should().ContainSingle()
+            .Which.Should().Equal(11);
+
+        var manualThrottleSequencer = new ManualSequencer();
+        var completedThrottleObserver = new RecordingObserver<int>();
+
+        using var completedThrottleSubscription = completedThenValue
+            .Throttle(TimeSpan.FromMilliseconds(1), manualThrottleSequencer)
+            .Subscribe(completedThrottleObserver);
+
+        completedThrottleObserver.Values.Should().ContainSingle()
+            .Which.Should().Be(7);
+        completedThrottleObserver.Completed.Should().BeTrue();
+        manualThrottleSequencer.RunAll();
+
+        using var postStopBufferSubscription = new ScriptedObservable<int>(observer =>
+            {
+                observer.OnCompleted();
+                observer.OnNext(9);
+            })
+            .Buffer(TimeSpan.FromMilliseconds(1), new ManualSequencer())
+            .Subscribe(new RecordingObserver<IList<int>>());
+
+        using var postStopThrottleSubscription = new ScriptedObservable<int>(observer =>
+            {
+                observer.OnCompleted();
+                observer.OnNext(9);
+            })
+            .Throttle(TimeSpan.FromMilliseconds(1), new ManualSequencer())
+            .Subscribe(new RecordingObserver<int>());
+    }
+
+    /// <summary>
+    /// ReactiveList extension guards and default dynamic filters should be covered.
+    /// </summary>
+    [Test]
+    public void ReactiveListExtensions_ShouldCoverGuardAndDefaultFilterBranches()
+    {
+        IObservable<ChangeSet<int>> nullChangeSets = null!;
+        Action nullGroupSource = () => nullChangeSets.GroupByChanges(static item => item);
+        Action nullGroupingSource = () => nullChangeSets.GroupingByChanges(static item => item);
+        Action nullRefreshSource = () => ReactiveListExtensions.AutoRefresh<NotifyItem>(null!, propertyName: null);
+
+        nullGroupSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
+        nullGroupingSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
+        nullRefreshSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
+
+        using var changeSets = new Signal<ChangeSet<int>>();
+        Action nullGroupSelector = () => changeSets.GroupByChanges<int, int>(null!);
+        Action nullGroupingSelector = () => changeSets.GroupingByChanges<int, int>(null!);
+
+        nullGroupSelector.Should().Throw<ArgumentNullException>().WithParameterName("keySelector");
+        nullGroupingSelector.Should().Throw<ArgumentNullException>().WithParameterName("keySelector");
+
+        using var stream = new Signal<CacheNotify<int>>();
+        using var filters = new Signal<Func<int, bool>>();
+        var received = new List<CacheNotify<int>>();
+        using var subscription = stream.FilterDynamic(filters).Subscribe(received.Add);
+
+        stream.OnNext(new CacheNotify<int>(CacheAction.Added, 10));
+        stream.OnNext(new CacheNotify<int>(CacheAction.Removed, 20));
+
+        received.Select(static item => item.Item).Should().Equal(10, 20);
+
+        using var pairStream = new Signal<CacheNotify<KeyValuePair<int, string>>>();
+        using var pairFilters = new Signal<Func<KeyValuePair<int, string>, bool>>();
+        var pairReceived = new List<CacheNotify<KeyValuePair<int, string>>>();
+        using var pairSubscription = pairStream.FilterDynamic(pairFilters).Subscribe(pairReceived.Add);
+
+        pairStream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.Added, new KeyValuePair<int, string>(1, "one")));
+        pairStream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.Removed, new KeyValuePair<int, string>(2, "two")));
+
+        pairReceived.Select(static item => item.Item.Key).Should().Equal(1, 2);
+
+        using var noMatchBatch = CreateBatch(1, 2);
+        var noMatchNotification = new CacheNotify<int>(CacheAction.BatchAdded, default, noMatchBatch);
+        ReactiveListExtensions.FilterBatchByPredicate(noMatchNotification, static item => item > 10).Should().BeNull();
+        ReactiveListExtensions.FilterBatch(noMatchNotification, new HashSet<int> { 99 }).Should().BeNull();
+    }
+
+    /// <summary>
+    /// GroupBy should propagate upstream errors to active groups and to the outer subscriber.
+    /// </summary>
+    [Test]
+    public void GroupBy_ShouldPropagateErrorsToGroupsAndOuterSubscriber()
+    {
+        using var source = new Signal<ChangeSet<int>>();
+        var groupErrors = new List<Exception>();
+        var outerObserver = new RecordingObserver<IGroupedObservable<int, int>>();
+        var upstreamError = new InvalidOperationException("group failure");
+
+        using var subscription = ReactiveListExtensions
+            .GroupByChanges<int, int>(source, static value => value % 2)
+            .Subscribe(
+                group =>
+                {
+                    group.Key.Should().Be(1);
+                    group.Subscribe(_ => { }, groupErrors.Add, () => { });
+                },
+                outerObserver.OnError,
+                outerObserver.OnCompleted);
+
+        using var changes = new ChangeSet<int>(Change<int>.CreateAdd(1));
+        source.OnNext(changes);
+        source.OnError(upstreamError);
+
+        groupErrors.Should().ContainSingle()
+            .Which.Should().BeSameAs(upstreamError);
+        outerObserver.Error.Should().BeSameAs(upstreamError);
+    }
+
+    /// <summary>
+    /// SelectChanges should return the shared empty changeset when the input contains no changes.
+    /// </summary>
+    [Test]
+    public void SelectChanges_ShouldReturnEmptyChangeSetForEmptyInput()
+    {
+        var source = new[] { ChangeSet<int>.Empty }.ToObservable();
+        var results = ObservableMixins.ToEnumerable(
+                ReactiveListExtensions.SelectChanges<int, string>(
+                    source,
+                    (Func<int, string>)(static value => value.ToString())))
+            .ToList();
+
+        results.Should().ContainSingle()
+            .Which.Count.Should().Be(0);
+    }
+
+    /// <summary>
+    /// The ReactiveUI.Primitives R3 bridge generated attribute should be constructible.
+    /// </summary>
+    [Test]
+    public void ReactivePrimitivesGeneratedBridgeAttribute_ShouldBeConstructible()
+    {
+        var attributeType = typeof(CP.Reactive.Collections.ReactiveList<int>).Assembly.GetType(
+            "ReactiveUI.Primitives.R3Bridge.Generated.PrimitivesR3BridgeGeneratedAttribute");
+
+        attributeType.Should().NotBeNull();
+        var attribute = Activator.CreateInstance(
+            attributeType!,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            args: ["ReactiveList"],
+            culture: null);
+
+        attribute.Should().NotBeNull();
     }
 
     private static PooledBatch<int> CreateBatch(params int[] values)
@@ -458,4 +729,88 @@ public class CoreCoverageTests
     }
 
     private sealed record Person(int Id, string Name, string Department);
+
+    private sealed record NotifyItem(int Value) : System.ComponentModel.INotifyPropertyChanged
+    {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        public void Raise(string? propertyName = null) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+    }
+
+    private sealed class EventSource
+    {
+        public event EventHandler<EventArgs>? Raised;
+
+        public void Raise() => Raised?.Invoke(this, EventArgs.Empty);
+    }
+
+    private sealed class RecordingObserver<T> : IObserver<T>
+    {
+        public List<T> Values { get; } = [];
+
+        public Exception? Error { get; private set; }
+
+        public bool Completed { get; private set; }
+
+        public void OnCompleted() => Completed = true;
+
+        public void OnError(Exception error) => Error = error;
+
+        public void OnNext(T value) => Values.Add(value);
+    }
+
+    private sealed class ScriptedObservable<T>(Action<IObserver<T>> script) : IObservable<T>
+    {
+        public IDisposable Subscribe(IObserver<T> observer)
+        {
+            script(observer);
+            return ReactiveUI.Primitives.Disposables.Scope.Empty;
+        }
+    }
+
+    private sealed class ManualSequencer : ISequencer
+    {
+        private readonly Queue<IWorkItem> _workItems = new();
+
+        public DateTimeOffset Now => DateTimeOffset.UtcNow;
+
+        public long Timestamp => DateTimeOffset.UtcNow.Ticks;
+
+        public void Schedule(IWorkItem item) => _workItems.Enqueue(item);
+
+        public void Schedule(IWorkItem item, long dueTime) => _workItems.Enqueue(item);
+
+        public void RunAll()
+        {
+            while (_workItems.Count > 0)
+            {
+                _workItems.Dequeue().Execute();
+            }
+        }
+    }
+
+    private sealed class DuplicateSequencer : ISequencer
+    {
+        private readonly Queue<IWorkItem> _workItems = new();
+
+        public DateTimeOffset Now => DateTimeOffset.UtcNow;
+
+        public long Timestamp => DateTimeOffset.UtcNow.Ticks;
+
+        public void Schedule(IWorkItem item)
+        {
+            _workItems.Enqueue(item);
+            _workItems.Enqueue(item);
+        }
+
+        public void Schedule(IWorkItem item, long dueTime) => Schedule(item);
+
+        public void RunAll()
+        {
+            while (_workItems.Count > 0)
+            {
+                _workItems.Dequeue().Execute();
+            }
+        }
+    }
 }

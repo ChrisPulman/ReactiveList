@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System;
 using System.Collections.Generic;
@@ -445,7 +446,7 @@ public class ViewToPropertyTests
         dict[3] = new TestPerson("Charlie", "A");
         ReadOnlyObservableCollection<TestPerson>? capturedItems = null;
 
-        using var view = new SecondaryIndexReactiveView<int, TestPerson, string>(
+        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create<string>(
             dict,
             "Category",
             "A",
@@ -468,7 +469,7 @@ public class ViewToPropertyTests
         using var dict = new QuaternaryDictionary<int, TestPerson>();
         dict.AddValueIndex<string>("Category", p => p.Category);
 
-        using var view = new SecondaryIndexReactiveView<int, TestPerson, string>(
+        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create<string>(
             dict,
             "Category",
             "A",
@@ -492,7 +493,7 @@ public class ViewToPropertyTests
         dict[1] = new TestPerson("Alice", "A");
         dict[2] = new TestPerson("Bob", "B");
 
-        using var view = new SecondaryIndexReactiveView<int, TestPerson, string>(
+        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create<string>(
             dict,
             "Category",
             "A",
@@ -591,7 +592,7 @@ public class ViewToPropertyTests
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
         ReadOnlyObservableCollection<KeyValuePair<int, TestPerson>>? capturedItems = null;
 
-        using var view = new DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson, string>(
+        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create<string>(
             dict,
             "Category",
             keysSubject,
@@ -614,7 +615,7 @@ public class ViewToPropertyTests
         dict.AddValueIndex<string>("Category", p => p.Category);
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
-        using var view = new DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson, string>(
+        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create<string>(
             dict,
             "Category",
             keysSubject,
@@ -638,7 +639,7 @@ public class ViewToPropertyTests
         dict[1] = new TestPerson("Alice", "A");
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
-        using var view = new DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson, string>(
+        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create<string>(
             dict,
             "Category",
             keysSubject,

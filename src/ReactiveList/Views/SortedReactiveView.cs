@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections;
 using System.Collections.ObjectModel;
@@ -15,17 +16,17 @@ using ReactiveUI.Primitives.Disposables;
 
 namespace CP.Reactive.Views;
 
-/// <summary>
-/// Provides a sorted, read-only view over a <see cref="IReactiveList{T}"/> that automatically
-/// updates when the source list changes.
-/// </summary>
+/// <summary>Provides a sorted, read-only view over a <see cref="IReactiveList{T}"/> that automatically updates when the source list changes.</summary>
 /// <typeparam name="T">The type of elements in the view.</typeparam>
 public sealed class SortedReactiveView<T> : IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<SortedReactiveView<T>, T>, IDisposable
 where T : notnull
 {
     private readonly IReactiveList<T> _source;
+
     private readonly IComparer<T> _comparer;
+
     private readonly ObservableCollection<T> _sortedItems;
+
     private readonly MultipleDisposable _disposables = new();
 #if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
@@ -33,9 +34,7 @@ where T : notnull
     private readonly object _lock = new object();
 #endif
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SortedReactiveView{T}"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="SortedReactiveView{T}"/> class.</summary>
     /// <param name="source">The source reactive list to sort.</param>
     /// <param name="comparer">The comparer for sorting items.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
@@ -44,11 +43,7 @@ where T : notnull
         IReactiveList<T> source,
         IComparer<T> comparer,
         ISequencer scheduler,
-#if NET8_0_OR_GREATER
-        in TimeSpan throttle)
-#else
         TimeSpan throttle)
-#endif
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _comparer = comparer ?? throw new ArgumentNullException(nameof(comparer));
@@ -78,19 +73,13 @@ where T : notnull
     /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>
-    /// Gets the number of items in the sorted view.
-    /// </summary>
+    /// <summary>Gets the number of items in the sorted view.</summary>
     public int Count => _sortedItems.Count;
 
-    /// <summary>
-    /// Gets the underlying read-only observable collection for UI binding.
-    /// </summary>
+    /// <summary>Gets the underlying read-only observable collection for UI binding.</summary>
     public ReadOnlyObservableCollection<T> Items { get; }
 
-    /// <summary>
-    /// Gets the item at the specified index.
-    /// </summary>
+    /// <summary>Gets the item at the specified index.</summary>
     /// <param name="index">The zero-based index of the item to get.</param>
     /// <returns>The item at the specified index.</returns>
     public T this[int index] => _sortedItems[index];
@@ -101,9 +90,7 @@ where T : notnull
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    /// <summary>
-    /// Forces a rebuild of the sorted view from the source.
-    /// </summary>
+    /// <summary>Forces a rebuild of the sorted view from the source.</summary>
     public void Refresh()
     {
         lock (_lock)
@@ -112,9 +99,7 @@ where T : notnull
         }
     }
 
-    /// <summary>
-    /// Assigns the current collection of items to a property using the specified setter action.
-    /// </summary>
+    /// <summary>Assigns the current collection of items to a property using the specified setter action.</summary>
     /// <remarks>This method is typically used to bind the internal collection to an external property, such
     /// as a view model property, in a reactive UI pattern.</remarks>
     /// <param name="propertySetter">An action that sets a property to the current read-only observable collection of items. Cannot be null.</param>
@@ -125,7 +110,7 @@ where T : notnull
 #if NET8_0_OR_GREATER
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
 #else
-        if (propertySetter == null)
+        if (propertySetter is null)
         {
             throw new ArgumentNullException(nameof(propertySetter));
         }
@@ -134,9 +119,7 @@ where T : notnull
         return this;
     }
 
-    /// <summary>
-    /// Returns the current instance and provides a read-only observable collection of items contained in the view.
-    /// </summary>
+    /// <summary>Returns the current instance and provides a read-only observable collection of items contained in the view.</summary>
     /// <param name="collection">When this method returns, contains a read-only observable collection of items managed by this view.</param>
     /// <returns>The current <see cref="SortedReactiveView{T}"/> instance.</returns>
     public SortedReactiveView<T> ToProperty(out ReadOnlyObservableCollection<T> collection)
@@ -148,6 +131,8 @@ where T : notnull
     /// <inheritdoc/>
     public void Dispose() => _disposables.Dispose();
 
+    /// <summary>Handles source change notifications.</summary>
+    /// <param name="changes">The changes value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void OnSourceChanged(ChangeSet<T> changes)
     {
@@ -161,32 +146,41 @@ where T : notnull
                 switch (change.Reason)
                 {
                     case ChangeReason.Add:
-                        InsertSorted(change.Current);
-                        break;
-
-                    case ChangeReason.Remove:
-                        _sortedItems.Remove(change.Current);
-                        break;
-
-                    case ChangeReason.Update:
-                        // Remove old, insert new in sorted position
-                        if (change.Previous != null)
                         {
-                            _sortedItems.Remove(change.Previous);
+                            InsertSorted(change.Current);
+                            break;
                         }
 
-                        InsertSorted(change.Current);
-                        break;
+                    case ChangeReason.Remove:
+                        {
+                            _sortedItems.Remove(change.Current);
+                            break;
+                        }
+
+                    case ChangeReason.Update:
+                        {
+                            // Remove old, insert new in sorted position
+                            if (change.Previous is not null)
+                            {
+                                _sortedItems.Remove(change.Previous);
+                            }
+
+                            InsertSorted(change.Current);
+                            break;
+                        }
 
                     case ChangeReason.Clear:
-                        _sortedItems.Clear();
-                        break;
+                        {
+                            _sortedItems.Clear();
+                            break;
+                        }
 
-                    case ChangeReason.Move:
-                    case ChangeReason.Refresh:
-                        // Rebuild for move/refresh as sort order may have changed
-                        needsRebuild = true;
-                        break;
+                    case ChangeReason.Move or ChangeReason.Refresh:
+                        {
+                            // Rebuild for move/refresh as sort order may have changed
+                            needsRebuild = true;
+                            break;
+                        }
                 }
             }
 
@@ -199,6 +193,8 @@ where T : notnull
         OnPropertyChanged(nameof(Count));
     }
 
+    /// <summary>Inserts data for the InsertSorted operation.</summary>
+    /// <param name="item">The item value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void InsertSorted(T item)
     {
@@ -212,6 +208,9 @@ where T : notnull
         _sortedItems.Insert(index, item);
     }
 
+    /// <summary>Searches for the sorted insertion index.</summary>
+    /// <param name="item">The item value.</param>
+    /// <returns>The matching item index or the bitwise complement of the insertion index.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private int BinarySearch(T item)
     {
@@ -241,6 +240,7 @@ where T : notnull
         return ~lo;
     }
 
+    /// <summary>Rebuilds the view from the current source state.</summary>
     private void RebuildView()
     {
         _sortedItems.Clear();
@@ -252,6 +252,8 @@ where T : notnull
         }
     }
 
+    /// <summary>Handles property change notifications.</summary>
+    /// <param name="propertyName">The propertyName value.</param>
     private void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

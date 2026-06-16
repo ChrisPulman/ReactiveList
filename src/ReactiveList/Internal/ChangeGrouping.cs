@@ -1,13 +1,12 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections;
 
 namespace CP.Reactive.Internal;
 
-/// <summary>
-/// A simple grouping implementation for change grouping.
-/// </summary>
+/// <summary>A simple grouping implementation for change grouping.</summary>
 /// <typeparam name="TKey">The type of the grouping key.</typeparam>
 /// <typeparam name="TElement">The type of elements in the group.</typeparam>
 /// <remarks>

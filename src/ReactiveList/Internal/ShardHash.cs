@@ -1,19 +1,17 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Runtime.CompilerServices;
 
 namespace CP.Reactive.Internal;
 
-/// <summary>
-/// Provides optimized hash code calculation for sharding.
-/// </summary>
+/// <summary>Provides optimized hash code calculation for sharding.</summary>
 internal static class ShardHash
 {
-    /// <summary>
-    /// Computes a shard index using optimized bit manipulation.
-    /// </summary>
+    /// <summary>Computes a shard index using optimized bit manipulation.</summary>
     /// <typeparam name="T">The type of the key.</typeparam>
     /// <param name="key">The key to hash.</param>
     /// <param name="shardCount">The number of shards (must be power of 2).</param>
@@ -27,9 +25,7 @@ internal static class ShardHash
         return (int)((uint)(hash * 0x9E3779B9) >> (32 - BitCount(shardCount)));
     }
 
-    /// <summary>
-    /// Computes a shard index for a known 4-shard configuration.
-    /// </summary>
+    /// <summary>Computes a shard index for a known 4-shard configuration.</summary>
     /// <typeparam name="T">The type of the key.</typeparam>
     /// <param name="key">The key to hash.</param>
     /// <returns>The shard index (0-3).</returns>
@@ -41,6 +37,9 @@ internal static class ShardHash
         return (int)((uint)(hash * 0x9E3779B9) >> 30);
     }
 
+    /// <summary>Gets the bit count required to represent the shard count as an unsigned power-of-two range.</summary>
+    /// <param name="n">The input shard count.</param>
+    /// <returns>The bit count.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int BitCount(int n) => CP.Reactive.Internal.BitOperationsCompat.Log2((uint)n);
 }

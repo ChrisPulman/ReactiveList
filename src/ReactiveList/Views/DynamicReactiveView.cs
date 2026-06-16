@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -28,12 +29,19 @@ public class DynamicReactiveView<T> : INotifyPropertyChanged, IReactiveView<Dyna
 where T : notnull
 {
     private readonly ObservableCollection<T> _target = [];
+
     private readonly IReactiveSource<T> _source;
+
     private readonly MultipleDisposable _disposables = new();
+
     private readonly ISequencer _scheduler;
+
     private readonly TimeSpan _throttle;
+
     private Func<T, bool> _currentFilter = static _ => true;
+
     private IDisposable? _streamSubscription;
+
     private bool _disposedValue;
 
     /// <summary>
@@ -61,17 +69,17 @@ where T : notnull
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(scheduler);
 #else
-        if (source == null)
+        if (source is null)
         {
             throw new ArgumentNullException(nameof(source));
         }
 
-        if (filterObservable == null)
+        if (filterObservable is null)
         {
             throw new ArgumentNullException(nameof(filterObservable));
         }
 
-        if (scheduler == null)
+        if (scheduler is null)
         {
             throw new ArgumentNullException(nameof(scheduler));
         }
@@ -103,24 +111,18 @@ where T : notnull
             }).DisposeWith(_disposables);
     }
 
-    /// <summary>
-    /// Occurs when a property value changes.
-    /// </summary>
+    /// <summary>Occurs when a property value changes.</summary>
     /// <remarks>This event is typically raised by classes that implement the <see
     /// cref="INotifyPropertyChanged"/> interface to notify clients, such as data-binding frameworks, that a property
     /// value has changed.</remarks>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>
-    /// Gets a read-only, observable collection of items of type T.
-    /// </summary>
+    /// <summary>Gets a read-only, observable collection of items of type T.</summary>
     /// <remarks>The collection reflects changes to the underlying data source and notifies observers of any
     /// modifications. Items cannot be added to or removed from this collection directly.</remarks>
     public ReadOnlyObservableCollection<T> Items { get; }
 
-    /// <summary>
-    /// Assigns the current collection of items to a property using the specified setter action.
-    /// </summary>
+    /// <summary>Assigns the current collection of items to a property using the specified setter action.</summary>
     /// <remarks>This method is typically used to bind the internal collection to an external property, such
     /// as a view model property, in a reactive UI pattern.</remarks>
     /// <param name="propertySetter">An action that sets a property to the current read-only observable collection of items. Cannot be null.</param>
@@ -131,7 +133,7 @@ where T : notnull
 #if NET8_0_OR_GREATER
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
 #else
-        if (propertySetter == null)
+        if (propertySetter is null)
         {
             throw new ArgumentNullException(nameof(propertySetter));
         }
@@ -140,9 +142,7 @@ where T : notnull
         return this;
     }
 
-    /// <summary>
-    /// Returns the current instance and provides a read-only observable collection of items contained in the view.
-    /// </summary>
+    /// <summary>Returns the current instance and provides a read-only observable collection of items contained in the view.</summary>
     /// <param name="collection">When this method returns, contains a read-only observable collection of items of type <typeparamref name="T"/>
     /// managed by the view.</param>
     /// <returns>The current <see cref="DynamicReactiveView{T}"/> instance.</returns>
@@ -152,9 +152,7 @@ where T : notnull
         return this;
     }
 
-    /// <summary>
-    /// Releases all resources used by the current instance of the class.
-    /// </summary>
+    /// <summary>Releases all resources used by the current instance of the class.</summary>
     /// <remarks>Call this method when you are finished using the object to release unmanaged resources and
     /// perform other cleanup operations. After calling Dispose, the object should not be used further.</remarks>
     public void Dispose()
@@ -163,43 +161,47 @@ where T : notnull
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Releases the unmanaged resources used by the object and optionally releases the managed resources.
-    /// </summary>
+    /// <summary>Releases the unmanaged resources used by the object and optionally releases the managed resources.</summary>
     /// <remarks>This method is called by public Dispose methods and the finalizer. When disposing is true,
     /// this method releases all resources held by managed objects. When disposing is false, only unmanaged resources
     /// are released. Override this method to release resources specific to the derived class.</remarks>
     /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
-        if (!_disposedValue)
+        if (_disposedValue)
         {
-            if (disposing)
-            {
-                _streamSubscription?.Dispose();
-                _disposables.Dispose();
-            }
-
-            _disposedValue = true;
+            return;
         }
+
+        if (disposing)
+        {
+            _streamSubscription?.Dispose();
+            _disposables.Dispose();
+        }
+
+        _disposedValue = true;
     }
 
+    /// <summary>Attempts to get the latest value.</summary>
+    /// <param name="source">The source value.</param>
+    /// <param name="value">The latest value.</param>
+    /// <returns><see langword="true"/> when a value was read; otherwise, <see langword="false"/>.</returns>
     private static bool TryGetLatest(IObservable<Func<T, bool>> source, out Func<T, bool>? value)
     {
         var hasValue = false;
         Func<T, bool>? current = null;
-        using (source.Subscribe(
+        using var subscription = source.Subscribe(
             next =>
             {
-                if (!hasValue)
+                if (hasValue)
                 {
-                    current = next;
-                    hasValue = true;
+                    return;
                 }
+
+                current = next;
+                hasValue = true;
             },
-            _ => { }))
-        {
-        }
+            _ => { });
 
         value = current;
         return hasValue;
@@ -218,48 +220,61 @@ where T : notnull
         switch (n.Action)
         {
             case CacheAction.Added:
-                if (n.Item != null && _currentFilter(n.Item))
                 {
-                    _target.Add(n.Item);
-                }
-
-                break;
-            case CacheAction.Removed:
-                if (n.Item != null)
-                {
-                    _target.Remove(n.Item);
-                }
-
-                break;
-            case CacheAction.BatchOperation:
-            case CacheAction.BatchAdded:
-                if (n.Batch != null)
-                {
-                    for (var i = 0; i < n.Batch.Count; i++)
+                    if (n.Item is not null && _currentFilter(n.Item))
                     {
-                        var item = n.Batch.Items[i];
-                        if (_currentFilter(item))
+                        _target.Add(n.Item);
+                    }
+
+                    break;
+                }
+
+            case CacheAction.Removed:
+                {
+                    if (n.Item is not null)
+                    {
+                        _target.Remove(n.Item);
+                    }
+
+                    break;
+                }
+
+            case CacheAction.BatchOperation or CacheAction.BatchAdded:
+                {
+                    if (n.Batch is not null)
+                    {
+                        for (var i = 0; i < n.Batch.Count; i++)
                         {
-                            _target.Add(item);
+                            var item = n.Batch.Items[i];
+                            if (_currentFilter(item))
+                            {
+                                _target.Add(item);
+                            }
                         }
                     }
+
+                    break;
                 }
 
-                break;
             case CacheAction.BatchRemoved:
-                if (n.Batch != null)
                 {
-                    for (var i = 0; i < n.Batch.Count; i++)
+                    if (n.Batch is not null)
                     {
-                        var item = n.Batch.Items[i];
-                        _target.Remove(item);
+                        for (var i = 0; i < n.Batch.Count; i++)
+                        {
+                            var item = n.Batch.Items[i];
+                            _target.Remove(item);
+                        }
                     }
+
+                    break;
                 }
 
-                break;
             case CacheAction.Cleared:
-                _target.Clear();
-                break;
+                {
+                    _target.Clear();
+                    break;
+                }
         }
     }
 
@@ -281,9 +296,7 @@ where T : notnull
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
     }
 
-    /// <summary>
-    /// Subscribes to the data stream and updates the collection when new items are received.
-    /// </summary>
+    /// <summary>Subscribes to the data stream and updates the collection when new items are received.</summary>
     /// <remarks>Disposes any existing stream subscription before creating a new one. Updates to the
     /// collection are batched and processed on the specified scheduler. Raises the PropertyChanged event for the Items
     /// property after each batch is applied.</remarks>

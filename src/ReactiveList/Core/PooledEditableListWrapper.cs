@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
@@ -7,9 +8,7 @@ using CP.Reactive.Internal;
 
 namespace CP.Reactive.Core;
 
-/// <summary>
-/// A pooled version of <see cref="EditableListWrapper{T}"/> that supports reuse through object pooling.
-/// </summary>
+/// <summary>A pooled version of <see cref="EditableListWrapper{T}"/> that supports reuse through object pooling.</summary>
 /// <typeparam name="T">The type of elements in the wrapped list.</typeparam>
 /// <remarks>
 /// Initializes a new instance of the <see cref="PooledEditableListWrapper{T}"/> class.
@@ -19,7 +18,9 @@ namespace CP.Reactive.Core;
 public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollection<T>? observableCollection = null) : IEditableList<T>, IResettable, IDisposable
 {
     private List<T>? _list = list;
+
     private ObservableCollection<T>? _observableCollection = observableCollection;
+
     private bool _isReturned;
 
     /// <inheritdoc/>
@@ -57,14 +58,16 @@ public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollect
     public void AddRange(IEnumerable<T> items)
     {
         ThrowIfReturned();
-        var itemArray = items as T[] ?? items.ToArray();
+        var itemArray = (items as T[]) ?? items.ToArray();
         _list!.AddRange(itemArray);
-        if (_observableCollection != null)
+        if (_observableCollection is null)
         {
-            foreach (var item in itemArray)
-            {
-                _observableCollection.Add(item);
-            }
+            return;
+        }
+
+        foreach (var item in itemArray)
+        {
+            _observableCollection.Add(item);
         }
     }
 
@@ -93,10 +96,12 @@ public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollect
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (!_isReturned)
+        if (_isReturned)
         {
-            EditableListWrapperPool<T>.Return(this);
+            return;
         }
+
+        EditableListWrapperPool.Return(this);
     }
 
     /// <inheritdoc/>
@@ -116,9 +121,7 @@ public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollect
         return _list!.IndexOf(item);
     }
 
-    /// <summary>
-    /// Initializes the wrapper with new list references.
-    /// </summary>
+    /// <summary>Initializes the wrapper with new list references.</summary>
     /// <param name="list">The underlying list to wrap.</param>
     /// <param name="observableCollection">The observable collection to keep in sync (optional).</param>
     public void Initialize(List<T> list, ObservableCollection<T>? observableCollection)
@@ -193,12 +196,15 @@ public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollect
         _isReturned = true;
     }
 
+    /// <summary>Throws an <see cref="ObjectDisposedException"/> when the wrapper is no longer usable.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ThrowIfReturned()
     {
-        if (_isReturned)
+        if (!_isReturned)
         {
-            throw new ObjectDisposedException(nameof(PooledEditableListWrapper<T>), "This wrapper has been returned to the pool and cannot be used.");
+            return;
         }
+
+        throw new ObjectDisposedException(nameof(PooledEditableListWrapper<T>), "This wrapper has been returned to the pool and cannot be used.");
     }
 }

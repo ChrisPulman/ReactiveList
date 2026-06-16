@@ -1,5 +1,7 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Buffers;
@@ -7,35 +9,28 @@ using System.Runtime.CompilerServices;
 
 namespace CP.Reactive.Internal;
 
-/// <summary>
-/// Provides batch change tracking for efficient event coalescing.
-/// </summary>
+/// <summary>Provides batch change tracking for efficient event coalescing.</summary>
 /// <typeparam name="T">The type of items being tracked.</typeparam>
 internal struct BatchChangeTracker<T> : IDisposable
 {
     private T[]? _addedItems;
+
     private T[]? _removedItems;
+
     private int _addedCount;
+
     private int _removedCount;
 
-    /// <summary>
-    /// Gets a value indicating whether there are any tracked changes.
-    /// </summary>
+    /// <summary>Gets a value indicating whether there are any tracked changes.</summary>
     public readonly bool HasChanges => _addedCount > 0 || _removedCount > 0;
 
-    /// <summary>
-    /// Gets the added items as a span.
-    /// </summary>
+    /// <summary>Gets the added items as a span.</summary>
     public readonly ReadOnlySpan<T> AddedItems => _addedItems.AsSpan(0, _addedCount);
 
-    /// <summary>
-    /// Gets the removed items as a span.
-    /// </summary>
+    /// <summary>Gets the removed items as a span.</summary>
     public readonly ReadOnlySpan<T> RemovedItems => _removedItems.AsSpan(0, _removedCount);
 
-    /// <summary>
-    /// Tracks an added item.
-    /// </summary>
+    /// <summary>Tracks an added item.</summary>
     /// <param name="item">The item that was added.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void TrackAdded(T item)
@@ -50,9 +45,7 @@ internal struct BatchChangeTracker<T> : IDisposable
         _addedItems[_addedCount++] = item;
     }
 
-    /// <summary>
-    /// Tracks a removed item.
-    /// </summary>
+    /// <summary>Tracks a removed item.</summary>
     /// <param name="item">The item that was removed.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void TrackRemoved(T item)
@@ -67,18 +60,16 @@ internal struct BatchChangeTracker<T> : IDisposable
         _removedItems[_removedCount++] = item;
     }
 
-    /// <summary>
-    /// Releases pooled arrays back to the pool.
-    /// </summary>
+    /// <summary>Releases pooled arrays back to the pool.</summary>
     public void Dispose()
     {
-        if (_addedItems != null)
+        if (_addedItems is not null)
         {
             ArrayPool<T>.Shared.Return(_addedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             _addedItems = null;
         }
 
-        if (_removedItems != null)
+        if (_removedItems is not null)
         {
             ArrayPool<T>.Shared.Return(_removedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             _removedItems = null;
@@ -88,6 +79,7 @@ internal struct BatchChangeTracker<T> : IDisposable
         _removedCount = 0;
     }
 
+    /// <summary>Expands the backing store used for added items.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void GrowAdded()
     {
@@ -97,6 +89,7 @@ internal struct BatchChangeTracker<T> : IDisposable
         _addedItems = newArray;
     }
 
+    /// <summary>Expands the backing store used for removed items.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void GrowRemoved()
     {

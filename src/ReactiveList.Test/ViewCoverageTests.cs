@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System;
 using System.Buffers;
@@ -9,6 +10,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
@@ -41,6 +44,9 @@ public class ViewCoverageTests
 
         view.Items.Should().Equal(2, 4);
         view[0].Should().Be(2);
+        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        var filteredProperties = new List<string?>();
+        view.PropertyChanged += (_, args) => filteredProperties.Add(args.PropertyName);
 
         list.Update(2, 5);
         await WaitForPipeline();
@@ -67,7 +73,9 @@ public class ViewCoverageTests
 
         list.Clear();
         await WaitForPipeline();
+        InvokePrivate(view, "OnSourceChanged", new ChangeSet<int>(new Change<int>(ChangeReason.Clear, default)));
         view.Items.Should().BeEmpty();
+        filteredProperties.Should().Contain(nameof(view.Count));
     }
 
     /// <summary>
@@ -88,25 +96,33 @@ public class ViewCoverageTests
 
         view.Items.Should().Equal(1, 3);
         view[1].Should().Be(3);
+        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
 
         list.Add(2);
         await WaitForPipeline();
         view.Items.Should().Equal(1, 2, 3);
 
+        list.Add(2);
+        await WaitForPipeline();
+        view.Items.Should().Equal(1, 2, 2, 3);
+
         list.Update(3, 0);
         await WaitForPipeline();
-        view.Items.Should().Equal(0, 1, 2);
+        view.Items.Should().Equal(0, 1, 2, 2);
 
         list.Move(0, 2);
         await WaitForPipeline();
-        view.Items.Should().Equal(0, 1, 2);
+        view.Items.Should().Equal(0, 1, 2, 2);
 
         list.Remove(1);
         await WaitForPipeline();
-        view.Items.Should().Equal(0, 2);
+        view.Items.Should().Equal(0, 2, 2);
+
+        InvokePrivate(view, "OnSourceChanged", new ChangeSet<int>(new Change<int>(ChangeReason.Clear, default)));
+        view.Items.Should().BeEmpty();
 
         view.Refresh();
-        view.Items.Should().Equal(0, 2);
+        view.Items.Should().Equal(0, 2, 2);
     }
 
     /// <summary>
@@ -136,6 +152,7 @@ public class ViewCoverageTests
         missing.Should().BeEmpty();
         ((IEnumerable)view).Cast<KeyValuePair<string, IReadOnlyList<ViewItem>>>()
             .Should().HaveCount(2);
+        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
         view.Refresh();
 
         var changedScore = north with { Score = 10 };
@@ -162,6 +179,22 @@ public class ViewCoverageTests
         list.Clear();
         await WaitForPipeline();
         view.Should().BeEmpty();
+
+        var west = new ViewItem(3, "west");
+        InvokePrivate(view, "OnSourceChanged", new ChangeSet<ViewItem>(new Change<ViewItem>(ChangeReason.Update, west)));
+        view.ContainsKey("west").Should().BeTrue();
+
+        InvokePrivate(view, "OnSourceChanged", new ChangeSet<ViewItem>(new Change<ViewItem>(ChangeReason.Clear, default!)));
+        view.Should().BeEmpty();
+
+        list.Add(north);
+        await WaitForPipeline();
+        InvokePrivate(view, "OnSourceChanged", new ChangeSet<ViewItem>(Change<ViewItem>.CreateRefresh(north)));
+        view.ContainsKey("north").Should().BeTrue();
+
+        InvokePrivate(view, "RemoveFromGroup", new ViewItem(404, "missing"));
+        ((IList)GetPrivateField(view, "_groupCollection")).Clear();
+        InvokePrivate(view, "RemoveFromGroup", north);
     }
 
     /// <summary>
@@ -184,6 +217,9 @@ public class ViewCoverageTests
         await WaitForPipeline();
         view.Items.Should().Equal(2, 3);
         view[0].Should().Be(2);
+        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        var dynamicFilteredProperties = new List<string?>();
+        view.PropertyChanged += (_, args) => dynamicFilteredProperties.Add(args.PropertyName);
 
         filters.OnNext(null!);
         await WaitForPipeline();
@@ -222,7 +258,9 @@ public class ViewCoverageTests
 
         list.Clear();
         await WaitForPipeline();
+        InvokePrivate(view, "OnSourceChanged", new ChangeSet<int>(new Change<int>(ChangeReason.Clear, default)));
         view.Items.Should().BeEmpty();
+        dynamicFilteredProperties.Should().Contain(nameof(view.Count));
     }
 
     /// <summary>
@@ -240,6 +278,8 @@ public class ViewCoverageTests
             filters,
             TimeSpan.Zero,
             Sequencer.Immediate);
+        var dynamicProperties = new List<string?>();
+        view.PropertyChanged += (_, args) => dynamicProperties.Add(args.PropertyName);
 
         view.Items.Should().Equal(2);
 
@@ -276,6 +316,34 @@ public class ViewCoverageTests
         source.Emit(new CacheNotify<int>(CacheAction.Added, 9));
         await WaitForPipeline();
         view.Items.Should().Equal(9);
+        dynamicProperties.Should().Contain(nameof(view.Items));
+        view.Dispose();
+        view.Dispose();
+    }
+
+    /// <summary>
+    /// Dynamic reactive views should use the default include-all filter when null filters are emitted.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
+    [Test]
+    public async Task DynamicReactiveView_NullFilters_ShouldUseDefaultIncludeAllFilter()
+    {
+        using var source = new ReactiveSourceHarness<int>(new[] { 1 });
+        using var filters = new BehaviorSignal<Func<int, bool>>(null!);
+
+        using var view = new DynamicReactiveView<int>(
+            source,
+            filters,
+            TimeSpan.Zero,
+            Sequencer.Immediate);
+
+        view.Items.Should().Equal(1);
+
+        source.AddItem(2);
+        filters.OnNext(null!);
+        await WaitForPipeline();
+
+        view.Items.Should().Equal(1, 2);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -292,7 +360,7 @@ public class ViewCoverageTests
         dictionary.Add(2, new ViewItem(2, "south"));
         dictionary.AddValueIndex("region", static item => item.Region);
 
-        using var view = new SecondaryIndexReactiveView<int, ViewItem, string>(
+        using var view = SecondaryIndexReactiveView<int, ViewItem>.Create<string>(
             dictionary,
             "region",
             "north",
@@ -307,6 +375,12 @@ public class ViewCoverageTests
         view.ToProperty(collection => collection.Should().BeSameAs(view.Items)).Should().BeSameAs(view);
         view.Refresh();
         view.GetEnumerator().MoveNext().Should().BeTrue();
+        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        var secondaryProperties = new List<string?>();
+        view.PropertyChanged += (_, args) => secondaryProperties.Add(args.PropertyName);
+
+        InvokePrivate(view, "OnSourceChanged", new CacheNotify<KeyValuePair<int, ViewItem>>(CacheAction.Refreshed, default));
+        view.Items.Should().ContainSingle().Which.Should().Be(north);
 
         dictionary.AddOrUpdate(1, north with { Region = "south" });
         await WaitForPipeline();
@@ -326,6 +400,7 @@ public class ViewCoverageTests
         dictionary.Clear();
         await WaitForPipeline();
         view.Items.Should().BeEmpty();
+        secondaryProperties.Should().Contain(nameof(view.Count));
     }
 
     /// <summary>
@@ -358,6 +433,9 @@ public class ViewCoverageTests
         listView.ToProperty(collection => collection.Should().BeSameAs(listView.Items)).Should().BeSameAs(listView);
         listView.Refresh();
         listView.GetEnumerator().MoveNext().Should().BeTrue();
+        ((IEnumerable)listView).GetEnumerator().MoveNext().Should().BeTrue();
+        var listViewProperties = new List<string?>();
+        listView.PropertyChanged += (_, args) => listViewProperties.Add(args.PropertyName);
 
         list.Remove(north);
         await WaitForPipeline();
@@ -379,6 +457,7 @@ public class ViewCoverageTests
         list.ReplaceAll(new[] { north });
         await WaitForPipeline();
         listView.Items.Should().BeEmpty();
+        listViewProperties.Should().Contain(nameof(listView.Count));
 
         using var dictionary = new QuaternaryDictionary<int, ViewItem>();
         dictionary.Add(1, north);
@@ -386,7 +465,7 @@ public class ViewCoverageTests
         dictionary.AddValueIndex("region", static item => item.Region);
         using var dictionaryKeys = new BehaviorSignal<string[]>(new[] { "north" });
 
-        using var dictionaryView = new DynamicSecondaryIndexDictionaryReactiveView<int, ViewItem, string>(
+        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, ViewItem>.Create<string>(
             dictionary,
             "region",
             dictionaryKeys,
@@ -401,6 +480,9 @@ public class ViewCoverageTests
         dictionaryView.ToProperty(collection => collection.Should().BeSameAs(dictionaryView.Items)).Should().BeSameAs(dictionaryView);
         dictionaryView.Refresh();
         dictionaryView.GetEnumerator().MoveNext().Should().BeTrue();
+        ((IEnumerable)dictionaryView).GetEnumerator().MoveNext().Should().BeTrue();
+        var dictionaryViewProperties = new List<string?>();
+        dictionaryView.PropertyChanged += (_, args) => dictionaryViewProperties.Add(args.PropertyName);
 
         dictionary.AddOrUpdate(1, north with { Region = "south" });
         await WaitForPipeline();
@@ -436,10 +518,192 @@ public class ViewCoverageTests
         dictionary.Clear();
         await WaitForPipeline();
         dictionaryView.Items.Should().BeEmpty();
+        dictionaryViewProperties.Should().Contain(nameof(dictionaryView.Count));
+    }
+
+    /// <summary>
+    /// Dynamic view constructors should ignore initial probe errors and keep default state.
+    /// </summary>
+    [Test]
+    public void DynamicViews_InitialProbeErrors_ShouldUseDefaultValues()
+    {
+        using var source = new ReactiveSourceHarness<int>(new[] { 1 });
+        using var dynamicView = new DynamicReactiveView<int>(
+            source,
+            new FirstSubscriptionErrorObservable<Func<int, bool>>(),
+            TimeSpan.Zero,
+            Sequencer.Immediate);
+
+        dynamicView.Items.Should().Equal(1);
+        using var twoValueDynamicView = new DynamicReactiveView<int>(
+            source,
+            new TwoValueObservable<Func<int, bool>>(static item => item == 1, static _ => false),
+            TimeSpan.Zero,
+            Sequencer.Immediate);
+
+        twoValueDynamicView.Items.Should().BeEmpty();
+
+        using var list = new QuaternaryList<MutableViewItem>();
+        list.Add(new MutableViewItem(1, "north"));
+        list.AddIndex("region", static item => item.Region);
+        using var listView = new DynamicSecondaryIndexReactiveView<MutableViewItem, string>(
+            list,
+            "region",
+            new FirstSubscriptionErrorObservable<string[]>(),
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+
+        listView.Items.Should().BeEmpty();
+        using var twoValueListView = new DynamicSecondaryIndexReactiveView<MutableViewItem, string>(
+            list,
+            "region",
+            new TwoValueObservable<string[]>(new[] { "north" }, new[] { "south" }),
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+
+        twoValueListView.Items.Should().BeEmpty();
+
+        using var dictionary = new QuaternaryDictionary<int, MutableViewItem>();
+        dictionary.Add(1, new MutableViewItem(1, "north"));
+        dictionary.AddValueIndex("region", static item => item.Region);
+        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create<string>(
+            dictionary,
+            "region",
+            new FirstSubscriptionErrorObservable<string[]>(),
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+
+        dictionaryView.Items.Should().BeEmpty();
+        using var twoValueDictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create<string>(
+            dictionary,
+            "region",
+            new TwoValueObservable<string[]>(new[] { "north" }, new[] { "south" }),
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+
+        twoValueDictionaryView.Items.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Dynamic secondary-index views should handle mutable update transitions directly.
+    /// </summary>
+    [Test]
+    public void DynamicSecondaryIndexViews_MutableUpdates_ShouldAddRemoveClearAndRebuild()
+    {
+        using var list = new QuaternaryList<MutableViewItem>();
+        var listNorth = new MutableViewItem(1, "north");
+        var listSouth = new MutableViewItem(2, "south");
+        list.Add(listNorth);
+        list.Add(listSouth);
+        list.AddIndex("region", static item => item.Region);
+        using var listKeys = new BehaviorSignal<string[]>(new[] { "north" });
+        using var listView = new DynamicSecondaryIndexReactiveView<MutableViewItem, string>(
+            list,
+            "region",
+            listKeys,
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+
+        listView.Items.Should().ContainSingle().Which.Should().BeSameAs(listNorth);
+
+        listNorth.Region = "south";
+        InvokePrivate(listView, "OnSourceChanged", new CacheNotify<MutableViewItem>(CacheAction.Updated, listNorth));
+        listView.Items.Should().BeEmpty();
+
+        listSouth.Region = "north";
+        InvokePrivate(listView, "OnSourceChanged", new CacheNotify<MutableViewItem>(CacheAction.Updated, listSouth));
+        listView.Items.Should().ContainSingle().Which.Should().BeSameAs(listSouth);
+
+        InvokePrivate(listView, "OnSourceChanged", new CacheNotify<MutableViewItem>(CacheAction.Removed, listSouth));
+        listView.Items.Should().BeEmpty();
+
+        InvokePrivate(listView, "OnSourceChanged", new CacheNotify<MutableViewItem>(CacheAction.BatchOperation, default));
+        listView.Items.Count.Should().Be(1);
+
+        InvokePrivate(listView, "OnSourceChanged", new CacheNotify<MutableViewItem>(CacheAction.Cleared, default));
+        listView.Items.Should().BeEmpty();
+
+        using var dictionary = new QuaternaryDictionary<int, MutableViewItem>();
+        var dictionaryNorth = new MutableViewItem(1, "north");
+        var dictionarySouth = new MutableViewItem(2, "south");
+        dictionary.Add(1, dictionaryNorth);
+        dictionary.Add(2, dictionarySouth);
+        dictionary.AddValueIndex("region", static item => item.Region);
+        using var dictionaryKeys = new BehaviorSignal<string[]>(new[] { "north" });
+        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create<string>(
+            dictionary,
+            "region",
+            dictionaryKeys,
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+
+        dictionaryView.Items.Should().ContainSingle()
+            .Which.Value.Should().BeSameAs(dictionaryNorth);
+
+        dictionaryNorth.Region = "south";
+        InvokePrivate(dictionaryView, "OnSourceChanged", new CacheNotify<KeyValuePair<int, MutableViewItem>>(
+            CacheAction.Updated,
+            new KeyValuePair<int, MutableViewItem>(1, dictionaryNorth)));
+        dictionaryView.Items.Should().BeEmpty();
+
+        dictionarySouth.Region = "north";
+        InvokePrivate(dictionaryView, "OnSourceChanged", new CacheNotify<KeyValuePair<int, MutableViewItem>>(
+            CacheAction.Updated,
+            new KeyValuePair<int, MutableViewItem>(2, dictionarySouth)));
+        dictionaryView.Items.Should().ContainSingle()
+            .Which.Value.Should().BeSameAs(dictionarySouth);
+
+        dictionarySouth.Score = 10;
+        InvokePrivate(dictionaryView, "OnSourceChanged", new CacheNotify<KeyValuePair<int, MutableViewItem>>(
+            CacheAction.Updated,
+            new KeyValuePair<int, MutableViewItem>(2, dictionarySouth)));
+        dictionaryView.Items.Single().Value.Score.Should().Be(10);
+
+        InvokePrivate(dictionaryView, "OnSourceChanged", new CacheNotify<KeyValuePair<int, MutableViewItem>>(
+            CacheAction.Removed,
+            new KeyValuePair<int, MutableViewItem>(2, dictionarySouth)));
+        dictionaryView.Items.Should().BeEmpty();
+
+        InvokePrivate(dictionaryView, "OnSourceChanged", new CacheNotify<KeyValuePair<int, MutableViewItem>>(
+            CacheAction.Refreshed,
+            default));
+        dictionaryView.Items.Count.Should().Be(1);
+
+        InvokePrivate(dictionaryView, "OnSourceChanged", new CacheNotify<KeyValuePair<int, MutableViewItem>>(
+            CacheAction.Cleared,
+            default));
+        dictionaryView.Items.Should().BeEmpty();
+
+        using var nullableKeyDictionary = new QuaternaryDictionary<string, MutableViewItem>();
+        nullableKeyDictionary.Add("north-1", new MutableViewItem(3, "north"));
+        nullableKeyDictionary.AddValueIndex("region", static item => item.Region);
+        using var nullableKeyKeys = new BehaviorSignal<string[]>(new[] { "north" });
+        using var nullableKeyView = DynamicSecondaryIndexDictionaryReactiveView<string, MutableViewItem>.Create<string>(
+            nullableKeyDictionary,
+            "region",
+            nullableKeyKeys,
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+
+        InvokePrivate(nullableKeyView, "OnSourceChanged", new CacheNotify<KeyValuePair<string, MutableViewItem>>(
+            CacheAction.Removed,
+            new KeyValuePair<string, MutableViewItem>(null!, new MutableViewItem(4, "north"))));
+        nullableKeyView.Items.Count.Should().Be(1);
+
+        InvokePrivate(nullableKeyView, "OnSourceChanged", new CacheNotify<KeyValuePair<string, MutableViewItem>>(
+            CacheAction.Removed,
+            new KeyValuePair<string, MutableViewItem>("missing", new MutableViewItem(5, "north"))));
+        nullableKeyView.Items.Count.Should().Be(1);
     }
 #endif
 
     private static async Task WaitForPipeline() => await Task.Delay(30);
+
+    private static object? InvokePrivate(object target, string methodName, params object?[] args) =>
+        target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(target, args);
+
+    private static object GetPrivateField(object target, string fieldName) =>
+        target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;
 
     private static PooledBatch<T> CreateBatch<T>(params T[] items)
     {
@@ -449,6 +713,40 @@ public class ViewCoverageTests
     }
 
     private sealed record ViewItem(int Id, string Region, int Score = 0);
+
+    private sealed class MutableViewItem(int id, string region)
+    {
+        public int Id { get; } = id;
+
+        public string Region { get; set; } = region;
+
+        public int Score { get; set; }
+    }
+
+    private sealed class FirstSubscriptionErrorObservable<T> : IObservable<T>
+    {
+        private int _subscriptions;
+
+        public IDisposable Subscribe(IObserver<T> observer)
+        {
+            if (Interlocked.Increment(ref _subscriptions) == 1)
+            {
+                observer.OnError(new InvalidOperationException("initial probe failed"));
+            }
+
+            return ReactiveUI.Primitives.Disposables.Scope.Empty;
+        }
+    }
+
+    private sealed class TwoValueObservable<T>(T first, T second) : IObservable<T>
+    {
+        public IDisposable Subscribe(IObserver<T> observer)
+        {
+            observer.OnNext(first);
+            observer.OnNext(second);
+            return ReactiveUI.Primitives.Disposables.Scope.Empty;
+        }
+    }
 
     private sealed class ReactiveSourceHarness<T> : IReactiveSource<T>
         where T : notnull
