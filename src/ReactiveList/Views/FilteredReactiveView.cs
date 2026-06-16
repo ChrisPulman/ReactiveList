@@ -29,7 +29,11 @@ where T : notnull
 
     private readonly MultipleDisposable _disposables = new();
 
-    private readonly System.Threading.Lock _lock = new();
+#if NET9_0_OR_GREATER
+    private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
 
     /// <summary>Initializes a new instance of the <see cref="FilteredReactiveView{T}"/> class.</summary>
     /// <param name="source">The source reactive list to filter.</param>

@@ -5,5 +5,11 @@
 namespace System.Runtime.CompilerServices;
 
 /// <summary>Reserved for compiler support.</summary>
-internal static class IsExternalInit;
+internal sealed class IsExternalInit
+{
+    /// <summary>Initializes a new instance of the <see cref="IsExternalInit"/> class.</summary>
+    private IsExternalInit()
+    {
+    }
+}
 #endif

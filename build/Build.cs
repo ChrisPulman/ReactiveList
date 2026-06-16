@@ -24,7 +24,7 @@ using CP.BuildTools;
 ////    FetchDepth = 0,
 ////    ImportSecrets = new[] { nameof(NuGetApiKey) },
 ////    InvokedTargets = new[] { nameof(Compile), nameof(Deploy) })]
-partial class Build : NukeBuild
+sealed partial class Build : NukeBuild
 {
     [GitRepository]
     private readonly GitRepository Repository;

@@ -33,7 +33,11 @@ where TKey : notnull
 
     private readonly MultipleDisposable _disposables = new();
 
-    private readonly System.Threading.Lock _lock = new();
+#if NET9_0_OR_GREATER
+    private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
 
     /// <summary>Initializes a new instance of the <see cref="GroupedReactiveView{T, TKey}"/> class.</summary>
     /// <param name="source">The source reactive list to group.</param>

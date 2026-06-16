@@ -7,12 +7,16 @@ using System.Collections.Generic;
 namespace System.Linq;
 
 /// <summary>Provides LINQ helpers missing on .NET Framework.</summary>
-internal static class EnumerablePolyfills
+internal static class EnumerableExtensions
 {
-    /// <summary>Creates a hash set from a sequence.</summary>
+    /// <summary>Extends enumerable sequences with missing LINQ helpers.</summary>
     /// <typeparam name="TSource">The element type.</typeparam>
     /// <param name="source">The source sequence.</param>
-    /// <returns>A hash set containing the source elements.</returns>
-    public static HashSet<TSource> ToHashSet<TSource>(this IEnumerable<TSource> source) => new(source);
+    extension<TSource>(IEnumerable<TSource> source)
+    {
+        /// <summary>Creates a hash set from a sequence.</summary>
+        /// <returns>A hash set containing the source elements.</returns>
+        public HashSet<TSource> ToHashSet() => new(source);
+    }
 }
 #endif

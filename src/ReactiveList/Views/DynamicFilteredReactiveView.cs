@@ -30,7 +30,11 @@ where T : notnull
 
     private readonly MultipleDisposable _disposables = new();
 
-    private readonly System.Threading.Lock _lock = new();
+#if NET9_0_OR_GREATER
+    private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
 
     private Func<T, bool> _currentFilter;
 
