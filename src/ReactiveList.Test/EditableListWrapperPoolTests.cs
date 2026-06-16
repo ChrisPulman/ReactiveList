@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
@@ -23,11 +24,11 @@ public class EditableListWrapperPoolTests
     public void Rent_ReturnsNewWrapperWhenPoolEmpty()
     {
         // Arrange
-        EditableListWrapperPool<int>.Clear();
+        EditableListWrapperPool.Clear<int>();
         var list = new List<int> { 1, 2, 3 };
 
         // Act
-        using var wrapper = EditableListWrapperPool<int>.Rent(list);
+        using var wrapper = EditableListWrapperPool.Rent<int>(list);
 
         // Assert
         wrapper.Should().NotBeNull();
@@ -41,15 +42,15 @@ public class EditableListWrapperPoolTests
     public void Return_AddsWrapperToPool()
     {
         // Arrange
-        EditableListWrapperPool<int>.Clear();
+        EditableListWrapperPool.Clear<int>();
         var list = new List<int> { 1, 2, 3 };
-        var wrapper = EditableListWrapperPool<int>.Rent(list);
+        var wrapper = EditableListWrapperPool.Rent<int>(list);
 
         // Act
         wrapper.Dispose();
 
         // Assert
-        EditableListWrapperPool<int>.CurrentPoolSize.Should().Be(1);
+        EditableListWrapperPool.GetCurrentPoolSize<int>().Should().Be(1);
     }
 
     /// <summary>
@@ -59,20 +60,20 @@ public class EditableListWrapperPoolTests
     public void Rent_ReusesWrapperFromPool()
     {
         // Arrange
-        EditableListWrapperPool<int>.Clear();
+        EditableListWrapperPool.Clear<int>();
         var list1 = new List<int> { 1, 2, 3 };
         var list2 = new List<int> { 4, 5 };
 
-        var wrapper1 = EditableListWrapperPool<int>.Rent(list1);
+        var wrapper1 = EditableListWrapperPool.Rent<int>(list1);
         wrapper1.Dispose();
 
         // Act
-        var wrapper2 = EditableListWrapperPool<int>.Rent(list2);
+        var wrapper2 = EditableListWrapperPool.Rent<int>(list2);
 
         // Assert
         wrapper2.Should().BeSameAs(wrapper1);
         wrapper2.Count.Should().Be(2);
-        EditableListWrapperPool<int>.CurrentPoolSize.Should().Be(0);
+        EditableListWrapperPool.GetCurrentPoolSize<int>().Should().Be(0);
 
         wrapper2.Dispose();
     }
@@ -85,7 +86,7 @@ public class EditableListWrapperPoolTests
     {
         // Arrange
         var list = new List<int>();
-        using var wrapper = EditableListWrapperPool<int>.Rent(list);
+        using var wrapper = EditableListWrapperPool.Rent<int>(list);
 
         // Act & Assert
         wrapper.Add(1);
@@ -116,7 +117,7 @@ public class EditableListWrapperPoolTests
         // Arrange
         var list = new List<int>();
         var observable = new ObservableCollection<int>();
-        using var wrapper = EditableListWrapperPool<int>.Rent(list, observable);
+        using var wrapper = EditableListWrapperPool.Rent<int>(list, observable);
 
         // Act
         wrapper.Add(1);
@@ -135,7 +136,7 @@ public class EditableListWrapperPoolTests
     {
         // Arrange
         var list = new List<int> { 1, 2, 3 };
-        var wrapper = EditableListWrapperPool<int>.Rent(list);
+        var wrapper = EditableListWrapperPool.Rent<int>(list);
         wrapper.Dispose();
 
         // Act & Assert
@@ -150,31 +151,31 @@ public class EditableListWrapperPoolTests
     public void MaxPoolSize_LimitsPoolGrowth()
     {
         // Arrange
-        EditableListWrapperPool<int>.Clear();
-        var originalMax = EditableListWrapperPool<int>.MaxPoolSize;
-        EditableListWrapperPool<int>.MaxPoolSize = 2;
+        EditableListWrapperPool.Clear<int>();
+        var originalMax = EditableListWrapperPool.GetMaxPoolSize<int>();
+        EditableListWrapperPool.SetMaxPoolSize<int>(2);
 
         try
         {
             var list = new List<int>();
 
             // Act - create and return 3 wrappers
-            var w1 = EditableListWrapperPool<int>.Rent(list);
-            var w2 = EditableListWrapperPool<int>.Rent(list);
-            var w3 = EditableListWrapperPool<int>.Rent(list);
+            var w1 = EditableListWrapperPool.Rent<int>(list);
+            var w2 = EditableListWrapperPool.Rent<int>(list);
+            var w3 = EditableListWrapperPool.Rent<int>(list);
 
             w1.Dispose();
             w2.Dispose();
             w3.Dispose();
 
             // Assert - only 2 should be pooled
-            EditableListWrapperPool<int>.CurrentPoolSize.Should().BeGreaterThanOrEqualTo(0);
-            EditableListWrapperPool<int>.CurrentPoolSize.Should().BeLessThanOrEqualTo(2);
+            EditableListWrapperPool.GetCurrentPoolSize<int>().Should().BeGreaterThanOrEqualTo(0);
+            EditableListWrapperPool.GetCurrentPoolSize<int>().Should().BeLessThanOrEqualTo(2);
         }
         finally
         {
-            EditableListWrapperPool<int>.MaxPoolSize = originalMax;
-            EditableListWrapperPool<int>.Clear();
+            EditableListWrapperPool.SetMaxPoolSize<int>(originalMax);
+            EditableListWrapperPool.Clear<int>();
         }
     }
 
@@ -186,7 +187,7 @@ public class EditableListWrapperPoolTests
     {
         // Arrange
         var list = new List<int> { 1, 2, 3 };
-        var wrapper = EditableListWrapperPool<int>.Rent(list);
+        var wrapper = EditableListWrapperPool.Rent<int>(list);
 
         // Act
         ((IResettable)wrapper).Reset();

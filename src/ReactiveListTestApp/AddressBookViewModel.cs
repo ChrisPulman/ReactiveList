@@ -1,15 +1,16 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections.ObjectModel;
 using System.Reactive;
 using System.Reactive.Disposables.Fluent;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using CP.Reactive;
 using CP.Reactive.Collections;
 using CrissCross;
 using ReactiveUI;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace ReactiveListTestApp;
 
@@ -26,7 +27,7 @@ public class AddressBookViewModel : RxObject
     // --- The Data Stores ---
     private readonly QuaternaryList<Contact> _contactList = [];
     private readonly QuaternaryDictionary<Guid, Contact> _contactMap = [];
-    private readonly BehaviorSubject<string> _searchText = new(string.Empty);
+    private readonly BehaviorSignal<string> _searchText = new(string.Empty);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AddressBookViewModel"/> class.
@@ -226,25 +227,27 @@ public class AddressBookViewModel : RxObject
     /// to date.</remarks>
     private void InitializePipelines()
     {
+        var viewSequencer = SynchronizationContextSequencer.Current;
+
         // 1. ALL CONTACTS (Throttled 100ms)
-        _contactList.CreateView(RxSchedulers.MainThreadScheduler, throttleMs: 100)
+        _contactList.CreateView(viewSequencer, throttleMs: 100)
                     .ToProperty(x => AllContacts = x)
                     .DisposeWith(Disposables);
 
         // 2. FAVORITES (Filtered Subset)
-        _contactList.CreateView(c => c.IsFavorite, RxSchedulers.MainThreadScheduler, throttleMs: 100)
+        _contactList.CreateView(c => c.IsFavorite, viewSequencer, throttleMs: 100)
                     .ToProperty(x => FavoriteContacts = x)
                     .DisposeWith(Disposables);
 
         // 3. SECONDARY KEY SUBSET (City == "New York")
         // Using CreateViewBySecondaryIndex for efficient secondary key filtering
-        _contactList.CreateViewBySecondaryIndex("ByCity", "New York", RxSchedulers.MainThreadScheduler, throttleMs: 200)
+        _contactList.CreateViewBySecondaryIndex("ByCity", "New York", viewSequencer, throttleMs: 200)
                     .ToProperty(x => NewYorkContacts = x)
                     .DisposeWith(Disposables);
 
         // 4. DYNAMIC SEARCH QUERY
         // Using CreateView with IObservable for dynamic filter that rebuilds on search text change
-        _contactList.CreateView(_searchText.Throttle(TimeSpan.FromMilliseconds(100)), (query, c) => Matches(c, query), RxSchedulers.MainThreadScheduler, throttleMs: 100)
+        _contactList.CreateView(_searchText, (query, c) => Matches(c, query), viewSequencer, throttleMs: 100)
                     .ToProperty(x => SearchResults = x)
                     .DisposeWith(Disposables);
     }

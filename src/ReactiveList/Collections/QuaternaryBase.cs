@@ -1,16 +1,19 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 
 namespace CP.Reactive.Collections;
 
@@ -24,69 +27,40 @@ namespace CP.Reactive.Collections;
 /// Derived classes should implement enumeration and may extend synchronization or notification behavior as needed.
 /// Thread safety is managed internally using per-shard locks and a background event processing pipeline.</remarks>
 /// <typeparam name="TItem">The type of items stored in the collection. Must be non-nullable.</typeparam>
-/// <typeparam name="TQuad">The type representing a quad (shard) within the collection. Must implement <see cref="IQuad{TItem}"/>.</typeparam>
 /// <typeparam name="TValue">The type used for secondary indexing within the collection.</typeparam>
-public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TItem>, INotifyPropertyChanged
+public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, INotifyPropertyChanged
     where TItem : notnull
-    where TQuad : IQuad<TItem>, new()
 {
-    /// <summary>
-    /// The number of shards used for partitioning.
-    /// </summary>
+    /// <summary>The number of shards used for partitioning.</summary>
     protected const int ShardCount = 4;
 
-    /// <summary>
-    /// Provides thread-safe access to the collection of secondary indices associated with the current instance.
-    /// </summary>
-    /// <remarks>Each entry maps a unique index name to its corresponding secondary index. This dictionary
-    /// enables efficient retrieval and management of secondary indices in concurrent scenarios.</remarks>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Intended for use in derived classes.")]
-    protected readonly ConcurrentDictionary<string, ISecondaryIndex<TValue>> Indices = new();
-
-    /// <summary>
-    /// Provides an array of ReaderWriterLockSlim instances used to synchronize access to shared resources.
-    /// </summary>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Intended for use in derived classes.")]
-    protected readonly ReaderWriterLockSlim[] Locks =
-    [
-        new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion),
-        new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion),
-        new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion),
-        new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion)
-    ];
-
-    /// <summary>
-    /// Represents the collection of four quadrants used by the containing type.
-    /// </summary>
-    /// <remarks>Each element in the array corresponds to a quadrant and is initialized to a new instance of
-    /// <typeparamref name="TQuad"/>. The array is intended for use by derived types to manage or access
-    /// quadrant-specific data.</remarks>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Intended for use in derived classes.")]
-    protected readonly TQuad[] Quads =
-    [
-        new TQuad(),
-        new TQuad(),
-        new TQuad(),
-        new TQuad()
-    ];
-
     private const string ItemArray = "Item[]";
+
     private static readonly PropertyChangedEventArgs CountPropertyChangedEventArgs = new(nameof(Count));
+
     private static readonly PropertyChangedEventArgs ItemArrayPropertyChangedEventArgs = new(ItemArray);
+
     private readonly SynchronizationContext? _syncContext;
+
     private Channel<CacheNotify<TItem>>? _eventChannel;
+
     private object? _eventGate;
-    private Subject<CacheNotify<TItem>>? _pipeline;
+
+    private Signal<CacheNotify<TItem>>? _pipeline;
+
     private CancellationTokenSource? _cts;
+
     private NotifyCollectionChangedEventHandler? _collectionChanged;
+
     private int _count;
+
     private int _eventProcessorStarted;
+
     private int _hasSubscribers;
+
     private long _version;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="QuaternaryBase{TItem, TQuad, TValue}"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="QuaternaryBase{TItem, TValue}"/> class.</summary>
     /// <remarks>This constructor captures the current synchronization context, which is typically associated
     /// with the UI thread in WPF or Windows Forms applications. It also initiates a background task to process events
     /// asynchronously. Derived classes can rely on the synchronization context being set for thread-safe operations
@@ -97,14 +71,12 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         _syncContext = SynchronizationContext.Current;
     }
 
-    /// <summary>
-    /// Occurs when the collection changes.
-    /// </summary>
+    /// <summary>Occurs when the collection changes.</summary>
     public event NotifyCollectionChangedEventHandler? CollectionChanged
     {
         add
         {
-            if (value == null)
+            if (value is null)
             {
                 return;
             }
@@ -119,61 +91,60 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>
-    /// Gets the total number of items contained in all quads.
-    /// </summary>
+    /// <summary>Gets the total number of items contained in all quads.</summary>
     public int Count
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => Volatile.Read(ref _count);
     }
 
-    /// <summary>
-    /// Gets a value indicating whether the collection is read-only.
-    /// </summary>
+    /// <summary>Gets a value indicating whether the collection is read-only.</summary>
     public bool IsReadOnly => false;
 
-    /// <summary>
-    /// Gets an observable sequence that emits cache change notifications as they occur.
-    /// </summary>
+    /// <summary>Gets an observable sequence that emits cache change notifications as they occur.</summary>
     /// <remarks>
     /// This is the primary observable for change notifications. It provides all change information
     /// including single item changes and batch operations. The Stream uses a channel-based pipeline
     /// for efficient, low-allocation event delivery.
     /// </remarks>
-    public IObservable<CacheNotify<TItem>> Stream
-    {
-        get
-        {
-            return Observable.Create<CacheNotify<TItem>>(observer =>
-            {
-                EnsureEventProcessorStarted();
-                Interlocked.Increment(ref _hasSubscribers);
-                var subscription = _pipeline!.Subscribe(observer);
-                return Disposable.Create(() =>
-                {
-                    subscription.Dispose();
-                    Interlocked.Decrement(ref _hasSubscribers);
-                });
-            });
-        }
-    }
+    public IObservable<CacheNotify<TItem>> Stream => Signal.Create<CacheNotify<TItem>>(observer =>
+                                                              {
+                                                                  EnsureEventProcessorStarted();
+                                                                  Interlocked.Increment(ref _hasSubscribers);
+                                                                  var subscription = _pipeline!.Subscribe(observer);
+                                                                  return Scope.Create(() =>
+                                                                  {
+                                                                      subscription.Dispose();
+                                                                      Interlocked.Decrement(ref _hasSubscribers);
+                                                                  });
+                                                              });
 
-    /// <summary>
-    /// Gets a value indicating whether the object has been disposed.
-    /// </summary>
+    /// <summary>Gets a value indicating whether the object has been disposed.</summary>
     public bool IsDisposed { get; private set; }
 
-    /// <summary>
-    /// Gets the current version number of the collection, which is incremented on each modification.
-    /// </summary>
+    /// <summary>Gets the current version number of the collection, which is incremented on each modification.</summary>
     /// <remarks>This property can be used for efficient change detection without acquiring locks.
     /// The version is incremented atomically using <see cref="Interlocked.Increment(ref long)"/>.</remarks>
     public long Version => Interlocked.Read(ref _version);
 
-    /// <summary>
-    /// Removes all items from the cache.
-    /// </summary>
+    /// <summary>Gets thread-safe secondary indices associated with the current instance.</summary>
+    /// <remarks>Each entry maps a unique index name to its corresponding secondary index. This dictionary
+    /// enables efficient retrieval and management of secondary indices in concurrent scenarios.</remarks>
+    protected ConcurrentDictionary<string, ISecondaryIndex<TValue>> Indices { get; } = new();
+
+    /// <summary>Gets the array of ReaderWriterLockSlim instances used to synchronize access to shared resources.</summary>
+    protected ReaderWriterLockSlim[] Locks { get; } =
+    [
+        new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion),
+        new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion),
+        new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion),
+        new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion)
+    ];
+
+    /// <summary>Gets the shard containers used by the base class for generic lifecycle operations.</summary>
+    protected abstract IReadOnlyList<IQuad<TItem>> BaseQuads { get; }
+
+    /// <summary>Removes all items from the cache.</summary>
     public void Clear()
     {
         // Acquire all locks first to ensure consistency
@@ -186,7 +157,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                Quads[i].Clear();
+                BaseQuads[i].Clear();
             }
 
             SetCount(0);
@@ -211,38 +182,28 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         Emit(CacheAction.Cleared, default);
     }
 
-    /// <summary>
-    /// Releases all resources used by the current instance.
-    /// </summary>
+    /// <summary>Releases all resources used by the current instance.</summary>
     public void Dispose()
     {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Returns an array containing all elements in the collection.
-    /// </summary>
+    /// <summary>Returns an array containing all elements in the collection.</summary>
     /// <returns>An array of type TItem that contains all elements of the collection. The array is empty if the collection
     /// contains no elements.</returns>
     public TItem[] ToArray() =>
         [.. this];
 
-    /// <summary>
-    /// Returns an enumerator that iterates through the collection.
-    /// </summary>
+    /// <summary>Returns an enumerator that iterates through the collection.</summary>
     /// <returns>An enumerator that can be used to iterate through the collection.</returns>
     public abstract IEnumerator<TItem> GetEnumerator();
 
-    /// <summary>
-    /// Returns an enumerator that iterates through a collection.
-    /// </summary>
+    /// <summary>Returns an enumerator that iterates through a collection.</summary>
     /// <returns>An <see cref="System.Collections.IEnumerator"/> object that can be used to iterate through the collection.</returns>
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
-    /// <summary>
-    /// Attempts to enqueue a cache event for processing and increments the version counter.
-    /// </summary>
+    /// <summary>Attempts to enqueue a cache event for processing and increments the version counter.</summary>
     /// <param name="action">The cache action type.</param>
     /// <param name="item">The item associated with the action.</param>
     /// <param name="batch">An optional batch of items.</param>
@@ -262,15 +223,15 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         }
 
         EnsureEventProcessorStarted();
-        if (!_eventChannel!.Writer.TryWrite(new(action, item, batch)))
+        if (_eventChannel!.Writer.TryWrite(new(action, item, batch)))
         {
-            batch?.Dispose();
+            return;
         }
+
+        batch?.Dispose();
     }
 
-    /// <summary>
-    /// Emits a batch operation using the specified items and count without additional validation or copying.
-    /// </summary>
+    /// <summary>Emits a batch operation using the specified items and count without additional validation or copying.</summary>
     /// <remarks>This method is intended for scenarios where the caller can guarantee the validity of the
     /// input parameters. No parameter validation is performed. The method may rent temporary arrays from the shared
     /// pool for performance reasons.</remarks>
@@ -289,9 +250,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         Emit(CacheAction.BatchOperation, default, CreateBatch(items, count));
     }
 
-    /// <summary>
-    /// Emits a batch added notification using the specified items and count without additional validation or copying.
-    /// </summary>
+    /// <summary>Emits a batch added notification using the specified items and count without additional validation or copying.</summary>
     /// <remarks>This method is intended for scenarios where the caller can guarantee the validity of the
     /// input parameters. No parameter validation is performed. The method may rent temporary arrays from the shared
     /// pool for performance reasons.</remarks>
@@ -310,9 +269,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         Emit(CacheAction.BatchAdded, default, CreateBatch(items, count));
     }
 
-    /// <summary>
-    /// Emits a batch added notification using the specified number of items from the provided list.
-    /// </summary>
+    /// <summary>Emits a batch added notification using the specified number of items from the provided list.</summary>
     /// <remarks>The method copies the specified number of items from the list into a pooled array before
     /// emitting the batch added notification. The caller is responsible for ensuring that the list contains at least the
     /// specified number of items.</remarks>
@@ -322,7 +279,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void EmitBatchAddedFromList(IList<TItem> items, int count)
     {
-        if (items == null)
+        if (items is null)
         {
             throw new ArgumentNullException(nameof(items));
         }
@@ -342,9 +299,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         Emit(CacheAction.BatchAdded, default, new PooledBatch<TItem>(pool, count, ReturnToPool: false));
     }
 
-    /// <summary>
-    /// Raises a batch removed event for the specified items.
-    /// </summary>
+    /// <summary>Raises a batch removed event for the specified items.</summary>
     /// <remarks>This method uses a pooled array to optimize memory usage when emitting the batch removed
     /// event. The caller should ensure that the <paramref name="items"/> array contains at least <paramref
     /// name="count"/> elements.</remarks>
@@ -363,9 +318,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         Emit(CacheAction.BatchRemoved, default, CreateBatch(items, count));
     }
 
-    /// <summary>
-    /// Emits a batch removed notification using an already-owned array.
-    /// </summary>
+    /// <summary>Emits a batch removed notification using an already-owned array.</summary>
     /// <param name="items">The owned array containing removed items.</param>
     /// <param name="count">The number of valid items in <paramref name="items"/>.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -380,9 +333,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(items, count, ReturnToPool: false));
     }
 
-    /// <summary>
-    /// Emits a notification that a batch of items has been removed from the list.
-    /// </summary>
+    /// <summary>Emits a notification that a batch of items has been removed from the list.</summary>
     /// <param name="items">The list containing the items that were removed. The first <paramref name="count"/> elements are considered
     /// removed.</param>
     /// <param name="count">The number of items removed from the list. Must be greater than or equal to 0 and less than or equal to the
@@ -390,7 +341,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void EmitBatchRemovedFromList(IList<TItem> items, int count)
     {
-        if (items == null)
+        if (items is null)
         {
             throw new ArgumentNullException(nameof(items));
         }
@@ -410,9 +361,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(pool, count, ReturnToPool: false));
     }
 
-    /// <summary>
-    /// Notifies all registered indices that a new item has been added.
-    /// </summary>
+    /// <summary>Notifies all registered indices that a new item has been added.</summary>
     /// <param name="item">The item that was added and should be communicated to all indices.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void NotifyIndicesAdded(TValue item)
@@ -428,9 +377,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         }
     }
 
-    /// <summary>
-    /// Notifies all registered index listeners that the specified item has been removed.
-    /// </summary>
+    /// <summary>Notifies all registered index listeners that the specified item has been removed.</summary>
     /// <param name="item">The item that was removed and for which index listeners should be notified.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void NotifyIndicesRemoved(TValue item)
@@ -446,53 +393,51 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         }
     }
 
-    /// <summary>
-    /// Releases the unmanaged resources and optionally releases the managed resources.
-    /// </summary>
+    /// <summary>Releases the unmanaged resources and optionally releases the managed resources.</summary>
     /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
-        if (!IsDisposed)
+        if (IsDisposed)
         {
-            if (disposing)
-            {
-                _cts?.Cancel();
-                _cts?.Dispose();
-                foreach (var l in Locks)
-                {
-                    l.Dispose();
-                }
+            return;
+        }
 
-                _pipeline?.OnCompleted();
-                _pipeline?.Dispose();
+        if (disposing)
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+            foreach (var l in Locks)
+            {
+                l.Dispose();
             }
 
-            IsDisposed = true;
+            _pipeline?.OnCompleted();
+            _pipeline?.Dispose();
         }
+
+        IsDisposed = true;
     }
 
-    /// <summary>
-    /// Atomically adds the specified delta to the cached item count.
-    /// </summary>
+    /// <summary>Atomically adds the specified delta to the cached item count.</summary>
     /// <param name="value">The count delta to apply.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void AddToCount(int value) => Interlocked.Add(ref _count, value);
 
-    /// <summary>
-    /// Sets the cached item count to the specified value.
-    /// </summary>
+    /// <summary>Sets the cached item count to the specified value.</summary>
     /// <param name="value">The new count value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void SetCount(int value) => Volatile.Write(ref _count, value);
 
-    /// <summary>
-    /// Gets a value indicating whether the collection has observable or INCC subscribers.
-    /// </summary>
+    /// <summary>Gets a value indicating whether the collection has observable or INCC subscribers.</summary>
     /// <returns><see langword="true"/> when change notifications need to be materialized; otherwise, <see langword="false"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected bool HasChangeObservers() =>
-        Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) != 0 || _collectionChanged != null;
+        Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) != 0 || _collectionChanged is not null;
 
+    /// <summary>Creates data for the CreateBatch operation.</summary>
+    /// <param name="items">The items value.</param>
+    /// <param name="count">The count value.</param>
+    /// <returns>A pooled batch wrapping a copy of the specified items.</returns>
     private static PooledBatch<TItem> CreateBatch(TItem[] items, int count)
     {
         var batchItems = new TItem[count];
@@ -500,9 +445,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         return new PooledBatch<TItem>(batchItems, count, ReturnToPool: false);
     }
 
-    /// <summary>
-    /// Asynchronously processes events from the event channel until cancellation is requested.
-    /// </summary>
+    /// <summary>Asynchronously processes events from the event channel until cancellation is requested.</summary>
     /// <remarks>This method reads events from the internal event channel and processes them through the
     /// pipeline. The operation continues until the associated cancellation token is triggered. If a legacy collection
     /// changed handler is registered, it is invoked for each event.</remarks>
@@ -512,7 +455,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         var channel = _eventChannel;
         var pipeline = _pipeline;
         var cts = _cts;
-        if (channel == null || pipeline == null || cts == null)
+        if (channel is null || pipeline is null || cts is null)
         {
             return;
         }
@@ -526,7 +469,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
                 {
                     pipeline.OnNext(evt);
 
-                    if (_collectionChanged != null)
+                    if (_collectionChanged is not null)
                     {
                         InvokeLegacyINCC(evt);
                     }
@@ -550,7 +493,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
     private void InvokeLegacyINCC(CacheNotify<TItem> evt)
     {
         var handler = _collectionChanged;
-        if (handler == null)
+        if (handler is null)
         {
             evt.Batch?.Dispose();
             return;
@@ -558,7 +501,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
 
         NotifyCollectionChangedEventArgs args;
 
-        if (evt.Batch != null)
+        if (evt.Batch is not null)
         {
             // Batch operations use Reset to avoid index issues with sharded collections
             args = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset);
@@ -588,7 +531,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         }
 
         // Dispatch to the captured synchronization context (UI thread)
-        if (_syncContext != null)
+        if (_syncContext is not null)
         {
             _syncContext.Post(_ => handler.Invoke(this, args), null);
         }
@@ -599,9 +542,12 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         }
     }
 
+    /// <summary>Handles property change notifications.</summary>
+    /// <param name="args">The args value.</param>
     private void OnPropertyChanged(PropertyChangedEventArgs args) =>
         PropertyChanged?.Invoke(this, args);
 
+    /// <summary>Ensures state for the EnsureEventProcessorStarted operation.</summary>
     private void EnsureEventProcessorStarted()
     {
         if (Volatile.Read(ref _eventProcessorStarted) != 0)
@@ -610,7 +556,7 @@ public abstract class QuaternaryBase<TItem, TQuad, TValue> : IReactiveSource<TIt
         }
 
         var gate = _eventGate;
-        if (gate == null)
+        if (gate is null)
         {
             var newGate = new object();
             gate = Interlocked.CompareExchange(ref _eventGate, newGate, null) ?? newGate;

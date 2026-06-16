@@ -1,6 +1,9 @@
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.Reactive.Linq;
 using BenchmarkDotNet.Attributes;
 using CP.Reactive;
 using CP.Reactive.Collections;
@@ -25,7 +28,7 @@ public class DynamicDataParityBenchmarks
     {
         using var list = new ReactiveList<int>(_data);
         var total = 0;
-        using var subscription = list.Connect().Subscribe(changes => total += changes.Count);
+        using var subscription = list.Connect().SubscribeObserver(changes => total += changes.Count);
         return total;
     }
 
@@ -35,7 +38,7 @@ public class DynamicDataParityBenchmarks
         using var list = new SourceList<int>();
         list.AddRange(_data);
         var total = 0;
-        using var subscription = list.Connect().Subscribe(changes => total += changes.TotalChanges);
+        using var subscription = list.Connect().SubscribeObserver(changes => total += changes.TotalChanges);
         return total;
     }
 
@@ -49,7 +52,7 @@ public class DynamicDataParityBenchmarks
                 .WhereChanges(static change => change.Current % 2 == 0)
                 .SelectChanges(static (int item) => item * 2),
             static item => item);
-        using var subscription = pipeline.Subscribe(changes => total += changes.Count);
+        using var subscription = pipeline.SubscribeObserver(changes => total += changes.Count);
 
         list.AddRange(_data);
         return total;
@@ -64,7 +67,7 @@ public class DynamicDataParityBenchmarks
             .Transform(static item => item * 2)
             .Sort(SortExpressionComparer<int>.Ascending(static item => item))
             .Bind(out ReadOnlyObservableCollection<int> bound)
-            .Subscribe();
+            .SubscribeObserver(_ => { });
 
         list.AddRange(_data);
         return bound.Count;
@@ -87,7 +90,7 @@ public class DynamicDataParityBenchmarks
         using var list = new SourceList<int>();
         using var subscription = list.Connect()
             .Bind(out ReadOnlyObservableCollection<int> bound)
-            .Subscribe();
+            .SubscribeObserver(_ => { });
         var events = 0;
         ((INotifyCollectionChanged)bound).CollectionChanged += (_, _) => events++;
 
@@ -101,7 +104,7 @@ public class DynamicDataParityBenchmarks
         using var list = new QuaternaryList<int>();
         using var delivered = new ManualResetEventSlim();
         var events = 0;
-        using var subscription = list.Stream.Subscribe(notification =>
+        using var subscription = list.Stream.SubscribeObserver(notification =>
         {
             events++;
             notification.Batch?.Dispose();
@@ -118,7 +121,7 @@ public class DynamicDataParityBenchmarks
     {
         using var list = new SourceList<int>();
         var events = 0;
-        using var subscription = list.Connect().Subscribe(_ => events++);
+        using var subscription = list.Connect().SubscribeObserver(_ => events++);
 
         list.AddRange(_data);
         return events;

@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 
@@ -421,10 +422,10 @@ public class QuaternaryDictionaryTests
     private static IEnumerable<TValue> GetLookup<TKey, TValue>(QuaternaryDictionary<TKey, TValue> dictionary, string indexName, object key)
         where TKey : notnull
     {
-        // The Indices field is now in the base class QuaternaryBase<TItem, TQuad, TValue>
+        // The Indices property is in the base class QuaternaryBase<TItem, TValue>
         var baseType = dictionary.GetType().BaseType!;
-        var field = baseType.GetField("Indices", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy)!;
-        var indices = (ConcurrentDictionary<string, ISecondaryIndex<TValue>>)field.GetValue(dictionary)!;
+        var property = baseType.GetProperty("Indices", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy)!;
+        var indices = (ConcurrentDictionary<string, ISecondaryIndex<TValue>>)property.GetValue(dictionary)!;
         indices.TryGetValue(indexName, out var index).Should().BeTrue();
         var lookupMethod = index!.GetType().GetMethod("Lookup", BindingFlags.Public | BindingFlags.Instance)!;
         return (IEnumerable<TValue>)lookupMethod.Invoke(index, new[] { key })!;

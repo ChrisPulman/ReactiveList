@@ -6,41 +6,178 @@
     xmlns:local="clr-namespace:ReactiveListTestApp"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     d:DataContext="{d:DesignInstance Type=local:MainViewModel}"
-    d:DesignHeight="450"
-    d:DesignWidth="800"
+    d:DesignHeight="620"
+    d:DesignWidth="980"
     mc:Ignorable="d">
-    <Grid>
+    <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel
-            Grid.Row="0"
-            Margin="10"
-            Orientation="Horizontal">
+        <WrapPanel Grid.Row="0" Margin="0,0,0,8">
             <Button
-                Margin="5"
+                MinWidth="96"
+                Margin="0,0,6,6"
+                Padding="10,5"
                 Command="{Binding AddItemCommand}"
-                CommandParameter="INJECTED VALUE "
-                Content="Add Item" />
+                CommandParameter="Manual "
+                Content="Add" />
             <Button
-                Margin="5"
+                MinWidth="96"
+                Margin="0,0,6,6"
+                Padding="10,5"
                 Command="{Binding ClearItemsCommand}"
-                Content="Clear Items" />
+                Content="Clear" />
             <Button
-                Margin="5"
+                MinWidth="110"
+                Margin="0,0,6,6"
+                Padding="10,5"
                 Command="{Binding ReplaceAllCommand}"
-                Content="Replace All Items" />
+                Content="Replace" />
             <Button
-                Margin="5"
+                MinWidth="96"
+                Margin="0,0,6,6"
+                Padding="10,5"
                 Command="{Binding PauseCommand}"
                 Content="Pause" />
-        </StackPanel>
+            <Button
+                MinWidth="148"
+                Margin="0,0,6,6"
+                Padding="10,5"
+                Command="{Binding RunReactiveListScenarioCommand}"
+                Content="List Scenario" />
+            <Button
+                MinWidth="148"
+                Margin="0,0,6,6"
+                Padding="10,5"
+                Command="{Binding RunMatrixScenarioCommand}"
+                Content="Matrix Scenario" />
+            <Button
+                MinWidth="148"
+                Margin="0,0,6,6"
+                Padding="10,5"
+                Command="{Binding RunIndexScenarioCommand}"
+                Content="Index Scenario" />
+        </WrapPanel>
 
-        <ListBox
+        <ScrollViewer
             Grid.Row="1"
-            Margin="10"
-            ItemsSource="{Binding Items}" />
+            HorizontalScrollBarVisibility="Disabled"
+            VerticalScrollBarVisibility="Auto">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="220" />
+                    <RowDefinition Height="220" />
+                    <RowDefinition Height="220" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <GroupBox
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Margin="0,0,6,6"
+                    Header="ReactiveList Items">
+                    <ListBox ItemsSource="{Binding Items}" />
+                </GroupBox>
+
+                <GroupBox
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Margin="0,0,6,6"
+                    Header="All Numbers View">
+                    <ListBox ItemsSource="{Binding AllNumbers}" />
+                </GroupBox>
+
+                <GroupBox
+                    Grid.Row="0"
+                    Grid.Column="2"
+                    Margin="0,0,0,6"
+                    Header="Filtered Number Views">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Margin="0,0,4,0"
+                            FontWeight="SemiBold"
+                            Text="Even" />
+                        <TextBlock
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Margin="4,0,0,0"
+                            FontWeight="SemiBold"
+                            Text="Dynamic" />
+                        <ListBox
+                            Grid.Row="1"
+                            Grid.Column="0"
+                            Margin="0,4,4,0"
+                            ItemsSource="{Binding EvenNumbers}" />
+                        <ListBox
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Margin="4,4,0,0"
+                            ItemsSource="{Binding DynamicNumbers}" />
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    Margin="0,0,6,6"
+                    Header="Reactive2DList Matrix">
+                    <ListBox ItemsSource="{Binding MatrixRows}" />
+                </GroupBox>
+
+                <GroupBox
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Margin="0,0,6,6"
+                    Header="QuaternaryList Engineering">
+                    <ListBox DisplayMemberPath="Email" ItemsSource="{Binding EngineeringContacts}" />
+                </GroupBox>
+
+                <GroupBox
+                    Grid.Row="1"
+                    Grid.Column="2"
+                    Margin="0,0,0,6"
+                    Header="QuaternaryDictionary View">
+                    <ListBox ItemsSource="{Binding EngineeringDictionaryContacts}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Value.Email}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </GroupBox>
+
+                <GroupBox
+                    Grid.Row="2"
+                    Grid.Column="0"
+                    Grid.ColumnSpan="2"
+                    Margin="0,0,6,0"
+                    Header="Dictionary Lookup">
+                    <ListBox ItemsSource="{Binding DictionaryLookups}" />
+                </GroupBox>
+
+                <GroupBox
+                    Grid.Row="2"
+                    Grid.Column="2"
+                    Header="Operation Log">
+                    <ListBox ItemsSource="{Binding OperationLog}" />
+                </GroupBox>
+            </Grid>
+        </ScrollViewer>
     </Grid>
 </UserControl>

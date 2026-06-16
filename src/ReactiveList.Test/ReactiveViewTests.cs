@@ -1,11 +1,10 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.Reactive.Concurrency;
-using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
@@ -31,7 +30,7 @@ public class ReactiveViewTests
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("stream");
@@ -43,14 +42,14 @@ public class ReactiveViewTests
     [Test]
     public void Constructor_WithNullFilter_ShouldThrow()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         var act = () => new ReactiveView<string>(
             subject,
             [],
             null!,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("filter");
@@ -62,7 +61,7 @@ public class ReactiveViewTests
     [Test]
     public void Constructor_WithSnapshot_ShouldLoadItems()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
         var snapshot = new[] { "one", "two", "three" };
 
         using var view = new ReactiveView<string>(
@@ -70,7 +69,7 @@ public class ReactiveViewTests
             snapshot,
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         view.Items.Should().BeEquivalentTo(["one", "two", "three"]);
     }
@@ -81,7 +80,7 @@ public class ReactiveViewTests
     [Test]
     public void Constructor_WithFilter_ShouldFilterSnapshot()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
         var snapshot = new[] { "apple", "banana", "apricot", "cherry" };
 
         using var view = new ReactiveView<string>(
@@ -89,7 +88,7 @@ public class ReactiveViewTests
             snapshot,
             s => s.StartsWith("a"),
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         view.Items.Should().BeEquivalentTo(["apple", "apricot"]);
     }
@@ -100,7 +99,7 @@ public class ReactiveViewTests
     [Test]
     public void Constructor_WithNullSnapshot_ShouldNotThrow()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         var act = () =>
         {
@@ -109,7 +108,7 @@ public class ReactiveViewTests
                 null!,
                 _ => true,
                 TimeSpan.FromMilliseconds(10),
-                ImmediateScheduler.Instance);
+                Sequencer.Immediate);
         };
 
         act.Should().NotThrow();
@@ -121,14 +120,14 @@ public class ReactiveViewTests
     [Test]
     public void Items_ShouldBeReadOnly()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             ["test"],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         view.Items.Should().BeOfType<System.Collections.ObjectModel.ReadOnlyObservableCollection<string>>();
     }
@@ -140,14 +139,14 @@ public class ReactiveViewTests
     [Test]
     public async Task AddedNotification_ShouldAddItemToView()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         subject.OnNext(new CacheNotify<string>(CacheAction.Added, "newItem"));
 
@@ -163,14 +162,14 @@ public class ReactiveViewTests
     [Test]
     public async Task AddedNotification_WithFilter_ShouldOnlyAddMatchingItems()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             s => s.Length > 3,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         subject.OnNext(new CacheNotify<string>(CacheAction.Added, "ab"));
         subject.OnNext(new CacheNotify<string>(CacheAction.Added, "abcd"));
@@ -187,14 +186,14 @@ public class ReactiveViewTests
     [Test]
     public async Task RemovedNotification_ShouldRemoveItemFromView()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             ["one", "two", "three"],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         subject.OnNext(new CacheNotify<string>(CacheAction.Removed, "two"));
 
@@ -210,14 +209,14 @@ public class ReactiveViewTests
     [Test]
     public async Task ClearedNotification_ShouldClearView()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             ["one", "two", "three"],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         subject.OnNext(new CacheNotify<string>(CacheAction.Cleared, null));
 
@@ -233,14 +232,14 @@ public class ReactiveViewTests
     [Test]
     public async Task BatchOperationNotification_ShouldAddBatchItems()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var array = ArrayPool<string>.Shared.Rent(10);
         array[0] = "item1";
@@ -262,14 +261,14 @@ public class ReactiveViewTests
     [Test]
     public async Task BatchOperationNotification_WithFilter_ShouldFilterItems()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             s => s.StartsWith("a"),
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var array = ArrayPool<string>.Shared.Rent(10);
         array[0] = "apple";
@@ -290,7 +289,7 @@ public class ReactiveViewTests
     [Test]
     public void ToProperty_ShouldSetProperty()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
         System.Collections.ObjectModel.ReadOnlyObservableCollection<string>? capturedItems = null;
 
         using var view = new ReactiveView<string>(
@@ -298,7 +297,7 @@ public class ReactiveViewTests
             ["test"],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var result = view.ToProperty(items => capturedItems = items);
 
@@ -312,14 +311,14 @@ public class ReactiveViewTests
     [Test]
     public void ToProperty_WithNullSetter_ShouldThrow()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var act = () => view.ToProperty(null!);
 
@@ -333,14 +332,14 @@ public class ReactiveViewTests
     [Test]
     public void Dispose_ShouldCleanUpSubscription()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var act = () => view.Dispose();
 
@@ -353,14 +352,14 @@ public class ReactiveViewTests
     [Test]
     public void Dispose_MultipleCalls_ShouldBeSafe()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         view.Dispose();
         var act = () => view.Dispose();
@@ -375,7 +374,7 @@ public class ReactiveViewTests
     [Test]
     public async Task PropertyChanged_ShouldFireWhenItemsUpdated()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
         var propertyChangedFired = false;
 
         using var view = new ReactiveView<string>(
@@ -383,7 +382,7 @@ public class ReactiveViewTests
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         view.PropertyChanged += (_, e) =>
         {
@@ -407,14 +406,14 @@ public class ReactiveViewTests
     [Test]
     public async Task AddedNotification_WithNullItem_ShouldNotAdd()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         subject.OnNext(new CacheNotify<string>(CacheAction.Added, null));
 
@@ -430,14 +429,14 @@ public class ReactiveViewTests
     [Test]
     public async Task RemovedNotification_WithNullItem_ShouldNotThrow()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             ["test"],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var act = async () =>
         {
@@ -455,14 +454,14 @@ public class ReactiveViewTests
     [Test]
     public async Task BatchNotification_WithNullBatch_ShouldNotThrow()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         var act = async () =>
         {
@@ -480,14 +479,14 @@ public class ReactiveViewTests
     [Test]
     public async Task View_ShouldBufferMultipleNotifications()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             [],
             _ => true,
             TimeSpan.FromMilliseconds(50),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         // Send multiple notifications quickly
         subject.OnNext(new CacheNotify<string>(CacheAction.Added, "one"));
@@ -506,14 +505,14 @@ public class ReactiveViewTests
     [Test]
     public async Task UpdatedAction_ShouldNotChangeItems()
     {
-        var subject = new Subject<CacheNotify<string>>();
+        var subject = new Signal<CacheNotify<string>>();
 
         using var view = new ReactiveView<string>(
             subject,
             ["original"],
             _ => true,
             TimeSpan.FromMilliseconds(10),
-            ImmediateScheduler.Instance);
+            Sequencer.Immediate);
 
         // Updated action is not handled in ApplyChange, so items should remain
         subject.OnNext(new CacheNotify<string>(CacheAction.Updated, "updated"));

@@ -1,11 +1,9 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System;
 using System.Collections.Generic;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
@@ -156,7 +154,7 @@ public class ReactiveListExtensionsTests
         list.AddRange(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
 
         // Act
-        using var view = list.CreateView(x => x > 5, ImmediateScheduler.Instance, 0);
+        using var view = list.CreateView(x => x > 5, Sequencer.Immediate, 0);
 
         // Allow time for initial sync
         await Task.Delay(50);
@@ -177,7 +175,7 @@ public class ReactiveListExtensionsTests
         using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3 });
 
-        using var view = list.CreateView(x => x > 1, ImmediateScheduler.Instance, 0);
+        using var view = list.CreateView(x => x > 1, Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Act
@@ -199,9 +197,9 @@ public class ReactiveListExtensionsTests
         using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3, 4, 5 });
 
-        var filterSubject = new BehaviorSubject<Func<int, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(_ => true);
 
-        using var view = list.CreateView(filterSubject, ImmediateScheduler.Instance, 0);
+        using var view = list.CreateView(filterSubject, Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         view.Count.Should().Be(5);
@@ -226,7 +224,7 @@ public class ReactiveListExtensionsTests
         list.AddRange(new[] { 5, 2, 8, 1, 9, 3 });
 
         // Act - sort ascending
-        using var view = list.SortBy(Comparer<int>.Default, ImmediateScheduler.Instance, 0);
+        using var view = list.SortBy(Comparer<int>.Default, Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Assert
@@ -245,7 +243,7 @@ public class ReactiveListExtensionsTests
         list.AddRange(new[] { "banana", "apple", "cherry" });
 
         // Act - sort by length
-        using var view = list.SortBy((string s) => s.Length, scheduler: ImmediateScheduler.Instance, throttleMs: 0);
+        using var view = list.SortBy((string s) => s.Length, scheduler: Sequencer.Immediate, throttleMs: 0);
         await Task.Delay(50);
 
         // Assert (apple=5, cherry=6, banana=6 - but banana comes before cherry alphabetically when lengths equal)
@@ -265,7 +263,7 @@ public class ReactiveListExtensionsTests
         list.AddRange(new[] { 1, 2, 3, 4, 5, 6 });
 
         // Act - group by even/odd
-        using var view = list.GroupBy((int x) => x % 2 == 0 ? "even" : "odd", ImmediateScheduler.Instance, 0);
+        using var view = list.GroupBy((int x) => x % 2 == 0 ? "even" : "odd", Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Assert
@@ -287,7 +285,7 @@ public class ReactiveListExtensionsTests
         using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3 });
 
-        using var view = list.GroupBy((int x) => x % 2 == 0 ? "even" : "odd", ImmediateScheduler.Instance, 0);
+        using var view = list.GroupBy((int x) => x % 2 == 0 ? "even" : "odd", Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Act

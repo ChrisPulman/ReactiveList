@@ -1,13 +1,11 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive.Collections;
 using FluentAssertions;
@@ -28,14 +26,14 @@ public class DynamicSearchTests
     public async Task SearchByLastName_WhenQueryMatchesShouldReturnMatchingItemsAsync()
     {
         // Arrange
-        var searchText = new BehaviorSubject<string>(string.Empty);
+        var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
 
         // Setup search pipeline that rebuilds when search text changes
         searchText
             .Throttle(TimeSpan.FromMilliseconds(10))
-            .ObserveOn(ImmediateScheduler.Instance)
+            .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
                 searchResults.Clear();
@@ -75,13 +73,13 @@ public class DynamicSearchTests
     public async Task SearchByEmail_WhenQueryMatchesShouldReturnMatchingItemsAsync()
     {
         // Arrange
-        var searchText = new BehaviorSubject<string>(string.Empty);
+        var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
 
         searchText
             .Throttle(TimeSpan.FromMilliseconds(10))
-            .ObserveOn(ImmediateScheduler.Instance)
+            .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
                 searchResults.Clear();
@@ -120,13 +118,13 @@ public class DynamicSearchTests
     public async Task EmptyQuery_ShouldReturnAllItemsAsync()
     {
         // Arrange
-        var searchText = new BehaviorSubject<string>(string.Empty);
+        var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
 
         searchText
             .Throttle(TimeSpan.FromMilliseconds(10))
-            .ObserveOn(ImmediateScheduler.Instance)
+            .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
                 searchResults.Clear();
@@ -162,13 +160,13 @@ public class DynamicSearchTests
     public async Task Search_ShouldBeCaseInsensitiveAsync()
     {
         // Arrange
-        var searchText = new BehaviorSubject<string>(string.Empty);
+        var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
 
         searchText
             .Throttle(TimeSpan.FromMilliseconds(10))
-            .ObserveOn(ImmediateScheduler.Instance)
+            .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
                 searchResults.Clear();
@@ -209,14 +207,14 @@ public class DynamicSearchTests
     public async Task SearchResults_ShouldUpdateWhenContactsAddedAsync()
     {
         // Arrange
-        var searchText = new BehaviorSubject<string>("user1");
+        var searchText = new BehaviorSignal<string>("user1");
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
 
         // Subscribe to search text changes
         searchText
             .Throttle(TimeSpan.FromMilliseconds(10))
-            .ObserveOn(ImmediateScheduler.Instance)
+            .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
                 searchResults.Clear();
@@ -232,7 +230,7 @@ public class DynamicSearchTests
         // Subscribe to contact changes
         contacts.Stream
             .Throttle(TimeSpan.FromMilliseconds(10))
-            .ObserveOn(ImmediateScheduler.Instance)
+            .ObserveOn(Sequencer.Immediate)
             .Subscribe(_ =>
             {
                 var query = searchText.Value;
@@ -269,13 +267,13 @@ public class DynamicSearchTests
     public async Task NonMatchingQuery_ShouldReturnEmptyResultsAsync()
     {
         // Arrange
-        var searchText = new BehaviorSubject<string>(string.Empty);
+        var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
 
         searchText
             .Throttle(TimeSpan.FromMilliseconds(10))
-            .ObserveOn(ImmediateScheduler.Instance)
+            .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
                 searchResults.Clear();

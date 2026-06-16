@@ -1,13 +1,11 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
@@ -179,7 +177,7 @@ public class ReactiveListExtensionsAdditionalTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSubject<Func<int, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(_ => true);
         var receivedItems = new List<int>();
 
         using var subscription = list.Stream
@@ -218,7 +216,7 @@ public class ReactiveListExtensionsAdditionalTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSubject<Func<int, bool>>(x => x > 5);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(x => x > 5);
         var removedItems = new List<int>();
 
         using var subscription = list.Stream
@@ -248,7 +246,7 @@ public class ReactiveListExtensionsAdditionalTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSubject<Func<int, bool>>(x => x > 0);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(x => x > 0);
         var clearReceived = false;
 
         using var subscription = list.Stream
@@ -281,7 +279,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.AddRange(new[] { 1, 2, 3, 4, 5 });
 
         // Act
-        using var view = list.CreateView(ImmediateScheduler.Instance, 0);
+        using var view = list.CreateView(Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Assert
@@ -300,7 +298,7 @@ public class ReactiveListExtensionsAdditionalTests
         using var list = new ReactiveList<int>();
         list.AddRange(new[] { 1, 2, 3 });
 
-        using var view = list.CreateView(ImmediateScheduler.Instance, 0);
+        using var view = list.CreateView(Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Act
@@ -324,13 +322,13 @@ public class ReactiveListExtensionsAdditionalTests
         using var list = new QuaternaryList<string>();
         list.AddRange(new[] { "apple", "banana", "apricot", "cherry", "avocado" });
 
-        var searchQuery = new BehaviorSubject<string>(string.Empty);
+        var searchQuery = new BehaviorSignal<string>(string.Empty);
 
         // Act
         using var view = list.CreateView(
             searchQuery,
             (query, item) => string.IsNullOrEmpty(query) || item.StartsWith(query, StringComparison.OrdinalIgnoreCase),
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             0);
 
         await Task.Delay(50);
@@ -362,12 +360,12 @@ public class ReactiveListExtensionsAdditionalTests
         using var list = new QuaternaryList<int>();
         list.AddRange(new[] { 1, 2, 3 });
 
-        var thresholdQuery = new BehaviorSubject<int>(2);
+        var thresholdQuery = new BehaviorSignal<int>(2);
 
         using var view = list.CreateView(
             thresholdQuery,
             (threshold, item) => item > threshold,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             0);
 
         await Task.Delay(50);

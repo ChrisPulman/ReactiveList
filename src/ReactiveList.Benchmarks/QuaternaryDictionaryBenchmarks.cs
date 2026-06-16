@@ -1,4 +1,7 @@
-using System.Reactive.Linq;
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
 using BenchmarkDotNet.Attributes;
 using CP.Reactive.Collections;
 using DynamicData;
@@ -156,7 +159,7 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var dict = new QuaternaryDictionary<int, int>();
         var events = 0;
-        using var sub = dict.Stream.Subscribe(_ => events++);
+        using var sub = dict.Stream.SubscribeObserver(_ => events++);
         dict.AddRange(_kvps);
         return events;
     }
@@ -166,7 +169,7 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
         var events = 0;
-        using var sub = cache.Connect().Subscribe(_ => events++);
+        using var sub = cache.Connect().SubscribeObserver(_ => events++);
         cache.AddOrUpdate(_items);
         return events;
     }
@@ -436,7 +439,7 @@ public class QuaternaryDictionaryBenchmarks
         using var dict = new QuaternaryDictionary<int, int>();
         dict.AddRange(_kvps);
         var events = 0;
-        using var sub = dict.Stream.Subscribe(_ => events++);
+        using var sub = dict.Stream.SubscribeObserver(_ => events++);
         dict.RemoveKeys(Enumerable.Range(0, Count / 2));
         return events;
     }
@@ -447,7 +450,7 @@ public class QuaternaryDictionaryBenchmarks
         using var cache = new SourceCache<Item, int>(x => x.Id);
         cache.AddOrUpdate(_items);
         var events = 0;
-        using var sub = cache.Connect().Subscribe(_ => events++);
+        using var sub = cache.Connect().SubscribeObserver(_ => events++);
         cache.RemoveKeys(Enumerable.Range(0, Count / 2));
         return events;
     }

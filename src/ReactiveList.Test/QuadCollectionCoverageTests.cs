@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
@@ -8,7 +9,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using CP.Reactive.Collections;
-using CP.Reactive.Internal;
 using FluentAssertions;
 using TUnit.Core;
 
@@ -47,7 +47,15 @@ public class QuadCollectionCoverageTests
         copied[1].Should().Be(0);
 
         var structEnumerator = list.GetEnumerator();
+        var matchingStructEnumerator = list.GetEnumerator();
+        (structEnumerator == matchingStructEnumerator).Should().BeTrue();
+        (structEnumerator != matchingStructEnumerator).Should().BeFalse();
+        structEnumerator.Equals((object)matchingStructEnumerator).Should().BeTrue();
+        structEnumerator.Equals(new object()).Should().BeFalse();
+        structEnumerator.GetHashCode().Should().NotBe(0);
         structEnumerator.MoveNext().Should().BeTrue();
+        (structEnumerator != matchingStructEnumerator).Should().BeTrue();
+        (structEnumerator == matchingStructEnumerator).Should().BeFalse();
         structEnumerator.Current.Should().Be(0);
         while (structEnumerator.MoveNext())
         {
@@ -61,6 +69,11 @@ public class QuadCollectionCoverageTests
         enumerator.Reset();
         enumerator.MoveNext().Should().BeTrue();
         ((IEnumerator)enumerator).Current.Should().Be(0);
+        while (enumerator.MoveNext())
+        {
+        }
+
+        enumerator.MoveNext().Should().BeFalse();
 
         var nonGenericEnumerator = ((IEnumerable)list).GetEnumerator();
         nonGenericEnumerator.MoveNext().Should().BeTrue();
@@ -70,6 +83,8 @@ public class QuadCollectionCoverageTests
         list.AsSpan().ToArray().Should().NotContain(39);
         list.Clear();
         list.Count.Should().Be(0);
+        list.Dispose();
+        list.Dispose();
     }
 
     /// <summary>
@@ -86,10 +101,10 @@ public class QuadCollectionCoverageTests
         Action setTooHigh = () => list[1] = "missing";
         Action removeTooHigh = () => list.RemoveAt(1);
 
-        getNegative.Should().Throw<IndexOutOfRangeException>();
-        getTooHigh.Should().Throw<IndexOutOfRangeException>();
-        setTooHigh.Should().Throw<IndexOutOfRangeException>();
-        removeTooHigh.Should().Throw<IndexOutOfRangeException>();
+        getNegative.Should().Throw<ArgumentOutOfRangeException>();
+        getTooHigh.Should().Throw<ArgumentOutOfRangeException>();
+        setTooHigh.Should().Throw<ArgumentOutOfRangeException>();
+        removeTooHigh.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     /// <summary>
@@ -125,15 +140,23 @@ public class QuadCollectionCoverageTests
         existed.Should().BeTrue();
         existingRef.Should().Be(5);
 
-        dictionary.GetKeys().Should().BeEquivalentTo(new[] { "one", "four", "five" });
-        dictionary.GetValues().Should().BeEquivalentTo(new[] { 10, 4, 5 });
+        dictionary.Keys.Should().BeEquivalentTo(new[] { "one", "four", "five" });
+        dictionary.Values.Should().BeEquivalentTo(new[] { 10, 4, 5 });
 
         var copied = new List<KeyValuePair<string, int>>();
         dictionary.CopyTo(copied);
         copied.Should().BeEquivalentTo(dictionary.ToArray());
 
         var structEnumerator = dictionary.GetEnumerator();
+        var matchingStructEnumerator = dictionary.GetEnumerator();
+        (structEnumerator == matchingStructEnumerator).Should().BeTrue();
+        (structEnumerator != matchingStructEnumerator).Should().BeFalse();
+        structEnumerator.Equals((object)matchingStructEnumerator).Should().BeTrue();
+        structEnumerator.Equals(new object()).Should().BeFalse();
+        structEnumerator.GetHashCode().Should().NotBe(0);
         structEnumerator.TryGetNext(out var first).Should().BeTrue();
+        (structEnumerator != matchingStructEnumerator).Should().BeTrue();
+        (structEnumerator == matchingStructEnumerator).Should().BeFalse();
         first.Key.Should().NotBeNull();
         while (structEnumerator.MoveNext())
         {
@@ -151,6 +174,9 @@ public class QuadCollectionCoverageTests
         var nonGenericWrapper = ((IEnumerable)dictionary).GetEnumerator();
         nonGenericWrapper.MoveNext().Should().BeTrue();
         nonGenericWrapper.Current.Should().BeOfType<KeyValuePair<string, int>>();
+
+        dictionary.Dispose();
+        dictionary.Dispose();
     }
 
     /// <summary>
@@ -174,14 +200,33 @@ public class QuadCollectionCoverageTests
         Action duplicateAdd = () => dictionary.Add(42, "duplicate");
         Action missingIndexer = () => _ = dictionary[999];
         Action nullCopyTarget = () => dictionary.CopyTo(null!);
+        Action nullKeysTarget = () => dictionary.CopyKeysTo(null!);
+        Action nullValuesTarget = () => dictionary.CopyValuesTo(null!);
 
         duplicateAdd.Should().Throw<ArgumentException>();
         missingIndexer.Should().Throw<KeyNotFoundException>();
         nullCopyTarget.Should().Throw<ArgumentNullException>();
+        nullKeysTarget.Should().Throw<ArgumentNullException>().WithParameterName("list");
+        nullValuesTarget.Should().Throw<ArgumentNullException>().WithParameterName("list");
 
         dictionary.Clear();
         dictionary.Count.Should().Be(0);
         dictionary.Clear();
+
+        using var autoResize = new QuadDictionary<int, int>();
+        for (var i = 0; i < 20; i++)
+        {
+            autoResize.Add(i, i);
+        }
+
+        autoResize.Remove(1).Should().BeTrue();
+        autoResize.EnsureCapacity(64);
+        autoResize.Keys.Should().Contain(19);
+
+        using var nullableKeyDictionary = new QuadDictionary<string?, int>();
+        nullableKeyDictionary.TryAdd(null, 1).Should().BeTrue();
+        nullableKeyDictionary.TryGetValue(null, out var nullKeyValue).Should().BeTrue();
+        nullKeyValue.Should().Be(1);
     }
 
     /// <summary>

@@ -1,9 +1,9 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Collections.Generic;
-using System.Reactive.Concurrency;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
@@ -29,7 +29,7 @@ public class QuaternaryDictionaryExtensionsTests
             new KeyValuePair<int, string>(3, "three")
         ]);
 
-        using var view = dict.CreateView(TaskPoolScheduler.Default, throttleMs: 10);
+        using var view = dict.CreateView(Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(3, view.Items.Count);
     }
@@ -47,7 +47,7 @@ public class QuaternaryDictionaryExtensionsTests
             new KeyValuePair<int, string>(3, "three")
         ]);
 
-        using var view = dict.CreateView(kvp => kvp.Value.Length == 3, TaskPoolScheduler.Default, throttleMs: 10);
+        using var view = dict.CreateView(kvp => kvp.Value.Length == 3, Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(2, view.Items.Count);
         Assert.Contains(view.Items, kvp => kvp.Value == "one");
@@ -68,7 +68,7 @@ public class QuaternaryDictionaryExtensionsTests
             new KeyValuePair<int, TestPerson>(3, new TestPerson("Charlie", "NYC"))
         ]);
 
-        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", TaskPoolScheduler.Default, throttleMs: 10);
+        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(2, view.Items.Count);
         Assert.All(view.Items, kvp => Assert.Equal("NYC", kvp.Value.City));
@@ -89,7 +89,7 @@ public class QuaternaryDictionaryExtensionsTests
             new KeyValuePair<int, TestPerson>(4, new TestPerson("Diana", "NYC"))
         ]);
 
-        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", new[] { "NYC", "LA" }, TaskPoolScheduler.Default, throttleMs: 10);
+        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", new[] { "NYC", "LA" }, Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(3, view.Items.Count);
     }
@@ -108,7 +108,7 @@ public class QuaternaryDictionaryExtensionsTests
         ]);
 
         System.Collections.ObjectModel.ReadOnlyObservableCollection<KeyValuePair<int, string>>? result = null;
-        using var view = dict.CreateView(TaskPoolScheduler.Default, throttleMs: 10)
+        using var view = dict.CreateView(Sequencer.Default, throttleMs: 10)
             .ToProperty(x => result = x);
 
         Assert.NotNull(result);
@@ -123,7 +123,7 @@ public class QuaternaryDictionaryExtensionsTests
     public async Task ReactiveView_ShouldUpdateOnAdd()
     {
         using var dict = new QuaternaryDictionary<int, string>();
-        using var view = dict.CreateView(TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = dict.CreateView(Sequencer.Default, throttleMs: 50);
 
         dict.Add(1, "one");
 
@@ -148,7 +148,7 @@ public class QuaternaryDictionaryExtensionsTests
             new KeyValuePair<int, string>(3, "three")
         ]);
 
-        using var view = dict.CreateView(TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = dict.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
         Assert.Equal(3, view.Items.Count);
@@ -173,7 +173,7 @@ public class QuaternaryDictionaryExtensionsTests
         dict.AddValueIndex("ByCity", p => p.City);
         dict.Add(1, new TestPerson("Alice", "NYC"));
 
-        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", Sequencer.Default, throttleMs: 50);
 
         Assert.Single(view.Items);
 
@@ -196,7 +196,7 @@ public class QuaternaryDictionaryExtensionsTests
         dict.AddValueIndex("ByCity", p => p.City);
         dict.Add(1, new TestPerson("Alice", "NYC"));
 
-        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", Sequencer.Default, throttleMs: 50);
 
         Assert.Single(view.Items);
 

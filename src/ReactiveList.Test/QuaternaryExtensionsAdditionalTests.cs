@@ -1,16 +1,17 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
+using CP.Reactive.Core;
 using FluentAssertions;
+using ReactiveUI.Primitives.Signals;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -55,20 +56,20 @@ public class QuaternaryExtensionsAdditionalTests
         filteredByFilter.Count.Should().Be(2, "filter applied to list should find 2 Engineering employees");
 
         // Test DynamicReactiveView with a simple direct filter first
-        var simpleFilterSubject = new BehaviorSubject<Func<Employee, bool>>(e => e.Department == "Engineering");
-        using var simpleView = new CP.Reactive.Views.DynamicReactiveView<Employee>(list, simpleFilterSubject, TimeSpan.Zero, ImmediateScheduler.Instance);
+        var simpleFilterSubject = new BehaviorSignal<Func<Employee, bool>>(e => e.Department == "Engineering");
+        using var simpleView = new CP.Reactive.Views.DynamicReactiveView<Employee>(list, simpleFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
         simpleView.Items.Count.Should().Be(2, "DynamicReactiveView with simple filter should work");
 
         // Test DynamicReactiveView with ItemMatchesSecondaryIndex filter directly
-        var indexFilterSubject = new BehaviorSubject<Func<Employee, bool>>(
+        var indexFilterSubject = new BehaviorSignal<Func<Employee, bool>>(
             item => new HashSet<string>(["Engineering"]).Any(key => list.ItemMatchesSecondaryIndex("ByDepartment", item, key)));
-        using var indexView = new CP.Reactive.Views.DynamicReactiveView<Employee>(list, indexFilterSubject, TimeSpan.Zero, ImmediateScheduler.Instance);
+        using var indexView = new CP.Reactive.Views.DynamicReactiveView<Employee>(list, indexFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
         indexView.Items.Count.Should().Be(2, "DynamicReactiveView with ItemMatchesSecondaryIndex filter should work");
 
-        var departmentFilter = new BehaviorSubject<string[]>(new[] { "Engineering" });
+        var departmentFilter = new BehaviorSignal<string[]>(new[] { "Engineering" });
 
         // Act
-        using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, ImmediateScheduler.Instance, 0);
+        using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Initial state - only Engineering
@@ -105,10 +106,10 @@ public class QuaternaryExtensionsAdditionalTests
             new Employee("Bob", "Sales")
         ]);
 
-        var departmentFilter = new BehaviorSubject<string[]>(new[] { "Engineering" });
+        var departmentFilter = new BehaviorSignal<string[]>(new[] { "Engineering" });
 
         // Act
-        using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, ImmediateScheduler.Instance, 0);
+        using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         view.Items.Count.Should().Be(1);
@@ -131,7 +132,7 @@ public class QuaternaryExtensionsAdditionalTests
         QuaternaryList<Employee>? nullList = null;
 
         // Act & Assert
-        var act = () => nullList!.CreateViewBySecondaryIndex("ByDepartment", "Engineering", ImmediateScheduler.Instance);
+        var act = () => nullList!.CreateViewBySecondaryIndex("ByDepartment", "Engineering", Sequencer.Immediate);
         act.Should().Throw<ArgumentNullException>();
     }
 
@@ -146,7 +147,7 @@ public class QuaternaryExtensionsAdditionalTests
         list.AddIndex("ByDepartment", e => e.Department);
 
         // Act & Assert
-        var act = () => list.CreateViewBySecondaryIndex(null!, "Engineering", ImmediateScheduler.Instance);
+        var act = () => list.CreateViewBySecondaryIndex(null!, "Engineering", Sequencer.Immediate);
         act.Should().Throw<ArgumentNullException>();
     }
 
@@ -167,9 +168,9 @@ public class QuaternaryExtensionsAdditionalTests
             new Employee("Charlie", "Marketing")
         ]);
 
-        var departmentFilter = new BehaviorSubject<string[]>(new[] { "Engineering" });
+        var departmentFilter = new BehaviorSignal<string[]>(new[] { "Engineering" });
 
-        using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, ImmediateScheduler.Instance, 10);
+        using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, Sequencer.Immediate, 10);
         await Task.Delay(50);
 
         // Act - rapid changes
@@ -208,13 +209,13 @@ public class QuaternaryExtensionsAdditionalTests
         ]);
 
         // UI filter selection (simulating user changing department filter)
-        var selectedDepartments = new BehaviorSubject<string[]>(new[] { "Engineering" });
+        var selectedDepartments = new BehaviorSignal<string[]>(new[] { "Engineering" });
 
         // Act - Create filtered view for UI
         using var filteredView = employees.CreateDynamicViewBySecondaryIndex(
             "ByDepartment",
             selectedDepartments,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             50);
 
         await Task.Delay(100);
@@ -254,7 +255,7 @@ public class QuaternaryExtensionsAdditionalTests
         dict.Add("ORD004", new OrderInfo("ORD004", "Delivered", 300m));
 
         // Act - instance method returns SecondaryIndexReactiveView where Items are TValue directly
-        using var view = dict.CreateViewBySecondaryIndex("ByStatus", "Pending", ImmediateScheduler.Instance, 0);
+        using var view = dict.CreateViewBySecondaryIndex("ByStatus", "Pending", Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Assert
@@ -278,7 +279,7 @@ public class QuaternaryExtensionsAdditionalTests
         dict.Add("ORD003", new OrderInfo("ORD003", "Delivered", 300m));
 
         // Act - extension method with array returns ReactiveView<KeyValuePair>
-        using var view = QuaternaryExtensions.CreateViewBySecondaryIndex(dict, "ByStatus", new[] { "Pending", "Shipped" }, ImmediateScheduler.Instance, 0);
+        using var view = QuaternaryExtensions.CreateViewBySecondaryIndex(dict, "ByStatus", new[] { "Pending", "Shipped" }, Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Assert
@@ -301,10 +302,10 @@ public class QuaternaryExtensionsAdditionalTests
         dict.Add("ORD002", new OrderInfo("ORD002", "Shipped", 200m));
         dict.Add("ORD003", new OrderInfo("ORD003", "Delivered", 300m));
 
-        var statusFilter = new BehaviorSubject<string[]>(new[] { "Pending" });
+        var statusFilter = new BehaviorSignal<string[]>(new[] { "Pending" });
 
         // Act - extension method with observable returns DynamicReactiveView<KeyValuePair>
-        using var view = QuaternaryExtensions.CreateDynamicViewBySecondaryIndex(dict, "ByStatus", statusFilter, ImmediateScheduler.Instance, 0);
+        using var view = QuaternaryExtensions.CreateDynamicViewBySecondaryIndex(dict, "ByStatus", statusFilter, Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         view.Items.Count.Should().Be(1);
@@ -338,13 +339,13 @@ public class QuaternaryExtensionsAdditionalTests
         directLookup.Count.Should().Be(2, "direct index lookup should find 2 Engineering employees");
 
         // Create the view directly (not through extension method)
-        var keysObservable = new BehaviorSubject<string[]>(["Engineering"]);
+        var keysObservable = new BehaviorSignal<string[]>(["Engineering"]);
 
         using var view = new CP.Reactive.Views.DynamicSecondaryIndexReactiveView<Employee, string>(
             list,
             "ByDepartment",
             keysObservable,
-            ImmediateScheduler.Instance,
+            Sequencer.Immediate,
             TimeSpan.Zero);
 
         // Assert - should have items immediately after construction
@@ -368,11 +369,54 @@ public class QuaternaryExtensionsAdditionalTests
         ]);
 
         // Use fresh observable for extension method
-        var keysObservable = new BehaviorSubject<string[]>(["Engineering"]);
-        using var extView = list.CreateDynamicViewBySecondaryIndex("ByDepartment", keysObservable, ImmediateScheduler.Instance, 0);
+        var keysObservable = new BehaviorSignal<string[]>(["Engineering"]);
+        using var extView = list.CreateDynamicViewBySecondaryIndex("ByDepartment", keysObservable, Sequencer.Immediate, 0);
 
         // Assert - should have items immediately after construction
         extView.Items.Count.Should().Be(2, "extension method should produce view with 2 items");
+    }
+
+    /// <summary>
+    /// Tests that secondary-index stream filters keep clear notifications for view reset semantics.
+    /// </summary>
+    [Test]
+    public void FilterBySecondaryIndex_ClearNotifications_ShouldPassThroughAllOverloads()
+    {
+        using var list = new QuaternaryList<Employee>();
+        list.AddIndex("ByDepartment", static employee => employee.Department);
+        list.Add(new Employee("Alice", "Engineering"));
+        using var listStream = new Signal<CacheNotify<Employee>>();
+        var listSingle = new List<CacheNotify<Employee>>();
+        var listMultiple = new List<CacheNotify<Employee>>();
+        using var listSingleSubscription = listStream
+            .FilterBySecondaryIndex(list, "ByDepartment", "Engineering")
+            .Subscribe(listSingle.Add);
+        using var listMultipleSubscription = listStream
+            .FilterBySecondaryIndex(list, "ByDepartment", "Engineering", "Sales")
+            .Subscribe(listMultiple.Add);
+
+        listStream.OnNext(new CacheNotify<Employee>(CacheAction.Cleared, default!));
+
+        listSingle.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
+        listMultiple.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
+
+        using var dict = new QuaternaryDictionary<string, OrderInfo>();
+        dict.AddValueIndex("ByStatus", static order => order.Status);
+        dict.Add("ORD001", new OrderInfo("ORD001", "Pending", 100m));
+        using var dictStream = new Signal<CacheNotify<KeyValuePair<string, OrderInfo>>>();
+        var dictSingle = new List<CacheNotify<KeyValuePair<string, OrderInfo>>>();
+        var dictMultiple = new List<CacheNotify<KeyValuePair<string, OrderInfo>>>();
+        using var dictSingleSubscription = dictStream
+            .FilterBySecondaryIndex(dict, "ByStatus", "Pending")
+            .Subscribe(dictSingle.Add);
+        using var dictMultipleSubscription = dictStream
+            .FilterBySecondaryIndex(dict, "ByStatus", "Pending", "Shipped")
+            .Subscribe(dictMultiple.Add);
+
+        dictStream.OnNext(new CacheNotify<KeyValuePair<string, OrderInfo>>(CacheAction.Cleared, default));
+
+        dictSingle.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
+        dictMultiple.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
     }
 
     private record Employee(string Name, string Department);

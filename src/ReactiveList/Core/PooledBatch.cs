@@ -1,14 +1,13 @@
-﻿// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
 using CP.Reactive.Internal;
 
 namespace CP.Reactive.Core;
 
-/// <summary>
-/// Represents a batch of items obtained from an array pool, along with the number of valid items in the batch.
-/// </summary>
+/// <summary>Represents a batch of items obtained from an array pool, along with the number of valid items in the batch.</summary>
 /// <remarks>The underlying array is returned to the shared array pool when the batch is disposed. After calling
 /// <see cref="Dispose"/>, the contents of <paramref name="Items"/> should not be accessed. This type is sealed and not
 /// intended for inheritance.</remarks>
@@ -21,19 +20,16 @@ public sealed record PooledBatch<T>(T[] Items, int Count, bool ReturnToPool = tr
 {
     private int _isDisposed;
 
-    /// <summary>
-    /// Releases all resources used by the current instance.
-    /// </summary>
+    /// <summary>Releases all resources used by the current instance.</summary>
     /// <remarks>Call this method when the instance is no longer needed to return any pooled resources and
     /// allow for proper cleanup. After calling this method, the instance should not be used.</remarks>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
+        if (Interlocked.Exchange(ref _isDisposed, 1) != 0 || !ReturnToPool)
         {
-            if (ReturnToPool)
-            {
-                ArrayPool<T>.Shared.Return(Items, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
-            }
+            return;
         }
+
+        ArrayPool<T>.Shared.Return(Items, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
     }
 }

@@ -1,18 +1,19 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Disposables.Fluent;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 namespace CP.Reactive.Views;
 
@@ -27,15 +28,22 @@ where T : notnull
 where TKey : notnull
 {
     private readonly QuaternaryList<T> _source;
+
     private readonly string _indexName;
+
     private readonly ObservableCollection<T> _filteredItems;
-    private readonly CompositeDisposable _disposables = [];
+
+    private readonly MultipleDisposable _disposables = new();
+
+#if NET9_0_OR_GREATER
+    private readonly Lock _lock = new();
+#else
     private readonly object _lock = new();
+#endif
+
     private HashSet<TKey> _currentKeys = [];
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DynamicSecondaryIndexReactiveView{T, TKey}"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="DynamicSecondaryIndexReactiveView{T, TKey}"/> class.</summary>
     /// <param name="source">The source list to filter.</param>
     /// <param name="indexName">The name of the secondary index.</param>
     /// <param name="keysObservable">An observable of key arrays to filter by.</param>
@@ -45,7 +53,7 @@ where TKey : notnull
         QuaternaryList<T> source,
         string indexName,
         IObservable<TKey[]> keysObservable,
-        IScheduler scheduler,
+        ISequencer scheduler,
         TimeSpan throttle)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
@@ -91,19 +99,13 @@ where TKey : notnull
     /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>
-    /// Gets the number of items in the filtered view.
-    /// </summary>
+    /// <summary>Gets the number of items in the filtered view.</summary>
     public int Count => _filteredItems.Count;
 
-    /// <summary>
-    /// Gets the underlying read-only observable collection for UI binding.
-    /// </summary>
+    /// <summary>Gets the underlying read-only observable collection for UI binding.</summary>
     public ReadOnlyObservableCollection<T> Items { get; }
 
-    /// <summary>
-    /// Gets the item at the specified index.
-    /// </summary>
+    /// <summary>Gets the item at the specified index.</summary>
     /// <param name="index">The zero-based index of the item to get.</param>
     /// <returns>The item at the specified index.</returns>
     public T this[int index] => _filteredItems[index];
@@ -114,9 +116,7 @@ where TKey : notnull
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    /// <summary>
-    /// Forces a rebuild of the filtered view from the source.
-    /// </summary>
+    /// <summary>Forces a rebuild of the filtered view from the source.</summary>
     public void Refresh()
     {
         lock (_lock)
@@ -125,9 +125,7 @@ where TKey : notnull
         }
     }
 
-    /// <summary>
-    /// Assigns the current collection of items to a property using the specified setter action.
-    /// </summary>
+    /// <summary>Assigns the current collection of items to a property using the specified setter action.</summary>
     /// <remarks>This method is typically used to bind the internal collection to an external property, such
     /// as a view model property, in a reactive UI pattern.</remarks>
     /// <param name="propertySetter">An action that sets a property to the current read-only observable collection of items. Cannot be null.</param>
@@ -140,9 +138,7 @@ where TKey : notnull
         return this;
     }
 
-    /// <summary>
-    /// Returns the current instance and provides a read-only observable collection of items contained in the view.
-    /// </summary>
+    /// <summary>Returns the current instance and provides a read-only observable collection of items contained in the view.</summary>
     /// <param name="collection">When this method returns, contains a read-only observable collection of items managed by this view.</param>
     /// <returns>The current <see cref="DynamicSecondaryIndexReactiveView{T, TKey}"/> instance.</returns>
     public DynamicSecondaryIndexReactiveView<T, TKey> ToProperty(out ReadOnlyObservableCollection<T> collection)
@@ -157,27 +153,33 @@ where TKey : notnull
         _disposables.Dispose();
     }
 
+    /// <summary>Attempts to get the latest value.</summary>
+    /// <param name="source">The source value.</param>
+    /// <param name="value">The latest value.</param>
+    /// <returns><see langword="true"/> when a value was read; otherwise, <see langword="false"/>.</returns>
     private static bool TryGetLatest(IObservable<TKey[]> source, out TKey[]? value)
     {
         var hasValue = false;
         TKey[]? current = null;
-        using (source.Subscribe(
+        using var subscription = source.Subscribe(
             next =>
             {
-                if (!hasValue)
+                if (hasValue)
                 {
-                    current = next;
-                    hasValue = true;
+                    return;
                 }
+
+                current = next;
+                hasValue = true;
             },
-            _ => { }))
-        {
-        }
+            _ => { });
 
         value = current;
         return hasValue;
     }
 
+    /// <summary>Handles source change notifications.</summary>
+    /// <param name="notification">The notification value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void OnSourceChanged(CacheNotify<T> notification)
     {
@@ -186,55 +188,63 @@ where TKey : notnull
             switch (notification.Action)
             {
                 case CacheAction.Added:
-                    if (notification.Item != null && ItemMatchesCurrentKeys(notification.Item))
                     {
-                        _filteredItems.Add(notification.Item);
-                    }
-
-                    break;
-
-                case CacheAction.Removed:
-                    if (notification.Item != null)
-                    {
-                        _filteredItems.Remove(notification.Item);
-                    }
-
-                    break;
-
-                case CacheAction.Updated:
-                    if (notification.Item != null)
-                    {
-                        var wasInView = _filteredItems.Contains(notification.Item);
-                        var shouldBeInView = ItemMatchesCurrentKeys(notification.Item);
-
-                        if (wasInView && !shouldBeInView)
-                        {
-                            _filteredItems.Remove(notification.Item);
-                        }
-                        else if (!wasInView && shouldBeInView)
+                        if (notification.Item is not null && ItemMatchesCurrentKeys(notification.Item))
                         {
                             _filteredItems.Add(notification.Item);
                         }
+
+                        break;
                     }
 
-                    break;
+                case CacheAction.Removed:
+                    {
+                        if (notification.Item is not null)
+                        {
+                            _filteredItems.Remove(notification.Item);
+                        }
+
+                        break;
+                    }
+
+                case CacheAction.Updated:
+                    {
+                        if (notification.Item is not null)
+                        {
+                            var wasInView = _filteredItems.Contains(notification.Item);
+                            var shouldBeInView = ItemMatchesCurrentKeys(notification.Item);
+
+                            if (wasInView && !shouldBeInView)
+                            {
+                                _filteredItems.Remove(notification.Item);
+                            }
+                            else if (!wasInView && shouldBeInView)
+                            {
+                                _filteredItems.Add(notification.Item);
+                            }
+                        }
+
+                        break;
+                    }
 
                 case CacheAction.Cleared:
-                    _filteredItems.Clear();
-                    break;
+                    {
+                        _filteredItems.Clear();
+                        break;
+                    }
 
-                case CacheAction.BatchOperation:
-                case CacheAction.BatchAdded:
-                case CacheAction.BatchRemoved:
-                case CacheAction.Refreshed:
-                    RebuildView();
-                    break;
+                case CacheAction.BatchOperation or CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.Refreshed:
+                    {
+                        RebuildView();
+                        break;
+                    }
             }
         }
 
         OnPropertyChanged(nameof(Count));
     }
 
+    /// <summary>Rebuilds the view from the current source state.</summary>
     private void RebuildView()
     {
         _filteredItems.Clear();
@@ -243,8 +253,7 @@ where TKey : notnull
         // Explicitly specify TKey to ensure type inference is correct
         foreach (var key in _currentKeys)
         {
-            var items = _source.GetItemsBySecondaryIndex<TKey>(_indexName, key);
-            foreach (var item in items)
+            foreach (var item in _source.GetItemsBySecondaryIndex<TKey>(_indexName, key))
             {
                 // Avoid duplicates if same item matches multiple keys
                 if (!_filteredItems.Contains(item))
@@ -255,9 +264,14 @@ where TKey : notnull
         }
     }
 
+    /// <summary>Performs the ItemMatchesCurrentKeys operation.</summary>
+    /// <param name="item">The item value.</param>
+    /// <returns><see langword="true"/> when the item matches any current key; otherwise, <see langword="false"/>.</returns>
     private bool ItemMatchesCurrentKeys(T item) =>
         _currentKeys.Any(key => _source.ItemMatchesSecondaryIndex<TKey>(_indexName, item, key));
 
+    /// <summary>Handles property change notifications.</summary>
+    /// <param name="propertyName">The propertyName value.</param>
     private void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

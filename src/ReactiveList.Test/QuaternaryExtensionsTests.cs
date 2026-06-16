@@ -1,8 +1,8 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
-using System.Reactive.Concurrency;
 using System.Threading.Tasks;
 using CP.Reactive;
 using CP.Reactive.Collections;
@@ -24,7 +24,7 @@ public class QuaternaryExtensionsTests
         using var list = new QuaternaryList<int>();
         list.AddRange([1, 2, 3, 4, 5]);
 
-        using var view = list.CreateView(TaskPoolScheduler.Default, throttleMs: 10);
+        using var view = list.CreateView(Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(5, view.Items.Count);
     }
@@ -38,7 +38,7 @@ public class QuaternaryExtensionsTests
         using var list = new QuaternaryList<int>();
         list.AddRange([1, 2, 3, 4, 5]);
 
-        using var view = list.CreateView(x => x % 2 == 0, TaskPoolScheduler.Default, throttleMs: 10);
+        using var view = list.CreateView(x => x % 2 == 0, Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(2, view.Items.Count);
         Assert.Contains(2, view.Items);
@@ -59,7 +59,7 @@ public class QuaternaryExtensionsTests
             new TestPerson("Charlie", "NYC")
         ]);
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", TaskPoolScheduler.Default, throttleMs: 10);
+        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(2, view.Items.Count);
         Assert.All(view.Items, p => Assert.Equal("NYC", p.City));
@@ -80,7 +80,7 @@ public class QuaternaryExtensionsTests
             new TestPerson("Diana", "NYC")
         ]);
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", new[] { "NYC", "LA" }, TaskPoolScheduler.Default, throttleMs: 10);
+        using var view = list.CreateViewBySecondaryIndex("ByCity", new[] { "NYC", "LA" }, Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(3, view.Items.Count);
     }
@@ -95,7 +95,7 @@ public class QuaternaryExtensionsTests
         list.AddRange([1, 2, 3]);
 
         System.Collections.ObjectModel.ReadOnlyObservableCollection<int>? result = null;
-        using var view = list.CreateView(TaskPoolScheduler.Default, throttleMs: 10)
+        using var view = list.CreateView(Sequencer.Default, throttleMs: 10)
             .ToProperty(x => result = x);
 
         Assert.NotNull(result);
@@ -110,7 +110,7 @@ public class QuaternaryExtensionsTests
     public async Task ReactiveView_ShouldUpdateOnAdd()
     {
         using var list = new QuaternaryList<int>();
-        using var view = list.CreateView(TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = list.CreateView(Sequencer.Default, throttleMs: 50);
 
         list.Add(42);
 
@@ -131,7 +131,7 @@ public class QuaternaryExtensionsTests
         using var list = new QuaternaryList<int>();
         list.AddRange([1, 2, 3]);
 
-        using var view = list.CreateView(TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = list.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
         Assert.Equal(3, view.Items.Count);
@@ -155,7 +155,7 @@ public class QuaternaryExtensionsTests
         using var list = new QuaternaryList<int>();
         list.AddRange([1, 2, 3, 4, 5]);
 
-        using var view = list.CreateView(TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = list.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
         Assert.Equal(5, view.Items.Count);
@@ -181,7 +181,7 @@ public class QuaternaryExtensionsTests
         list.AddIndex("ByCity", p => p.City);
         list.Add(new TestPerson("Alice", "NYC"));
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", Sequencer.Default, throttleMs: 50);
 
         Assert.Single(view.Items);
 
@@ -204,7 +204,7 @@ public class QuaternaryExtensionsTests
         list.AddIndex("ByCity", p => p.City);
         list.Add(new TestPerson("Alice", "NYC"));
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", TaskPoolScheduler.Default, throttleMs: 50);
+        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", Sequencer.Default, throttleMs: 50);
 
         Assert.Single(view.Items);
 

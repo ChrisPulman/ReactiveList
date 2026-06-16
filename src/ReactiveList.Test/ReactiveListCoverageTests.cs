@@ -1,11 +1,14 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.Serialization;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
 using FluentAssertions;
@@ -114,10 +117,12 @@ public class ReactiveListCoverageTests
     [Test]
     public void GenericExplicitMembersAndEmptyBatches_ShouldBehaveConsistently()
     {
+        ReactiveList<int> emptyFromEnumerable = new(Array.Empty<int>());
         ReactiveList<int> fixture = [1, 2, 3, 4];
         var genericCollection = (ICollection<int>)fixture;
         var genericList = (IList<int>)fixture;
 
+        emptyFromEnumerable.Count.Should().Be(0);
         genericList.IndexOf(3).Should().Be(2);
         ((IList)fixture).IndexOf(null).Should().Be(-1);
         ((IList)fixture).Contains(null).Should().BeFalse();
@@ -322,6 +327,61 @@ public class ReactiveListCoverageTests
         fixture.Dispose();
 
         fixture.IsDisposed.Should().BeTrue();
+
+        using var disposeHarness = new DisposeHarness<int>();
+        disposeHarness.DisposeWithoutManagedResources();
+        disposeHarness.IsDisposed.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Private notification helpers should preserve stream and range collection behavior for otherwise unreachable no-op paths.
+    /// </summary>
+    [Test]
+    public void InternalNotificationHelpers_ShouldHandleEmptyAndRefreshBranches()
+    {
+        ReactiveList<int> fixture = [];
+        ReactiveList<int> deserializedFixture = [];
+        var stream = new List<CacheNotify<int>>();
+        ReactiveList<string> referenceFixture = [];
+        var changed = new List<string[]>();
+
+        using var streamSubscription = fixture.Stream.Subscribe(notification =>
+        {
+            stream.Add(notification);
+            notification.Batch?.Dispose();
+        });
+        using var changedSubscription = referenceFixture.Changed.Subscribe(items => changed.Add(items.ToArray()));
+
+        fixture.AddRange((IEnumerable<int>)Array.Empty<int>());
+
+        Action setInvalidIndex = () => fixture[0] = 1;
+        setInvalidIndex.Should().Throw<ArgumentOutOfRangeException>()
+            .WithParameterName("index");
+
+        InvokePrivate(deserializedFixture, "OnDeserialized", new StreamingContext());
+        InvokePrivate(fixture, "OnPropertyChanged", "Custom");
+        InvokePrivate(fixture, "NotifyCleared", Array.Empty<int>(), true);
+        InvokePrivate(fixture, "NotifyCleared", Array.Empty<int>(), false);
+        InvokePrivate(fixture, "NotifyAdded", 100, -1, false);
+        InvokePrivate(fixture, "NotifyRemoved", 100, 0, false);
+        InvokePrivate(fixture, "NotifyChangedSingle", 42, ChangeReason.Refresh, -1, -1, default(int));
+        InvokePrivate(fixture, "NotifyChangedSingle", 43, (ChangeReason)999, -1, -1, default(int));
+        InvokePrivate(referenceFixture, "EmitStream", CacheAction.Updated, null, null, -1, -1, null);
+
+        var observableItems = GetPrivateField(fixture, "_observableItems");
+        observableItems.GetType().GetMethod("AddRange")!.Invoke(observableItems, [Array.Empty<int>()]);
+        observableItems.GetType().GetMethod("InsertRange")!.Invoke(observableItems, [0, Array.Empty<int>()]);
+        observableItems.GetType().GetMethod("RemoveRange")!.Invoke(observableItems, [0, 0]);
+
+        stream.Select(notification => notification.Action).Should().Contain(
+            [CacheAction.Cleared, CacheAction.Refreshed]);
+        changed.Any(static items => items.Length == 0).Should().BeTrue();
+    }
+
+    private sealed class DisposeHarness<T> : ReactiveList<T>
+        where T : notnull
+    {
+        public void DisposeWithoutManagedResources() => Dispose(false);
     }
 
     private sealed class RecordingObserver<T> : IObserver<IEnumerable<T>>
@@ -338,4 +398,12 @@ public class ReactiveListCoverageTests
 
         public void OnNext(IEnumerable<T> value) => Snapshots.Add(value.ToArray());
     }
+
+    private static object GetPrivateField<T>(ReactiveList<T> target, string fieldName)
+        where T : notnull =>
+        typeof(ReactiveList<T>).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;
+
+    private static object? InvokePrivate<T>(ReactiveList<T> target, string methodName, params object?[] args)
+        where T : notnull =>
+        typeof(ReactiveList<T>).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(target, args);
 }

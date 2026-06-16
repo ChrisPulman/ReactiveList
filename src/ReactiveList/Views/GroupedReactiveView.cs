@@ -1,23 +1,22 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
+using CP.Reactive.Internal;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 namespace CP.Reactive.Views;
 
-/// <summary>
-/// Provides a grouped view over a <see cref="IReactiveList{T}"/> that automatically
-/// updates when the source list changes.
-/// </summary>
+/// <summary>Provides a grouped view over a <see cref="IReactiveList{T}"/> that automatically updates when the source list changes.</summary>
 /// <typeparam name="T">The type of elements in the view.</typeparam>
 /// <typeparam name="TKey">The type of the grouping key.</typeparam>
 public sealed class GroupedReactiveView<T, TKey> : IReadOnlyDictionary<TKey, IReadOnlyList<T>>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<GroupedReactiveView<T, TKey>, ReactiveGroup<TKey, T>>, IDisposable
@@ -25,15 +24,22 @@ where T : notnull
 where TKey : notnull
 {
     private readonly IReactiveList<T> _source;
-    private readonly Func<T, TKey> _keySelector;
-    private readonly Dictionary<TKey, ObservableCollection<T>> _groups = [];
-    private readonly ObservableCollection<ReactiveGroup<TKey, T>> _groupCollection = [];
-    private readonly CompositeDisposable _disposables = [];
-    private readonly object _lock = new();
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="GroupedReactiveView{T, TKey}"/> class.
-    /// </summary>
+    private readonly Func<T, TKey> _keySelector;
+
+    private readonly Dictionary<TKey, ObservableCollection<T>> _groups = [];
+
+    private readonly ObservableCollection<ReactiveGroup<TKey, T>> _groupCollection = [];
+
+    private readonly MultipleDisposable _disposables = new();
+
+#if NET9_0_OR_GREATER
+    private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
+
+    /// <summary>Initializes a new instance of the <see cref="GroupedReactiveView{T, TKey}"/> class.</summary>
     /// <param name="source">The source reactive list to group.</param>
     /// <param name="keySelector">A function to extract the grouping key.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
@@ -41,7 +47,7 @@ where TKey : notnull
     public GroupedReactiveView(
         IReactiveList<T> source,
         Func<T, TKey> keySelector,
-        IScheduler scheduler,
+        ISequencer scheduler,
         TimeSpan throttle)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
@@ -71,49 +77,33 @@ where TKey : notnull
     /// <inheritdoc/>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>
-    /// Gets the number of groups.
-    /// </summary>
+    /// <summary>Gets the number of groups.</summary>
     public int Count => _groups.Count;
 
-    /// <summary>
-    /// Gets the collection of groups for UI binding.
-    /// </summary>
+    /// <summary>Gets the collection of groups for UI binding.</summary>
     public ReadOnlyObservableCollection<ReactiveGroup<TKey, T>> Groups { get; }
 
-    /// <summary>
-    /// Gets the collection of groups for UI binding. This is an alias for <see cref="Groups"/>.
-    /// </summary>
+    /// <summary>Gets the collection of groups for UI binding. This is an alias for <see cref="Groups"/>.</summary>
     /// <remarks>This property exists to satisfy the <see cref="IReactiveView{TView, TItem}"/> interface.</remarks>
     public ReadOnlyObservableCollection<ReactiveGroup<TKey, T>> Items => Groups;
 
-    /// <summary>
-    /// Gets the keys of all groups.
-    /// </summary>
+    /// <summary>Gets the keys of all groups.</summary>
     public IEnumerable<TKey> Keys => _groups.Keys;
 
-    /// <summary>
-    /// Gets the values (item lists) of all groups.
-    /// </summary>
+    /// <summary>Gets the values (item lists) of all groups.</summary>
     public IEnumerable<IReadOnlyList<T>> Values => _groups.Values.Cast<IReadOnlyList<T>>();
 
-    /// <summary>
-    /// Gets the items in the specified group.
-    /// </summary>
+    /// <summary>Gets the items in the specified group.</summary>
     /// <param name="key">The group key.</param>
     /// <returns>The items in the group.</returns>
     public IReadOnlyList<T> this[TKey key] => _groups[key];
 
-    /// <summary>
-    /// Determines whether the view contains a group with the specified key.
-    /// </summary>
+    /// <summary>Determines whether the view contains a group with the specified key.</summary>
     /// <param name="key">The key to locate.</param>
     /// <returns>true if the view contains a group with the key; otherwise, false.</returns>
     public bool ContainsKey(TKey key) => _groups.ContainsKey(key);
 
-    /// <summary>
-    /// Gets the items in the specified group, if it exists.
-    /// </summary>
+    /// <summary>Gets the items in the specified group, if it exists.</summary>
     /// <param name="key">The group key.</param>
     /// <param name="value">When this method returns, contains the items, if the key is found; otherwise, null.</param>
     /// <returns>true if the view contains a group with the specified key; otherwise, false.</returns>
@@ -125,7 +115,7 @@ where TKey : notnull
             return true;
         }
 
-        value = Array.Empty<T>();
+        value = [];
         return false;
     }
 
@@ -136,9 +126,7 @@ where TKey : notnull
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    /// <summary>
-    /// Forces a rebuild of the grouped view from the source.
-    /// </summary>
+    /// <summary>Forces a rebuild of the grouped view from the source.</summary>
     public void Refresh()
     {
         lock (_lock)
@@ -147,9 +135,7 @@ where TKey : notnull
         }
     }
 
-    /// <summary>
-    /// Assigns the current collection of groups to a property using the specified setter action.
-    /// </summary>
+    /// <summary>Assigns the current collection of groups to a property using the specified setter action.</summary>
     /// <remarks>This method is typically used to bind the internal collection to an external property, such
     /// as a view model property, in a reactive UI pattern.</remarks>
     /// <param name="propertySetter">An action that sets a property to the current read-only observable collection of groups. Cannot be null.</param>
@@ -160,7 +146,7 @@ where TKey : notnull
 #if NET8_0_OR_GREATER
         CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
 #else
-        if (propertySetter == null)
+        if (propertySetter is null)
         {
             throw new ArgumentNullException(nameof(propertySetter));
         }
@@ -169,9 +155,7 @@ where TKey : notnull
         return this;
     }
 
-    /// <summary>
-    /// Returns the current instance and provides a read-only observable collection of groups contained in the view.
-    /// </summary>
+    /// <summary>Returns the current instance and provides a read-only observable collection of groups contained in the view.</summary>
     /// <param name="collection">When this method returns, contains a read-only observable collection of groups managed by this view.</param>
     /// <returns>The current <see cref="GroupedReactiveView{T, TKey}"/> instance.</returns>
     public GroupedReactiveView<T, TKey> ToProperty(out ReadOnlyObservableCollection<ReactiveGroup<TKey, T>> collection)
@@ -186,6 +170,8 @@ where TKey : notnull
         _disposables.Dispose();
     }
 
+    /// <summary>Handles source change notifications.</summary>
+    /// <param name="changes">The changes value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void OnSourceChanged(ChangeSet<T> changes)
     {
@@ -201,64 +187,77 @@ where TKey : notnull
         OnPropertyChanged(nameof(Count));
     }
 
+    /// <summary>Processes a source collection change.</summary>
+    /// <param name="change">The change value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ProcessChange(Change<T> change)
     {
         switch (change.Reason)
         {
             case ChangeReason.Add:
-                AddToGroup(change.Current);
-                break;
+                {
+                    AddToGroup(change.Current);
+                    break;
+                }
 
             case ChangeReason.Remove:
-                RemoveFromGroup(change.Current);
-                break;
+                {
+                    RemoveFromGroup(change.Current);
+                    break;
+                }
 
             case ChangeReason.Update:
-                if (change.Previous != null)
                 {
-                    var oldKey = _keySelector(change.Previous);
-                    var newKey = _keySelector(change.Current);
-
-                    if (EqualityComparer<TKey>.Default.Equals(oldKey, newKey))
+                    if (change.Previous is not null)
                     {
-                        // Same group - just update in place
-                        if (_groups.TryGetValue(oldKey, out var group))
+                        var oldKey = _keySelector(change.Previous);
+                        var newKey = _keySelector(change.Current);
+
+                        if (EqualityComparer<TKey>.Default.Equals(oldKey, newKey))
                         {
-                            var index = group.IndexOf(change.Previous);
-                            if (index >= 0)
+                            // Same group - just update in place
+                            if (_groups.TryGetValue(oldKey, out var group))
                             {
-                                group[index] = change.Current;
+                                var index = group.IndexOf(change.Previous);
+                                if (index >= 0)
+                                {
+                                    group[index] = change.Current;
+                                }
                             }
+                        }
+                        else
+                        {
+                            // Different groups - remove from old, add to new
+                            RemoveFromGroup(change.Previous);
+                            AddToGroup(change.Current);
                         }
                     }
                     else
                     {
-                        // Different groups - remove from old, add to new
-                        RemoveFromGroup(change.Previous);
                         AddToGroup(change.Current);
                     }
-                }
-                else
-                {
-                    AddToGroup(change.Current);
-                }
 
-                break;
+                    break;
+                }
 
             case ChangeReason.Clear:
-                _groups.Clear();
-                _groupCollection.Clear();
-                break;
+                {
+                    _groups.Clear();
+                    _groupCollection.Clear();
+                    break;
+                }
 
-            case ChangeReason.Move:
-            case ChangeReason.Refresh:
-                // Rebuild for move/refresh
-                RebuildView();
-                break;
+            case ChangeReason.Move or ChangeReason.Refresh:
+                {
+                    // Rebuild for move/refresh
+                    RebuildView();
+                    break;
+                }
         }
     }
 
+    /// <summary>Adds data for the AddToGroup operation.</summary>
+    /// <param name="item">The item value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void AddToGroup(T item)
     {
@@ -273,25 +272,34 @@ where TKey : notnull
         group.Add(item);
     }
 
+    /// <summary>Removes data for the RemoveFromGroup operation.</summary>
+    /// <param name="item">The item value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void RemoveFromGroup(T item)
     {
         var key = _keySelector(item);
-        if (_groups.TryGetValue(key, out var group))
+        if (!_groups.TryGetValue(key, out var group))
         {
-            group.Remove(item);
-            if (group.Count == 0)
-            {
-                _groups.Remove(key);
-                var reactiveGroup = _groupCollection.FirstOrDefault(g => EqualityComparer<TKey>.Default.Equals(g.Key, key));
-                if (reactiveGroup != null)
-                {
-                    _groupCollection.Remove(reactiveGroup);
-                }
-            }
+            return;
         }
+
+        group.Remove(item);
+        if (group.Count != 0)
+        {
+            return;
+        }
+
+        _groups.Remove(key);
+        var reactiveGroup = _groupCollection.FirstOrDefault(g => EqualityComparer<TKey>.Default.Equals(g.Key, key));
+        if (reactiveGroup is null)
+        {
+            return;
+        }
+
+        _groupCollection.Remove(reactiveGroup);
     }
 
+    /// <summary>Rebuilds the view from the current source state.</summary>
     private void RebuildView()
     {
         _groups.Clear();
@@ -303,6 +311,8 @@ where TKey : notnull
         }
     }
 
+    /// <summary>Handles property change notifications.</summary>
+    /// <param name="propertyName">The propertyName value.</param>
     private void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

@@ -1,5 +1,6 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 using System.Linq;
 using CP.Reactive;
@@ -146,10 +147,10 @@ public class ReactiveListVersionTests
         // Arrange
         using var list = new ReactiveList<int>([1, 2, 3]);
         var changeReceived = false;
-        using var subscription = list.Connect().Subscribe(new System.Reactive.AnonymousObserver<ChangeSet<int>>(
-            onNext: _ => changeReceived = true,
-            onError: _ => { },
-            onCompleted: () => { }));
+        using var subscription = list.Connect().Subscribe(
+            _ => changeReceived = true,
+            _ => { },
+            () => { });
 
         // Act
         list.ClearWithoutDeallocation();
@@ -167,10 +168,10 @@ public class ReactiveListVersionTests
         // Arrange
         using var list = new ReactiveList<int>([1, 2, 3]);
         var changeCount = 0;
-        using var subscription = list.Connect().Subscribe(new System.Reactive.AnonymousObserver<ChangeSet<int>>(
-            onNext: _ => changeCount++,
-            onError: _ => { },
-            onCompleted: () => { }));
+        using var subscription = list.Connect().Subscribe(
+            _ => changeCount++,
+            _ => { },
+            () => { });
         var countBefore = changeCount;
 
         // Act

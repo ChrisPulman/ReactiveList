@@ -1,11 +1,10 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
 
 namespace CP.Reactive.Core;
 
-/// <summary>
-/// Represents a notification describing a cache action and the associated item or batch of items.
-/// </summary>
+/// <summary>Represents a notification describing a cache action and the associated item or batch of items.</summary>
 /// <param name="Action"> Gets the cache action that triggered the notification. </param>
 /// <param name="Item"> Gets the item associated with the cache action, or default if the action applies to a batch. </param>
 /// <param name="Batch"> Gets an optional batch of items associated with the cache action. </param>

@@ -1,11 +1,11 @@
-﻿# ReactiveList
+# ReactiveList
 
 [![NuGet](https://img.shields.io/nuget/v/ReactiveList.svg?style=flat-square)](https://www.nuget.org/packages/ReactiveList/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ReactiveList.svg?style=flat-square)](https://www.nuget.org/packages/ReactiveList/)
 [![License](https://img.shields.io/github/license/ChrisPulman/ReactiveList.svg?style=flat-square)](LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ChrisPulman/ReactiveList/BuildOnly.yml?branch=main&style=flat-square)](https://github.com/ChrisPulman/ReactiveList/actions)
 
-A high-performance, thread-safe, observable collection library for .NET that combines the power of reactive extensions with standard list and dictionary operations. ReactiveList provides real-time change notifications, making it ideal for data-binding, reactive programming, and scenarios where collection changes need to be tracked and responded to—especially with continuous live data streams.
+A high-performance, thread-safe, observable collection library for .NET that combines the power of reactive extensions with standard list and dictionary operations. ReactiveList provides real-time change notifications, making it ideal for data-binding, reactive programming, and scenarios where collection changes need to be tracked and responded to�especially with continuous live data streams.
 
 ---
 
@@ -76,7 +76,7 @@ dotnet add package CP.ReactiveList
 ```
 
 **Required Dependencies:**
-- `System.Reactive` (automatically included)
+- `ReactiveUI.Primitives` (automatically included)
 
 **Namespaces:**
 ```csharp
@@ -94,7 +94,7 @@ using CP.Reactive.Views;       // View types (FilteredReactiveView, SortedReacti
 
 ```csharp
 using CP.Reactive.Collections;
-using System.Reactive.Linq;
+using ReactiveUI.Primitives;
 
 // Create a reactive list
 var sensorReadings = new ReactiveList<double>();
@@ -391,13 +391,13 @@ ReadOnlyMemory<Order> memory = list.AsMemory();
 using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
-using System.Reactive.Linq;
-using System.Reactive.Disposables;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 
 public class OrderProcessor : IDisposable
 {
     private readonly ReactiveList<Order> _orders = new();
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly MultipleDisposable _subscriptions = new();
 
     public OrderProcessor()
     {
@@ -642,13 +642,13 @@ bool isElectronics = products.ItemMatchesSecondaryIndex("ByCategory", product, "
 
 ```csharp
 using CP.Reactive;
-using System.Reactive.Concurrency;
+using ReactiveUI.Primitives.Concurrency;
 
 // Create a reactive view filtered by secondary index
 var electronicsView = products.CreateViewBySecondaryIndex(
     indexName: "ByCategory",
     key: "Electronics",
-    scheduler: Scheduler.Default,
+    scheduler: Sequencer.Default,
     throttleMs: 50
 );
 
@@ -662,7 +662,7 @@ electronicsView.Items.CollectionChanged += (s, e) =>
 var budgetAndStandardView = products.CreateViewBySecondaryIndex(
     indexName: "ByPriceRange",
     keys: ["Budget", "Standard"],
-    scheduler: Scheduler.Default
+    scheduler: Sequencer.Default
 );
 ```
 
@@ -672,14 +672,14 @@ var budgetAndStandardView = products.CreateViewBySecondaryIndex(
 using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Disposables;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 
 public class InventorySystem : IDisposable
 {
     private readonly QuaternaryList<Product> _inventory = new();
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly MultipleDisposable _subscriptions = new();
 
     public InventorySystem()
     {
@@ -738,7 +738,7 @@ public class InventorySystem : IDisposable
 
     // Create reactive view for specific category
     public ReactiveView<Product> CreateCategoryView(string category) =>
-        _inventory.CreateViewBySecondaryIndex("ByCategory", category, Scheduler.Default);
+        _inventory.CreateViewBySecondaryIndex("ByCategory", category, Sequencer.Default);
 
     public void Dispose()
     {
@@ -879,7 +879,7 @@ bool isWestCustomer = customers.ValueMatchesSecondaryIndex("ByRegion", customer,
 var westView = customers.CreateViewBySecondaryIndex<string>(
     indexName: "ByRegion",
     key: "West",
-    scheduler: Scheduler.Default,
+    scheduler: Sequencer.Default,
     throttleMs: 50
 );
 ```
@@ -890,14 +890,14 @@ var westView = customers.CreateViewBySecondaryIndex<string>(
 using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Disposables;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 
 public class SessionCache : IDisposable
 {
     private readonly QuaternaryDictionary<string, UserSession> _sessions = new();
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly MultipleDisposable _subscriptions = new();
 
     public SessionCache()
     {
@@ -951,7 +951,7 @@ public class SessionCache : IDisposable
 
     // Create reactive view for region
     public SecondaryIndexReactiveView<string, UserSession, string> CreateRegionView(string region) =>
-        _sessions.CreateViewBySecondaryIndex<string>("ByRegion", region, Scheduler.Default);
+        _sessions.CreateViewBySecondaryIndex<string>("ByRegion", region, Sequencer.Default);
 
     public void EndSession(string sessionId) =>
         _sessions.Remove(sessionId);
@@ -995,7 +995,7 @@ Creates a filtered view that automatically updates when the source changes.
 ```csharp
 using CP.Reactive;
 using CP.Reactive.Collections;
-using System.Reactive.Concurrency;
+using ReactiveUI.Primitives.Concurrency;
 
 var employees = new ReactiveList<Employee>();
 employees.AddRange(GetAllEmployees());
@@ -1003,7 +1003,7 @@ employees.AddRange(GetAllEmployees());
 // Create filtered view - only active employees
 var activeEmployees = employees.CreateView(
     filter: e => e.IsActive,
-    scheduler: Scheduler.Default,
+    scheduler: Sequencer.Default,
     throttleMs: 50
 );
 
@@ -1038,7 +1038,7 @@ var products = new ReactiveList<Product>();
 // Sort by price ascending
 var byPrice = products.SortBy(
     comparer: Comparer<Product>.Create((a, b) => a.Price.CompareTo(b.Price)),
-    scheduler: Scheduler.Default,
+    scheduler: Sequencer.Default,
     throttleMs: 50
 );
 
@@ -1046,7 +1046,7 @@ var byPrice = products.SortBy(
 var byName = products.SortBy(
     keySelector: p => p.Name,
     descending: false,
-    scheduler: Scheduler.Default
+    scheduler: Sequencer.Default
 );
 
 // Sort descending by date
@@ -1069,7 +1069,7 @@ var tasks = new ReactiveList<TaskItem>();
 // Group by status
 var byStatus = tasks.GroupBy(
     keySelector: t => t.Status,
-    scheduler: Scheduler.Default,
+    scheduler: Sequencer.Default,
     throttleMs: 50
 );
 
@@ -1104,17 +1104,17 @@ treeView.ItemsSource = byStatus.Groups;
 A filtered view where the filter can change dynamically.
 
 ```csharp
-using System.Reactive.Subjects;
+using ReactiveUI.Primitives.Signals;
 
 var products = new ReactiveList<Product>();
 
 // Create observable filter
-var searchFilter = new BehaviorSubject<Func<Product, bool>>(_ => true);
+var searchFilter = new BehaviorSignal<Func<Product, bool>>(_ => true);
 
 // Create dynamic view
 var searchResults = products.CreateView(
     filterObservable: searchFilter,
-    scheduler: Scheduler.Default,
+    scheduler: Sequencer.Default,
     throttleMs: 100
 );
 
@@ -1139,25 +1139,25 @@ A general-purpose view for QuaternaryList that supports filtering.
 var items = new QuaternaryList<DataPoint>();
 
 // Create unfiltered view
-var allItems = items.CreateView(Scheduler.Default, throttleMs: 50);
+var allItems = items.CreateView(Sequencer.Default, throttleMs: 50);
 
 // Create filtered view
 var recentItems = items.CreateView(
     filter: dp => dp.Timestamp > DateTime.UtcNow.AddHours(-1),
-    scheduler: Scheduler.Default,
+    scheduler: Sequencer.Default,
     throttleMs: 50
 );
 
 // Create view with dynamic filter
-var queryFilter = new BehaviorSubject<Func<DataPoint, bool>>(_ => true);
-var dynamicView = items.CreateView(queryFilter, Scheduler.Default);
+var queryFilter = new BehaviorSignal<Func<DataPoint, bool>>(_ => true);
+var dynamicView = items.CreateView(queryFilter, Sequencer.Default);
 
 // Create view with query observable
 var queryObservable = textBox.TextChanged.Select(e => e.Text);
 var searchView = items.CreateView(
     queryObservable: queryObservable,
     filter: (query, item) => item.Name.Contains(query, StringComparison.OrdinalIgnoreCase),
-    scheduler: Scheduler.Default
+    scheduler: Sequencer.Default
 );
 ```
 
@@ -1174,22 +1174,22 @@ products.AddIndex("ByCategory", p => p.Category);
 var electronicsView = products.CreateViewBySecondaryIndex(
     indexName: "ByCategory",
     key: "Electronics",
-    scheduler: Scheduler.Default
+    scheduler: Sequencer.Default
 );
 
 // Multiple keys view (OR logic)
 var multiCategoryView = products.CreateViewBySecondaryIndex(
     indexName: "ByCategory",
     keys: ["Electronics", "Computers"],
-    scheduler: Scheduler.Default
+    scheduler: Sequencer.Default
 );
 
 // Dynamic key view (key changes over time)
-var categorySelector = new BehaviorSubject<string[]>(["Electronics"]);
+var categorySelector = new BehaviorSignal<string[]>(["Electronics"]);
 var dynamicCategoryView = products.CreateDynamicViewBySecondaryIndex(
     indexName: "ByCategory",
     keysObservable: categorySelector,
-    scheduler: Scheduler.Default
+    scheduler: Sequencer.Default
 );
 
 // Change category filter
@@ -1218,7 +1218,7 @@ Extensions for working with `IObservable<CacheNotify<T>>`:
 | `OnCleared()` | Get clear notifications | `stream.OnCleared()` |
 | `BufferNotifications(timeSpan)` | Buffer notifications over time | `stream.BufferNotifications(TimeSpan.FromSeconds(1))` |
 | `ThrottleNotifications(timeSpan)` | Throttle notification frequency | `stream.ThrottleNotifications(TimeSpan.FromMilliseconds(100))` |
-| `ObserveOnScheduler(scheduler)` | Observe on specific scheduler | `stream.ObserveOnScheduler(Scheduler.Default)` |
+| `ObserveOnScheduler(scheduler)` | Observe on specific scheduler | `stream.ObserveOnScheduler(Sequencer.Default)` |
 | `TransformItems(selector)` | Transform items | `stream.TransformItems(x => x.ToString())` |
 | `FilterItems(predicate)` | Filter items | `stream.FilterItems(x => x.IsValid)` |
 | `AutoDisposeBatches()` | Dispose pooled batch payloads after processing | `stream.AutoDisposeBatches()` |
@@ -1287,9 +1287,9 @@ using CP.Reactive.Core;
 using CP.Reactive.Views;
 using System.Collections;
 using System.Collections.ObjectModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 ```
 
 ### Core Contracts
@@ -1346,7 +1346,7 @@ customers.RemoveKeys([42]);
 ```
 
 ```csharp
-using var activeView = orders.CreateView(order => order.Status == "Open", Scheduler.Default);
+using var activeView = orders.CreateView(order => order.Status == "Open", Sequencer.Default);
 activeView.ToProperty(out var bindableOrders);
 ```
 
@@ -1479,7 +1479,7 @@ int totalCells = grid.TotalCount();
 
 ```csharp
 var readings = new QuaternaryList<SensorReading>();
-var selectedDeviceIds = new BehaviorSubject<string[]>(["pump-1"]);
+var selectedDeviceIds = new BehaviorSignal<string[]>(["pump-1"]);
 
 readings.AddIndex("ByDevice", reading => reading.DeviceId);
 readings.AddIndex("BySeverity", reading => reading.Severity);
@@ -1491,7 +1491,7 @@ readings.RemoveMany(reading => reading.Timestamp < cutoff);
 using var view = readings.CreateDynamicViewBySecondaryIndex(
     "ByDevice",
     selectedDeviceIds,
-    Scheduler.Default);
+    Sequencer.Default);
 ```
 
 #### QuaternaryDictionary<TKey,TValue>
@@ -1511,7 +1511,7 @@ if (sessions.TryGetValue("abc", out var session))
 }
 
 var tenantSessions = sessions.GetValuesBySecondaryIndex("ByTenant", "tenant-1");
-using var tenantView = sessions.CreateViewBySecondaryIndex("ByTenant", "tenant-1", Scheduler.Default);
+using var tenantView = sessions.CreateViewBySecondaryIndex("ByTenant", "tenant-1", Sequencer.Default);
 sessions.RemoveMany(pair => pair.Value.LastSeen < cutoff);
 ```
 
@@ -1532,18 +1532,18 @@ All view types expose a read-only `Items` collection and implement `IDisposable`
 | `DynamicSecondaryIndexDictionaryReactiveView<TKey,TValue,TIndexKey>` | `dict.CreateDynamicViewBySecondaryIndex(...)` | Dictionary value-index keys that change over time |
 
 ```csharp
-var search = new BehaviorSubject<string>("");
+var search = new BehaviorSignal<string>("");
 
 using var searchView = readings.CreateView(
     queryObservable: search,
     filter: (query, reading) => reading.DeviceId.Contains(query, StringComparison.OrdinalIgnoreCase),
-    scheduler: Scheduler.Default);
+    scheduler: Sequencer.Default);
 
 search.OnNext("pump-");
 ```
 
 ```csharp
-using var grouped = tasks.GroupBy(task => task.Done ? "Done" : "Open", Scheduler.Default);
+using var grouped = tasks.GroupBy(task => task.Done ? "Done" : "Open", Sequencer.Default);
 
 if (grouped.TryGetValue("Open", out var openTasks))
 {
@@ -1590,14 +1590,14 @@ A real-time stock price monitoring system:
 using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
-using System.Reactive.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 public class StockTicker : IDisposable
 {
     private readonly QuaternaryDictionary<string, StockQuote> _quotes = new();
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly MultipleDisposable _subscriptions = new();
     
     public IObservable<StockQuote> PriceUpdates { get; }
     public IObservable<StockQuote> SignificantChanges { get; }
@@ -1651,7 +1651,7 @@ public class StockTicker : IDisposable
     
     // Create live view for a sector
     public SecondaryIndexReactiveView<string, StockQuote, string> CreateSectorView(string sector) =>
-        _quotes.CreateViewBySecondaryIndex<string>("BySector", sector, Scheduler.Default);
+        _quotes.CreateViewBySecondaryIndex<string>("BySector", sector, Sequencer.Default);
     
     private string GetSector(string symbol) => symbol[0] switch
     {
@@ -1688,14 +1688,14 @@ Monitor sensors with real-time updates and alerting:
 using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
-using System.Reactive.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 public class SensorDashboard : IDisposable
 {
     private readonly ReactiveList<SensorReading> _readings = new();
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly MultipleDisposable _subscriptions = new();
     
     // Reactive views for different data needs
     public FilteredReactiveView<SensorReading> RecentReadings { get; }
@@ -1710,14 +1710,14 @@ public class SensorDashboard : IDisposable
         // Create view of last hour's readings
         RecentReadings = _readings.CreateView(
             filter: r => r.Timestamp > DateTime.UtcNow.AddHours(-1),
-            scheduler: Scheduler.Default,
+            scheduler: Sequencer.Default,
             throttleMs: 100
         );
         
         // Group readings by device
         ReadingsByDevice = _readings.GroupBy(
             keySelector: r => r.DeviceId,
-            scheduler: Scheduler.Default
+            scheduler: Sequencer.Default
         );
         
         // High temperature alerts
@@ -1741,12 +1741,12 @@ public class SensorDashboard : IDisposable
         // Subscribe to alerts
         _subscriptions.Add(
             HighTemperatureAlerts.Subscribe(r =>
-                Console.WriteLine($"🔥 HIGH TEMP: Device {r.DeviceId} = {r.Value}°F"))
+                Console.WriteLine($"?? HIGH TEMP: Device {r.DeviceId} = {r.Value}�F"))
         );
         
         _subscriptions.Add(
             LowBatteryAlerts.Subscribe(r =>
-                Console.WriteLine($"🔋 LOW BATTERY: Device {r.DeviceId} = {r.BatteryLevel}%"))
+                Console.WriteLine($"?? LOW BATTERY: Device {r.DeviceId} = {r.BatteryLevel}%"))
         );
     }
     
@@ -1828,18 +1828,18 @@ Real-time message handling with conversation grouping:
 using CP.Reactive;
 using CP.Reactive.Collections;
 using CP.Reactive.Core;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 
 public class ChatService : IDisposable
 {
     private readonly ReactiveList<ChatMessage> _messages = new();
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly MultipleDisposable _subscriptions = new();
     
     // Search functionality
-    private readonly BehaviorSubject<string> _searchQuery = new("");
+    private readonly BehaviorSignal<string> _searchQuery = new("");
     public DynamicFilteredReactiveView<ChatMessage> SearchResults { get; }
     
     // Grouped by conversation
@@ -1870,25 +1870,25 @@ public class ChatService : IDisposable
                     : m => m.Text.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                            m.SenderName.Contains(query, StringComparison.OrdinalIgnoreCase));
         
-        SearchResults = _messages.CreateView(searchFilter, Scheduler.Default, 100);
+        SearchResults = _messages.CreateView(searchFilter, Sequencer.Default, 100);
         
         // Group messages by conversation
         Conversations = _messages.GroupBy(
             m => m.ConversationId,
-            Scheduler.Default
+            Sequencer.Default
         );
         
         // Timeline view (most recent first)
         Timeline = _messages.SortBy(
             m => m.Timestamp,
             descending: true,
-            Scheduler.Default
+            Sequencer.Default
         );
         
         // Subscribe to mention alerts
         _subscriptions.Add(
             MentionAlerts.Subscribe(m =>
-                Console.WriteLine($"📢 You were mentioned by {m.SenderName}: {m.Text}"))
+                Console.WriteLine($"?? You were mentioned by {m.SenderName}: {m.Text}"))
         );
     }
     
@@ -1949,8 +1949,8 @@ using CP.Reactive.Collections;
 using CP.Reactive.Views;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
 using System.Windows.Threading;
 
 public class MainViewModel : INotifyPropertyChanged, IDisposable
@@ -1958,7 +1958,7 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly ReactiveList<TodoItem> _todos = new();
     private readonly FilteredReactiveView<TodoItem> _activeTodosView;
     private readonly FilteredReactiveView<TodoItem> _completedTodosView;
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly MultipleDisposable _subscriptions = new();
     
     public event PropertyChangedEventHandler? PropertyChanged;
     
@@ -1973,28 +1973,28 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     public MainViewModel()
     {
         // Use Dispatcher scheduler for WPF thread safety
-        var wpfScheduler = DispatcherScheduler.Current;
+        var uiSequencer = SynchronizationContextSequencer.Current;
         
         AllTodos = _todos.Items;
         
         // Active todos view
         _activeTodosView = _todos.CreateView(
             filter: t => !t.IsCompleted,
-            scheduler: wpfScheduler,
+            scheduler: uiSequencer,
             throttleMs: 50
         ).ToProperty(out ActiveTodos!);
         
         // Completed todos view
         _completedTodosView = _todos.CreateView(
             filter: t => t.IsCompleted,
-            scheduler: wpfScheduler,
+            scheduler: uiSequencer,
             throttleMs: 50
         ).ToProperty(out CompletedTodos!);
         
         // Update counts when collection changes
         _subscriptions.Add(
             _todos.Stream
-                .ObserveOn(wpfScheduler)
+                .ObserveOn(uiSequencer)
                 .Subscribe(_ =>
                 {
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TotalCount)));
@@ -2089,14 +2089,14 @@ using CP.Reactive.Collections;
 using CP.Reactive.Views;
 using System.Collections.ObjectModel;
 using ReactiveUI;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives;
 
 public class MainViewModel : ReactiveObject, IDisposable
 {
     private readonly ReactiveList<Product> _products = new();
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly MultipleDisposable _subscriptions = new();
     
     private string _searchText = "";
     private ReadOnlyObservableCollection<Product>? _filteredProducts;
@@ -2127,7 +2127,7 @@ public class MainViewModel : ReactiveObject, IDisposable
         // Create filtered view with Avalonia's UI thread scheduler
         var view = _products.CreateView(
             filterObservable: searchFilter,
-            scheduler: RxApp.MainThreadScheduler,
+            scheduler: SynchronizationContextSequencer.Current,
             throttleMs: 50
         ).ToProperty(out var items);
         
@@ -2228,18 +2228,18 @@ await Task.WhenAll(tasks);
 ### Use Edit() for Batch Operations
 
 ```csharp
-// ❌ Bad: Multiple notifications
+// ? Bad: Multiple notifications
 for (int i = 0; i < 1000; i++)
     list.Add(i);
 
-// ✅ Good: Single notification
+// ? Good: Single notification
 list.Edit(editor =>
 {
     for (int i = 0; i < 1000; i++)
         editor.Add(i);
 });
 
-// ✅ Also good: AddRange
+// ? Also good: AddRange
 list.AddRange(Enumerable.Range(0, 1000));
 ```
 

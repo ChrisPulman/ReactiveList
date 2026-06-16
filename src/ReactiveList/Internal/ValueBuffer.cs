@@ -1,5 +1,7 @@
-// Copyright (c) Chris Pulman. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
+// Chris Pulman and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
 using System.Buffers;
@@ -15,12 +17,12 @@ namespace CP.Reactive.Internal;
 internal ref struct ValueBuffer<T>
 {
     private readonly Span<T> _stackBuffer;
+
     private T[]? _rentedArray;
+
     private int _count;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ValueBuffer{T}"/> struct with a stack-allocated buffer.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="ValueBuffer{T}"/> struct with a stack-allocated buffer.</summary>
     /// <param name="stackBuffer">The stack-allocated buffer to use initially.</param>
     public ValueBuffer(in Span<T> stackBuffer)
     {
@@ -29,28 +31,22 @@ internal ref struct ValueBuffer<T>
         _count = 0;
     }
 
-    /// <summary>
-    /// Gets the number of elements in the buffer.
-    /// </summary>
+    /// <summary>Gets the number of elements in the buffer.</summary>
     public readonly int Count => _count;
 
-    /// <summary>
-    /// Gets a span over the valid elements in the buffer.
-    /// </summary>
-    public readonly ReadOnlySpan<T> Span => _rentedArray != null
+    /// <summary>Gets a span over the valid elements in the buffer.</summary>
+    public readonly ReadOnlySpan<T> Span => _rentedArray is not null
         ? _rentedArray.AsSpan(0, _count)
         : _stackBuffer.Slice(0, _count);
 
-    /// <summary>
-    /// Adds an item to the buffer, growing if necessary.
-    /// </summary>
+    /// <summary>Adds an item to the buffer, growing if necessary.</summary>
     /// <param name="item">The item to add.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Add(T item)
     {
         var count = _count;
 
-        if (_rentedArray != null)
+        if (_rentedArray is not null)
         {
             if (count >= _rentedArray.Length)
             {
@@ -72,18 +68,19 @@ internal ref struct ValueBuffer<T>
         _count = count + 1;
     }
 
-    /// <summary>
-    /// Returns the rented array to the pool if one was used.
-    /// </summary>
+    /// <summary>Returns the rented array to the pool if one was used.</summary>
     public void Dispose()
     {
-        if (_rentedArray != null)
+        if (_rentedArray is null)
         {
-            ArrayPool<T>.Shared.Return(_rentedArray, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
-            _rentedArray = null;
+            return;
         }
+
+        ArrayPool<T>.Shared.Return(_rentedArray, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        _rentedArray = null;
     }
 
+    /// <summary>Transfers ownership from the stack buffer to a rented array.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void MoveToRented()
     {
@@ -92,6 +89,7 @@ internal ref struct ValueBuffer<T>
         _stackBuffer.Slice(0, _count).CopyTo(_rentedArray);
     }
 
+    /// <summary>Grows the rented array to accommodate additional elements.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void GrowRented()
     {
