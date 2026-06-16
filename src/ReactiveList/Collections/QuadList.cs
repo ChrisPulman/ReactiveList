@@ -122,7 +122,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             Array.Copy(_items, index + 1, _items, index, _count - index);
         }
 
-        if (!CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
+        if (!Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
         {
             return;
         }
@@ -161,7 +161,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     /// <summary>Removes all elements from the list.</summary>
     public void Clear()
     {
-        if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
+        if (Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
         {
             Array.Clear(_items, 0, _count);
         }
@@ -212,7 +212,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             return;
         }
 
-        ArrayPool<T>.Shared.Return(_items, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_items, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _items = null!;
     }
 
@@ -264,7 +264,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             return 0;
         }
 
-        if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
+        if (Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
         {
             Array.Clear(items, writeIndex, removed);
         }
@@ -295,7 +295,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
         var newCapacity = _items.Length == 0 ? MinimumSize : _items.Length * 2;
         if (newCapacity < minCapacity)
         {
-            newCapacity = (int)CP.Reactive.Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)minCapacity);
+            newCapacity = (int)Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)minCapacity);
         }
 
         var newItems = ArrayPool<T>.Shared.Rent(newCapacity);
@@ -304,7 +304,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             Array.Copy(_items, newItems, _count);
         }
 
-        ArrayPool<T>.Shared.Return(_items, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_items, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _items = newItems;
     }
 

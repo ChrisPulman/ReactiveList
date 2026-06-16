@@ -8,15 +8,19 @@ using DynamicData;
 
 namespace ReactiveList.Benchmarks;
 
+/// <summary>Provides QuaternaryDictionaryBenchmarks.</summary>
 [MemoryDiagnoser]
 public class QuaternaryDictionaryBenchmarks
 {
+    private KeyValuePair<int, int>[] _kvps = [];
+
+    private Item[] _items = [];
+
+    /// <summary>Gets or sets the item count.</summary>
     [Params(100, 1_000, 10_000)]
     public int Count { get; set; }
 
-    private KeyValuePair<int, int>[] _kvps = [];
-    private Item[] _items = [];
-
+    /// <summary>Provides Setup.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -26,6 +30,8 @@ public class QuaternaryDictionaryBenchmarks
         _items = _kvps.Select(k => new Item(k.Key, k.Value)).ToArray();
     }
 
+    /// <summary>Provides Dictionary_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_AddRange()
     {
@@ -38,6 +44,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_AddRange()
     {
@@ -46,6 +54,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides SourceCache_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_AddRange()
     {
@@ -54,6 +64,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides Dictionary_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_Remove()
     {
@@ -66,6 +78,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Remove()
     {
@@ -79,6 +93,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides SourceCache_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Remove()
     {
@@ -88,6 +104,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_RemoveKeys.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_RemoveKeys()
     {
@@ -97,6 +115,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides Dictionary_Clear.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_Clear()
     {
@@ -105,6 +125,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Clear.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Clear()
     {
@@ -114,6 +136,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides SourceCache_Clear.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Clear()
     {
@@ -123,6 +147,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides Dictionary_TryGetValue.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool Dictionary_TryGetValue()
     {
@@ -130,6 +156,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.TryGetValue(Count - 1, out _);
     }
 
+    /// <summary>Provides QuaternaryDictionary_TryGetValue.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool QuaternaryDictionary_TryGetValue()
     {
@@ -138,6 +166,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.TryGetValue(Count - 1, out _);
     }
 
+    /// <summary>Provides QuaternaryDictionary_Lookup.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool QuaternaryDictionary_Lookup()
     {
@@ -146,6 +176,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Lookup(Count - 1).HasValue;
     }
 
+    /// <summary>Provides SourceCache_Lookup.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool SourceCache_Lookup()
     {
@@ -154,6 +186,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Lookup(Count - 1).HasValue;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Stream_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Stream_Add()
     {
@@ -164,6 +198,8 @@ public class QuaternaryDictionaryBenchmarks
         return events;
     }
 
+    /// <summary>Provides SourceCache_Stream_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Stream_Add()
     {
@@ -174,6 +210,8 @@ public class QuaternaryDictionaryBenchmarks
         return events;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Edit.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Edit()
     {
@@ -190,6 +228,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides SourceCache_Edit.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Edit()
     {
@@ -206,6 +246,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_RemoveMany.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_RemoveMany()
     {
@@ -215,6 +257,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_VersionTracking.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public long QuaternaryDictionary_VersionTracking()
     {
@@ -226,6 +270,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Version - initialVersion;
     }
 
+    /// <summary>Provides QuaternaryDictionary_ValueIndex.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_ValueIndex()
     {
@@ -235,6 +281,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
     }
 
+    /// <summary>Provides QuaternaryDictionary_ParallelAdd.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_ParallelAdd()
     {
@@ -248,6 +296,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_IterateAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_IterateAll()
     {
@@ -262,6 +312,8 @@ public class QuaternaryDictionaryBenchmarks
         return sum;
     }
 
+    /// <summary>Provides Dictionary_IterateAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_IterateAll()
     {
@@ -275,6 +327,8 @@ public class QuaternaryDictionaryBenchmarks
         return sum;
     }
 
+    /// <summary>Provides QuaternaryDictionary_AddOrUpdate.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_AddOrUpdate()
     {
@@ -293,6 +347,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Keys.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Keys()
     {
@@ -301,6 +357,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Keys.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Values.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Values()
     {
@@ -309,6 +367,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Values.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Enumerate.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Enumerate()
     {
@@ -323,6 +383,8 @@ public class QuaternaryDictionaryBenchmarks
         return count;
     }
 
+    /// <summary>Provides Dictionary_ContainsKey.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool Dictionary_ContainsKey()
     {
@@ -330,6 +392,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.ContainsKey(Count - 1);
     }
 
+    /// <summary>Provides QuaternaryDictionary_Contains.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool QuaternaryDictionary_Contains()
     {
@@ -338,6 +402,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Contains(new KeyValuePair<int, int>(Count - 1, Count - 1));
     }
 
+    /// <summary>Provides Dictionary_IndexerGet.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_IndexerGet()
     {
@@ -351,6 +417,8 @@ public class QuaternaryDictionaryBenchmarks
         return sum;
     }
 
+    /// <summary>Provides QuaternaryDictionary_IndexerGet.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_IndexerGet()
     {
@@ -365,6 +433,8 @@ public class QuaternaryDictionaryBenchmarks
         return sum;
     }
 
+    /// <summary>Provides Dictionary_IndexerSet.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_IndexerSet()
     {
@@ -377,6 +447,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_IndexerSet.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_IndexerSet()
     {
@@ -389,6 +461,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides Dictionary_Keys.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_Keys()
     {
@@ -396,6 +470,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Keys.Count;
     }
 
+    /// <summary>Provides SourceCache_Keys.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Keys()
     {
@@ -404,6 +480,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Keys.ToList().Count;
     }
 
+    /// <summary>Provides Dictionary_Values.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_Values()
     {
@@ -411,6 +489,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Values.Count;
     }
 
+    /// <summary>Provides SourceCache_Values.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Values()
     {
@@ -419,6 +499,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Items.ToList().Count;
     }
 
+    /// <summary>Provides SourceCache_IterateAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_IterateAll()
     {
@@ -433,6 +515,8 @@ public class QuaternaryDictionaryBenchmarks
         return sum;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Stream_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Stream_Remove()
     {
@@ -444,6 +528,8 @@ public class QuaternaryDictionaryBenchmarks
         return events;
     }
 
+    /// <summary>Provides SourceCache_Stream_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Stream_Remove()
     {
@@ -455,6 +541,8 @@ public class QuaternaryDictionaryBenchmarks
         return events;
     }
 
+    /// <summary>Provides QuaternaryDictionary_AddValueIndex.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_AddValueIndex()
     {
@@ -464,6 +552,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_QueryValueIndex.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_QueryValueIndex()
     {
@@ -473,6 +563,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
     }
 
+    /// <summary>Provides QuaternaryDictionary_ValueMatchesSecondaryIndex.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool QuaternaryDictionary_ValueMatchesSecondaryIndex()
     {
@@ -482,6 +574,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.ValueMatchesSecondaryIndex("Mod2", 4, 0);
     }
 
+    /// <summary>Provides QuaternaryDictionary_MultipleValueIndices.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_MultipleValueIndices()
     {
@@ -495,6 +589,8 @@ public class QuaternaryDictionaryBenchmarks
                dict.GetValuesBySecondaryIndex("Mod5", 0).Count();
     }
 
+    /// <summary>Provides QuaternaryDictionary_IndexWithAddRemove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_IndexWithAddRemove()
     {
@@ -505,6 +601,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
     }
 
+    /// <summary>Provides Dictionary_Count.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_Count()
     {
@@ -512,6 +610,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Count.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Count()
     {
@@ -520,6 +620,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides SourceCache_Count.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Count()
     {
@@ -528,6 +630,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_MixedOperations.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_MixedOperations()
     {
@@ -539,6 +643,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides SourceCache_MixedOperations.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_MixedOperations()
     {
@@ -550,6 +656,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides Dictionary_MixedOperations.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_MixedOperations()
     {
@@ -564,6 +672,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides Dictionary_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_Add()
     {
@@ -576,6 +686,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_Add()
     {
@@ -588,6 +700,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides SourceCache_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_Add()
     {
@@ -600,6 +714,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides Dictionary_TryAdd.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_TryAdd()
     {
@@ -612,6 +728,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_TryAdd.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryDictionary_TryAdd()
     {
@@ -624,6 +742,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides Dictionary_AddOrUpdate.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int Dictionary_AddOrUpdate()
     {
@@ -642,6 +762,8 @@ public class QuaternaryDictionaryBenchmarks
         return dict.Count;
     }
 
+    /// <summary>Provides SourceCache_AddOrUpdate.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_AddOrUpdate()
     {
@@ -660,6 +782,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides SourceCache_RemoveKeys.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_RemoveKeys()
     {
@@ -669,6 +793,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
+    /// <summary>Provides SourceCache_RemoveMany.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceCache_RemoveMany()
     {
@@ -678,5 +804,8 @@ public class QuaternaryDictionaryBenchmarks
         return cache.Count;
     }
 
-    private record Item(int Id, int Value);
+    /// <summary>Provides Item.</summary>
+    /// <param name="Id">The Id value.</param>
+    /// <param name="Value">The Value value.</param>
+    private sealed record Item(int Id, int Value);
 }

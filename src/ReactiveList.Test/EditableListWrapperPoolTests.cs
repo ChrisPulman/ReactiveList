@@ -12,14 +12,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for EditableListWrapperPool and PooledEditableListWrapper.
-/// </summary>
+/// <summary>Tests for EditableListWrapperPool and PooledEditableListWrapper.</summary>
 public class EditableListWrapperPoolTests
 {
-    /// <summary>
-    /// Tests that Rent returns a new wrapper when pool is empty.
-    /// </summary>
+    /// <summary>Tests that Rent returns a new wrapper when pool is empty.</summary>
     [Test]
     public void Rent_ReturnsNewWrapperWhenPoolEmpty()
     {
@@ -35,9 +31,7 @@ public class EditableListWrapperPoolTests
         wrapper.Count.Should().Be(3);
     }
 
-    /// <summary>
-    /// Tests that Return adds wrapper to pool.
-    /// </summary>
+    /// <summary>Tests that Return adds wrapper to pool.</summary>
     [Test]
     public void Return_AddsWrapperToPool()
     {
@@ -53,9 +47,7 @@ public class EditableListWrapperPoolTests
         EditableListWrapperPool.GetCurrentPoolSize<int>().Should().Be(1);
     }
 
-    /// <summary>
-    /// Tests that Rent reuses wrapper from pool.
-    /// </summary>
+    /// <summary>Tests that Rent reuses wrapper from pool.</summary>
     [Test]
     public void Rent_ReusesWrapperFromPool()
     {
@@ -78,9 +70,7 @@ public class EditableListWrapperPoolTests
         wrapper2.Dispose();
     }
 
-    /// <summary>
-    /// Tests that wrapper operations work correctly.
-    /// </summary>
+    /// <summary>Tests that wrapper operations work correctly.</summary>
     [Test]
     public void PooledWrapper_OperationsWork()
     {
@@ -108,9 +98,7 @@ public class EditableListWrapperPoolTests
         wrapper.Count.Should().Be(0);
     }
 
-    /// <summary>
-    /// Tests that wrapper syncs with observable collection.
-    /// </summary>
+    /// <summary>Tests that wrapper syncs with observable collection.</summary>
     [Test]
     public void PooledWrapper_SyncsWithObservableCollection()
     {
@@ -128,9 +116,7 @@ public class EditableListWrapperPoolTests
         observable.Should().BeEquivalentTo([1, 2, 3]);
     }
 
-    /// <summary>
-    /// Tests that disposed wrapper throws when used.
-    /// </summary>
+    /// <summary>Tests that disposed wrapper throws when used.</summary>
     [Test]
     public void PooledWrapper_ThrowsAfterDispose()
     {
@@ -144,9 +130,7 @@ public class EditableListWrapperPoolTests
         action.Should().Throw<ObjectDisposedException>();
     }
 
-    /// <summary>
-    /// Tests that MaxPoolSize limits pool growth.
-    /// </summary>
+    /// <summary>Tests that MaxPoolSize limits pool growth.</summary>
     [Test]
     public void MaxPoolSize_LimitsPoolGrowth()
     {
@@ -179,9 +163,7 @@ public class EditableListWrapperPoolTests
         }
     }
 
-    /// <summary>
-    /// Tests that IResettable.Reset clears wrapper state.
-    /// </summary>
+    /// <summary>Tests that IResettable.Reset clears wrapper state.</summary>
     [Test]
     public void IResettable_Reset_ClearsState()
     {

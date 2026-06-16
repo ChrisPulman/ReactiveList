@@ -21,9 +21,7 @@ namespace ReactiveList.Tests;
 /// </summary>
 public class ReactiveListExtensionsAdditionalTests
 {
-    /// <summary>
-    /// Tests that OnUpdate returns previous and current values when items are updated.
-    /// </summary>
+    /// <summary>Tests that OnUpdate returns previous and current values when items are updated.</summary>
     [Test]
     public void OnUpdate_ReturnsPreviousAndCurrentValues()
     {
@@ -45,9 +43,7 @@ public class ReactiveListExtensionsAdditionalTests
         updates[0].Current.Should().Be("updated");
     }
 
-    /// <summary>
-    /// Tests that OnUpdate does not emit for add operations.
-    /// </summary>
+    /// <summary>Tests that OnUpdate does not emit for add operations.</summary>
     [Test]
     public void OnUpdate_DoesNotEmitForAddOperations()
     {
@@ -68,9 +64,7 @@ public class ReactiveListExtensionsAdditionalTests
         updateCount.Should().Be(0);
     }
 
-    /// <summary>
-    /// Tests that OnUpdate handles multiple sequential updates with previous values.
-    /// </summary>
+    /// <summary>Tests that OnUpdate handles multiple sequential updates with previous values.</summary>
     [Test]
     public void OnUpdate_HandlesMultipleSequentialUpdates()
     {
@@ -98,9 +92,7 @@ public class ReactiveListExtensionsAdditionalTests
         updates[2].Current.Should().Be(1000);
     }
 
-    /// <summary>
-    /// Tests that OnMove returns item and indices when items are moved.
-    /// </summary>
+    /// <summary>Tests that OnMove returns item and indices when items are moved.</summary>
     [Test]
     public void OnMove_ReturnsItemAndIndices()
     {
@@ -123,9 +115,7 @@ public class ReactiveListExtensionsAdditionalTests
         moves[0].NewIndex.Should().Be(3);
     }
 
-    /// <summary>
-    /// Tests that OnMove does not emit for add or remove operations.
-    /// </summary>
+    /// <summary>Tests that OnMove does not emit for add or remove operations.</summary>
     [Test]
     public void OnMove_DoesNotEmitForAddRemove()
     {
@@ -146,9 +136,7 @@ public class ReactiveListExtensionsAdditionalTests
         moveCount.Should().Be(0);
     }
 
-    /// <summary>
-    /// Tests that OnMove handles multiple move operations.
-    /// </summary>
+    /// <summary>Tests that OnMove handles multiple move operations.</summary>
     [Test]
     public void OnMove_HandlesMultipleMoves()
     {
@@ -169,9 +157,7 @@ public class ReactiveListExtensionsAdditionalTests
         moves.Should().HaveCount(2);
     }
 
-    /// <summary>
-    /// Tests that FilterDynamic filters items based on dynamic predicate.
-    /// </summary>
+    /// <summary>Tests that FilterDynamic filters items based on dynamic predicate.</summary>
     [Test]
     public void FilterDynamic_FiltersBasedOnDynamicPredicate()
     {
@@ -184,10 +170,12 @@ public class ReactiveListExtensionsAdditionalTests
             .FilterDynamic(filterSubject)
             .Subscribe(notification =>
             {
-                if (notification.Item != 0)
+                if (notification.Item == 0)
                 {
-                    receivedItems.Add(notification.Item);
+                    return;
                 }
+
+                receivedItems.Add(notification.Item);
             });
 
         // Act - add items with all-pass filter
@@ -196,7 +184,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(3);
 
         // Assert
-        receivedItems.Should().BeEquivalentTo(new[] { 1, 2, 3 });
+        receivedItems.Should().BeEquivalentTo([1, 2, 3]);
 
         // Act - change filter to only even numbers
         receivedItems.Clear();
@@ -205,12 +193,10 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(5);
 
         // Assert - only even number should be received
-        receivedItems.Should().BeEquivalentTo(new[] { 4 });
+        receivedItems.Should().BeEquivalentTo([4]);
     }
 
-    /// <summary>
-    /// Tests that FilterDynamic always passes removed items.
-    /// </summary>
+    /// <summary>Tests that FilterDynamic always passes removed items.</summary>
     [Test]
     public void FilterDynamic_AlwaysPassesRemovedItems()
     {
@@ -223,10 +209,12 @@ public class ReactiveListExtensionsAdditionalTests
             .FilterDynamic(filterSubject)
             .Subscribe(notification =>
             {
-                if (notification.Action == CacheAction.Removed && notification.Item != 0)
+                if (notification.Action != CacheAction.Removed || notification.Item == 0)
                 {
-                    removedItems.Add(notification.Item);
+                    return;
                 }
+
+                removedItems.Add(notification.Item);
             });
 
         // Act - add items (only > 5 pass filter)
@@ -238,9 +226,7 @@ public class ReactiveListExtensionsAdditionalTests
         removedItems.Should().Contain(3);
     }
 
-    /// <summary>
-    /// Tests that FilterDynamic passes Cleared notifications.
-    /// </summary>
+    /// <summary>Tests that FilterDynamic passes Cleared notifications.</summary>
     [Test]
     public void FilterDynamic_PassesClearedNotifications()
     {
@@ -253,10 +239,12 @@ public class ReactiveListExtensionsAdditionalTests
             .FilterDynamic(filterSubject)
             .Subscribe(notification =>
             {
-                if (notification.Action == CacheAction.Cleared)
+                if (notification.Action != CacheAction.Cleared)
                 {
-                    clearReceived = true;
+                    return;
                 }
+
+                clearReceived = true;
             });
 
         // Act
@@ -267,9 +255,7 @@ public class ReactiveListExtensionsAdditionalTests
         clearReceived.Should().BeTrue();
     }
 
-    /// <summary>
-    /// Tests that CreateView without filter contains all items.
-    /// </summary>
+    /// <summary>Tests that CreateView without filter contains all items.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateView_WithoutFilter_ContainsAllItems()
@@ -284,12 +270,10 @@ public class ReactiveListExtensionsAdditionalTests
 
         // Assert
         view.Count.Should().Be(5);
-        view.Should().BeEquivalentTo(new[] { 1, 2, 3, 4, 5 });
+        view.Should().BeEquivalentTo([1, 2, 3, 4, 5]);
     }
 
-    /// <summary>
-    /// Tests that CreateView without filter updates when source changes.
-    /// </summary>
+    /// <summary>Tests that CreateView without filter updates when source changes.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateView_WithoutFilter_UpdatesOnSourceChange()
@@ -306,21 +290,19 @@ public class ReactiveListExtensionsAdditionalTests
         await Task.Delay(50);
 
         // Assert
-        view.Should().BeEquivalentTo(new[] { 1, 2, 3, 4 });
+        view.Should().BeEquivalentTo([1, 2, 3, 4]);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
-    /// <summary>
-    /// Tests that CreateView with query observable filters based on query.
-    /// </summary>
+    /// <summary>Tests that CreateView with query observable filters based on query.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateView_WithQueryObservable_FiltersBasedOnQuery()
     {
         // Arrange
         using var list = new QuaternaryList<string>();
-        list.AddRange(new[] { "apple", "banana", "apricot", "cherry", "avocado" });
+        list.AddRange(["apple", "banana", "apricot", "cherry", "avocado"]);
 
         var searchQuery = new BehaviorSignal<string>(string.Empty);
 
@@ -340,25 +322,23 @@ public class ReactiveListExtensionsAdditionalTests
         searchQuery.OnNext("a");
         await Task.Delay(100);
 
-        view.Items.Should().BeEquivalentTo(new[] { "apple", "apricot", "avocado" });
+        view.Items.Should().BeEquivalentTo(["apple", "apricot", "avocado"]);
 
         // Search for "ap"
         searchQuery.OnNext("ap");
         await Task.Delay(100);
 
-        view.Items.Should().BeEquivalentTo(new[] { "apple", "apricot" });
+        view.Items.Should().BeEquivalentTo(["apple", "apricot"]);
     }
 
-    /// <summary>
-    /// Tests that CreateView with query observable updates when source changes.
-    /// </summary>
+    /// <summary>Tests that CreateView with query observable updates when source changes.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateView_WithQueryObservable_UpdatesWhenSourceChanges()
     {
         // Arrange
         using var list = new QuaternaryList<int>();
-        list.AddRange(new[] { 1, 2, 3 });
+        list.AddRange([1, 2, 3]);
 
         var thresholdQuery = new BehaviorSignal<int>(2);
 
@@ -369,27 +349,25 @@ public class ReactiveListExtensionsAdditionalTests
             0);
 
         await Task.Delay(50);
-        view.Items.Should().BeEquivalentTo(new[] { 3 });
+        view.Items.Should().BeEquivalentTo([3]);
 
         // Act - add item that passes filter
         list.Add(5);
         await Task.Delay(100);
 
         // Assert
-        view.Items.Should().BeEquivalentTo(new[] { 3, 5 });
+        view.Items.Should().BeEquivalentTo([3, 5]);
 
         // Act - change threshold
         thresholdQuery.OnNext(4);
         await Task.Delay(100);
 
         // Assert
-        view.Items.Should().BeEquivalentTo(new[] { 5 });
+        view.Items.Should().BeEquivalentTo([5]);
     }
 #endif
 
-    /// <summary>
-    /// Tests that GroupByChanges groups items by key selector.
-    /// </summary>
+    /// <summary>Tests that GroupByChanges groups items by key selector.</summary>
     [Test]
     public void GroupByChanges_GroupsItemsByKeySelector()
     {
@@ -401,12 +379,13 @@ public class ReactiveListExtensionsAdditionalTests
             .GroupByChanges(x => x % 2 == 0 ? "even" : "odd")
             .Subscribe(group =>
             {
-                if (!groups.ContainsKey(group.Key!))
+                if (!groups.TryGetValue(group.Key!, out var value))
                 {
-                    groups[group.Key!] = new List<int>();
+                    value = [];
+                    groups[group.Key!] = value;
                 }
 
-                group.Subscribe(item => groups[group.Key!].Add(item));
+                group.Subscribe(item => value.Add(item));
             });
 
         // Act
@@ -418,13 +397,11 @@ public class ReactiveListExtensionsAdditionalTests
         // Assert
         groups.Should().ContainKey("odd");
         groups.Should().ContainKey("even");
-        groups["odd"].Should().BeEquivalentTo(new[] { 1, 3 });
-        groups["even"].Should().BeEquivalentTo(new[] { 2, 4 });
+        groups["odd"].Should().BeEquivalentTo([1, 3]);
+        groups["even"].Should().BeEquivalentTo([2, 4]);
     }
 
-    /// <summary>
-    /// Tests that GroupByChanges handles string keys.
-    /// </summary>
+    /// <summary>Tests that GroupByChanges handles string keys.</summary>
     [Test]
     public void GroupByChanges_HandlesStringKeys()
     {
@@ -436,12 +413,13 @@ public class ReactiveListExtensionsAdditionalTests
             .GroupByChanges(s => s[0])
             .Subscribe(group =>
             {
-                if (!groups.ContainsKey(group.Key))
+                if (!groups.TryGetValue(group.Key, out var value))
                 {
-                    groups[group.Key] = new List<string>();
+                    value = [];
+                    groups[group.Key] = value;
                 }
 
-                group.Subscribe(item => groups[group.Key].Add(item));
+                group.Subscribe(item => value.Add(item));
             });
 
         // Act
@@ -451,14 +429,12 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add("cherry");
 
         // Assert
-        groups['a'].Should().BeEquivalentTo(new[] { "apple", "apricot" });
-        groups['b'].Should().BeEquivalentTo(new[] { "banana" });
-        groups['c'].Should().BeEquivalentTo(new[] { "cherry" });
+        groups['a'].Should().BeEquivalentTo(["apple", "apricot"]);
+        groups['b'].Should().BeEquivalentTo(["banana"]);
+        groups['c'].Should().BeEquivalentTo(["cherry"]);
     }
 
-    /// <summary>
-    /// Tests that GroupingByChanges creates proper groupings.
-    /// </summary>
+    /// <summary>Tests that GroupingByChanges creates proper groupings.</summary>
     [Test]
     public void GroupingByChanges_CreatesProperGroupings()
     {
@@ -477,9 +453,7 @@ public class ReactiveListExtensionsAdditionalTests
         groupings.Should().HaveCountGreaterThan(0);
     }
 
-    /// <summary>
-    /// Tests that GroupingByChanges handles batch operations.
-    /// </summary>
+    /// <summary>Tests that GroupingByChanges handles batch operations.</summary>
     [Test]
     public void GroupingByChanges_HandlesBatchAdd()
     {
@@ -502,9 +476,7 @@ public class ReactiveListExtensionsAdditionalTests
         keys.Should().Contain(2); // 25
     }
 
-    /// <summary>
-    /// Tests that AutoRefresh emits refresh when property changes.
-    /// </summary>
+    /// <summary>Tests that AutoRefresh emits refresh when property changes.</summary>
     [Test]
     public void AutoRefresh_EmitsRefreshWhenPropertyChanges()
     {
@@ -527,9 +499,7 @@ public class ReactiveListExtensionsAdditionalTests
         refreshCount.Should().Be(1);
     }
 
-    /// <summary>
-    /// Tests that AutoRefresh does not emit for unrelated property changes.
-    /// </summary>
+    /// <summary>Tests that AutoRefresh does not emit for unrelated property changes.</summary>
     [Test]
     public void AutoRefresh_DoesNotEmitForUnrelatedPropertyChanges()
     {
@@ -552,9 +522,7 @@ public class ReactiveListExtensionsAdditionalTests
         refreshCount.Should().Be(0);
     }
 
-    /// <summary>
-    /// Tests that AutoRefresh without property name watches all property changes.
-    /// </summary>
+    /// <summary>Tests that AutoRefresh without property name watches all property changes.</summary>
     [Test]
     public void AutoRefresh_WithoutPropertyName_WatchesAllProperties()
     {
@@ -578,9 +546,7 @@ public class ReactiveListExtensionsAdditionalTests
         refreshCount.Should().Be(2);
     }
 
-    /// <summary>
-    /// Tests that Connect returns observable of change sets.
-    /// </summary>
+    /// <summary>Tests that Connect returns observable of change sets.</summary>
     [Test]
     public void Connect_ReturnsObservableOfChangeSets()
     {
@@ -598,12 +564,10 @@ public class ReactiveListExtensionsAdditionalTests
 
         // Assert
         changeSets.Should().HaveCount(3);
-        changeSets.SelectMany(cs => cs.Select(c => c.Current)).Should().BeEquivalentTo(new[] { 1, 2, 3 });
+        changeSets.SelectMany(cs => cs.Select(c => c.Current)).Should().BeEquivalentTo([1, 2, 3]);
     }
 
-    /// <summary>
-    /// Tests that Connect throws for null source.
-    /// </summary>
+    /// <summary>Tests that Connect throws for null source.</summary>
     [Test]
     public void Connect_ThrowsForNullSource()
     {
@@ -615,9 +579,7 @@ public class ReactiveListExtensionsAdditionalTests
         act.Should().Throw<ArgumentNullException>();
     }
 
-    /// <summary>
-    /// Tests that WhereItems filters notifications by predicate.
-    /// </summary>
+    /// <summary>Tests that WhereItems filters notifications by predicate.</summary>
     [Test]
     public void WhereItems_FiltersNotificationsByPredicate()
     {
@@ -629,10 +591,12 @@ public class ReactiveListExtensionsAdditionalTests
             .WhereItems(x => x > 5)
             .Subscribe(notification =>
             {
-                if (notification.Action == CacheAction.Added)
+                if (notification.Action != CacheAction.Added)
                 {
-                    receivedItems.Add(notification.Item);
+                    return;
                 }
+
+                receivedItems.Add(notification.Item);
             });
 
         // Act
@@ -642,12 +606,10 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(10);
 
         // Assert - only items > 5 should be received
-        receivedItems.Should().BeEquivalentTo(new[] { 7, 10 });
+        receivedItems.Should().BeEquivalentTo([7, 10]);
     }
 
-    /// <summary>
-    /// Tests that WhereItems passes Cleared notifications.
-    /// </summary>
+    /// <summary>Tests that WhereItems passes Cleared notifications.</summary>
     [Test]
     public void WhereItems_PassesClearedNotifications()
     {
@@ -659,10 +621,12 @@ public class ReactiveListExtensionsAdditionalTests
             .WhereItems(x => x.Length > 5)
             .Subscribe(notification =>
             {
-                if (notification.Action == CacheAction.Cleared)
+                if (notification.Action != CacheAction.Cleared)
                 {
-                    clearedReceived = true;
+                    return;
                 }
+
+                clearedReceived = true;
             });
 
         // Act
@@ -673,9 +637,7 @@ public class ReactiveListExtensionsAdditionalTests
         clearedReceived.Should().BeTrue();
     }
 
-    /// <summary>
-    /// Tests that WhereItems passes BatchOperation notifications.
-    /// </summary>
+    /// <summary>Tests that WhereItems passes BatchOperation notifications.</summary>
     [Test]
     public void WhereItems_PassesBatchOperations()
     {
@@ -687,11 +649,13 @@ public class ReactiveListExtensionsAdditionalTests
             .WhereItems(x => x.Length > 5)
             .Subscribe(notification =>
             {
-                if (notification.Action == CacheAction.BatchAdded ||
-                    notification.Action == CacheAction.BatchOperation)
+                if (notification.Action != CacheAction.BatchAdded &&
+                    notification.Action != CacheAction.BatchOperation)
                 {
-                    batchReceived = true;
+                    return;
                 }
+
+                batchReceived = true;
             });
 
         // Act
@@ -701,9 +665,7 @@ public class ReactiveListExtensionsAdditionalTests
         batchReceived.Should().BeTrue();
     }
 
-    /// <summary>
-    /// Tests that WhereItems correctly filters value types including zero.
-    /// </summary>
+    /// <summary>Tests that WhereItems correctly filters value types including zero.</summary>
     [Test]
     public void WhereItems_HandlesValueTypesIncludingZero()
     {
@@ -715,26 +677,26 @@ public class ReactiveListExtensionsAdditionalTests
             .WhereItems(x => x >= 0) // Filter: all non-negative numbers including 0
             .Subscribe(notification =>
             {
-                if (notification.Action == CacheAction.Added)
+                if (notification.Action != CacheAction.Added)
                 {
-                    receivedItems.Add(notification.Item);
+                    return;
                 }
+
+                receivedItems.Add(notification.Item);
             });
 
         // Act
-        list.Add(-1);  // Should be filtered out
-        list.Add(0);   // Should be included (this was the bug - 0 would be treated as "no item")
-        list.Add(5);   // Should be included
-        list.Add(-5);  // Should be filtered out
-        list.Add(10);  // Should be included
+        list.Add(-1); // Should be filtered out
+        list.Add(0); // Should be included (this was the bug - 0 would be treated as "no item")
+        list.Add(5); // Should be included
+        list.Add(-5); // Should be filtered out
+        list.Add(10); // Should be included
 
         // Assert - 0 should be correctly included
-        receivedItems.Should().BeEquivalentTo(new[] { 0, 5, 10 });
+        receivedItems.Should().BeEquivalentTo([0, 5, 10]);
     }
 
-    /// <summary>
-    /// Tests that SortBy sorts change sets by key selector.
-    /// </summary>
+    /// <summary>Tests that SortBy sorts change sets by key selector.</summary>
     [Test]
     public void SortBy_SortsChangeSetsByKeySelector()
     {
@@ -754,15 +716,13 @@ public class ReactiveListExtensionsAdditionalTests
             });
 
         // Act
-        list.AddRange(new[] { 5, 1, 3, 2, 4 });
+        list.AddRange([5, 1, 3, 2, 4]);
 
         // Assert
         sortedItems.Should().BeInAscendingOrder();
     }
 
-    /// <summary>
-    /// Tests that SortBy handles string sorting.
-    /// </summary>
+    /// <summary>Tests that SortBy handles string sorting.</summary>
     [Test]
     public void SortBy_HandlesStringSorting()
     {
@@ -782,15 +742,13 @@ public class ReactiveListExtensionsAdditionalTests
             });
 
         // Act
-        list.AddRange(new[] { "elephant", "cat", "dog", "bird" });
+        list.AddRange(["elephant", "cat", "dog", "bird"]);
 
         // Assert
         sortedItems.Select(s => s.Length).Should().BeInAscendingOrder();
     }
 
-    /// <summary>
-    /// Tests that SelectChanges transforms to different type maintaining change metadata.
-    /// </summary>
+    /// <summary>Tests that SelectChanges transforms to different type maintaining change metadata.</summary>
     [Test]
     public void SelectChanges_TransformsToDifferentType()
     {
@@ -812,9 +770,7 @@ public class ReactiveListExtensionsAdditionalTests
         transformedSets[1][0].Current.Should().Be("Value:2");
     }
 
-    /// <summary>
-    /// Tests that SelectChanges preserves change reason.
-    /// </summary>
+    /// <summary>Tests that SelectChanges preserves change reason.</summary>
     [Test]
     public void SelectChanges_PreservesChangeReason()
     {
@@ -843,39 +799,40 @@ public class ReactiveListExtensionsAdditionalTests
         reasons.Should().Contain(ChangeReason.Remove);
     }
 
-    /// <summary>
-    /// Test class that implements INotifyPropertyChanged.
-    /// </summary>
-    private class NotifyingItem : INotifyPropertyChanged
+    /// <summary>Test class that implements INotifyPropertyChanged.</summary>
+    private sealed class NotifyingItem : INotifyPropertyChanged
     {
-        private string _name = string.Empty;
-        private int _value;
-
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        /// <summary>Gets or sets Value.</summary>
         public string Name
         {
-            get => _name;
+            get;
             set
             {
-                if (_name != value)
+                if (field == value)
                 {
-                    _name = value;
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
+                    return;
                 }
-            }
-        }
 
+                field = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
+            }
+        } = string.Empty;
+
+        /// <summary>Gets or sets Value.</summary>
         public int Value
         {
-            get => _value;
+            get;
             set
             {
-                if (_value != value)
+                if (field == value)
                 {
-                    _value = value;
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+                    return;
                 }
+
+                field = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
             }
         }
     }

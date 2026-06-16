@@ -35,10 +35,10 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     /// <summary>Gets the typed shard containers used by the list implementation.</summary>
     private QuadList<T>[] Quads { get; } =
     [
-        new QuadList<T>(),
-        new QuadList<T>(),
-        new QuadList<T>(),
-        new QuadList<T>()
+        [],
+        [],
+        [],
+        []
     ];
 
     /// <summary>Gets or sets the element at the specified index.</summary>
@@ -128,7 +128,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         }
 
         // Slow path: materialize
-        AddRangeCore(collection.ToArray());
+        AddRangeCore([.. collection]);
     }
 
     /// <summary>Removes all elements in the specified collection from the current set.</summary>
@@ -150,7 +150,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         }
 
         // Slow path: materialize
-        RemoveRangeCore(collection.ToArray());
+        RemoveRangeCore([.. collection]);
     }
 
     /// <summary>Removes all elements that match the specified predicate from the collection.</summary>
@@ -158,7 +158,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     /// <returns>The number of elements removed from the collection.</returns>
     public int RemoveMany(Func<T, bool> predicate)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(predicate);
+        ThrowHelper.ThrowIfNull(predicate);
 
         var totalRemoved = 0;
 
@@ -188,7 +188,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                             {
                                 var newBuffer = ArrayPool<T>.Shared.Rent(removedBuffer.Length * 2);
                                 removedBuffer.AsSpan(0, removedCount).CopyTo(newBuffer);
-                                ArrayPool<T>.Shared.Return(removedBuffer, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+                                ArrayPool<T>.Shared.Return(removedBuffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
                                 removedBuffer = newBuffer;
                             }
 
@@ -210,7 +210,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         }
         finally
         {
-            ArrayPool<T>.Shared.Return(removedBuffer, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+            ArrayPool<T>.Shared.Return(removedBuffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         }
 
         return totalRemoved;
@@ -220,7 +220,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     /// <param name="editAction">An action that receives an editable list interface to perform modifications.</param>
     public void Edit(Action<ICollection<T>> editAction)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(editAction);
+        ThrowHelper.ThrowIfNull(editAction);
 
         // Acquire all locks for the edit operation
         for (var i = 0; i < ShardCount; i++)
@@ -252,9 +252,9 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     /// <param name="items">The new items to replace all existing items with. Cannot be null.</param>
     public void ReplaceAll(IEnumerable<T> items)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(items);
+        ThrowHelper.ThrowIfNull(items);
 
-        var newItems = (items as T[]) ?? items.ToArray();
+        var newItems = (items as T[]) ?? [.. items];
 
         // Acquire all locks
         for (var i = 0; i < ShardCount; i++)
@@ -293,7 +293,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                 var bucketArrays = new T[ShardCount][];
                 for (var i = 0; i < ShardCount; i++)
                 {
-                    bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : Array.Empty<T>();
+                    bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : [];
                 }
 
                 try
@@ -332,7 +332,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                     {
                         if (bucketCountsArray[i] > 0)
                         {
-                            ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+                            ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
                         }
                     }
                 }

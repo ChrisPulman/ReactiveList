@@ -13,14 +13,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for SecondaryIndex.
-/// </summary>
+/// <summary>Tests for SecondaryIndex.</summary>
 public class SecondaryIndexTests
 {
-    /// <summary>
-    /// OnAdded should add item to index.
-    /// </summary>
+    /// <summary>OnAdded should add item to index.</summary>
     [Test]
     public void OnAdded_ShouldAddItemToIndex()
     {
@@ -32,9 +28,7 @@ public class SecondaryIndexTests
         index.Lookup("Engineering").Should().Contain(person);
     }
 
-    /// <summary>
-    /// OnAdded should add multiple items with same key.
-    /// </summary>
+    /// <summary>OnAdded should add multiple items with same key.</summary>
     [Test]
     public void OnAdded_WithSameKey_ShouldAddMultipleItems()
     {
@@ -51,9 +45,7 @@ public class SecondaryIndexTests
         result.Should().Contain(person2);
     }
 
-    /// <summary>
-    /// OnAdded should handle items with different keys.
-    /// </summary>
+    /// <summary>OnAdded should handle items with different keys.</summary>
     [Test]
     public void OnAdded_WithDifferentKeys_ShouldIndexSeparately()
     {
@@ -68,9 +60,7 @@ public class SecondaryIndexTests
         index.Lookup("Sales").Should().ContainSingle().Which.Should().Be(person2);
     }
 
-    /// <summary>
-    /// OnRemoved should remove item from index.
-    /// </summary>
+    /// <summary>OnRemoved should remove item from index.</summary>
     [Test]
     public void OnRemoved_ShouldRemoveItemFromIndex()
     {
@@ -83,9 +73,7 @@ public class SecondaryIndexTests
         index.Lookup("Engineering").Should().BeEmpty();
     }
 
-    /// <summary>
-    /// OnRemoved should only remove specified item.
-    /// </summary>
+    /// <summary>OnRemoved should only remove specified item.</summary>
     [Test]
     public void OnRemoved_ShouldOnlyRemoveSpecifiedItem()
     {
@@ -101,9 +89,7 @@ public class SecondaryIndexTests
         result.Should().ContainSingle().Which.Should().Be(person2);
     }
 
-    /// <summary>
-    /// OnRemoved should handle non-existing item gracefully.
-    /// </summary>
+    /// <summary>OnRemoved should handle non-existing item gracefully.</summary>
     [Test]
     public void OnRemoved_WithNonExistingItem_ShouldNotThrow()
     {
@@ -115,9 +101,7 @@ public class SecondaryIndexTests
         act.Should().NotThrow();
     }
 
-    /// <summary>
-    /// OnUpdated should update index with new key.
-    /// </summary>
+    /// <summary>OnUpdated should update index with new key.</summary>
     [Test]
     public void OnUpdated_ShouldUpdateIndex()
     {
@@ -132,9 +116,7 @@ public class SecondaryIndexTests
         index.Lookup("Sales").Should().ContainSingle().Which.Should().Be(newPerson);
     }
 
-    /// <summary>
-    /// Lookup should return empty for non-existing key.
-    /// </summary>
+    /// <summary>Lookup should return empty for non-existing key.</summary>
     [Test]
     public void Lookup_WithNonExistingKey_ShouldReturnEmpty()
     {
@@ -145,9 +127,7 @@ public class SecondaryIndexTests
         result.Should().BeEmpty();
     }
 
-    /// <summary>
-    /// Clear should remove all items.
-    /// </summary>
+    /// <summary>Clear should remove all items.</summary>
     [Test]
     public void Clear_ShouldRemoveAllItems()
     {
@@ -163,9 +143,7 @@ public class SecondaryIndexTests
         index.Lookup("Marketing").Should().BeEmpty();
     }
 
-    /// <summary>
-    /// Index should handle integer keys.
-    /// </summary>
+    /// <summary>Index should handle integer keys.</summary>
     [Test]
     public void Index_WithIntegerKey_ShouldWork()
     {
@@ -177,9 +155,7 @@ public class SecondaryIndexTests
         index.Lookup(42).Should().ContainSingle().Which.Should().Be(person);
     }
 
-    /// <summary>
-    /// Index should distribute items across shards.
-    /// </summary>
+    /// <summary>Index should distribute items across shards.</summary>
     [Test]
     public void Index_ShouldDistributeAcrossShards()
     {
@@ -198,9 +174,7 @@ public class SecondaryIndexTests
         }
     }
 
-    /// <summary>
-    /// Index should be thread-safe for concurrent adds.
-    /// </summary>
+    /// <summary>Index should be thread-safe for concurrent adds.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task Index_ShouldBeThreadSafeForConcurrentAdds()
@@ -219,9 +193,7 @@ public class SecondaryIndexTests
         index.Lookup("Engineering").Should().HaveCount(100);
     }
 
-    /// <summary>
-    /// Index should be thread-safe for concurrent removes.
-    /// </summary>
+    /// <summary>Index should be thread-safe for concurrent removes.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task Index_ShouldBeThreadSafeForConcurrentRemoves()
@@ -242,6 +214,10 @@ public class SecondaryIndexTests
         index.Lookup("Engineering").Should().BeEmpty();
     }
 
-    private record Person(int Id, string Name, string Department);
+    /// <summary>Provides Person.</summary>
+    /// <param name="Id">The Id value.</param>
+    /// <param name="Name">The Name value.</param>
+    /// <param name="Department">The Department value.</param>
+    private sealed record Person(int Id, string Name, string Department);
 }
 #endif

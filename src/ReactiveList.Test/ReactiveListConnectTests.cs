@@ -13,14 +13,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for the ReactiveList Connect() method and unified ChangeSet.
-/// </summary>
+/// <summary>Tests for the ReactiveList Connect() method and unified ChangeSet.</summary>
 public class ReactiveListConnectTests
 {
-    /// <summary>
-    /// Connect returns observable stream.
-    /// </summary>
+    /// <summary>Connect returns observable stream.</summary>
     [Test]
     public void Connect_ReturnsObservableStream()
     {
@@ -34,9 +30,7 @@ public class ReactiveListConnectTests
         observable.Should().NotBeNull();
     }
 
-    /// <summary>
-    /// Connect emits the current snapshot for preloaded sources.
-    /// </summary>
+    /// <summary>Connect emits the current snapshot for preloaded sources.</summary>
     [Test]
     public void Connect_EmitsInitialSnapshot_WhenSourceHasItems()
     {
@@ -51,9 +45,7 @@ public class ReactiveListConnectTests
         receivedChanges[0].Select(change => change.Current).Should().Equal(1, 2, 3);
     }
 
-    /// <summary>
-    /// Connect emits add changes when items are added.
-    /// </summary>
+    /// <summary>Connect emits add changes when items are added.</summary>
     [Test]
     public void Connect_EmitsAddChanges_WhenItemsAdded()
     {
@@ -73,9 +65,7 @@ public class ReactiveListConnectTests
         receivedChanges[0][0].Current.Should().Be(42);
     }
 
-    /// <summary>
-    /// Connect emits batch add changes when AddRange is called.
-    /// </summary>
+    /// <summary>Connect emits batch add changes when AddRange is called.</summary>
     [Test]
     public void Connect_EmitsBatchAddChanges_WhenAddRangeCalled()
     {
@@ -93,9 +83,7 @@ public class ReactiveListConnectTests
         receivedChanges[0].Adds.Should().Be(5);
     }
 
-    /// <summary>
-    /// Connect emits remove changes when items are removed.
-    /// </summary>
+    /// <summary>Connect emits remove changes when items are removed.</summary>
     [Test]
     public void Connect_EmitsRemoveChanges_WhenItemsRemoved()
     {
@@ -141,9 +129,7 @@ public class ReactiveListConnectTests
         receivedChanges[0][2].Reason.Should().Be(ChangeReason.Remove);
     }
 
-    /// <summary>
-    /// Connect emits move changes when item is moved.
-    /// </summary>
+    /// <summary>Connect emits move changes when item is moved.</summary>
     [Test]
     public void Connect_EmitsMoveChanges_WhenItemMoved()
     {
@@ -166,9 +152,7 @@ public class ReactiveListConnectTests
         receivedChanges[0][0].PreviousIndex.Should().Be(0);
     }
 
-    /// <summary>
-    /// Connect emits update changes when item is updated.
-    /// </summary>
+    /// <summary>Connect emits update changes when item is updated.</summary>
     [Test]
     public void Connect_EmitsUpdateChanges_WhenItemUpdated()
     {
@@ -189,9 +173,7 @@ public class ReactiveListConnectTests
         receivedChanges[0][0].Current.Should().Be(20);
     }
 
-    /// <summary>
-    /// ChangeSet correctly counts different change types.
-    /// </summary>
+    /// <summary>ChangeSet correctly counts different change types.</summary>
     [Test]
     public void ChangeSet_CorrectlyCounts_DifferentChangeTypes()
     {
@@ -216,9 +198,7 @@ public class ReactiveListConnectTests
         changeSet.Moves.Should().Be(1);
     }
 
-    /// <summary>
-    /// ChangeSet can be enumerated.
-    /// </summary>
+    /// <summary>ChangeSet can be enumerated.</summary>
     [Test]
     public void ChangeSet_CanBeEnumerated()
     {
@@ -241,9 +221,7 @@ public class ReactiveListConnectTests
         items[2].Current.Should().Be(3);
     }
 
-    /// <summary>
-    /// ChangeSet indexer returns correct change.
-    /// </summary>
+    /// <summary>ChangeSet indexer returns correct change.</summary>
     [Test]
     public void ChangeSet_Indexer_ReturnsCorrectChange()
     {
@@ -262,23 +240,19 @@ public class ReactiveListConnectTests
         changeSet[2].Current.Should().Be(30);
     }
 
-    /// <summary>
-    /// ChangeSet indexer throws on out of range.
-    /// </summary>
+    /// <summary>ChangeSet indexer throws on out of range.</summary>
     [Test]
     public void ChangeSet_Indexer_ThrowsOnOutOfRange()
     {
         // Arrange
-        var changeSet = new ChangeSet<int>(new Change<int>[] { Change<int>.CreateAdd(1, 0) });
+        var changeSet = new ChangeSet<int>([Change<int>.CreateAdd(1, 0)]);
 
         // Act & Assert
-        FluentActions.Invoking(() => changeSet[5])
-            .Should().Throw<ArgumentOutOfRangeException>();
+        Action readOutOfRange = () => _ = changeSet[5];
+        readOutOfRange.Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    /// <summary>
-    /// Change factory methods create correct change types.
-    /// </summary>
+    /// <summary>Change factory methods create correct change types.</summary>
     [Test]
     public void Change_FactoryMethods_CreateCorrectChangeTypes()
     {
@@ -314,9 +288,7 @@ public class ReactiveListConnectTests
     }
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// ToArray returns snapshot of current items.
-    /// </summary>
+    /// <summary>ToArray returns snapshot of current items.</summary>
     [Test]
     public void ToArray_ReturnsSnapshot()
     {
@@ -330,9 +302,7 @@ public class ReactiveListConnectTests
         snapshot.Should().BeEquivalentTo([1, 2, 3, 4, 5]);
     }
 
-    /// <summary>
-    /// ToArray returns empty array for empty list.
-    /// </summary>
+    /// <summary>ToArray returns empty array for empty list.</summary>
     [Test]
     public void ToArray_ReturnsEmptyArray_ForEmptyList()
     {

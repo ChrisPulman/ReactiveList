@@ -153,7 +153,7 @@ where TKey : notnull
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
     public SecondaryIndexReactiveView<TKey, TValue> ToProperty(Action<ReadOnlyObservableCollection<TValue>> propertySetter)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
+        ThrowHelper.ThrowIfNull(propertySetter);
         propertySetter(Items);
         return this;
     }

@@ -13,14 +13,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for ToProperty methods across all reactive view types.
-/// </summary>
+/// <summary>Tests for ToProperty methods across all reactive view types.</summary>
 public class ViewToPropertyTests
 {
-    /// <summary>
-    /// ReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>ReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void ReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -40,9 +36,7 @@ public class ViewToPropertyTests
         capturedItems.Should().BeSameAs(view.Items);
     }
 
-    /// <summary>
-    /// ReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>ReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void ReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -61,9 +55,7 @@ public class ViewToPropertyTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// ReactiveView ToProperty with out parameter should set collection and return same instance.
-    /// </summary>
+    /// <summary>ReactiveView ToProperty with out parameter should set collection and return same instance.</summary>
     [Test]
     public void ReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
@@ -83,9 +75,7 @@ public class ViewToPropertyTests
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// DynamicReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>DynamicReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void DynamicReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -106,9 +96,7 @@ public class ViewToPropertyTests
         capturedItems.Should().BeSameAs(view.Items);
     }
 
-    /// <summary>
-    /// DynamicReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>DynamicReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void DynamicReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -127,9 +115,7 @@ public class ViewToPropertyTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// DynamicReactiveView ToProperty with out parameter should set collection and return same instance.
-    /// </summary>
+    /// <summary>DynamicReactiveView ToProperty with out parameter should set collection and return same instance.</summary>
     [Test]
     public void DynamicReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
@@ -150,9 +136,7 @@ public class ViewToPropertyTests
     }
 #endif
 
-    /// <summary>
-    /// SortedReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>SortedReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void SortedReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -175,9 +159,7 @@ public class ViewToPropertyTests
         capturedItems.Should().BeEquivalentTo([1, 2, 3], options => options.WithStrictOrdering());
     }
 
-    /// <summary>
-    /// SortedReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>SortedReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void SortedReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -195,9 +177,7 @@ public class ViewToPropertyTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// SortedReactiveView ToProperty with out parameter should set collection and return same instance.
-    /// </summary>
+    /// <summary>SortedReactiveView ToProperty with out parameter should set collection and return same instance.</summary>
     [Test]
     public void SortedReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
@@ -219,9 +199,7 @@ public class ViewToPropertyTests
         collection.Should().BeEquivalentTo([1, 2, 3], options => options.WithStrictOrdering());
     }
 
-    /// <summary>
-    /// FilteredReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>FilteredReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void FilteredReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -242,9 +220,7 @@ public class ViewToPropertyTests
         capturedItems.Should().BeEquivalentTo([3, 4, 5]);
     }
 
-    /// <summary>
-    /// FilteredReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>FilteredReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void FilteredReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -262,9 +238,7 @@ public class ViewToPropertyTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// FilteredReactiveView ToProperty with out parameter should set collection and return same instance.
-    /// </summary>
+    /// <summary>FilteredReactiveView ToProperty with out parameter should set collection and return same instance.</summary>
     [Test]
     public void FilteredReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
@@ -284,9 +258,7 @@ public class ViewToPropertyTests
         collection.Should().BeEquivalentTo([3, 4, 5]);
     }
 
-    /// <summary>
-    /// GroupedReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>GroupedReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void GroupedReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -307,9 +279,7 @@ public class ViewToPropertyTests
         capturedGroups.Should().HaveCount(2);
     }
 
-    /// <summary>
-    /// GroupedReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>GroupedReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void GroupedReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -327,9 +297,7 @@ public class ViewToPropertyTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// GroupedReactiveView ToProperty with out parameter should set collection and return same instance.
-    /// </summary>
+    /// <summary>GroupedReactiveView ToProperty with out parameter should set collection and return same instance.</summary>
     [Test]
     public void GroupedReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
@@ -349,9 +317,7 @@ public class ViewToPropertyTests
         collection.Should().HaveCount(2);
     }
 
-    /// <summary>
-    /// GroupedReactiveView Items property should be same as Groups property.
-    /// </summary>
+    /// <summary>GroupedReactiveView Items property should be same as Groups property.</summary>
     [Test]
     public void GroupedReactiveView_Items_ShouldBeSameAsGroups()
     {
@@ -366,9 +332,7 @@ public class ViewToPropertyTests
         view.Items.Should().BeSameAs(view.Groups);
     }
 
-    /// <summary>
-    /// DynamicFilteredReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>DynamicFilteredReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void DynamicFilteredReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -389,9 +353,7 @@ public class ViewToPropertyTests
         capturedItems.Should().BeSameAs(view.Items);
     }
 
-    /// <summary>
-    /// DynamicFilteredReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>DynamicFilteredReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void DynamicFilteredReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -410,9 +372,7 @@ public class ViewToPropertyTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// DynamicFilteredReactiveView ToProperty with out parameter should set collection and return same instance.
-    /// </summary>
+    /// <summary>DynamicFilteredReactiveView ToProperty with out parameter should set collection and return same instance.</summary>
     [Test]
     public void DynamicFilteredReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
@@ -433,9 +393,7 @@ public class ViewToPropertyTests
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// SecondaryIndexReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>SecondaryIndexReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void SecondaryIndexReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -460,9 +418,7 @@ public class ViewToPropertyTests
         capturedItems.Should().HaveCount(2);
     }
 
-    /// <summary>
-    /// SecondaryIndexReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>SecondaryIndexReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void SecondaryIndexReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -482,9 +438,7 @@ public class ViewToPropertyTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// SecondaryIndexReactiveView ToProperty with out parameter should set collection and return same instance.
-    /// </summary>
+    /// <summary>SecondaryIndexReactiveView ToProperty with out parameter should set collection and return same instance.</summary>
     [Test]
     public void SecondaryIndexReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
@@ -506,9 +460,7 @@ public class ViewToPropertyTests
         collection.Should().BeSameAs(view.Items);
     }
 
-    /// <summary>
-    /// DynamicSecondaryIndexReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>DynamicSecondaryIndexReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void DynamicSecondaryIndexReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -532,9 +484,7 @@ public class ViewToPropertyTests
         capturedItems.Should().BeSameAs(view.Items);
     }
 
-    /// <summary>
-    /// DynamicSecondaryIndexReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>DynamicSecondaryIndexReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void DynamicSecondaryIndexReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -555,9 +505,7 @@ public class ViewToPropertyTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// DynamicSecondaryIndexReactiveView ToProperty with out parameter should set collection and return same instance.
-    /// </summary>
+    /// <summary>DynamicSecondaryIndexReactiveView ToProperty with out parameter should set collection and return same instance.</summary>
     [Test]
     public void DynamicSecondaryIndexReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
@@ -579,9 +527,7 @@ public class ViewToPropertyTests
         collection.Should().BeSameAs(view.Items);
     }
 
-    /// <summary>
-    /// DynamicSecondaryIndexDictionaryReactiveView ToProperty with action setter should set property and return same instance.
-    /// </summary>
+    /// <summary>DynamicSecondaryIndexDictionaryReactiveView ToProperty with action setter should set property and return same instance.</summary>
     [Test]
     public void DynamicSecondaryIndexDictionaryReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
@@ -605,9 +551,7 @@ public class ViewToPropertyTests
         capturedItems.Should().BeSameAs(view.Items);
     }
 
-    /// <summary>
-    /// DynamicSecondaryIndexDictionaryReactiveView ToProperty with action setter should throw when setter is null.
-    /// </summary>
+    /// <summary>DynamicSecondaryIndexDictionaryReactiveView ToProperty with action setter should throw when setter is null.</summary>
     [Test]
     public void DynamicSecondaryIndexDictionaryReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
@@ -653,9 +597,7 @@ public class ViewToPropertyTests
     }
 #endif
 
-    /// <summary>
-    /// All views should implement IReactiveView interface.
-    /// </summary>
+    /// <summary>All views should implement IReactiveView interface.</summary>
     [Test]
     public void AllViews_ShouldImplementIReactiveViewInterface()
     {
@@ -671,9 +613,7 @@ public class ViewToPropertyTests
         reactiveView.Should().BeAssignableTo<IReactiveView<ReactiveView<string>, string>>();
     }
 
-    /// <summary>
-    /// SortedReactiveView should implement IReactiveView interface.
-    /// </summary>
+    /// <summary>SortedReactiveView should implement IReactiveView interface.</summary>
     [Test]
     public void SortedReactiveView_ShouldImplementIReactiveViewInterface()
     {
@@ -688,9 +628,7 @@ public class ViewToPropertyTests
         view.Should().BeAssignableTo<IReactiveView<SortedReactiveView<int>, int>>();
     }
 
-    /// <summary>
-    /// FilteredReactiveView should implement IReactiveView interface.
-    /// </summary>
+    /// <summary>FilteredReactiveView should implement IReactiveView interface.</summary>
     [Test]
     public void FilteredReactiveView_ShouldImplementIReactiveViewInterface()
     {
@@ -705,9 +643,7 @@ public class ViewToPropertyTests
         view.Should().BeAssignableTo<IReactiveView<FilteredReactiveView<int>, int>>();
     }
 
-    /// <summary>
-    /// GroupedReactiveView should implement IReactiveView interface.
-    /// </summary>
+    /// <summary>GroupedReactiveView should implement IReactiveView interface.</summary>
     [Test]
     public void GroupedReactiveView_ShouldImplementIReactiveViewInterface()
     {
@@ -722,9 +658,7 @@ public class ViewToPropertyTests
         view.Should().BeAssignableTo<IReactiveView<GroupedReactiveView<string, char>, ReactiveGroup<char, string>>>();
     }
 
-    /// <summary>
-    /// DynamicFilteredReactiveView should implement IReactiveView interface.
-    /// </summary>
+    /// <summary>DynamicFilteredReactiveView should implement IReactiveView interface.</summary>
     [Test]
     public void DynamicFilteredReactiveView_ShouldImplementIReactiveViewInterface()
     {
@@ -741,9 +675,7 @@ public class ViewToPropertyTests
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// DynamicReactiveView should implement IReactiveView interface.
-    /// </summary>
+    /// <summary>DynamicReactiveView should implement IReactiveView interface.</summary>
     [Test]
     public void DynamicReactiveView_ShouldImplementIReactiveViewInterface()
     {
@@ -759,9 +691,9 @@ public class ViewToPropertyTests
         view.Should().BeAssignableTo<IReactiveView<DynamicReactiveView<string>, string>>();
     }
 
-    /// <summary>
-    /// Test helper record for testing person types.
-    /// </summary>
-    private record TestPerson(string Name, string Category);
+    /// <summary>Test helper record for testing person types.</summary>
+    /// <param name="Name">The Name value.</param>
+    /// <param name="Category">The Category value.</param>
+    private sealed record TestPerson(string Name, string Category);
 #endif
 }

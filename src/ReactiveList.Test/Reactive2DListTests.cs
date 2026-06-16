@@ -11,14 +11,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Reactive2DListTests.
-/// </summary>
+/// <summary>Tests Reactive2DList behavior.</summary>
 public class Reactive2DListTests
 {
-    /// <summary>
-    /// Constructors the should initialize empty list.
-    /// </summary>
+    /// <summary>Constructors the should initialize empty list.</summary>
     [Test]
     public void Constructor_ShouldInitializeEmptyList()
     {
@@ -27,9 +23,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Constructors the should initialize with items.
-    /// </summary>
+    /// <summary>Constructors the should initialize with items.</summary>
     [Test]
     public void Constructor_ShouldInitializeWithItems()
     {
@@ -41,9 +35,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Constructors the should initialize with reactive lists.
-    /// </summary>
+    /// <summary>Constructors the should initialize with reactive lists.</summary>
     [Test]
     public void Constructor_ShouldInitializeWithReactiveLists()
     {
@@ -55,9 +47,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Constructors the should initialize with single item.
-    /// </summary>
+    /// <summary>Constructors the should initialize with single item.</summary>
     [Test]
     public void Constructor_ShouldInitializeWithSingleItem()
     {
@@ -68,9 +58,22 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Constructors the should initialize with items.
-    /// </summary>
+    /// <summary>Constructors the should initialize with item enumerable.</summary>
+    [Test]
+    public void Constructor_ShouldInitializeWithItemEnumerable()
+    {
+        IEnumerable<int> items = Enumerable.Range(7, 2);
+        var list = new Reactive2DList<int>(items);
+
+        Assert.Equal(2, list.Count);
+        Assert.Single(list[0]);
+        Assert.Single(list[1]);
+        Assert.Equal(7, list[0][0]);
+        Assert.Equal(8, list[1][0]);
+        list.Dispose();
+    }
+
+    /// <summary>Constructors the should initialize with items.</summary>
     [Test]
     public void Constructor_ShouldInitializeWithReactiveList()
     {
@@ -81,9 +84,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Adds the range should add items.
-    /// </summary>
+    /// <summary>Adds the range should add items.</summary>
     [Test]
     public void AddRange_ShouldAddItems()
     {
@@ -94,9 +95,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Adds the range should add single items.
-    /// </summary>
+    /// <summary>Adds the range should add single items.</summary>
     [Test]
     public void AddRange_ShouldAddSingleItems()
     {
@@ -107,13 +106,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Adds the index of the range should insert items at.
-    /// </summary>
+    /// <summary>Adds the index of the range should insert items at.</summary>
     [Test]
     public void AddRange_ShouldInsertItemsAtIndex()
     {
-        var list = new Reactive2DList<int>(new List<int> { 5 });
+        var list = new Reactive2DList<int>([5]);
         var items = new List<List<int>> { new() { 1, 2 }, new() { 3, 4 } };
         list.AddRange(items);
         Assert.Equal(3, list.Count);
@@ -125,13 +122,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Inserts the index of the should insert items at.
-    /// </summary>
+    /// <summary>Inserts the index of the should insert items at.</summary>
     [Test]
     public void Insert_ShouldInsertItemsAtIndex()
     {
-        var list = new Reactive2DList<int>(new List<int> { 5 });
+        var list = new Reactive2DList<int>([5]);
         var items = new List<int> { 1, 2, 3, 4 };
         list.Insert(0, items);
         Assert.Equal(2, list.Count);
@@ -141,26 +136,22 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Inserts the index of the should insert single item at.
-    /// </summary>
+    /// <summary>Inserts the index of the should insert single item at.</summary>
     [Test]
     public void Insert_ShouldInsertSingleItemAtIndex()
     {
-        var list = new Reactive2DList<int>(new List<int> { 5 });
+        var list = new Reactive2DList<int>([5]);
         list.Insert(0, 10);
         Assert.Equal(2, list.Count);
         Assert.Equal(10, list[0][0]);
         list.Dispose();
     }
 
-    /// <summary>
-    /// Inserts the index of the should insert reactive list at.
-    /// </summary>
+    /// <summary>Inserts the index of the should insert reactive list at.</summary>
     [Test]
     public void Insert_ShouldInsertReactiveListAtIndex()
     {
-        var list = new Reactive2DList<int>(new List<int> { 5 });
+        var list = new Reactive2DList<int>([5]);
         var reactiveList = new ReactiveList<int> { 1, 2, 3, 4 };
         list.Insert(0, reactiveList);
         Assert.Equal(2, list.Count);
@@ -168,13 +159,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Inserts the index of the should insert items in reactive list at.
-    /// </summary>
+    /// <summary>Inserts the index of the should insert items in reactive list at.</summary>
     [Test]
     public void Insert_ShouldInsertItemsInReactiveListAtIndex()
     {
-        var list = new Reactive2DList<int>(new List<int> { 5 });
+        var list = new Reactive2DList<int>([5]);
         var items = new List<int> { 1, 2, 3, 4 };
         list.Insert(0, items, 0);
         Assert.Equal(5, list[0].Count);
@@ -184,15 +173,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    // ==================== New Tests for Added Methods ====================
-
-    /// <summary>
-    /// GetItem should return item at specified indices.
-    /// </summary>
+    /// <summary>GetItem should return item at specified indices.</summary>
     [Test]
     public void GetItem_ShouldReturnItemAtSpecifiedIndices()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2, 3 }, new() { 4, 5, 6 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2, 3 }, new() { 4, 5, 6 }]);
 
         var item = list.GetItem(1, 2);
 
@@ -200,13 +185,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// GetItem should throw when outer index is negative.
-    /// </summary>
+    /// <summary>GetItem should throw when outer index is negative.</summary>
     [Test]
     public void GetItem_ShouldThrowWhenOuterIndexIsNegative()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.GetItem(-1, 0);
 
@@ -215,13 +198,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// GetItem should throw when outer index exceeds count.
-    /// </summary>
+    /// <summary>GetItem should throw when outer index exceeds count.</summary>
     [Test]
     public void GetItem_ShouldThrowWhenOuterIndexExceedsCount()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.GetItem(5, 0);
 
@@ -230,13 +211,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// GetItem should throw when inner index is negative.
-    /// </summary>
+    /// <summary>GetItem should throw when inner index is negative.</summary>
     [Test]
     public void GetItem_ShouldThrowWhenInnerIndexIsNegative()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.GetItem(0, -1);
 
@@ -245,13 +224,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// GetItem should throw when inner index exceeds count.
-    /// </summary>
+    /// <summary>GetItem should throw when inner index exceeds count.</summary>
     [Test]
     public void GetItem_ShouldThrowWhenInnerIndexExceedsCount()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.GetItem(0, 5);
 
@@ -260,13 +237,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// SetItem should update item at specified indices.
-    /// </summary>
+    /// <summary>SetItem should update item at specified indices.</summary>
     [Test]
     public void SetItem_ShouldUpdateItemAtSpecifiedIndices()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2, 3 }, new() { 4, 5, 6 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2, 3 }, new() { 4, 5, 6 }]);
 
         list.SetItem(1, 1, 99);
 
@@ -274,13 +249,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// SetItem should throw when outer index is out of range.
-    /// </summary>
+    /// <summary>SetItem should throw when outer index is out of range.</summary>
     [Test]
     public void SetItem_ShouldThrowWhenOuterIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.SetItem(5, 0, 99);
 
@@ -289,13 +262,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// SetItem should throw when inner index is out of range.
-    /// </summary>
+    /// <summary>SetItem should throw when inner index is out of range.</summary>
     [Test]
     public void SetItem_ShouldThrowWhenInnerIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.SetItem(0, 5, 99);
 
@@ -304,13 +275,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Flatten should return all items in order.
-    /// </summary>
+    /// <summary>Flatten should return all items in order.</summary>
     [Test]
     public void Flatten_ShouldReturnAllItemsInOrder()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 }, new() { 3, 4 }, new() { 5, 6 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }, new() { 3, 4 }, new() { 5, 6 }]);
 
         var flattened = list.Flatten().ToList();
 
@@ -319,9 +288,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Flatten should return empty for empty list.
-    /// </summary>
+    /// <summary>Flatten should return empty for empty list.</summary>
     [Test]
     public void Flatten_ShouldReturnEmptyForEmptyList()
     {
@@ -333,9 +300,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Flatten should handle empty inner lists.
-    /// </summary>
+    /// <summary>Flatten should handle empty inner lists.</summary>
     [Test]
     public void Flatten_ShouldHandleEmptyInnerLists()
     {
@@ -353,13 +318,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// TotalCount should return sum of all inner list counts.
-    /// </summary>
+    /// <summary>TotalCount should return sum of all inner list counts.</summary>
     [Test]
     public void TotalCount_ShouldReturnSumOfAllInnerListCounts()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 }, new() { 3, 4, 5 }, new() { 6 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }, new() { 3, 4, 5 }, new() { 6 }]);
 
         var total = list.TotalCount();
 
@@ -367,9 +330,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// TotalCount should return zero for empty list.
-    /// </summary>
+    /// <summary>TotalCount should return zero for empty list.</summary>
     [Test]
     public void TotalCount_ShouldReturnZeroForEmptyList()
     {
@@ -381,9 +342,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// TotalCount should handle empty inner lists.
-    /// </summary>
+    /// <summary>TotalCount should handle empty inner lists.</summary>
     [Test]
     public void TotalCount_ShouldHandleEmptyInnerLists()
     {
@@ -400,13 +359,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// AddToInner should add items to specified inner list.
-    /// </summary>
+    /// <summary>AddToInner should add items to specified inner list.</summary>
     [Test]
     public void AddToInner_ShouldAddItemsToSpecifiedInnerList()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 }, new() { 3, 4 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }, new() { 3, 4 }]);
 
         list.AddToInner(0, [5, 6]);
 
@@ -416,13 +373,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// AddToInner should add single item to specified inner list.
-    /// </summary>
+    /// <summary>AddToInner should add single item to specified inner list.</summary>
     [Test]
     public void AddToInner_ShouldAddSingleItemToSpecifiedInnerList()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 }, new() { 3, 4 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }, new() { 3, 4 }]);
 
         list.AddToInner(1, 99);
 
@@ -431,13 +386,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// AddToInner should throw when outer index is out of range.
-    /// </summary>
+    /// <summary>AddToInner should throw when outer index is out of range.</summary>
     [Test]
     public void AddToInner_ShouldThrowWhenOuterIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.AddToInner(5, 99);
 
@@ -446,13 +399,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// AddToInner should throw when items is null.
-    /// </summary>
+    /// <summary>AddToInner should throw when items is null.</summary>
     [Test]
     public void AddToInner_ShouldThrowWhenItemsIsNull()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.AddToInner(0, (IEnumerable<int>)null!);
 
@@ -461,13 +412,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// RemoveFromInner should remove item at specified indices.
-    /// </summary>
+    /// <summary>RemoveFromInner should remove item at specified indices.</summary>
     [Test]
     public void RemoveFromInner_ShouldRemoveItemAtSpecifiedIndices()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2, 3 }, new() { 4, 5, 6 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2, 3 }, new() { 4, 5, 6 }]);
 
         list.RemoveFromInner(0, 1);
 
@@ -477,13 +426,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// RemoveFromInner should throw when outer index is out of range.
-    /// </summary>
+    /// <summary>RemoveFromInner should throw when outer index is out of range.</summary>
     [Test]
     public void RemoveFromInner_ShouldThrowWhenOuterIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.RemoveFromInner(5, 0);
 
@@ -492,13 +439,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// ClearInner should clear the specified inner list.
-    /// </summary>
+    /// <summary>ClearInner should clear the specified inner list.</summary>
     [Test]
     public void ClearInner_ShouldClearTheSpecifiedInnerList()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2, 3 }, new() { 4, 5, 6 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2, 3 }, new() { 4, 5, 6 }]);
 
         list.ClearInner(0);
 
@@ -507,13 +452,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// ClearInner should throw when outer index is out of range.
-    /// </summary>
+    /// <summary>ClearInner should throw when outer index is out of range.</summary>
     [Test]
     public void ClearInner_ShouldThrowWhenOuterIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>(new List<List<int>> { new() { 1, 2 } });
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
 
         var action = () => list.ClearInner(5);
 
@@ -522,9 +465,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Constructor should throw when items enumerable is null.
-    /// </summary>
+    /// <summary>Constructor should throw when items enumerable is null.</summary>
     [Test]
     public void Constructor_ShouldThrowWhenItemsEnumerableIsNull()
     {
@@ -534,9 +475,16 @@ public class Reactive2DListTests
             .WithParameterName("items");
     }
 
-    /// <summary>
-    /// Constructor should throw when reactive list item is null.
-    /// </summary>
+    /// <summary>Constructor should throw when item enumerable is null.</summary>
+    [Test]
+    public void Constructor_ShouldThrowWhenItemEnumerableIsNull()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => _ = new Reactive2DList<int>((IEnumerable<int>)null!));
+
+        Assert.Equal("items", exception.ParamName);
+    }
+
+    /// <summary>Constructor should throw when reactive list item is null.</summary>
     [Test]
     public void Constructor_ShouldThrowWhenReactiveListItemIsNull()
     {
@@ -546,9 +494,7 @@ public class Reactive2DListTests
             .WithParameterName("item");
     }
 
-    /// <summary>
-    /// AddRange with nested enumerable should throw when null.
-    /// </summary>
+    /// <summary>AddRange with nested enumerable should throw when null.</summary>
     [Test]
     public void AddRange_NestedEnumerable_ShouldThrowWhenNull()
     {
@@ -561,9 +507,7 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// AddRange with single enumerable should throw when null.
-    /// </summary>
+    /// <summary>AddRange with single enumerable should throw when null.</summary>
     [Test]
     public void AddRange_SingleEnumerable_ShouldThrowWhenNull()
     {
@@ -576,13 +520,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Insert with enumerable should throw when null.
-    /// </summary>
+    /// <summary>Insert with enumerable should throw when null.</summary>
     [Test]
     public void Insert_Enumerable_ShouldThrowWhenNull()
     {
-        var list = new Reactive2DList<int>(new List<int> { 1 });
+        var list = new Reactive2DList<int>([1]);
 
         var action = () => list.Insert(0, (IEnumerable<int>)null!);
 
@@ -591,13 +533,11 @@ public class Reactive2DListTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Insert with inner index should throw when items null.
-    /// </summary>
+    /// <summary>Insert with inner index should throw when items null.</summary>
     [Test]
     public void Insert_WithInnerIndex_ShouldThrowWhenItemsNull()
     {
-        var list = new Reactive2DList<int>(new List<int> { 1 });
+        var list = new Reactive2DList<int>([1]);
 
         var action = () => list.Insert(0, (IEnumerable<int>)null!, 0);
 

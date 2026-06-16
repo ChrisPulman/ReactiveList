@@ -7,18 +7,16 @@ using ReactiveUI;
 
 namespace ReactiveListTestApp;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml.
-/// </summary>
+/// <summary>Interaction logic for MainWindow.xaml.</summary>
 public partial class MainWindow
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MainWindow"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MainWindow"/> class.</summary>
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = ViewModel = new MainWindowViewModel();
+        var viewModel = new MainWindowViewModel();
+        ViewModel = viewModel;
+        DataContext = viewModel;
 
         this.WhenActivated(d =>
         {

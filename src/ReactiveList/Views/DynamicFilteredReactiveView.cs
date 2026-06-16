@@ -51,7 +51,7 @@ where T : notnull
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
 #if NET8_0_OR_GREATER
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
+        ThrowHelper.ThrowIfNull(filterObservable);
 #else
         if (filterObservable is null)
         {
@@ -130,7 +130,7 @@ where T : notnull
     public DynamicFilteredReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
     {
 #if NET8_0_OR_GREATER
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
+        ThrowHelper.ThrowIfNull(propertySetter);
 #else
         if (propertySetter is null)
         {

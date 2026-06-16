@@ -11,14 +11,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for CacheAction enum.
-/// </summary>
+/// <summary>Tests for CacheAction enum.</summary>
 public class CacheActionTests
 {
-    /// <summary>
-    /// CacheAction should have correct values.
-    /// </summary>
+    /// <summary>CacheAction should have correct values.</summary>
     [Test]
     public void CacheAction_ShouldHaveCorrectValues()
     {
@@ -33,13 +29,16 @@ public class CacheActionTests
         ((int)CacheAction.BatchRemoved).Should().Be(8);
     }
 
-    /// <summary>
-    /// All CacheAction values should be defined.
-    /// </summary>
+    /// <summary>All CacheAction values should be defined.</summary>
     [Test]
     public void CacheAction_AllValuesShouldBeDefined()
     {
-        var values = Enum.GetValues(typeof(CacheAction)).Cast<CacheAction>().ToArray();
+        CacheAction[] values =
+#if NET6_0_OR_GREATER
+            Enum.GetValues<CacheAction>();
+#else
+            Enum.GetValues(typeof(CacheAction)).Cast<CacheAction>().ToArray();
+#endif
 
         values.Should().HaveCount(9);
         values.Should().Contain(CacheAction.Added);

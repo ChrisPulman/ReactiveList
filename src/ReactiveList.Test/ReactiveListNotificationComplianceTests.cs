@@ -16,14 +16,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests notification contracts used by UI binding and DynamicData-style pipelines.
-/// </summary>
+/// <summary>Tests notification contracts used by UI binding and DynamicData-style pipelines.</summary>
 public class ReactiveListNotificationComplianceTests
 {
-    /// <summary>
-    /// Indexer replacement should be one replace notification and should not report a count change.
-    /// </summary>
+    /// <summary>Indexer replacement should be one replace notification and should not report a count change.</summary>
     [Test]
     public void IndexerSet_ShouldEmitSingleReplaceAndNoCountPropertyChange()
     {
@@ -43,9 +39,7 @@ public class ReactiveListNotificationComplianceTests
         propertyNames.Should().Equal("Item[]");
     }
 
-    /// <summary>
-    /// Bulk operations on the UI-facing Items collection should coalesce to one collection notification.
-    /// </summary>
+    /// <summary>Bulk operations on the UI-facing Items collection should coalesce to one collection notification.</summary>
     [Test]
     public void BulkOperations_ShouldRaiseSingleItemsCollectionChangedNotification()
     {
@@ -60,7 +54,7 @@ public class ReactiveListNotificationComplianceTests
         itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
 
         itemEvents.Clear();
-        list.Remove(new[] { 1, 3 });
+        list.Remove([1, 3]);
         itemEvents.Should().ContainSingle();
         itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
 
@@ -70,9 +64,7 @@ public class ReactiveListNotificationComplianceTests
         itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
     }
 
-    /// <summary>
-    /// ReplaceAll to empty should not suppress tracking for the following notification.
-    /// </summary>
+    /// <summary>ReplaceAll to empty should not suppress tracking for the following notification.</summary>
     [Test]
     public void ReplaceAllToEmpty_ShouldNotSuppressNextNotification()
     {
@@ -80,17 +72,15 @@ public class ReactiveListNotificationComplianceTests
         var snapshots = new List<string[]>();
         using var subscription = list.CurrentItems.Subscribe(items => snapshots.Add(items.ToArray()));
 
-        list.ReplaceAll(Array.Empty<string>());
+        list.ReplaceAll([]);
         list.Add("next");
 
         list.ItemsAdded.Should().Equal("next");
         list.ItemsChanged.Should().Equal("next");
-        snapshots.Last().Should().Equal("next");
+        snapshots[snapshots.Count - 1].Should().Equal("next");
     }
 
-    /// <summary>
-    /// Dynamic views should not block construction when no initial filter has been published.
-    /// </summary>
+    /// <summary>Dynamic views should not block construction when no initial filter has been published.</summary>
     [Test]
     public void DynamicReactiveView_WithColdFilterSubject_ShouldConstructImmediately()
     {
@@ -109,9 +99,8 @@ public class ReactiveListNotificationComplianceTests
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// Dynamic secondary-index views should not block construction without an initial key emission.
-    /// </summary>
+
+    /// <summary>Dynamic secondary-index views should not block construction without an initial key emission.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
     public async Task DynamicSecondaryIndexView_WithColdKeysSubject_ShouldConstructImmediately()
@@ -135,9 +124,7 @@ public class ReactiveListNotificationComplianceTests
         view.Items.Should().ContainSingle().Which.Should().Be(north);
     }
 
-    /// <summary>
-    /// Quaternary collections should raise INPC notifications for UI-bound count/indexer properties.
-    /// </summary>
+    /// <summary>Quaternary collections should raise INPC notifications for UI-bound count/indexer properties.</summary>
     [Test]
     public void QuaternaryCollections_ShouldRaisePropertyChangedForMutations()
     {
@@ -160,9 +147,7 @@ public class ReactiveListNotificationComplianceTests
         dictionaryProperties.Should().Contain("Item[]");
     }
 
-    /// <summary>
-    /// Optimized quaternary list range removal should preserve multiset semantics for duplicate values.
-    /// </summary>
+    /// <summary>Optimized quaternary list range removal should preserve multiset semantics for duplicate values.</summary>
     [Test]
     public void QuaternaryList_RemoveRange_ShouldRemoveOnlyRequestedDuplicateCount()
     {
@@ -175,9 +160,7 @@ public class ReactiveListNotificationComplianceTests
         list.ToArray().Should().BeEquivalentTo([1, 2, 3]);
     }
 
-    /// <summary>
-    /// Dictionary range operations should keep count exact for overwrites and no-op removals.
-    /// </summary>
+    /// <summary>Dictionary range operations should keep count exact for overwrites and no-op removals.</summary>
     [Test]
     public void QuaternaryDictionary_RangeOperations_ShouldMaintainCountAndSkipNoOpRemoveNotification()
     {
@@ -215,5 +198,8 @@ public class ReactiveListNotificationComplianceTests
     }
 #endif
 
+    /// <summary>Provides IndexedItem.</summary>
+    /// <param name="Id">The Id value.</param>
+    /// <param name="Region">The Region value.</param>
     private sealed record IndexedItem(int Id, string Region);
 }

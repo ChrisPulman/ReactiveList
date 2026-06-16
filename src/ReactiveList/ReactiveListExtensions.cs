@@ -35,8 +35,8 @@ public static class ReactiveListExtensions
         public IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> FilterDynamic(IObservable<Func<KeyValuePair<TKey, TValue>, bool>> filterObservable)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
+            ThrowHelper.ThrowIfNull(stream);
+            ThrowHelper.ThrowIfNull(filterObservable);
 #else
             if (stream is null)
             {
@@ -56,7 +56,7 @@ public static class ReactiveListExtensions
                     CacheAction.Added when filter(notification.Item) => notification,
                     CacheAction.Removed => notification, // Always pass removed items
                     CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch is not null =>
-                        ReactiveListExtensions.FilterBatchByPredicate(notification, filter),
+                        FilterBatchByPredicate(notification, filter),
                     CacheAction.Cleared => notification,
                     _ => null
                 }).Where(n => n is not null).Map(n => n!))
@@ -81,8 +81,8 @@ public static class ReactiveListExtensions
         public IObservable<CacheNotify<T>> FilterDynamic(IObservable<Func<T, bool>> filterObservable)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
+            ThrowHelper.ThrowIfNull(stream);
+            ThrowHelper.ThrowIfNull(filterObservable);
 #else
             if (stream is null)
             {
@@ -130,10 +130,10 @@ public static class ReactiveListExtensions
                 }
 
                 // For batch operations or cleared, pass through
-                return notification.Action == CacheAction.Cleared ||
-                       notification.Action == CacheAction.BatchOperation ||
-                       notification.Action == CacheAction.BatchAdded ||
-                       notification.Action == CacheAction.BatchRemoved;
+                return notification.Action is CacheAction.Cleared or
+                       CacheAction.BatchOperation or
+                       CacheAction.BatchAdded or
+                       CacheAction.BatchRemoved;
             });
     }
 
@@ -149,8 +149,8 @@ public static class ReactiveListExtensions
         public IObservable<ChangeSet<T>> WhereChanges(Func<Change<T>, bool> predicate)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(predicate);
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(predicate);
 #else
             if (source is null)
             {
@@ -223,8 +223,8 @@ public static class ReactiveListExtensions
         public IObservable<ChangeSet<TResult>> SelectChanges<TResult>(Func<T, TResult> selector)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(selector);
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(selector);
 #else
             if (source is null)
             {
@@ -268,8 +268,8 @@ public static class ReactiveListExtensions
         public IObservable<TResult> SelectChanges<TResult>(Func<Change<T>, TResult> selector)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(selector);
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(selector);
 #else
             if (source is null)
             {
@@ -473,7 +473,7 @@ public static class ReactiveListExtensions
                 for (var i = 0; i < changeSet.Count; i++)
                 {
                     var change = changeSet[i];
-                    if (change.Reason == ChangeReason.Add || change.Reason == ChangeReason.Update)
+                    if (change.Reason is ChangeReason.Add or ChangeReason.Update)
                     {
                         var item = change.Current;
                         var index = change.CurrentIndex;
@@ -487,7 +487,7 @@ public static class ReactiveListExtensions
                     }
                 }
 
-                return CP.Reactive.Internal.ObservableMixins.Blend(results);
+                return ObservableMixins.Blend(results);
             });
         }
 
@@ -513,8 +513,8 @@ public static class ReactiveListExtensions
             int throttleMs = 50)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filter);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(filter);
 #else
             if (list is null)
             {
@@ -550,8 +550,8 @@ public static class ReactiveListExtensions
             int throttleMs = 50)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(filterObservable);
 #else
             if (list is null)
             {
@@ -578,8 +578,8 @@ public static class ReactiveListExtensions
             int throttleMs = 50)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(comparer);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(comparer);
 #else
             if (list is null)
             {
@@ -609,8 +609,8 @@ public static class ReactiveListExtensions
             int throttleMs = 50)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keySelector);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(keySelector);
 #else
             if (list is null)
             {
@@ -643,8 +643,8 @@ public static class ReactiveListExtensions
             where TKey : notnull
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keySelector);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(keySelector);
 #else
             if (list is null)
             {
@@ -687,9 +687,9 @@ public static class ReactiveListExtensions
         public DynamicReactiveView<T> CreateView<TQuery>(IObservable<TQuery> queryObservable, Func<TQuery, T, bool> filter, ISequencer scheduler, int throttleMs = 50)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(queryObservable);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filter);
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(queryObservable);
+            ThrowHelper.ThrowIfNull(filter);
 #else
             if (source is null)
             {
@@ -725,8 +725,8 @@ public static class ReactiveListExtensions
         public DynamicReactiveView<T> CreateView(IObservable<Func<T, bool>> filterObservable, ISequencer scheduler, int throttleMs = 50)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(filterObservable);
 #else
             if (source is null)
             {
@@ -757,7 +757,7 @@ public static class ReactiveListExtensions
         public ReactiveView<T> CreateView(ISequencer scheduler, int throttleMs = 50)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(source);
 #else
             if (source is null)
             {
@@ -787,7 +787,7 @@ public static class ReactiveListExtensions
         public ReactiveView<T> CreateView(Func<T, bool> filter, ISequencer scheduler, int throttleMs = 50)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(source);
 #else
             if (source is null)
             {
@@ -847,8 +847,8 @@ public static class ReactiveListExtensions
         public IObservable<CacheNotify<T>> AutoRefresh(Expression<Func<T, object>> property)
         {
 #if NET8_0_OR_GREATER
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(property);
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(property);
 #else
             if (source is null)
             {

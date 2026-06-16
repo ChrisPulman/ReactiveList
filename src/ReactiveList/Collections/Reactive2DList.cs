@@ -200,7 +200,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
             throw new ArgumentNullException(nameof(item));
         }
 
-        base.Insert(index, new ReactiveList<T>(item));
+        base.Insert(index, [with(item)]);
     }
 
     /// <summary>Inserts the specified collection of items into the inner list at the given position within the outer list.</summary>

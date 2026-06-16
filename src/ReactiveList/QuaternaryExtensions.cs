@@ -44,9 +44,9 @@ public static class QuaternaryExtensions
         public IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> FilterBySecondaryIndex<TIndexKey>(QuaternaryDictionary<TKey, TValue> dict, string indexName, TIndexKey indexKey)
             where TIndexKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(stream);
+            ThrowHelper.ThrowIfNull(dict);
+            ThrowHelper.ThrowIfNull(indexName);
 
             return stream.Map(notification =>
             {
@@ -80,10 +80,10 @@ public static class QuaternaryExtensions
         public IObservable<CacheNotify<KeyValuePair<TKey, TValue>>> FilterBySecondaryIndex<TIndexKey>(QuaternaryDictionary<TKey, TValue> dict, string indexName, params TIndexKey[] indexKeys)
             where TIndexKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexKeys);
+            ThrowHelper.ThrowIfNull(stream);
+            ThrowHelper.ThrowIfNull(dict);
+            ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(indexKeys);
 
             return stream.Map(notification =>
             {
@@ -121,9 +121,9 @@ public static class QuaternaryExtensions
         public IObservable<CacheNotify<T>> FilterBySecondaryIndex<TKey>(QuaternaryList<T> list, string indexName, TKey key)
             where TKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(stream);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(indexName);
 
             return stream.Map(notification =>
             {
@@ -154,10 +154,10 @@ public static class QuaternaryExtensions
         public IObservable<CacheNotify<T>> FilterBySecondaryIndex<TKey>(QuaternaryList<T> list, string indexName, params TKey[] keys)
             where TKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(stream);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keys);
+            ThrowHelper.ThrowIfNull(stream);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(keys);
 
             return stream.Map(notification =>
             {
@@ -197,8 +197,8 @@ public static class QuaternaryExtensions
         public ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TIndexKey>(string indexName, TIndexKey indexKey, ISequencer scheduler, int throttleMs = 50)
             where TIndexKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(dict);
+            ThrowHelper.ThrowIfNull(indexName);
 
             // Get initial snapshot from the secondary index - map values back to key-value pairs
             var matchingValues = dict.GetValuesBySecondaryIndex(indexName, indexKey).ToHashSet();
@@ -227,9 +227,9 @@ public static class QuaternaryExtensions
         public ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TIndexKey>(string indexName, TIndexKey[] indexKeys, ISequencer scheduler, int throttleMs = 50)
             where TIndexKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexKeys);
+            ThrowHelper.ThrowIfNull(dict);
+            ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(indexKeys);
 
             // Get initial snapshot from the secondary index for all keys
             var matchingValues = indexKeys.SelectMany(k => dict.GetValuesBySecondaryIndex(indexName, k)).ToHashSet();
@@ -261,9 +261,9 @@ public static class QuaternaryExtensions
         public DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue> CreateDynamicViewBySecondaryIndex<TIndexKey>(string indexName, IObservable<TIndexKey[]> keysObservable, ISequencer scheduler, int throttleMs = 50)
             where TIndexKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(dict);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keysObservable);
+            ThrowHelper.ThrowIfNull(dict);
+            ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(keysObservable);
 
             return DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue>.Create(dict, indexName, keysObservable, scheduler, TimeSpan.FromMilliseconds(throttleMs));
         }
@@ -289,8 +289,8 @@ public static class QuaternaryExtensions
         public ReactiveView<T> CreateViewBySecondaryIndex<TKey>(string indexName, TKey key, ISequencer scheduler, int throttleMs = 50)
             where TKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(indexName);
 
             // Get initial snapshot from the secondary index
             var snapshot = list.GetItemsBySecondaryIndex(indexName, key);
@@ -314,9 +314,9 @@ public static class QuaternaryExtensions
         public ReactiveView<T> CreateViewBySecondaryIndex<TKey>(string indexName, TKey[] keys, ISequencer scheduler, int throttleMs = 50)
             where TKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keys);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(keys);
 
             // Get initial snapshot from the secondary index for all keys
             var snapshot = keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key));
@@ -345,9 +345,9 @@ public static class QuaternaryExtensions
         public DynamicSecondaryIndexReactiveView<T, TKey> CreateDynamicViewBySecondaryIndex<TKey>(string indexName, IObservable<TKey[]> keysObservable, ISequencer scheduler, int throttleMs = 50)
             where TKey : notnull
         {
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(list);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(indexName);
-            CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keysObservable);
+            ThrowHelper.ThrowIfNull(list);
+            ThrowHelper.ThrowIfNull(indexName);
+            ThrowHelper.ThrowIfNull(keysObservable);
 
             return new DynamicSecondaryIndexReactiveView<T, TKey>(list, indexName, keysObservable, scheduler, TimeSpan.FromMilliseconds(throttleMs));
         }

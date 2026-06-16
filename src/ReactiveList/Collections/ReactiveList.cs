@@ -107,7 +107,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="items">The items.</param>
     public ReactiveList(IEnumerable<T> items)
     {
-        var itemArray = (items as T[]) ?? items.ToArray();
+        var itemArray = (items as T[]) ?? [.. items];
         if (itemArray.Length > 0)
         {
             _internalList.AddRange(itemArray);
@@ -140,7 +140,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <summary>Gets the added during the last change as an Observable.</summary>
     /// <value>The added.</value>
     public IObservable<IEnumerable<T>> Added => _added ??= Stream
-        .Keep(n => n.Action == CacheAction.Added || n.Action == CacheAction.BatchAdded)
+        .Keep(n => n.Action is CacheAction.Added or CacheAction.BatchAdded)
         .Map(GetItemsFromNotification);
 
     /// <summary>Gets the changed during the last change as an Observable.</summary>
@@ -156,7 +156,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <summary>Gets the removed items during the last change as an Observable.</summary>
     /// <value>The removed.</value>
     public IObservable<IEnumerable<T>> Removed => _removed ??= Stream
-        .Keep(n => n.Action == CacheAction.Removed || n.Action == CacheAction.BatchRemoved || n.Action == CacheAction.Cleared)
+        .Keep(n => n.Action is CacheAction.Removed or CacheAction.BatchRemoved or CacheAction.Cleared)
         .Map(GetItemsFromNotification);
 
     /// <inheritdoc/>
@@ -302,7 +302,7 @@ public class ReactiveList<T> : IReactiveList<T>
 #if NET6_0_OR_GREATER
         return CollectionsMarshal.AsSpan(_internalList);
 #else
-        return _internalList.ToArray().AsSpan();
+        return new ReadOnlySpan<T>(_internalList.ToArray());
 #endif
     }
 
@@ -334,7 +334,7 @@ public class ReactiveList<T> : IReactiveList<T>
                 return;
             }
 
-            var clearedItems = notifyChange ? _internalList.ToArray() : Array.Empty<T>();
+            var clearedItems = notifyChange ? [.. _internalList] : Array.Empty<T>();
             var capacity = _internalList.Capacity;
 
             _internalList.Clear();
@@ -376,7 +376,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void AddRange(IEnumerable<T> items)
     {
-        var itemArray = (items as T[]) ?? items.ToArray();
+        var itemArray = (items as T[]) ?? [.. items];
         if (itemArray.Length == 0)
         {
             return;
@@ -602,7 +602,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="items">The items.</param>
     public void InsertRange(int index, IEnumerable<T> items)
     {
-        var itemArray = (items as T[]) ?? items.ToArray();
+        var itemArray = (items as T[]) ?? [.. items];
         if (itemArray.Length == 0)
         {
             return;
@@ -670,7 +670,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void Remove(IEnumerable<T> items)
     {
-        var itemArray = (items as T[]) ?? items.ToArray();
+        var itemArray = (items as T[]) ?? [.. items];
         if (itemArray.Length == 0)
         {
             return;
@@ -855,7 +855,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void ReplaceAll(IEnumerable<T> items)
     {
-        var itemArray = (items as T[]) ?? items.ToArray();
+        var itemArray = (items as T[]) ?? [.. items];
 
         lock (_lock)
         {
@@ -1016,7 +1016,7 @@ public class ReactiveList<T> : IReactiveList<T>
             difference.Add(item);
         }
 
-        return difference is null || difference.Count == 0 ? Array.Empty<T>() : [.. difference];
+        return difference is null || difference.Count == 0 ? [] : [.. difference];
     }
 
     /// <summary>Extracts items from a cache notification.</summary>
@@ -1410,7 +1410,7 @@ public class ReactiveList<T> : IReactiveList<T>
         /// <summary>Initializes a new instance of the <see cref="RangeObservableCollection"/> class.</summary>
         /// <param name="items">The items value.</param>
         public RangeObservableCollection(IEnumerable<T> items)
-            : base(items.ToList())
+            : base([.. items])
         {
         }
 

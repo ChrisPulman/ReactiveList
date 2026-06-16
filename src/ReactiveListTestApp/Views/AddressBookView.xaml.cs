@@ -9,19 +9,17 @@ using Splat;
 
 namespace ReactiveListTestApp.Views;
 
-/// <summary>
-/// Interaction logic for AddressBookView.xaml.
-/// </summary>
+/// <summary>Interaction logic for AddressBookView.xaml.</summary>
 public partial class AddressBookView : UserControl, IViewFor<AddressBookViewModel>
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="AddressBookView"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="AddressBookView"/> class.</summary>
     public AddressBookView()
     {
         InitializeComponent();
 
-        DataContext = ViewModel = AppLocator.Current.GetService<AddressBookViewModel>() ?? throw new InvalidOperationException("Could not locate AddressBookViewModel.");
+        var viewModel = AppLocator.Current.GetService<AddressBookViewModel>() ?? throw new InvalidOperationException("Could not locate AddressBookViewModel.");
+        ViewModel = viewModel;
+        DataContext = viewModel;
 
         this.WhenActivated(d =>
         {

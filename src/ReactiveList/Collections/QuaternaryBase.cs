@@ -520,7 +520,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
 
             // For Add/Remove with single items, we can't provide index in sharded collection
             // Use Reset for safety to ensure UI updates correctly
-            if (action == NotifyCollectionChangedAction.Add || action == NotifyCollectionChangedAction.Remove)
+            if (action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
             {
                 args = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset);
             }

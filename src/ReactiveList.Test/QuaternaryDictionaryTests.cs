@@ -81,10 +81,12 @@ public class QuaternaryDictionaryTests
         using var subscription = dict.Stream.Subscribe(evt =>
         {
             actions.Add(evt.Action);
-            if (actions.Count == 2)
+            if (actions.Count != 2)
             {
-                reset.Set();
+                return;
             }
+
+            reset.Set();
         });
 
         dict.AddOrUpdate(3, "tres");
@@ -149,8 +151,8 @@ public class QuaternaryDictionaryTests
         notification.Batch.Dispose();
 
         dict.Count.Should().Be(3);
-        dict.Keys.Should().BeEquivalentTo(new[] { 1, 2, 3 });
-        dict.Values.Should().BeEquivalentTo(new[] { "one", "two", "three" });
+        dict.Keys.Should().BeEquivalentTo([1, 2, 3]);
+        dict.Values.Should().BeEquivalentTo(["one", "two", "three"]);
     }
 
     /// <summary>
@@ -174,9 +176,7 @@ public class QuaternaryDictionaryTests
         array.Skip(1).Should().BeEquivalentTo(dict.ToArray());
     }
 
-    /// <summary>
-    /// Verifies that the value index in a QuaternaryDictionary correctly tracks additions and removals of items.
-    /// </summary>
+    /// <summary>Verifies that the value index in a QuaternaryDictionary correctly tracks additions and removals of items.</summary>
     /// <remarks>This test ensures that when items are added to or removed from the dictionary, the associated
     /// value index reflects these changes as expected. It also verifies that clearing the dictionary updates the value
     /// index accordingly.</remarks>
@@ -186,11 +186,10 @@ public class QuaternaryDictionaryTests
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddValueIndex("ByLength", v => v.Length);
 
-        dict.AddRange(new[]
-        {
+        dict.AddRange([
             new KeyValuePair<int, string>(1, "short"),
             new KeyValuePair<int, string>(2, "longvalue")
-        });
+        ]);
 
         GetLookup(dict, "ByLength", 5).Should().ContainSingle().Which.Should().Be("short");
 
@@ -203,9 +202,7 @@ public class QuaternaryDictionaryTests
         GetLookup(dict, "ByLength", 9).Should().BeEmpty();
     }
 
-    /// <summary>
-    /// Verifies that the Lookup method returns the correct result for existing and non-existing keys.
-    /// </summary>
+    /// <summary>Verifies that the Lookup method returns the correct result for existing and non-existing keys.</summary>
     [Test]
     public void Lookup_ShouldReturnCorrectResult()
     {
@@ -222,9 +219,7 @@ public class QuaternaryDictionaryTests
         result2.Value.Should().BeNull();
     }
 
-    /// <summary>
-    /// Verifies that RemoveKeys removes multiple keys in a batch operation.
-    /// </summary>
+    /// <summary>Verifies that RemoveKeys removes multiple keys in a batch operation.</summary>
     [Test]
     public void RemoveKeys_ShouldRemoveMultipleKeysAndEmitBatch()
     {
@@ -240,11 +235,13 @@ public class QuaternaryDictionaryTests
         using var reset = new ManualResetEventSlim(false);
         using var subscription = dict.Stream.Subscribe(evt =>
         {
-            if (evt.Action == CacheAction.BatchOperation)
+            if (evt.Action != CacheAction.BatchOperation)
             {
-                notification = evt;
-                reset.Set();
+                return;
             }
+
+            notification = evt;
+            reset.Set();
         });
 
         dict.RemoveKeys([2, 4]);
@@ -258,9 +255,7 @@ public class QuaternaryDictionaryTests
         dict.ContainsKey(3).Should().BeTrue();
     }
 
-    /// <summary>
-    /// Verifies that RemoveMany with a predicate removes matching entries.
-    /// </summary>
+    /// <summary>Verifies that RemoveMany with a predicate removes matching entries.</summary>
     [Test]
     public void RemoveMany_WithPredicate_ShouldRemoveMatchingEntries()
     {
@@ -280,9 +275,7 @@ public class QuaternaryDictionaryTests
         dict.ContainsKey(3).Should().BeFalse();
     }
 
-    /// <summary>
-    /// Verifies that the Edit method allows batch modifications with a single notification.
-    /// </summary>
+    /// <summary>Verifies that the Edit method allows batch modifications with a single notification.</summary>
     [Test]
     public void Edit_ShouldPerformBatchModificationsWithSingleNotification()
     {
@@ -297,10 +290,12 @@ public class QuaternaryDictionaryTests
         using var subscription = dict.Stream.Subscribe(evt =>
         {
             notifications.Add(evt.Action);
-            if (evt.Action == CacheAction.BatchOperation)
+            if (evt.Action != CacheAction.BatchOperation)
             {
-                reset.Set();
+                return;
             }
+
+            reset.Set();
         });
 
         dict.Edit(innerDict =>
@@ -318,9 +313,7 @@ public class QuaternaryDictionaryTests
         dict.ContainsKey(1).Should().BeFalse();
     }
 
-    /// <summary>
-    /// Verifies that Edit updates value indices correctly.
-    /// </summary>
+    /// <summary>Verifies that Edit updates value indices correctly.</summary>
     [Test]
     public void Edit_ShouldUpdateValueIndicesCorrectly()
     {
@@ -344,9 +337,7 @@ public class QuaternaryDictionaryTests
         GetLookup(dict, "ByLength", 11).Should().ContainSingle().Which.Should().Be("biggervalue");
     }
 
-    /// <summary>
-    /// Verifies that GetValuesBySecondaryIndex returns matching values.
-    /// </summary>
+    /// <summary>Verifies that GetValuesBySecondaryIndex returns matching values.</summary>
     [Test]
     public void GetValuesBySecondaryIndex_ShouldReturnMatchingValues()
     {
@@ -369,9 +360,7 @@ public class QuaternaryDictionaryTests
         fiveCharValues.Should().ContainSingle().Which.Should().Be("three");
     }
 
-    /// <summary>
-    /// Verifies that GetValuesBySecondaryIndex returns empty for non-existent index.
-    /// </summary>
+    /// <summary>Verifies that GetValuesBySecondaryIndex returns empty for non-existent index.</summary>
     [Test]
     public void GetValuesBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
     {
@@ -382,9 +371,7 @@ public class QuaternaryDictionaryTests
         result.Should().BeEmpty();
     }
 
-    /// <summary>
-    /// Verifies that ValueMatchesSecondaryIndex returns correct results.
-    /// </summary>
+    /// <summary>Verifies that ValueMatchesSecondaryIndex returns correct results.</summary>
     [Test]
     public void ValueMatchesSecondaryIndex_ShouldReturnCorrectResult()
     {
@@ -397,9 +384,7 @@ public class QuaternaryDictionaryTests
         dict.ValueMatchesSecondaryIndex("NonExistent", "test", 4).Should().BeFalse();
     }
 
-    /// <summary>
-    /// Verifies that GetValuesBySecondaryIndex updates after additions and removals.
-    /// </summary>
+    /// <summary>Verifies that GetValuesBySecondaryIndex updates after additions and removals.</summary>
     [Test]
     public void GetValuesBySecondaryIndex_ShouldUpdateAfterAdditionsAndRemovals()
     {
@@ -419,6 +404,13 @@ public class QuaternaryDictionaryTests
         dict.GetValuesBySecondaryIndex("ByLength", 3).Should().BeEmpty();
     }
 
+    /// <summary>Provides GetLookup.</summary>
+    /// <typeparam name="TKey">The TKey type.</typeparam>
+    /// <typeparam name="TValue">The TValue type.</typeparam>
+    /// <param name="dictionary">The dictionary value.</param>
+    /// <param name="indexName">The indexName value.</param>
+    /// <param name="key">The key value.</param>
+    /// <returns>The result.</returns>
     private static IEnumerable<TValue> GetLookup<TKey, TValue>(QuaternaryDictionary<TKey, TValue> dictionary, string indexName, object key)
         where TKey : notnull
     {
@@ -428,7 +420,7 @@ public class QuaternaryDictionaryTests
         var indices = (ConcurrentDictionary<string, ISecondaryIndex<TValue>>)property.GetValue(dictionary)!;
         indices.TryGetValue(indexName, out var index).Should().BeTrue();
         var lookupMethod = index!.GetType().GetMethod("Lookup", BindingFlags.Public | BindingFlags.Instance)!;
-        return (IEnumerable<TValue>)lookupMethod.Invoke(index, new[] { key })!;
+        return (IEnumerable<TValue>)lookupMethod.Invoke(index, [key])!;
     }
 }
 #endif
