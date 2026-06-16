@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="CrissCross.WPF.UI" Version="3.3.6" />
-    <PackageReference Include="ReactiveUI.Primitives" Version="5.1.0" />
+    <PackageReference Include="ReactiveUI.Primitives" Version="5.3.0" />
     <PackageReference Include="ReactiveUI.Primitives.Reactive" Version="5.0.0" />
     <PackageReference Include="ReactiveUI.Primitives.Wpf" Version="5.0.0" />
   </ItemGroup>
