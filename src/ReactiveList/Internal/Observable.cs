@@ -2,10 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.ComponentModel;
-using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.Signals;
-
 namespace CP.Reactive.Internal;
 
 /// <summary>Minimal observable factories used by ReactiveList internals.</summary>

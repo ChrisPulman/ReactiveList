@@ -2,19 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER || NETFRAMEWORK
-using System.Collections;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
-using ReactiveUI.Primitives.Disposables;
-
 namespace CP.Reactive.Views;
 
 /// <summary>
@@ -33,13 +20,9 @@ where TKey : notnull
 
     private readonly ObservableCollection<T> _filteredItems;
 
-    private readonly MultipleDisposable _disposables = new();
+    private readonly MultipleDisposable _disposables = [];
 
-#if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
-#else
-    private readonly object _lock = new();
-#endif
 
     private HashSet<TKey> _currentKeys = [];
 
@@ -253,7 +236,7 @@ where TKey : notnull
         // Explicitly specify TKey to ensure type inference is correct
         foreach (var key in _currentKeys)
         {
-            foreach (var item in _source.GetItemsBySecondaryIndex<TKey>(_indexName, key))
+            foreach (var item in _source.GetItemsBySecondaryIndex(_indexName, key))
             {
                 // Avoid duplicates if same item matches multiple keys
                 if (!_filteredItems.Contains(item))
@@ -268,11 +251,10 @@ where TKey : notnull
     /// <param name="item">The item value.</param>
     /// <returns><see langword="true"/> when the item matches any current key; otherwise, <see langword="false"/>.</returns>
     private bool ItemMatchesCurrentKeys(T item) =>
-        _currentKeys.Any(key => _source.ItemMatchesSecondaryIndex<TKey>(_indexName, item, key));
+        _currentKeys.Any(key => _source.ItemMatchesSecondaryIndex(_indexName, item, key));
 
     /// <summary>Handles property change notifications.</summary>
     /// <param name="propertyName">The propertyName value.</param>
     private void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
-#endif

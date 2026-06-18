@@ -309,7 +309,7 @@ public class ReactiveViewTests
             TimeSpan.FromMilliseconds(10),
             Sequencer.Immediate);
 
-        var act = () => view.Dispose();
+        var act = view.Dispose;
 
         act.Should().NotThrow();
     }
@@ -328,7 +328,7 @@ public class ReactiveViewTests
             Sequencer.Immediate);
 
         view.Dispose();
-        var act = () => view.Dispose();
+        var act = view.Dispose;
 
         act.Should().NotThrow();
     }

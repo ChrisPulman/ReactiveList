@@ -2,19 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER || NETFRAMEWORK
-using System.Collections;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
-using ReactiveUI.Primitives.Disposables;
-
 namespace CP.Reactive.Views;
 
 /// <summary>
@@ -38,13 +25,9 @@ where TKey : notnull
 
     private readonly ObservableCollection<TValue> _filteredItems;
 
-    private readonly MultipleDisposable _disposables = new();
+    private readonly MultipleDisposable _disposables = [];
 
-#if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
-#else
-    private readonly object _lock = new();
-#endif
 
     /// <summary>Initializes a new instance of the <see cref="SecondaryIndexReactiveView{TKey, TValue}"/> class.</summary>
     /// <param name="source">The source dictionary to filter.</param>
@@ -126,7 +109,7 @@ where TKey : notnull
             indexKey!,
             scheduler,
             throttle,
-            static (dict, name, key) => dict.GetValuesBySecondaryIndex<TIndexKey>(name, (TIndexKey)key),
+            static (dict, name, key) => dict.GetValuesBySecondaryIndex(name, (TIndexKey)key),
             static (dict, name, value, key) => dict.ValueMatchesSecondaryIndex(name, value, (TIndexKey)key));
     }
 
@@ -244,4 +227,3 @@ where TKey : notnull
     private void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
-#endif

@@ -2,19 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Buffers;
-using System.Collections;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Signals;
-
 #if NET6_0_OR_GREATER
 using System.Runtime.InteropServices;
 #endif
@@ -47,13 +34,8 @@ public class ReactiveList<T> : IReactiveList<T>
 
     private readonly List<T> _internalList = [];
 
-#if NET9_0_OR_GREATER
     [NonSerialized]
     private Lock _lock = new();
-#else
-    [NonSerialized]
-    private object _lock = new();
-#endif
 
     [NonSerialized]
     private IObservable<IEnumerable<T>>? _added;
@@ -234,8 +216,6 @@ public class ReactiveList<T> : IReactiveList<T>
         }
     }
 
-#if NET6_0_OR_GREATER || NETFRAMEWORK
-
     /// <summary>Creates a snapshot of current items as an array.</summary>
     /// <returns>An array containing all current items.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -302,7 +282,7 @@ public class ReactiveList<T> : IReactiveList<T>
 #if NET6_0_OR_GREATER
         return CollectionsMarshal.AsSpan(_internalList);
 #else
-        return new ReadOnlySpan<T>(_internalList.ToArray());
+        return new ReadOnlySpan<T>([.. _internalList]);
 #endif
     }
 
@@ -349,7 +329,6 @@ public class ReactiveList<T> : IReactiveList<T>
             }
         }
     }
-#endif
 
     /// <inheritdoc/>
     public void Dispose()

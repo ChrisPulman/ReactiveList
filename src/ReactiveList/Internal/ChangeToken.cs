@@ -2,10 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER || NETFRAMEWORK
-
-using System.Runtime.CompilerServices;
-
 namespace CP.Reactive.Internal;
 
 /// <summary>Represents a change token for tracking collection modifications with minimal allocations.</summary>
@@ -33,4 +29,3 @@ internal readonly record struct ChangeToken<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly bool HasChanged(long currentVersion) => Version != currentVersion;
 }
-#endif

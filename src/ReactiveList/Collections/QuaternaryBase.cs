@@ -2,19 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER || NETFRAMEWORK
-
-using System.Collections.Concurrent;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Threading.Channels;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.Signals;
-
 namespace CP.Reactive.Collections;
 
 /// <summary>
@@ -578,4 +565,3 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
         }
     }
 }
-#endif

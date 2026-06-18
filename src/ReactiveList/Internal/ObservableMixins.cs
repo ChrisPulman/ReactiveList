@@ -2,12 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.ExceptionServices;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
-using ReactiveUI.Primitives.Disposables;
-using ReactiveUI.Primitives.Signals;
-
 namespace CP.Reactive.Internal;
 
 /// <summary>Internal observable helpers used to keep ReactiveList source compact while depending on ReactiveUI.Primitives.</summary>

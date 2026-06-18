@@ -31,7 +31,7 @@ public class ReactiveListExtensionsAdditionalTests
 
         using var subscription = list.Connect()
             .OnUpdate()
-            .Subscribe(update => updates.Add(update));
+            .Subscribe(updates.Add);
 
         // Act - use Update method (indexer does Remove+Add, not Update)
         list.Add("original");
@@ -102,7 +102,7 @@ public class ReactiveListExtensionsAdditionalTests
 
         using var subscription = list.Connect()
             .OnMove()
-            .Subscribe(move => moves.Add(move));
+            .Subscribe(moves.Add);
 
         // Act
         list.AddRange(new[] { "a", "b", "c", "d" });
@@ -146,7 +146,7 @@ public class ReactiveListExtensionsAdditionalTests
 
         using var subscription = list.Connect()
             .OnMove()
-            .Subscribe(move => moves.Add(move));
+            .Subscribe(moves.Add);
 
         // Act
         list.AddRange(new[] { 1, 2, 3, 4, 5 });
@@ -444,7 +444,7 @@ public class ReactiveListExtensionsAdditionalTests
 
         using var subscription = list.Connect()
             .GroupingByChanges(x => x % 2 == 0 ? "even" : "odd")
-            .Subscribe(grouping => groupings.Add(grouping));
+            .Subscribe(groupings.Add);
 
         // Act
         list.AddRange(new[] { 1, 2, 3, 4 });
@@ -463,7 +463,7 @@ public class ReactiveListExtensionsAdditionalTests
 
         using var subscription = list.Connect()
             .GroupingByChanges(x => x / 10) // Group by tens
-            .Subscribe(grouping => groupings.Add(grouping));
+            .Subscribe(groupings.Add);
 
         // Act - add items in different decades
         list.AddRange(new[] { 5, 15, 25, 7, 17 });
@@ -555,7 +555,7 @@ public class ReactiveListExtensionsAdditionalTests
         var changeSets = new List<ChangeSet<int>>();
 
         using var subscription = list.Connect()
-            .Subscribe(cs => changeSets.Add(cs));
+            .Subscribe(changeSets.Add);
 
         // Act
         list.Add(1);
@@ -758,7 +758,7 @@ public class ReactiveListExtensionsAdditionalTests
 
         using var subscription = list.Connect()
             .SelectChanges((int x) => $"Value:{x}")
-            .Subscribe(cs => transformedSets.Add(cs));
+            .Subscribe(transformedSets.Add);
 
         // Act
         list.Add(1);

@@ -37,7 +37,7 @@ public class ReactiveListConnectTests
         using var list = new ReactiveList<int>([1, 2, 3]);
         var receivedChanges = new List<ChangeSet<int>>();
 
-        using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        using var subscription = list.Connect().Subscribe(receivedChanges.Add);
 
         receivedChanges.Should().ContainSingle();
         receivedChanges[0].Count.Should().Be(3);
@@ -52,7 +52,7 @@ public class ReactiveListConnectTests
         // Arrange
         using var list = new ReactiveList<int>();
         var receivedChanges = new List<ChangeSet<int>>();
-        using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        using var subscription = list.Connect().Subscribe(receivedChanges.Add);
 
         // Act
         list.Add(42);
@@ -72,7 +72,7 @@ public class ReactiveListConnectTests
         // Arrange
         using var list = new ReactiveList<int>();
         var receivedChanges = new List<ChangeSet<int>>();
-        using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        using var subscription = list.Connect().Subscribe(receivedChanges.Add);
 
         // Act
         list.AddRange([1, 2, 3, 4, 5]);
@@ -90,7 +90,7 @@ public class ReactiveListConnectTests
         // Arrange
         using var list = new ReactiveList<int>([1, 2, 3]);
         var receivedChanges = new List<ChangeSet<int>>();
-        using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        using var subscription = list.Connect().Subscribe(receivedChanges.Add);
         receivedChanges.Clear();
 
         // Act
@@ -114,7 +114,7 @@ public class ReactiveListConnectTests
         // Arrange
         using var list = new ReactiveList<int>([1, 2, 3]);
         var receivedChanges = new List<ChangeSet<int>>();
-        using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        using var subscription = list.Connect().Subscribe(receivedChanges.Add);
         receivedChanges.Clear();
 
         // Act
@@ -136,7 +136,7 @@ public class ReactiveListConnectTests
         // Arrange
         using var list = new ReactiveList<int>([1, 2, 3, 4, 5]);
         var receivedChanges = new List<ChangeSet<int>>();
-        using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        using var subscription = list.Connect().Subscribe(receivedChanges.Add);
         receivedChanges.Clear();
 
         // Act
@@ -159,7 +159,7 @@ public class ReactiveListConnectTests
         // Arrange
         using var list = new ReactiveList<int>([1, 2, 3]);
         var receivedChanges = new List<ChangeSet<int>>();
-        using var subscription = list.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        using var subscription = list.Connect().Subscribe(receivedChanges.Add);
         receivedChanges.Clear();
 
         // Act

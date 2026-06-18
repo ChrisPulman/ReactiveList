@@ -2,11 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER || NETFRAMEWORK
-
-using System.Buffers;
-using System.Runtime.CompilerServices;
-
 namespace CP.Reactive.Internal;
 
 /// <summary>Represents a rented array buffer with tracking of the used length.</summary>
@@ -56,4 +51,3 @@ internal sealed class PooledBuffer<T> : IDisposable
         _buffer = null!;
     }
 }
-#endif

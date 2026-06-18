@@ -60,7 +60,7 @@ public class PooledBatchTests
         var array = ArrayPool<int>.Shared.Rent(10);
         var batch = new PooledBatch<int>(array, 5);
 
-        var act = () => batch.Dispose();
+        var act = batch.Dispose;
 
         act.Should().NotThrow();
     }
@@ -73,7 +73,7 @@ public class PooledBatchTests
         var batch = new PooledBatch<int>(array, 5);
 
         batch.Dispose();
-        var act = () => batch.Dispose();
+        var act = batch.Dispose;
 
         act.Should().NotThrow();
     }

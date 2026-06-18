@@ -120,7 +120,7 @@ public class CoreCoverageTests
         var batch = CreateBatch(42);
 
         subject.OnNext(new CacheNotify<int>(CacheAction.BatchAdded, default, batch));
-        Action disposeAgain = () => batch.Dispose();
+        Action disposeAgain = batch.Dispose;
 
         autoDisposed.Should().ContainSingle();
         disposeAgain.Should().NotThrow();
@@ -259,7 +259,7 @@ public class CoreCoverageTests
 
         using var set = new ChangeSet<int>(changes);
         using var single = new ChangeSet<int>(Change<int>.CreateRefresh(5, 4));
-        using var comparison = new ChangeSet<int>(changes.ToArray());
+        using var comparison = new ChangeSet<int>([.. changes]);
         var defaultSet = default(ChangeSet<int>);
 
         set.Count.Should().Be(4);
@@ -438,7 +438,7 @@ public class CoreCoverageTests
 
         var successValues = new List<int>();
         using var successSubscription = Observable
-            .Defer(() => ObservableFactoryValues.ToObservable())
+            .Defer(ObservableFactoryValues.ToObservable)
             .Subscribe(successValues.Add);
 
         successValues.Should().Equal(1, 2);
@@ -618,7 +618,7 @@ public class CoreCoverageTests
         using var noMatchBatch = CreateBatch(1, 2);
         var noMatchNotification = new CacheNotify<int>(CacheAction.BatchAdded, default, noMatchBatch);
         ReactiveListExtensions.FilterBatchByPredicate(noMatchNotification, static item => item > 10).Should().BeNull();
-        ReactiveListExtensions.FilterBatch(noMatchNotification, new HashSet<int> { 99 }).Should().BeNull();
+        ReactiveListExtensions.FilterBatch(noMatchNotification, [99]).Should().BeNull();
     }
 
     /// <summary>GroupBy should propagate upstream errors to active groups and to the outer subscriber.</summary>
@@ -631,7 +631,7 @@ public class CoreCoverageTests
         var upstreamError = new InvalidOperationException("group failure");
 
         using var subscription = ReactiveListExtensions
-            .GroupByChanges<int, int>(source, static value => value % 2)
+            .GroupByChanges(source, static value => value % 2)
             .Subscribe(
                 group =>
                 {
@@ -656,7 +656,7 @@ public class CoreCoverageTests
     {
         var source = new[] { ChangeSet<int>.Empty }.ToObservable();
         var results = ObservableMixins.ToEnumerable(
-                ReactiveListExtensions.SelectChanges<int, string>(
+                ReactiveListExtensions.SelectChanges(
                     source,
                     (Func<int, string>)(static value => value.ToString())))
             .ToList();

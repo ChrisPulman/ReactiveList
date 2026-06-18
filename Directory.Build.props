@@ -28,8 +28,8 @@
     <!-- Include PDB in the built .nupkg -->
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <IncludePackageReferencesDuringMarkupCompilation>true</IncludePackageReferencesDuringMarkupCompilation>
-    <CoreTargetFrameworks>net8.0;net9.0;net10.0</CoreTargetFrameworks>
-    <WinTargetFrameworks>net462;net472;net48;net481;net8.0-windows10.0.19041.0;net9.0-windows10.0.19041.0;net10.0-windows10.0.19041.0</WinTargetFrameworks>
+    <CoreTargetFrameworks>net8.0;net9.0;net10.0;net11.0</CoreTargetFrameworks>
+    <WinTargetFrameworks>net462;net472;net48;net481;net8.0-windows10.0.19041.0;net9.0-windows10.0.19041.0;net10.0-windows10.0.19041.0;net11.0-windows10.0.19041.0</WinTargetFrameworks>
   </PropertyGroup>
   <PropertyGroup Condition="$([MSBuild]::IsOsPlatform('Windows'))">
     <CoreTargetFrameworks>$(CoreTargetFrameworks);$(WinTargetFrameworks)</CoreTargetFrameworks>
@@ -45,6 +45,16 @@
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.8.0" />
     <PackageReference Include="TUnit" Version="1.56.0" />
   </ItemGroup>
+
+  <!-- Alias Lock to the dedicated System.Threading.Lock on .NET 9+ (faster EnterScope fast path),
+     and to a plain object elsewhere (the lock statement falls back to Monitor). -->
+  <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net9.0'))">
+    <Using Include="System.Threading.Lock" Alias="Lock"/>
+  </ItemGroup>
+  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net9.0'))">
+    <Using Include="System.Object" Alias="Lock"/>
+  </ItemGroup>
+  
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)images\logo.png" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="LICENSE" />
@@ -53,7 +63,7 @@
   
   <ItemGroup>
     <!--<Compile Update="**\*.cs" DependentUpon="I%(Filename).cs" />-->
-    <PackageReference Include="StyleSharp.Analyzers" Version="3.11.1" />
+    <PackageReference Include="StyleSharp.Analyzers" Version="3.11.2" PrivateAssets="All" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.15.0" PrivateAssets="All" />
   </ItemGroup>
 </Project>

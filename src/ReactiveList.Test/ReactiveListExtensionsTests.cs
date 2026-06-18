@@ -118,7 +118,7 @@ public class ReactiveListExtensionsTests
         // Use the overload that takes Func<Change<T>, TResult> to get individual transformed items
         using var subscription = list.Connect()
             .SelectChanges((Change<int> c) => $"Item_{c.Current}")
-            .Subscribe(item => transformedItems.Add(item));
+            .Subscribe(transformedItems.Add);
 
         // Act
         list.Add(1);

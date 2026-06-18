@@ -2,13 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
-
 namespace CP.Reactive.Views;
 
 /// <summary>
