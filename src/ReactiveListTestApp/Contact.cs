@@ -4,9 +4,7 @@
 
 namespace ReactiveListTestApp;
 
-/// <summary>
-/// Represents a contact with identifying information, email, department, favorite status, and home address details.
-/// </summary>
+/// <summary>Represents a contact with identifying information, email, department, favorite status, and home address details.</summary>
 /// <param name="Id">The unique identifier for the contact.</param>
 /// <param name="FirstName">The first name of the contact.</param>
 /// <param name="LastName">The last name of the contact.</param>
@@ -15,7 +13,7 @@ namespace ReactiveListTestApp;
 /// <param name="IsFavorite">A value indicating whether the contact is marked as a favorite. Set to <see langword="true"/> to indicate a
 /// favorite contact; otherwise, <see langword="false"/>.</param>
 /// <param name="HomeAddress">The home address of the contact. Cannot be null.</param>
-public record Contact(
+public sealed record Contact(
     Guid Id,
     string FirstName,
     string LastName,

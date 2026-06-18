@@ -56,7 +56,7 @@ internal sealed class EditableListWrapper<T>(List<T> list, ObservableCollection<
     /// <inheritdoc/>
     public void AddRange(IEnumerable<T> items)
     {
-        var itemArray = (items as T[]) ?? items.ToArray();
+        var itemArray = (items as T[]) ?? [.. items];
         list.AddRange(itemArray);
         if (observableCollection is null)
         {

@@ -15,26 +15,32 @@ using ReactiveUI.Primitives.Signals;
 
 namespace ReactiveListTestApp;
 
-/// <summary>
-/// ViewModel for the MainView containing collection diagnostics for the ReactiveList library.
-/// </summary>
+/// <summary>ViewModel for the MainView containing collection diagnostics for the ReactiveList library.</summary>
 public class MainViewModel : RxObject
 {
     private const string DepartmentIndex = "ByDepartment";
+
     private readonly ReactiveList<int> _numbers = [];
+
     private readonly BehaviorSignal<Func<int, bool>> _numberFilter = new(static number => number >= 0);
+
     private readonly Reactive2DList<string> _matrix = [];
+
     private readonly QuaternaryList<Contact> _contacts = [];
+
     private readonly QuaternaryDictionary<Guid, Contact> _contactsById = [];
+
     private readonly IDisposable _itemsStreamSubscription;
+
     private bool _paused;
+
     private int _contactBatch;
+
     private int _nextItem;
+
     private int _nextNumber = 13;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MainViewModel"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MainViewModel"/> class.</summary>
     public MainViewModel()
     {
         InitializeReactiveListViews();
@@ -54,84 +60,52 @@ public class MainViewModel : RxObject
         RunIndexScenarioCommand = ReactiveCommand.Create(RunIndexScenario).DisposeWith(Disposables);
     }
 
-    /// <summary>
-    /// Gets the items collection.
-    /// </summary>
+    /// <summary>Gets the items collection.</summary>
     public IReactiveList<string> Items { get; } = new ReactiveList<string>();
 
-    /// <summary>
-    /// Gets all numbers projected through a read-only reactive view.
-    /// </summary>
+    /// <summary>Gets all numbers projected through a read-only reactive view.</summary>
     public ReadOnlyObservableCollection<int> AllNumbers { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets even numbers projected through a filtered reactive view.
-    /// </summary>
+    /// <summary>Gets even numbers projected through a filtered reactive view.</summary>
     public ReadOnlyObservableCollection<int> EvenNumbers { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets numbers projected through a dynamic filter signal.
-    /// </summary>
+    /// <summary>Gets numbers projected through a dynamic filter signal.</summary>
     public ReadOnlyObservableCollection<int> DynamicNumbers { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets contacts projected from a QuaternaryList secondary index view.
-    /// </summary>
+    /// <summary>Gets contacts projected from a QuaternaryList secondary index view.</summary>
     public ReadOnlyObservableCollection<Contact> EngineeringContacts { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets contacts projected from a QuaternaryDictionary secondary index view.
-    /// </summary>
+    /// <summary>Gets contacts projected from a QuaternaryDictionary secondary index view.</summary>
     public ReadOnlyObservableCollection<KeyValuePair<Guid, Contact>> EngineeringDictionaryContacts { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets row summaries for the Reactive2DList test surface.
-    /// </summary>
+    /// <summary>Gets row summaries for the Reactive2DList test surface.</summary>
     public ReactiveList<string> MatrixRows { get; } = [];
 
-    /// <summary>
-    /// Gets direct dictionary lookup results.
-    /// </summary>
+    /// <summary>Gets direct dictionary lookup results.</summary>
     public ReactiveList<string> DictionaryLookups { get; } = [];
 
-    /// <summary>
-    /// Gets operation results shown in the UI.
-    /// </summary>
+    /// <summary>Gets operation results shown in the UI.</summary>
     public ReactiveList<string> OperationLog { get; } = [];
 
-    /// <summary>
-    /// Gets the command to add an item.
-    /// </summary>
+    /// <summary>Gets the command to add an item.</summary>
     public ReactiveCommand<string, Unit> AddItemCommand { get; }
 
-    /// <summary>
-    /// Gets the command to clear items.
-    /// </summary>
+    /// <summary>Gets the command to clear items.</summary>
     public ReactiveCommand<Unit, Unit> ClearItemsCommand { get; }
 
-    /// <summary>
-    /// Gets the command to replace all items.
-    /// </summary>
+    /// <summary>Gets the command to replace all items.</summary>
     public ReactiveCommand<Unit, Unit> ReplaceAllCommand { get; }
 
-    /// <summary>
-    /// Gets the command to pause or resume manual mutations.
-    /// </summary>
+    /// <summary>Gets the command to pause or resume manual mutations.</summary>
     public ReactiveCommand<Unit, bool> PauseCommand { get; }
 
-    /// <summary>
-    /// Gets the command that exercises list mutation, views, and stream observations.
-    /// </summary>
+    /// <summary>Gets the command that exercises list mutation, views, and stream observations.</summary>
     public ReactiveCommand<Unit, Unit> RunReactiveListScenarioCommand { get; }
 
-    /// <summary>
-    /// Gets the command that exercises Reactive2DList row and inner-item operations.
-    /// </summary>
+    /// <summary>Gets the command that exercises Reactive2DList row and inner-item operations.</summary>
     public ReactiveCommand<Unit, Unit> RunMatrixScenarioCommand { get; }
 
-    /// <summary>
-    /// Gets the command that exercises quaternary secondary-index and dictionary operations.
-    /// </summary>
+    /// <summary>Gets the command that exercises quaternary secondary-index and dictionary operations.</summary>
     public ReactiveCommand<Unit, Unit> RunIndexScenarioCommand { get; }
 
     /// <inheritdoc/>
@@ -154,6 +128,9 @@ public class MainViewModel : RxObject
         base.Dispose(disposing);
     }
 
+    /// <summary>Provides CreateContact.</summary>
+    /// <param name="index">The index value.</param>
+    /// <returns>The result.</returns>
     private static Contact CreateContact(int index) =>
         new(
             Guid.NewGuid(),
@@ -164,6 +141,8 @@ public class MainViewModel : RxObject
             index % 3 == 0,
             new Address("1 Test Street", index % 4 == 0 ? "New York" : "London", "10001", "UK"));
 
+    /// <summary>Provides AddItem.</summary>
+    /// <param name="prefix">The prefix value.</param>
     private void AddItem(string prefix)
     {
         if (_paused)
@@ -175,12 +154,14 @@ public class MainViewModel : RxObject
         Items.Add($"{prefix}{_nextItem++}");
     }
 
+    /// <summary>Provides ClearItems.</summary>
     private void ClearItems()
     {
         Items.Clear();
         Log("ReactiveList items cleared.");
     }
 
+    /// <summary>Provides InitializeQuaternaryViews.</summary>
     private void InitializeQuaternaryViews()
     {
         var sequencer = SynchronizationContextSequencer.Current;
@@ -196,6 +177,7 @@ public class MainViewModel : RxObject
             .DisposeWith(Disposables);
     }
 
+    /// <summary>Provides InitializeReactiveListViews.</summary>
     private void InitializeReactiveListViews()
     {
         var sequencer = SynchronizationContextSequencer.Current;
@@ -213,15 +195,20 @@ public class MainViewModel : RxObject
             .DisposeWith(Disposables);
     }
 
+    /// <summary>Provides Log.</summary>
+    /// <param name="message">The message value.</param>
     private void Log(string message)
     {
         OperationLog.Insert(0, $"{DateTime.Now:HH:mm:ss} {message}");
-        if (OperationLog.Count > 16)
+        if (OperationLog.Count <= 16)
         {
-            OperationLog.RemoveRange(16, OperationLog.Count - 16);
+            return;
         }
+
+        OperationLog.RemoveRange(16, OperationLog.Count - 16);
     }
 
+    /// <summary>Provides RefreshDictionaryLookups.</summary>
     private void RefreshDictionaryLookups()
     {
         var engineering = _contactsById
@@ -233,6 +220,7 @@ public class MainViewModel : RxObject
         DictionaryLookups.ReplaceAll(engineering);
     }
 
+    /// <summary>Provides RefreshMatrixRows.</summary>
     private void RefreshMatrixRows()
     {
         var rows = _matrix
@@ -242,12 +230,14 @@ public class MainViewModel : RxObject
         MatrixRows.ReplaceAll(rows);
     }
 
+    /// <summary>Provides ReplaceAllItems.</summary>
     private void ReplaceAllItems()
     {
         Items.ReplaceAll(["One", "Two", "Three", "Four", "Five"]);
         Log("ReactiveList ReplaceAll completed.");
     }
 
+    /// <summary>Provides RunIndexScenario.</summary>
     private void RunIndexScenario()
     {
         var contacts = Enumerable.Range(_contactBatch * 6, 6).Select(CreateContact).ToArray();
@@ -268,6 +258,7 @@ public class MainViewModel : RxObject
         Log($"Quaternary indexes added {contacts.Length}, removed {removableHrContacts.Length}, lookup={lookupSucceeded}.");
     }
 
+    /// <summary>Provides RunMatrixScenario.</summary>
     private void RunMatrixScenario()
     {
         if (_matrix.Count == 0)
@@ -294,6 +285,7 @@ public class MainViewModel : RxObject
         Log("Reactive2DList row and inner-item mutations completed.");
     }
 
+    /// <summary>Provides RunReactiveListScenario.</summary>
     private void RunReactiveListScenario()
     {
         if (_paused)
@@ -317,6 +309,7 @@ public class MainViewModel : RxObject
         Log("ReactiveList batch, INCC views, and dynamic filter updated.");
     }
 
+    /// <summary>Provides SeedCollections.</summary>
     private void SeedCollections()
     {
         Items.AddRange(["Alpha", "Beta", "Gamma"]);
@@ -333,6 +326,8 @@ public class MainViewModel : RxObject
         Log("Seeded ReactiveList, Reactive2DList, QuaternaryList, and QuaternaryDictionary.");
     }
 
+    /// <summary>Provides TogglePause.</summary>
+    /// <returns>The result.</returns>
     private bool TogglePause()
     {
         _paused = !_paused;

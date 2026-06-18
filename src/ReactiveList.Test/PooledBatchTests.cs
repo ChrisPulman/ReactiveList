@@ -10,14 +10,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for PooledBatch.
-/// </summary>
+/// <summary>Tests for PooledBatch.</summary>
 public class PooledBatchTests
 {
-    /// <summary>
-    /// Constructor should initialize Items and Count.
-    /// </summary>
+    /// <summary>Constructor should initialize Items and Count.</summary>
     [Test]
     public void Constructor_ShouldInitializeProperties()
     {
@@ -32,9 +28,7 @@ public class PooledBatchTests
         batch.Count.Should().Be(3);
     }
 
-    /// <summary>
-    /// Items should be accessible before dispose.
-    /// </summary>
+    /// <summary>Items should be accessible before dispose.</summary>
     [Test]
     public void Items_BeforeDispose_ShouldBeAccessible()
     {
@@ -48,9 +42,7 @@ public class PooledBatchTests
         batch.Items[1].Should().Be("world");
     }
 
-    /// <summary>
-    /// Count should reflect actual item count.
-    /// </summary>
+    /// <summary>Count should reflect actual item count.</summary>
     [Test]
     public void Count_ShouldReflectActualItemCount()
     {
@@ -61,9 +53,7 @@ public class PooledBatchTests
         batch.Count.Should().Be(42);
     }
 
-    /// <summary>
-    /// Dispose should return array to pool.
-    /// </summary>
+    /// <summary>Dispose should return array to pool.</summary>
     [Test]
     public void Dispose_ShouldReturnArrayToPool()
     {
@@ -75,9 +65,7 @@ public class PooledBatchTests
         act.Should().NotThrow();
     }
 
-    /// <summary>
-    /// Multiple dispose calls should be safe.
-    /// </summary>
+    /// <summary>Multiple dispose calls should be safe.</summary>
     [Test]
     public void Dispose_MultipleCalls_ShouldBeSafe()
     {
@@ -90,9 +78,7 @@ public class PooledBatchTests
         act.Should().NotThrow();
     }
 
-    /// <summary>
-    /// Record equality should work correctly.
-    /// </summary>
+    /// <summary>Record equality should work correctly.</summary>
     [Test]
     public void RecordEquality_ShouldWorkCorrectly()
     {
@@ -107,9 +93,7 @@ public class PooledBatchTests
         batch1.Dispose();
     }
 
-    /// <summary>
-    /// Record inequality should work for different counts.
-    /// </summary>
+    /// <summary>Record inequality should work for different counts.</summary>
     [Test]
     public void RecordInequality_DifferentCounts_ShouldNotBeEqual()
     {
@@ -124,9 +108,7 @@ public class PooledBatchTests
         batch1.Dispose();
     }
 
-    /// <summary>
-    /// PooledBatch should work with reference types.
-    /// </summary>
+    /// <summary>PooledBatch should work with reference types.</summary>
     [Test]
     public void PooledBatch_WithReferenceTypes_ShouldWork()
     {
@@ -141,9 +123,7 @@ public class PooledBatchTests
         batch.Count.Should().Be(2);
     }
 
-    /// <summary>
-    /// PooledBatch with zero count should be valid.
-    /// </summary>
+    /// <summary>PooledBatch with zero count should be valid.</summary>
     [Test]
     public void PooledBatch_WithZeroCount_ShouldBeValid()
     {
@@ -155,9 +135,7 @@ public class PooledBatchTests
         batch.Items.Should().NotBeNull();
     }
 
-    /// <summary>
-    /// PooledBatch should support with expression.
-    /// </summary>
+    /// <summary>PooledBatch should support with expression.</summary>
     [Test]
     public void PooledBatch_WithExpression_ShouldWork()
     {
@@ -173,9 +151,7 @@ public class PooledBatchTests
         batch1.Dispose();
     }
 
-    /// <summary>
-    /// GetHashCode should be consistent.
-    /// </summary>
+    /// <summary>GetHashCode should be consistent.</summary>
     [Test]
     public void GetHashCode_ShouldBeConsistent()
     {
@@ -190,9 +166,7 @@ public class PooledBatchTests
         batch.Dispose();
     }
 
-    /// <summary>
-    /// ToString should return meaningful representation.
-    /// </summary>
+    /// <summary>ToString should return meaningful representation.</summary>
     [Test]
     public void ToString_ShouldReturnMeaningfulRepresentation()
     {

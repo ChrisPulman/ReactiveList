@@ -11,14 +11,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for ReactiveList Version tracking and ClearWithoutDeallocation.
-/// </summary>
+/// <summary>Tests for ReactiveList Version tracking and ClearWithoutDeallocation.</summary>
 public class ReactiveListVersionTests
 {
-    /// <summary>
-    /// Tests that Version increments when adding an item.
-    /// </summary>
+    /// <summary>Tests that Version increments when adding an item.</summary>
     [Test]
     public void Version_IncrementsOnAdd()
     {
@@ -33,9 +29,7 @@ public class ReactiveListVersionTests
         list.Version.Should().Be(initialVersion + 1);
     }
 
-    /// <summary>
-    /// Tests that Version increments when adding a range.
-    /// </summary>
+    /// <summary>Tests that Version increments when adding a range.</summary>
     [Test]
     public void Version_IncrementsOnAddRange()
     {
@@ -50,9 +44,7 @@ public class ReactiveListVersionTests
         list.Version.Should().Be(initialVersion + 1);
     }
 
-    /// <summary>
-    /// Tests that Version increments when removing an item.
-    /// </summary>
+    /// <summary>Tests that Version increments when removing an item.</summary>
     [Test]
     public void Version_IncrementsOnRemove()
     {
@@ -67,9 +59,7 @@ public class ReactiveListVersionTests
         list.Version.Should().Be(initialVersion + 1);
     }
 
-    /// <summary>
-    /// Tests that Version increments when clearing.
-    /// </summary>
+    /// <summary>Tests that Version increments when clearing.</summary>
     [Test]
     public void Version_IncrementsOnClear()
     {
@@ -84,9 +74,7 @@ public class ReactiveListVersionTests
         list.Version.Should().Be(initialVersion + 1);
     }
 
-    /// <summary>
-    /// Tests that Version increments when updating.
-    /// </summary>
+    /// <summary>Tests that Version increments when updating.</summary>
     [Test]
     public void Version_IncrementsOnUpdate()
     {
@@ -101,9 +89,7 @@ public class ReactiveListVersionTests
         list.Version.Should().Be(initialVersion + 1);
     }
 
-    /// <summary>
-    /// Tests that Version increments when moving.
-    /// </summary>
+    /// <summary>Tests that Version increments when moving.</summary>
     [Test]
     public void Version_IncrementsOnMove()
     {
@@ -119,9 +105,7 @@ public class ReactiveListVersionTests
     }
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// Tests that ClearWithoutDeallocation clears items but preserves capacity.
-    /// </summary>
+    /// <summary>Tests that ClearWithoutDeallocation clears items but preserves capacity.</summary>
     [Test]
     public void ClearWithoutDeallocation_ClearsItemsPreservesCapacity()
     {
@@ -138,9 +122,7 @@ public class ReactiveListVersionTests
         countBefore.Should().Be(100);
     }
 
-    /// <summary>
-    /// Tests that ClearWithoutDeallocation emits change notification.
-    /// </summary>
+    /// <summary>Tests that ClearWithoutDeallocation emits change notification.</summary>
     [Test]
     public void ClearWithoutDeallocation_EmitsChangeNotification()
     {
@@ -159,9 +141,7 @@ public class ReactiveListVersionTests
         changeReceived.Should().BeTrue();
     }
 
-    /// <summary>
-    /// Tests that ClearWithoutDeallocation with notifyChange=false does not emit.
-    /// </summary>
+    /// <summary>Tests that ClearWithoutDeallocation with notifyChange=false does not emit.</summary>
     [Test]
     public void ClearWithoutDeallocation_WithNotifyFalse_DoesNotEmit()
     {
@@ -182,9 +162,7 @@ public class ReactiveListVersionTests
         changeCount.Should().Be(countBefore); // No additional changes
     }
 
-    /// <summary>
-    /// Tests that ClearWithoutDeallocation increments version.
-    /// </summary>
+    /// <summary>Tests that ClearWithoutDeallocation increments version.</summary>
     [Test]
     public void ClearWithoutDeallocation_IncrementsVersion()
     {

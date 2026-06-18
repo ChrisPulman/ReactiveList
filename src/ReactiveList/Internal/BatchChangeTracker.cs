@@ -65,13 +65,13 @@ internal struct BatchChangeTracker<T> : IDisposable
     {
         if (_addedItems is not null)
         {
-            ArrayPool<T>.Shared.Return(_addedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+            ArrayPool<T>.Shared.Return(_addedItems, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             _addedItems = null;
         }
 
         if (_removedItems is not null)
         {
-            ArrayPool<T>.Shared.Return(_removedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+            ArrayPool<T>.Shared.Return(_removedItems, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             _removedItems = null;
         }
 
@@ -85,7 +85,7 @@ internal struct BatchChangeTracker<T> : IDisposable
     {
         var newArray = ArrayPool<T>.Shared.Rent(_addedItems!.Length * 2);
         _addedItems.AsSpan(0, _addedCount).CopyTo(newArray);
-        ArrayPool<T>.Shared.Return(_addedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_addedItems, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _addedItems = newArray;
     }
 
@@ -95,7 +95,7 @@ internal struct BatchChangeTracker<T> : IDisposable
     {
         var newArray = ArrayPool<T>.Shared.Rent(_removedItems!.Length * 2);
         _removedItems.AsSpan(0, _removedCount).CopyTo(newArray);
-        ArrayPool<T>.Shared.Return(_removedItems, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_removedItems, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _removedItems = newArray;
     }
 }

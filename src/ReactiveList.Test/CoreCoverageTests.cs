@@ -18,14 +18,12 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Additional coverage tests for core reactive primitives.
-/// </summary>
+/// <summary>Additional coverage tests for core reactive primitives.</summary>
 public class CoreCoverageTests
 {
-    /// <summary>
-    /// Cache notification stream extensions should filter, project, and count notifications.
-    /// </summary>
+    private static readonly int[] ObservableFactoryValues = [1, 2];
+
+    /// <summary>Cache notification stream extensions should filter, project, and count notifications.</summary>
     [Test]
     public void CacheNotifyExtensions_ShouldFilterProjectAndCountNotifications()
     {
@@ -89,9 +87,7 @@ public class CoreCoverageTests
         removedBatch.Dispose();
     }
 
-    /// <summary>
-    /// Time and scheduler extensions should buffer, throttle, observe, and dispose batches.
-    /// </summary>
+    /// <summary>Time and scheduler extensions should buffer, throttle, observe, and dispose batches.</summary>
     [Test]
     public void CacheNotifyExtensions_ShouldBufferThrottleObserveAndDisposeBatches()
     {
@@ -130,9 +126,7 @@ public class CoreCoverageTests
         disposeAgain.Should().NotThrow();
     }
 
-    /// <summary>
-    /// CacheNotifyExtensions should validate null arguments.
-    /// </summary>
+    /// <summary>CacheNotifyExtensions should validate null arguments.</summary>
     [Test]
     public void CacheNotifyExtensions_ShouldValidateNullArguments()
     {
@@ -175,9 +169,7 @@ public class CoreCoverageTests
             .WithParameterName("predicate");
     }
 
-    /// <summary>
-    /// ToChange should map single notifications and ignore unsupported ones.
-    /// </summary>
+    /// <summary>ToChange should map single notifications and ignore unsupported ones.</summary>
     [Test]
     public void ToChange_ShouldMapSingleNotifications()
     {
@@ -203,9 +195,7 @@ public class CoreCoverageTests
         new CacheNotify<string>(CacheAction.Added, default).ToChange().Should().BeNull();
     }
 
-    /// <summary>
-    /// ToChangeSets should expand batches, singles, and filter empty changes.
-    /// </summary>
+    /// <summary>ToChangeSets should expand batches, singles, and filter empty changes.</summary>
     [Test]
     public void ToChangeSets_ShouldExpandBatchesSinglesAndFilterEmptyChanges()
     {
@@ -255,9 +245,7 @@ public class CoreCoverageTests
         emptyBatch.Dispose();
     }
 
-    /// <summary>
-    /// ChangeSet should expose counts, spans, enumerators, and validation.
-    /// </summary>
+    /// <summary>ChangeSet should expose counts, spans, enumerators, and validation.</summary>
     [Test]
     public void ChangeSet_ShouldExposeCountsEnumeratorsAndValidation()
     {
@@ -314,9 +302,7 @@ public class CoreCoverageTests
 #endif
     }
 
-    /// <summary>
-    /// PooledEditableListWrapper should synchronize all list operations.
-    /// </summary>
+    /// <summary>PooledEditableListWrapper should synchronize all list operations.</summary>
     [Test]
     public void PooledEditableListWrapper_ShouldSynchronizeOperationsAndValidateMoves()
     {
@@ -355,7 +341,7 @@ public class CoreCoverageTests
         list.Should().BeEmpty();
         observable.Should().BeEmpty();
 
-        wrapper.Initialize(new List<string> { "a", "b" }, null);
+        wrapper.Initialize(["a", "b"], null);
         wrapper.Count.Should().Be(2);
 
         Action badOldIndex = () => wrapper.Move(-1, 0);
@@ -369,9 +355,7 @@ public class CoreCoverageTests
         EditableListWrapperPool.Clear<string>();
     }
 
-    /// <summary>
-    /// Returned pooled wrappers should reject future access and dispose idempotently.
-    /// </summary>
+    /// <summary>Returned pooled wrappers should reject future access and dispose idempotently.</summary>
     [Test]
     public void PooledEditableListWrapper_WhenReturned_ShouldRejectAccessAndDisposeIdempotently()
     {
@@ -387,9 +371,7 @@ public class CoreCoverageTests
         useReturned.Should().Throw<ObjectDisposedException>();
     }
 
-    /// <summary>
-    /// ReactiveGroup should expose grouping data and forward collection change events.
-    /// </summary>
+    /// <summary>ReactiveGroup should expose grouping data and forward collection change events.</summary>
     [Test]
     public void ReactiveGroup_ShouldExposeItemsAndForwardCollectionChanges()
     {
@@ -418,9 +400,7 @@ public class CoreCoverageTests
         addWithoutSubscriber.Should().NotThrow();
     }
 
-    /// <summary>
-    /// SecondaryIndex should reject keys of the wrong type in MatchesKey.
-    /// </summary>
+    /// <summary>SecondaryIndex should reject keys of the wrong type in MatchesKey.</summary>
     [Test]
     public void SecondaryIndex_MatchesKey_ShouldRejectWrongKeyType()
     {
@@ -431,13 +411,11 @@ public class CoreCoverageTests
         index.MatchesKey(person, 123).Should().BeFalse();
     }
 
-    /// <summary>
-    /// Internal grouping should expose its non-generic enumerator.
-    /// </summary>
+    /// <summary>Internal grouping should expose its non-generic enumerator.</summary>
     [Test]
     public void ChangeGrouping_ShouldExposeNonGenericEnumerator()
     {
-        var grouping = new ChangeGrouping<string, int>("numbers", new[] { 1, 2 });
+        var grouping = new ChangeGrouping<string, int>("numbers", [1, 2]);
         var enumerator = ((IEnumerable)grouping).GetEnumerator();
 
         grouping.Key.Should().Be("numbers");
@@ -446,9 +424,7 @@ public class CoreCoverageTests
         ((IEnumerable)grouping).Cast<int>().Should().Equal(1, 2);
     }
 
-    /// <summary>
-    /// Internal observable factories should surface factory errors and event handler variants.
-    /// </summary>
+    /// <summary>Internal observable factories should surface factory errors and event handler variants.</summary>
     [Test]
     public void InternalObservableFactories_ShouldCoverErrorAndEventBranches()
     {
@@ -462,7 +438,7 @@ public class CoreCoverageTests
 
         var successValues = new List<int>();
         using var successSubscription = Observable
-            .Defer(() => new[] { 1, 2 }.ToObservable())
+            .Defer(() => ObservableFactoryValues.ToObservable())
             .Subscribe(successValues.Add);
 
         successValues.Should().Equal(1, 2);
@@ -485,9 +461,7 @@ public class CoreCoverageTests
         unsupported.Should().Throw<NotSupportedException>();
     }
 
-    /// <summary>
-    /// Internal observable operators should cover error and completion branches.
-    /// </summary>
+    /// <summary>Internal observable operators should cover error and completion branches.</summary>
     [Test]
     public void ObservableMixins_ShouldCoverErrorAndCompletionBranches()
     {
@@ -498,7 +472,7 @@ public class CoreCoverageTests
             return ReactiveUI.Primitives.Disposables.Scope.Empty;
         });
 
-        Action enumerate = () => ObservableMixins.ToEnumerable(throwing).ToList();
+        Action enumerate = () => _ = ObservableMixins.ToEnumerable(throwing).ToList();
         enumerate.Should().Throw<InvalidOperationException>();
 
         using var bufferSource = new Signal<int>();
@@ -598,9 +572,7 @@ public class CoreCoverageTests
             .Subscribe(new RecordingObserver<int>());
     }
 
-    /// <summary>
-    /// ReactiveList extension guards and default dynamic filters should be covered.
-    /// </summary>
+    /// <summary>ReactiveList extension guards and default dynamic filters should be covered.</summary>
     [Test]
     public void ReactiveListExtensions_ShouldCoverGuardAndDefaultFilterBranches()
     {
@@ -608,6 +580,9 @@ public class CoreCoverageTests
         Action nullGroupSource = () => nullChangeSets.GroupByChanges(static item => item);
         Action nullGroupingSource = () => nullChangeSets.GroupingByChanges(static item => item);
         Action nullRefreshSource = () => ReactiveListExtensions.AutoRefresh<NotifyItem>(null!, propertyName: null);
+        var notifyItem = new NotifyItem(1);
+        notifyItem.Raise(nameof(NotifyItem.Value));
+        notifyItem.Value.Should().Be(1);
 
         nullGroupSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
         nullGroupingSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
@@ -646,9 +621,7 @@ public class CoreCoverageTests
         ReactiveListExtensions.FilterBatch(noMatchNotification, new HashSet<int> { 99 }).Should().BeNull();
     }
 
-    /// <summary>
-    /// GroupBy should propagate upstream errors to active groups and to the outer subscriber.
-    /// </summary>
+    /// <summary>GroupBy should propagate upstream errors to active groups and to the outer subscriber.</summary>
     [Test]
     public void GroupBy_ShouldPropagateErrorsToGroupsAndOuterSubscriber()
     {
@@ -677,9 +650,7 @@ public class CoreCoverageTests
         outerObserver.Error.Should().BeSameAs(upstreamError);
     }
 
-    /// <summary>
-    /// SelectChanges should return the shared empty changeset when the input contains no changes.
-    /// </summary>
+    /// <summary>SelectChanges should return the shared empty changeset when the input contains no changes.</summary>
     [Test]
     public void SelectChanges_ShouldReturnEmptyChangeSetForEmptyInput()
     {
@@ -694,9 +665,7 @@ public class CoreCoverageTests
             .Which.Count.Should().Be(0);
     }
 
-    /// <summary>
-    /// The ReactiveUI.Primitives R3 bridge generated attribute should be constructible.
-    /// </summary>
+    /// <summary>The ReactiveUI.Primitives R3 bridge generated attribute should be constructible.</summary>
     [Test]
     public void ReactivePrimitivesGeneratedBridgeAttribute_ShouldBeConstructible()
     {
@@ -714,6 +683,9 @@ public class CoreCoverageTests
         attribute.Should().NotBeNull();
     }
 
+    /// <summary>Provides CreateBatch.</summary>
+    /// <param name="values">The values value.</param>
+    /// <returns>The result.</returns>
     private static PooledBatch<int> CreateBatch(params int[] values)
     {
         var array = ArrayPool<int>.Shared.Rent(Math.Max(1, values.Length));
@@ -721,6 +693,9 @@ public class CoreCoverageTests
         return new PooledBatch<int>(array, values.Length);
     }
 
+    /// <summary>Provides CreateStringBatch.</summary>
+    /// <param name="values">The values value.</param>
+    /// <returns>The result.</returns>
     private static PooledBatch<string> CreateStringBatch(params string[] values)
     {
         var array = ArrayPool<string>.Shared.Rent(Math.Max(1, values.Length));
@@ -728,39 +703,48 @@ public class CoreCoverageTests
         return new PooledBatch<string>(array, values.Length);
     }
 
-    private sealed record Person(int Id, string Name, string Department);
-
-    private sealed record NotifyItem(int Value) : System.ComponentModel.INotifyPropertyChanged
-    {
-        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
-
-        public void Raise(string? propertyName = null) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
-    }
-
+    /// <summary>Provides EventSource.</summary>
     private sealed class EventSource
     {
         public event EventHandler<EventArgs>? Raised;
 
+        /// <summary>Provides Raise.</summary>
         public void Raise() => Raised?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>Provides RecordingObserver.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
     private sealed class RecordingObserver<T> : IObserver<T>
     {
+        /// <summary>Gets Values.</summary>
         public List<T> Values { get; } = [];
 
+        /// <summary>Gets Error.</summary>
         public Exception? Error { get; private set; }
 
+        /// <summary>Gets Completed.</summary>
         public bool Completed { get; private set; }
 
+        /// <summary>Provides OnCompleted.</summary>
         public void OnCompleted() => Completed = true;
 
+        /// <summary>Provides OnError.</summary>
+        /// <param name="error">The error value.</param>
         public void OnError(Exception error) => Error = error;
 
+        /// <summary>Provides OnNext.</summary>
+        /// <param name="value">The value.</param>
         public void OnNext(T value) => Values.Add(value);
     }
 
+    /// <summary>Provides ScriptedObservable.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    /// <param name="script">The script value.</param>
     private sealed class ScriptedObservable<T>(Action<IObserver<T>> script) : IObservable<T>
     {
+        /// <summary>Provides Subscribe.</summary>
+        /// <param name="observer">The observer value.</param>
+        /// <returns>The result.</returns>
         public IDisposable Subscribe(IObserver<T> observer)
         {
             script(observer);
@@ -768,18 +752,27 @@ public class CoreCoverageTests
         }
     }
 
+    /// <summary>Provides ManualSequencer.</summary>
     private sealed class ManualSequencer : ISequencer
     {
         private readonly Queue<IWorkItem> _workItems = new();
 
+        /// <summary>Gets Now.</summary>
         public DateTimeOffset Now => DateTimeOffset.UtcNow;
 
+        /// <summary>Gets Timestamp.</summary>
         public long Timestamp => DateTimeOffset.UtcNow.Ticks;
 
+        /// <summary>Provides Schedule.</summary>
+        /// <param name="item">The item value.</param>
         public void Schedule(IWorkItem item) => _workItems.Enqueue(item);
 
-        public void Schedule(IWorkItem item, long dueTime) => _workItems.Enqueue(item);
+        /// <summary>Provides Schedule.</summary>
+        /// <param name="item">The item value.</param>
+        /// <param name="dueTimestamp">The dueTimestamp value.</param>
+        public void Schedule(IWorkItem item, long dueTimestamp) => _workItems.Enqueue(item);
 
+        /// <summary>Provides RunAll.</summary>
         public void RunAll()
         {
             while (_workItems.Count > 0)
@@ -789,22 +782,31 @@ public class CoreCoverageTests
         }
     }
 
+    /// <summary>Provides DuplicateSequencer.</summary>
     private sealed class DuplicateSequencer : ISequencer
     {
         private readonly Queue<IWorkItem> _workItems = new();
 
+        /// <summary>Gets Now.</summary>
         public DateTimeOffset Now => DateTimeOffset.UtcNow;
 
+        /// <summary>Gets Timestamp.</summary>
         public long Timestamp => DateTimeOffset.UtcNow.Ticks;
 
+        /// <summary>Provides Schedule.</summary>
+        /// <param name="item">The item value.</param>
         public void Schedule(IWorkItem item)
         {
             _workItems.Enqueue(item);
             _workItems.Enqueue(item);
         }
 
-        public void Schedule(IWorkItem item, long dueTime) => Schedule(item);
+        /// <summary>Provides Schedule.</summary>
+        /// <param name="item">The item value.</param>
+        /// <param name="dueTimestamp">The dueTimestamp value.</param>
+        public void Schedule(IWorkItem item, long dueTimestamp) => Schedule(item);
 
+        /// <summary>Provides RunAll.</summary>
         public void RunAll()
         {
             while (_workItems.Count > 0)
@@ -812,5 +814,22 @@ public class CoreCoverageTests
                 _workItems.Dequeue().Execute();
             }
         }
+    }
+
+    /// <summary>Provides Person.</summary>
+    /// <param name="Id">The Id value.</param>
+    /// <param name="Name">The Name value.</param>
+    /// <param name="Department">The Department value.</param>
+    private sealed record Person(int Id, string Name, string Department);
+
+    /// <summary>Provides NotifyItem.</summary>
+    /// <param name="Value">The Value value.</param>
+    private sealed record NotifyItem(int Value) : System.ComponentModel.INotifyPropertyChanged
+    {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>Provides Raise.</summary>
+        /// <param name="propertyName">The propertyName value.</param>
+        public void Raise(string? propertyName = null) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
     }
 }

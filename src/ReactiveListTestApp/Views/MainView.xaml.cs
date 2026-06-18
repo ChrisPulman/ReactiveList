@@ -8,18 +8,16 @@ using Splat;
 
 namespace ReactiveListTestApp.Views;
 
-/// <summary>
-/// Interaction logic for MainView.xaml.
-/// </summary>
+/// <summary>Interaction logic for MainView.xaml.</summary>
 public partial class MainView : UserControl, IViewFor<MainViewModel>
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MainView"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MainView"/> class.</summary>
     public MainView()
     {
         InitializeComponent();
-        DataContext = ViewModel = AppLocator.Current.GetService<MainViewModel>() ?? throw new InvalidOperationException("Could not locate MainViewModel.");
+        var viewModel = AppLocator.Current.GetService<MainViewModel>() ?? throw new InvalidOperationException("Could not locate MainViewModel.");
+        ViewModel = viewModel;
+        DataContext = viewModel;
     }
 
     /// <inheritdoc/>

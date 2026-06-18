@@ -11,14 +11,10 @@ using Splat;
 
 namespace ReactiveListTestApp;
 
-/// <summary>
-/// Interaction logic for App.xaml.
-/// </summary>
+/// <summary>Interaction logic for App.xaml.</summary>
 public partial class App : Application
 {
-    /// <summary>
-    /// Handles application startup logic when the application is launched.
-    /// </summary>
+    /// <summary>Handles application startup logic when the application is launched.</summary>
     /// <param name="e">An object that contains the event data for the startup event.</param>
     protected override void OnStartup(StartupEventArgs e)
     {

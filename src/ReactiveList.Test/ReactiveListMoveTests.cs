@@ -9,14 +9,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// ReactiveList Move Tests.
-/// </summary>
+/// <summary>ReactiveList Move Tests.</summary>
 public class ReactiveListMoveTests
 {
-    /// <summary>
-    /// Move should reorder item forward in list.
-    /// </summary>
+    /// <summary>Move should reorder item forward in list.</summary>
     [Test]
     public void Move_ShouldReorderItemForwardInList()
     {
@@ -31,9 +27,7 @@ public class ReactiveListMoveTests
         fixture[3].Should().Be("four");
     }
 
-    /// <summary>
-    /// Move should reorder item backward in list.
-    /// </summary>
+    /// <summary>Move should reorder item backward in list.</summary>
     [Test]
     public void Move_ShouldReorderItemBackwardInList()
     {
@@ -48,9 +42,7 @@ public class ReactiveListMoveTests
         fixture[3].Should().Be("three");
     }
 
-    /// <summary>
-    /// Move should handle moving to first position.
-    /// </summary>
+    /// <summary>Move should handle moving to first position.</summary>
     [Test]
     public void Move_ShouldHandleMovingToFirstPosition()
     {
@@ -64,9 +56,7 @@ public class ReactiveListMoveTests
         fixture[2].Should().Be("two");
     }
 
-    /// <summary>
-    /// Move should handle moving to last position.
-    /// </summary>
+    /// <summary>Move should handle moving to last position.</summary>
     [Test]
     public void Move_ShouldHandleMovingToLastPosition()
     {
@@ -80,9 +70,7 @@ public class ReactiveListMoveTests
         fixture[2].Should().Be("one");
     }
 
-    /// <summary>
-    /// Move should do nothing when same index.
-    /// </summary>
+    /// <summary>Move should do nothing when same index.</summary>
     [Test]
     public void Move_ShouldDoNothingWhenSameIndex()
     {
@@ -96,9 +84,7 @@ public class ReactiveListMoveTests
         fixture[2].Should().Be("three");
     }
 
-    /// <summary>
-    /// Move should throw when old index is negative.
-    /// </summary>
+    /// <summary>Move should throw when old index is negative.</summary>
     [Test]
     public void Move_ShouldThrowWhenOldIndexIsNegative()
     {
@@ -110,9 +96,7 @@ public class ReactiveListMoveTests
             .WithParameterName("oldIndex");
     }
 
-    /// <summary>
-    /// Move should throw when old index exceeds count.
-    /// </summary>
+    /// <summary>Move should throw when old index exceeds count.</summary>
     [Test]
     public void Move_ShouldThrowWhenOldIndexExceedsCount()
     {
@@ -124,9 +108,7 @@ public class ReactiveListMoveTests
             .WithParameterName("oldIndex");
     }
 
-    /// <summary>
-    /// Move should throw when new index is negative.
-    /// </summary>
+    /// <summary>Move should throw when new index is negative.</summary>
     [Test]
     public void Move_ShouldThrowWhenNewIndexIsNegative()
     {
@@ -138,9 +120,7 @@ public class ReactiveListMoveTests
             .WithParameterName("newIndex");
     }
 
-    /// <summary>
-    /// Move should throw when new index exceeds count.
-    /// </summary>
+    /// <summary>Move should throw when new index exceeds count.</summary>
     [Test]
     public void Move_ShouldThrowWhenNewIndexExceedsCount()
     {
@@ -152,9 +132,7 @@ public class ReactiveListMoveTests
             .WithParameterName("newIndex");
     }
 
-    /// <summary>
-    /// Move should raise property changed for item array.
-    /// </summary>
+    /// <summary>Move should raise property changed for item array.</summary>
     [Test]
     public void Move_ShouldRaisePropertyChangedForItemArray()
     {
@@ -167,9 +145,7 @@ public class ReactiveListMoveTests
         propertyNames.Should().Contain("Item[]");
     }
 
-    /// <summary>
-    /// Move should work with complex types.
-    /// </summary>
+    /// <summary>Move should work with complex types.</summary>
     [Test]
     public void Move_ShouldWorkWithComplexTypes()
     {
@@ -188,9 +164,7 @@ public class ReactiveListMoveTests
         fixture[2].Name.Should().Be("Bob");
     }
 
-    /// <summary>
-    /// Move should handle adjacent positions forward.
-    /// </summary>
+    /// <summary>Move should handle adjacent positions forward.</summary>
     [Test]
     public void Move_ShouldHandleAdjacentPositionsForward()
     {
@@ -204,9 +178,7 @@ public class ReactiveListMoveTests
         fixture[2].Should().Be("three");
     }
 
-    /// <summary>
-    /// Move should handle adjacent positions backward.
-    /// </summary>
+    /// <summary>Move should handle adjacent positions backward.</summary>
     [Test]
     public void Move_ShouldHandleAdjacentPositionsBackward()
     {

@@ -16,14 +16,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Tests;
 
-/// <summary>
-/// Coverage tests for extension pipelines.
-/// </summary>
+/// <summary>Coverage tests for extension pipelines.</summary>
 public class ExtensionCoverageTests
 {
-    /// <summary>
-    /// Change-set operators should handle empty, partial, all-match, and projection paths.
-    /// </summary>
+    /// <summary>Change-set operators should handle empty, partial, all-match, and projection paths.</summary>
     [Test]
     public void ChangeSetOperators_ShouldHandleEmptyNoMatchPartialAllAndPreviousValues()
     {
@@ -35,9 +31,9 @@ public class ExtensionCoverageTests
             .Subscribe(filtered.Add);
 
         source.OnNext(ChangeSet<int>.Empty);
-        source.OnNext(new ChangeSet<int>(new[] { Change<int>.CreateAdd(1), Change<int>.CreateAdd(3) }));
-        source.OnNext(new ChangeSet<int>(new[] { Change<int>.CreateAdd(1), Change<int>.CreateAdd(2), Change<int>.CreateAdd(4) }));
-        var allMatch = new ChangeSet<int>(new[] { Change<int>.CreateAdd(6), Change<int>.CreateAdd(8) });
+        source.OnNext(new ChangeSet<int>([Change<int>.CreateAdd(1), Change<int>.CreateAdd(3)]));
+        source.OnNext(new ChangeSet<int>([Change<int>.CreateAdd(1), Change<int>.CreateAdd(2), Change<int>.CreateAdd(4)]));
+        var allMatch = new ChangeSet<int>([Change<int>.CreateAdd(6), Change<int>.CreateAdd(8)]);
         source.OnNext(allMatch);
 
         filtered.Should().HaveCount(2);
@@ -46,11 +42,10 @@ public class ExtensionCoverageTests
 
         Func<string, string> itemSelector = static item => $"value-{item}";
         var projectedSets = new List<ChangeSet<string>>();
-        using var projectionSubscription = Signal.Emit(new ChangeSet<string>(new[]
-            {
+        using var projectionSubscription = Signal.Emit(new ChangeSet<string>([
                 Change<string>.CreateUpdate("twenty", "ten", 0),
                 Change<string>.CreateAdd("thirty", 1),
-            }))
+            ]))
             .SelectChanges(itemSelector)
             .Subscribe(projectedSets.Add);
 
@@ -61,11 +56,10 @@ public class ExtensionCoverageTests
 
         Func<Change<int>, string> changeSelector = static change => $"{change.Reason}:{change.Current}";
         var flattened = new List<string>();
-        using var flattenSubscription = Signal.Emit(new ChangeSet<int>(new[]
-            {
+        using var flattenSubscription = Signal.Emit(new ChangeSet<int>([
                 Change<int>.CreateRemove(5),
                 Change<int>.CreateMove(6, 2, 0),
-            }))
+            ]))
             .SelectChanges(changeSelector)
             .Subscribe(flattened.Add);
 
@@ -79,19 +73,17 @@ public class ExtensionCoverageTests
         emptyFlattened.Should().BeEmpty();
     }
 
-    /// <summary>
-    /// Change-set operators should reject null arguments.
-    /// </summary>
+    /// <summary>Change-set operators should reject null arguments.</summary>
     [Test]
     public void ChangeSetOperators_WithNullArguments_ShouldThrow()
     {
         IObservable<ChangeSet<int>> nullSource = null!;
 
         var whereSource = () => nullSource.WhereChanges(static _ => true);
-        var wherePredicate = () => ReactiveListExtensions.WhereChanges<int>(Signal.None<ChangeSet<int>>(), null!);
-        var selectSource = () => ReactiveListExtensions.SelectChanges<int, string>(nullSource, (Func<int, string>)(static item => item.ToString()));
-        var selectItemSelector = () => ReactiveListExtensions.SelectChanges<int, string>(Signal.None<ChangeSet<int>>(), (Func<int, string>)null!);
-        var selectChangeSelector = () => ReactiveListExtensions.SelectChanges<int, string>(Signal.None<ChangeSet<int>>(), (Func<Change<int>, string>)null!);
+        var wherePredicate = () => ReactiveListExtensions.WhereChanges(Signal.None<ChangeSet<int>>(), null!);
+        var selectSource = () => ReactiveListExtensions.SelectChanges(nullSource, (Func<int, string>)(static item => item.ToString()));
+        var selectItemSelector = () => ReactiveListExtensions.SelectChanges(Signal.None<ChangeSet<int>>(), (Func<int, string>)null!);
+        var selectChangeSelector = () => ReactiveListExtensions.SelectChanges(Signal.None<ChangeSet<int>>(), (Func<Change<int>, string>)null!);
 
         whereSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
         wherePredicate.Should().Throw<ArgumentNullException>().WithParameterName("predicate");
@@ -100,9 +92,7 @@ public class ExtensionCoverageTests
         selectChangeSelector.Should().Throw<ArgumentNullException>().WithParameterName("selector");
     }
 
-    /// <summary>
-    /// Generic dynamic stream filters should handle single, batch, remove, and clear notifications.
-    /// </summary>
+    /// <summary>Generic dynamic stream filters should handle single, batch, remove, and clear notifications.</summary>
     [Test]
     public void FilterDynamic_GenericStream_ShouldFilterAddsBatchesAndPassRemovesAndClears()
     {
@@ -133,9 +123,7 @@ public class ExtensionCoverageTests
         DisposeBatches(received);
     }
 
-    /// <summary>
-    /// Dictionary dynamic stream filters should handle single, batch, remove, and clear notifications.
-    /// </summary>
+    /// <summary>Dictionary dynamic stream filters should handle single, batch, remove, and clear notifications.</summary>
     [Test]
     public void FilterDynamic_DictionaryStream_ShouldFilterAddsBatchesAndPassRemoves()
     {
@@ -170,15 +158,13 @@ public class ExtensionCoverageTests
         DisposeBatches(received);
     }
 
-    /// <summary>
-    /// Internal batch filter helpers should handle null, empty, and matching results.
-    /// </summary>
+    /// <summary>Internal batch filter helpers should handle null, empty, and matching results.</summary>
     [Test]
     public void BatchFilterHelpers_ShouldReturnNullForNoBatchOrNoMatchesAndFilterMatches()
     {
         var noBatch = new CacheNotify<int>(CacheAction.BatchOperation, default);
         ReactiveListExtensions.FilterBatchByPredicate(noBatch, static _ => true).Should().BeNull();
-        ReactiveListExtensions.FilterBatch(noBatch, new HashSet<int> { 1 }).Should().BeNull();
+        ReactiveListExtensions.FilterBatch(noBatch, [1]).Should().BeNull();
 
         var noMatch = new CacheNotify<int>(CacheAction.BatchOperation, default, CreateBatch(1, 3, 5));
         ReactiveListExtensions.FilterBatchByPredicate(noMatch, static item => item % 2 == 0).Should().BeNull();
@@ -192,27 +178,24 @@ public class ExtensionCoverageTests
         predicateResult.Batch.Dispose();
 
         var setMatch = new CacheNotify<int>(CacheAction.BatchOperation, default, CreateBatch(1, 2, 3));
-        var setResult = ReactiveListExtensions.FilterBatch(setMatch, new HashSet<int> { 1, 3 });
+        var setResult = ReactiveListExtensions.FilterBatch(setMatch, [1, 3]);
         setResult.Should().NotBeNull();
         setResult!.Batch!.Items.Take(setResult.Batch.Count).Should().Equal(1, 3);
         setMatch.Batch!.Dispose();
         setResult.Batch.Dispose();
     }
 
-    /// <summary>
-    /// Grouping and auto-refresh operators should emit grouped changes and property refreshes.
-    /// </summary>
+    /// <summary>Grouping and auto-refresh operators should emit grouped changes and property refreshes.</summary>
     [Test]
     public void GroupingAndAutoRefresh_ShouldGroupChangesAndEmitPropertyRefreshes()
     {
         var north = new MutableItem(1, "north", "alpha");
         var south = new MutableItem(2, "south", "beta");
-        var changes = new ChangeSet<MutableItem>(new[]
-        {
+        var changes = new ChangeSet<MutableItem>([
             Change<MutableItem>.CreateAdd(north),
             Change<MutableItem>.CreateAdd(south),
             Change<MutableItem>.CreateUpdate(north, north),
-        });
+        ]);
 
         var groupings = new List<IGrouping<string, Change<MutableItem>>>();
         using var groupingSubscription = Signal.Emit(changes)
@@ -228,7 +211,7 @@ public class ExtensionCoverageTests
             .GroupByChanges(static item => item.Region)
             .Subscribe(group =>
             {
-                groupedValues[group.Key] = new List<MutableItem>();
+                groupedValues[group.Key] = [];
                 group.Subscribe(item => groupedValues[group.Key].Add(item));
             });
 
@@ -263,9 +246,7 @@ public class ExtensionCoverageTests
         allProperties[1][0].Reason.Should().Be(ChangeReason.Refresh);
     }
 
-    /// <summary>
-    /// Source auto-refresh expression overload should validate property expressions and return the source stream.
-    /// </summary>
+    /// <summary>Source auto-refresh expression overload should validate property expressions and return the source stream.</summary>
     [Test]
     public void AutoRefresh_SourceExpression_ShouldValidatePropertyAndReturnSourceStream()
     {
@@ -286,18 +267,16 @@ public class ExtensionCoverageTests
         invalidExpression.Should().Throw<ArgumentException>().WithParameterName("property");
     }
 
-    /// <summary>
-    /// View factory extensions should create filtered, sorted, grouped, and dynamic views.
-    /// </summary>
+    /// <summary>View factory extensions should create filtered, sorted, grouped, and dynamic views.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task ViewFactoryExtensions_ShouldCreateViewsWithFallbackSchedulersAndDynamicFilters()
     {
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 3, 1, 2 });
+        list.AddRange([3, 1, 2]);
 
         using var filtered = list.CreateView(static item => item > 1, scheduler: null, throttleMs: 0);
-        filtered.Items.Should().BeEquivalentTo(new[] { 2, 3 });
+        filtered.Items.Should().BeEquivalentTo([2, 3]);
 
         using var dynamicFilters = new BehaviorSignal<Func<int, bool>>(static item => item == 1);
         using var dynamicFiltered = list.CreateView(dynamicFilters, scheduler: null, throttleMs: 0);
@@ -308,7 +287,7 @@ public class ExtensionCoverageTests
         sorted.Items.Should().Equal(3, 2, 1);
 
         using var grouped = list.GroupBy(static item => item % 2, scheduler: null, throttleMs: 0);
-        grouped.Keys.Should().BeEquivalentTo(new[] { 0, 1 });
+        grouped.Keys.Should().BeEquivalentTo([0, 1]);
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
         using var quaternary = new QuaternaryList<string>();
@@ -325,14 +304,13 @@ public class ExtensionCoverageTests
 
         using var sourceFilters = new BehaviorSignal<Func<string, bool>>(static item => item.Contains("a", StringComparison.Ordinal));
         using var sourceView = quaternary.CreateView(sourceFilters, Sequencer.Immediate, throttleMs: 0);
-        sourceView.Items.Should().BeEquivalentTo(new[] { "apple", "banana" });
+        sourceView.Items.Should().BeEquivalentTo(["apple", "banana"]);
 #endif
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// Quaternary list secondary-index filters should pass matching single and batch notifications.
-    /// </summary>
+
+    /// <summary>Quaternary list secondary-index filters should pass matching single and batch notifications.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task QuaternaryListSecondaryIndexFilter_ShouldPassMatchingSingleAndBatchNotifications()
@@ -361,8 +339,8 @@ public class ExtensionCoverageTests
         var northBatch = new IndexedItem(4, "north");
         var eastBatch = new IndexedItem(5, "east");
         var southBatch = new IndexedItem(6, "south");
-        list.AddRange(new[] { northBatch, eastBatch, southBatch });
-        list.RemoveRange(new[] { northBatch, eastBatch, southBatch });
+        list.AddRange([northBatch, eastBatch, southBatch]);
+        list.RemoveRange([northBatch, eastBatch, southBatch]);
 
         await WaitForPipeline();
 
@@ -384,16 +362,14 @@ public class ExtensionCoverageTests
                 CacheAction.BatchOperation);
         var multipleAddedBatch = multipleKeys[3].Batch!;
         var multipleRemovedBatch = multipleKeys[4].Batch!;
-        multipleAddedBatch.Items.Take(multipleAddedBatch.Count).Should().BeEquivalentTo(new[] { northBatch, eastBatch });
-        multipleRemovedBatch.Items.Take(multipleRemovedBatch.Count).Should().BeEquivalentTo(new[] { northBatch, eastBatch });
+        multipleAddedBatch.Items.Take(multipleAddedBatch.Count).Should().BeEquivalentTo([northBatch, eastBatch]);
+        multipleRemovedBatch.Items.Take(multipleRemovedBatch.Count).Should().BeEquivalentTo([northBatch, eastBatch]);
 
         DisposeBatches(singleKey);
         DisposeBatches(multipleKeys);
     }
 
-    /// <summary>
-    /// Quaternary dictionary secondary-index filters should pass matching single and batch notifications.
-    /// </summary>
+    /// <summary>Quaternary dictionary secondary-index filters should pass matching single and batch notifications.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task QuaternaryDictionarySecondaryIndexFilter_ShouldPassMatchingSingleAndBatchNotifications()
@@ -422,7 +398,7 @@ public class ExtensionCoverageTests
         var northBatch = new KeyValuePair<int, IndexedItem>(4, new IndexedItem(4, "north"));
         var eastBatch = new KeyValuePair<int, IndexedItem>(5, new IndexedItem(5, "east"));
         var southBatch = new KeyValuePair<int, IndexedItem>(6, new IndexedItem(6, "south"));
-        dictionary.AddRange(new[] { northBatch, eastBatch, southBatch });
+        dictionary.AddRange([northBatch, eastBatch, southBatch]);
 
         await WaitForPipeline();
 
@@ -436,15 +412,21 @@ public class ExtensionCoverageTests
         multipleKeys.Select(static notification => notification.Action)
             .Should().Equal(CacheAction.Added, CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation);
         var dictionaryMultipleBatch = multipleKeys[3].Batch!;
-        dictionaryMultipleBatch.Items.Take(dictionaryMultipleBatch.Count).Should().BeEquivalentTo(new[] { northBatch, eastBatch });
+        dictionaryMultipleBatch.Items.Take(dictionaryMultipleBatch.Count).Should().BeEquivalentTo([northBatch, eastBatch]);
 
         DisposeBatches(singleKey);
         DisposeBatches(multipleKeys);
     }
 #endif
 
+    /// <summary>Provides WaitForPipeline.</summary>
+    /// <returns>The result.</returns>
     private static async Task WaitForPipeline() => await Task.Delay(30);
 
+    /// <summary>Provides CreateBatch.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    /// <param name="items">The items value.</param>
+    /// <returns>The result.</returns>
     private static PooledBatch<T> CreateBatch<T>(params T[] items)
     {
         var array = ArrayPool<T>.Shared.Rent(items.Length);
@@ -452,18 +434,24 @@ public class ExtensionCoverageTests
         return new PooledBatch<T>(array, items.Length);
     }
 
+    /// <summary>Provides DisposeBatches.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    /// <param name="notifications">The notifications value.</param>
     private static void DisposeBatches<T>(IEnumerable<CacheNotify<T>> notifications)
     {
-        foreach (var batch in notifications.Select(static notification => notification.Batch).Where(static batch => batch != null))
+        foreach (var batch in notifications.Select(static notification => notification.Batch).Where(static batch => batch is not null))
         {
             batch!.Dispose();
         }
     }
 
-    private sealed record IndexedItem(int Id, string Region);
-
+    /// <summary>Provides MutableItem.</summary>
     private sealed class MutableItem : INotifyPropertyChanged
     {
+        /// <summary>Initializes a new instance of the <see cref="MutableItem"/> class.</summary>
+        /// <param name="id">The id value.</param>
+        /// <param name="region">The region value.</param>
+        /// <param name="name">The name value.</param>
         public MutableItem(int id, string region, string name)
         {
             Id = id;
@@ -473,13 +461,23 @@ public class ExtensionCoverageTests
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        /// <summary>Gets Id.</summary>
         public int Id { get; }
 
+        /// <summary>Gets Name.</summary>
         public string Name { get; }
 
+        /// <summary>Gets Region.</summary>
         public string Region { get; }
 
+        /// <summary>Provides RaisePropertyChanged.</summary>
+        /// <param name="propertyName">The propertyName value.</param>
         public void RaisePropertyChanged(string? propertyName) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+
+    /// <summary>Provides IndexedItem.</summary>
+    /// <param name="Id">The Id value.</param>
+    /// <param name="Region">The Region value.</param>
+    private sealed record IndexedItem(int Id, string Region);
 }

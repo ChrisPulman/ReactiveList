@@ -108,7 +108,7 @@ where T : notnull
     public SortedReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
     {
 #if NET8_0_OR_GREATER
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
+        ThrowHelper.ThrowIfNull(propertySetter);
 #else
         if (propertySetter is null)
         {

@@ -8,17 +8,22 @@ using DynamicData;
 
 namespace ReactiveList.Benchmarks;
 
+/// <summary>Provides QuaternaryListBenchmarks.</summary>
 [MemoryDiagnoser]
 public class QuaternaryListBenchmarks
 {
+    private int[] _data = [];
+
+    /// <summary>Gets or sets the item count.</summary>
     [Params(100, 1_000, 10_000)]
     public int Count { get; set; }
 
-    private int[] _data = [];
-
+    /// <summary>Provides Setup.</summary>
     [GlobalSetup]
     public void Setup() => _data = Enumerable.Range(0, Count).ToArray();
 
+    /// <summary>Provides List_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_Add()
     {
@@ -31,6 +36,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_Add()
     {
@@ -43,6 +50,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Add()
     {
@@ -55,6 +64,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides List_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_AddRange()
     {
@@ -63,6 +74,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_AddRange()
     {
@@ -71,6 +84,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_AddRange()
     {
@@ -79,6 +94,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides List_RemoveRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_RemoveRange()
     {
@@ -87,6 +104,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_RemoveRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_RemoveRange()
     {
@@ -96,6 +115,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_RemoveRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_RemoveRange()
     {
@@ -105,6 +126,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides List_Clear.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_Clear()
     {
@@ -113,6 +136,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_Clear.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_Clear()
     {
@@ -122,6 +147,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_Clear.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Clear()
     {
@@ -131,6 +158,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides List_Contains.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool List_Contains()
     {
@@ -138,6 +167,8 @@ public class QuaternaryListBenchmarks
         return list.Contains(Count - 1);
     }
 
+    /// <summary>Provides QuaternaryList_Contains.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool QuaternaryList_Contains()
     {
@@ -146,6 +177,8 @@ public class QuaternaryListBenchmarks
         return list.Contains(Count - 1);
     }
 
+    /// <summary>Provides SourceList_Contains.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool SourceList_Contains()
     {
@@ -154,6 +187,8 @@ public class QuaternaryListBenchmarks
         return list.Items.Contains(Count - 1);
     }
 
+    /// <summary>Provides QuaternaryList_QueryIndex.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_QueryIndex()
     {
@@ -163,6 +198,8 @@ public class QuaternaryListBenchmarks
         return list.GetItemsBySecondaryIndex("Mod2", 0).Count();
     }
 
+    /// <summary>Provides QuaternaryList_Stream_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_Stream_Add()
     {
@@ -173,6 +210,8 @@ public class QuaternaryListBenchmarks
         return events;
     }
 
+    /// <summary>Provides SourceList_Stream_Add.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Stream_Add()
     {
@@ -183,6 +222,8 @@ public class QuaternaryListBenchmarks
         return events;
     }
 
+    /// <summary>Provides QuaternaryList_Edit.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_Edit()
     {
@@ -199,6 +240,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_Edit.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Edit()
     {
@@ -215,6 +258,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_RemoveMany.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_RemoveMany()
     {
@@ -224,6 +269,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_RemoveMany.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_RemoveMany()
     {
@@ -233,6 +280,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_VersionTracking.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public long QuaternaryList_VersionTracking()
     {
@@ -244,6 +293,8 @@ public class QuaternaryListBenchmarks
         return list.Version - initialVersion;
     }
 
+    /// <summary>Provides QuaternaryList_MultipleIndices.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_MultipleIndices()
     {
@@ -257,6 +308,8 @@ public class QuaternaryListBenchmarks
                list.GetItemsBySecondaryIndex("Mod5", 0).Count();
     }
 
+    /// <summary>Provides QuaternaryList_ParallelAdd.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_ParallelAdd()
     {
@@ -268,6 +321,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_IterateAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_IterateAll()
     {
@@ -282,6 +337,8 @@ public class QuaternaryListBenchmarks
         return sum;
     }
 
+    /// <summary>Provides List_IterateAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_IterateAll()
     {
@@ -295,6 +352,8 @@ public class QuaternaryListBenchmarks
         return sum;
     }
 
+    /// <summary>Provides SourceList_IterateAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_IterateAll()
     {
@@ -309,6 +368,8 @@ public class QuaternaryListBenchmarks
         return sum;
     }
 
+    /// <summary>Provides QuaternaryList_CopyTo.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_CopyTo()
     {
@@ -319,6 +380,8 @@ public class QuaternaryListBenchmarks
         return buffer.Length;
     }
 
+    /// <summary>Provides QuaternaryList_ReplaceAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_ReplaceAll()
     {
@@ -329,6 +392,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_ReplaceAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_ReplaceAll()
     {
@@ -343,6 +408,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides List_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_Remove()
     {
@@ -355,6 +422,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_Remove()
     {
@@ -368,6 +437,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Remove()
     {
@@ -381,6 +452,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides List_RemoveAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_RemoveAll()
     {
@@ -389,6 +462,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides List_IndexerAccess.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_IndexerAccess()
     {
@@ -402,6 +477,8 @@ public class QuaternaryListBenchmarks
         return sum;
     }
 
+    /// <summary>Provides QuaternaryList_IndexerAccess.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_IndexerAccess()
     {
@@ -416,6 +493,8 @@ public class QuaternaryListBenchmarks
         return sum;
     }
 
+    /// <summary>Provides List_ReplaceAll.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_ReplaceAll()
     {
@@ -426,6 +505,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_Stream_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_Stream_Remove()
     {
@@ -437,6 +518,8 @@ public class QuaternaryListBenchmarks
         return events;
     }
 
+    /// <summary>Provides SourceList_Stream_Remove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Stream_Remove()
     {
@@ -448,6 +531,8 @@ public class QuaternaryListBenchmarks
         return events;
     }
 
+    /// <summary>Provides QuaternaryList_AddIndex.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_AddIndex()
     {
@@ -457,6 +542,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_ItemMatchesSecondaryIndex.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public bool QuaternaryList_ItemMatchesSecondaryIndex()
     {
@@ -466,6 +553,8 @@ public class QuaternaryListBenchmarks
         return list.ItemMatchesSecondaryIndex("Mod2", 4, 0);
     }
 
+    /// <summary>Provides QuaternaryList_IndexWithAddRemove.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_IndexWithAddRemove()
     {
@@ -476,6 +565,8 @@ public class QuaternaryListBenchmarks
         return list.GetItemsBySecondaryIndex("Mod2", 0).Count();
     }
 
+    /// <summary>Provides List_CopyTo.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_CopyTo()
     {
@@ -485,6 +576,8 @@ public class QuaternaryListBenchmarks
         return buffer.Length;
     }
 
+    /// <summary>Provides List_Count.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_Count()
     {
@@ -492,6 +585,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_Count.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_Count()
     {
@@ -500,6 +595,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_Count.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Count()
     {
@@ -508,6 +605,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_MixedOperations.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_MixedOperations()
     {
@@ -519,6 +618,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_MixedOperations.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_MixedOperations()
     {
@@ -530,6 +631,8 @@ public class QuaternaryListBenchmarks
         return list.Count;
     }
 
+    /// <summary>Provides List_MixedOperations.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int List_MixedOperations()
     {

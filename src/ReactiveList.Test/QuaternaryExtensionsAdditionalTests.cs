@@ -22,9 +22,7 @@ namespace ReactiveList.Test;
 /// </summary>
 public class QuaternaryExtensionsAdditionalTests
 {
-    /// <summary>
-    /// Tests that CreateViewBySecondaryIndex with observable keys rebuilds when keys change.
-    /// </summary>
+    /// <summary>Tests that CreateViewBySecondaryIndex with observable keys rebuilds when keys change.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateViewBySecondaryIndex_WithObservableKeys_RebuildsWhenKeysChange()
@@ -66,7 +64,7 @@ public class QuaternaryExtensionsAdditionalTests
         using var indexView = new CP.Reactive.Views.DynamicReactiveView<Employee>(list, indexFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
         indexView.Items.Count.Should().Be(2, "DynamicReactiveView with ItemMatchesSecondaryIndex filter should work");
 
-        var departmentFilter = new BehaviorSignal<string[]>(new[] { "Engineering" });
+        var departmentFilter = new BehaviorSignal<string[]>(["Engineering"]);
 
         // Act
         using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, Sequencer.Immediate, 0);
@@ -77,22 +75,20 @@ public class QuaternaryExtensionsAdditionalTests
         view.Items.All(e => e.Department == "Engineering").Should().BeTrue();
 
         // Change to Sales
-        departmentFilter.OnNext(new[] { "Sales" });
+        departmentFilter.OnNext(["Sales"]);
         await Task.Delay(100);
 
         view.Items.Count.Should().Be(2);
         view.Items.All(e => e.Department == "Sales").Should().BeTrue();
 
         // Change to multiple departments
-        departmentFilter.OnNext(new[] { "Engineering", "Marketing" });
+        departmentFilter.OnNext(["Engineering", "Marketing"]);
         await Task.Delay(100);
 
         view.Items.Count.Should().Be(3);
     }
 
-    /// <summary>
-    /// Tests that CreateViewBySecondaryIndex with observable keys handles empty key array.
-    /// </summary>
+    /// <summary>Tests that CreateViewBySecondaryIndex with observable keys handles empty key array.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateViewBySecondaryIndex_WithObservableKeys_HandlesEmptyKeyArray()
@@ -106,7 +102,7 @@ public class QuaternaryExtensionsAdditionalTests
             new Employee("Bob", "Sales")
         ]);
 
-        var departmentFilter = new BehaviorSignal<string[]>(new[] { "Engineering" });
+        var departmentFilter = new BehaviorSignal<string[]>(["Engineering"]);
 
         // Act
         using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, Sequencer.Immediate, 0);
@@ -115,16 +111,14 @@ public class QuaternaryExtensionsAdditionalTests
         view.Items.Count.Should().Be(1);
 
         // Change to empty array
-        departmentFilter.OnNext(Array.Empty<string>());
+        departmentFilter.OnNext([]);
         await Task.Delay(100);
 
         // Assert - no items match empty filter
         view.Items.Count.Should().Be(0);
     }
 
-    /// <summary>
-    /// Tests that CreateViewBySecondaryIndex throws for null list.
-    /// </summary>
+    /// <summary>Tests that CreateViewBySecondaryIndex throws for null list.</summary>
     [Test]
     public void CreateViewBySecondaryIndex_ThrowsForNullList()
     {
@@ -136,9 +130,7 @@ public class QuaternaryExtensionsAdditionalTests
         act.Should().Throw<ArgumentNullException>();
     }
 
-    /// <summary>
-    /// Tests that CreateViewBySecondaryIndex throws for null index name.
-    /// </summary>
+    /// <summary>Tests that CreateViewBySecondaryIndex throws for null index name.</summary>
     [Test]
     public void CreateViewBySecondaryIndex_ThrowsForNullIndexName()
     {
@@ -151,9 +143,7 @@ public class QuaternaryExtensionsAdditionalTests
         act.Should().Throw<ArgumentNullException>();
     }
 
-    /// <summary>
-    /// Tests that views handle rapid key changes gracefully.
-    /// </summary>
+    /// <summary>Tests that views handle rapid key changes gracefully.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateViewBySecondaryIndex_HandlesRapidKeyChanges()
@@ -168,25 +158,23 @@ public class QuaternaryExtensionsAdditionalTests
             new Employee("Charlie", "Marketing")
         ]);
 
-        var departmentFilter = new BehaviorSignal<string[]>(new[] { "Engineering" });
+        var departmentFilter = new BehaviorSignal<string[]>(["Engineering"]);
 
         using var view = list.CreateDynamicViewBySecondaryIndex("ByDepartment", departmentFilter, Sequencer.Immediate, 10);
         await Task.Delay(50);
 
         // Act - rapid changes
-        departmentFilter.OnNext(new[] { "Sales" });
-        departmentFilter.OnNext(new[] { "Marketing" });
-        departmentFilter.OnNext(new[] { "Engineering" });
-        departmentFilter.OnNext(new[] { "Sales", "Marketing" });
+        departmentFilter.OnNext(["Sales"]);
+        departmentFilter.OnNext(["Marketing"]);
+        departmentFilter.OnNext(["Engineering"]);
+        departmentFilter.OnNext(["Sales", "Marketing"]);
         await Task.Delay(200);
 
         // Assert - final state should be Sales and Marketing
         view.Items.Count.Should().Be(2);
     }
 
-    /// <summary>
-    /// Tests a real-world scenario of filtering employees by multiple criteria.
-    /// </summary>
+    /// <summary>Tests a real-world scenario of filtering employees by multiple criteria.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task RealWorldScenario_EmployeeFilteringByDepartment()
@@ -209,7 +197,7 @@ public class QuaternaryExtensionsAdditionalTests
         ]);
 
         // UI filter selection (simulating user changing department filter)
-        var selectedDepartments = new BehaviorSignal<string[]>(new[] { "Engineering" });
+        var selectedDepartments = new BehaviorSignal<string[]>(["Engineering"]);
 
         // Act - Create filtered view for UI
         using var filteredView = employees.CreateDynamicViewBySecondaryIndex(
@@ -225,22 +213,20 @@ public class QuaternaryExtensionsAdditionalTests
         filteredView.Items.All(e => e.Department == "Engineering").Should().BeTrue();
 
         // User selects "Sales" department
-        selectedDepartments.OnNext(new[] { "Sales" });
+        selectedDepartments.OnNext(["Sales"]);
         await Task.Delay(150);
 
         filteredView.Items.Count.Should().Be(2);
         filteredView.Items.All(e => e.Department == "Sales").Should().BeTrue();
 
         // User selects multiple departments
-        selectedDepartments.OnNext(new[] { "Engineering", "Marketing" });
+        selectedDepartments.OnNext(["Engineering", "Marketing"]);
         await Task.Delay(150);
 
         filteredView.Items.Count.Should().Be(5);
     }
 
-    /// <summary>
-    /// Tests dictionary CreateViewBySecondaryIndex with single key.
-    /// </summary>
+    /// <summary>Tests dictionary CreateViewBySecondaryIndex with single key.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task Dictionary_CreateViewBySecondaryIndex_FiltersByValueIndexKey()
@@ -263,9 +249,7 @@ public class QuaternaryExtensionsAdditionalTests
         view.Items.All(order => order.Status == "Pending").Should().BeTrue();
     }
 
-    /// <summary>
-    /// Tests dictionary CreateViewBySecondaryIndex with multiple keys via extension method.
-    /// </summary>
+    /// <summary>Tests dictionary CreateViewBySecondaryIndex with multiple keys via extension method.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task Dictionary_CreateViewBySecondaryIndex_HandlesMultipleIndexKeys()
@@ -279,17 +263,15 @@ public class QuaternaryExtensionsAdditionalTests
         dict.Add("ORD003", new OrderInfo("ORD003", "Delivered", 300m));
 
         // Act - extension method with array returns ReactiveView<KeyValuePair>
-        using var view = QuaternaryExtensions.CreateViewBySecondaryIndex(dict, "ByStatus", new[] { "Pending", "Shipped" }, Sequencer.Immediate, 0);
+        using var view = QuaternaryExtensions.CreateViewBySecondaryIndex(dict, "ByStatus", ["Pending", "Shipped"], Sequencer.Immediate, 0);
         await Task.Delay(50);
 
         // Assert
         view.Items.Count.Should().Be(2);
-        view.Items.Select(kvp => kvp.Value.Status).Should().BeEquivalentTo(new[] { "Pending", "Shipped" });
+        view.Items.Select(kvp => kvp.Value.Status).Should().BeEquivalentTo(["Pending", "Shipped"]);
     }
 
-    /// <summary>
-    /// Tests dictionary CreateViewBySecondaryIndex with observable keys.
-    /// </summary>
+    /// <summary>Tests dictionary CreateViewBySecondaryIndex with observable keys.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task Dictionary_CreateViewBySecondaryIndex_WithObservableKeys_RebuildsWhenKeysChange()
@@ -302,7 +284,7 @@ public class QuaternaryExtensionsAdditionalTests
         dict.Add("ORD002", new OrderInfo("ORD002", "Shipped", 200m));
         dict.Add("ORD003", new OrderInfo("ORD003", "Delivered", 300m));
 
-        var statusFilter = new BehaviorSignal<string[]>(new[] { "Pending" });
+        var statusFilter = new BehaviorSignal<string[]>(["Pending"]);
 
         // Act - extension method with observable returns DynamicReactiveView<KeyValuePair>
         using var view = QuaternaryExtensions.CreateDynamicViewBySecondaryIndex(dict, "ByStatus", statusFilter, Sequencer.Immediate, 0);
@@ -311,16 +293,14 @@ public class QuaternaryExtensionsAdditionalTests
         view.Items.Count.Should().Be(1);
 
         // Change filter
-        statusFilter.OnNext(new[] { "Shipped", "Delivered" });
+        statusFilter.OnNext(["Shipped", "Delivered"]);
         await Task.Delay(100);
 
         // Assert
         view.Items.Count.Should().Be(2);
     }
 
-    /// <summary>
-    /// Tests that DynamicSecondaryIndexReactiveView initializes correctly with direct construction.
-    /// </summary>
+    /// <summary>Tests that DynamicSecondaryIndexReactiveView initializes correctly with direct construction.</summary>
     [Test]
     public void DynamicSecondaryIndexReactiveView_DirectConstruction_InitializesCorrectly()
     {
@@ -352,9 +332,7 @@ public class QuaternaryExtensionsAdditionalTests
         view.Items.Count.Should().Be(2, "view should have 2 items immediately after construction");
     }
 
-    /// <summary>
-    /// Tests that CreateDynamicViewBySecondaryIndex extension method works same as direct construction.
-    /// </summary>
+    /// <summary>Tests that CreateDynamicViewBySecondaryIndex extension method works same as direct construction.</summary>
     [Test]
     public void CreateDynamicViewBySecondaryIndex_ExtensionMethod_WorksCorrectly()
     {
@@ -376,9 +354,7 @@ public class QuaternaryExtensionsAdditionalTests
         extView.Items.Count.Should().Be(2, "extension method should produce view with 2 items");
     }
 
-    /// <summary>
-    /// Tests that secondary-index stream filters keep clear notifications for view reset semantics.
-    /// </summary>
+    /// <summary>Tests that secondary-index stream filters keep clear notifications for view reset semantics.</summary>
     [Test]
     public void FilterBySecondaryIndex_ClearNotifications_ShouldPassThroughAllOverloads()
     {
@@ -419,8 +395,15 @@ public class QuaternaryExtensionsAdditionalTests
         dictMultiple.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
     }
 
-    private record Employee(string Name, string Department);
+    /// <summary>Provides Employee.</summary>
+    /// <param name="Name">The Name value.</param>
+    /// <param name="Department">The Department value.</param>
+    private sealed record Employee(string Name, string Department);
 
-    private record OrderInfo(string OrderId, string Status, decimal Amount);
+    /// <summary>Provides OrderInfo.</summary>
+    /// <param name="OrderId">The OrderId value.</param>
+    /// <param name="Status">The Status value.</param>
+    /// <param name="Amount">The Amount value.</param>
+    private sealed record OrderInfo(string OrderId, string Status, decimal Amount);
 }
 #endif

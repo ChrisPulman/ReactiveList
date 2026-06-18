@@ -66,7 +66,7 @@ where TKey : notnull
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _indexName = indexName ?? throw new ArgumentNullException(nameof(indexName));
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keysObservable);
+        ThrowHelper.ThrowIfNull(keysObservable);
         _getValuesByIndex = getValuesByIndex ?? throw new ArgumentNullException(nameof(getValuesByIndex));
         _valueMatchesIndex = valueMatchesIndex ?? throw new ArgumentNullException(nameof(valueMatchesIndex));
 
@@ -170,7 +170,7 @@ where TKey : notnull
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
     public DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue> ToProperty(Action<ReadOnlyObservableCollection<KeyValuePair<TKey, TValue>>> propertySetter)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
+        ThrowHelper.ThrowIfNull(propertySetter);
         propertySetter(Items);
         return this;
     }

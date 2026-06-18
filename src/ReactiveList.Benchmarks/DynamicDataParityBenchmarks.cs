@@ -12,17 +12,22 @@ using DynamicData.Binding;
 
 namespace ReactiveList.Benchmarks;
 
+/// <summary>Provides DynamicDataParityBenchmarks.</summary>
 [MemoryDiagnoser]
 public class DynamicDataParityBenchmarks
 {
+    private int[] _data = [];
+
+    /// <summary>Gets or sets the item count.</summary>
     [Params(1_000, 10_000)]
     public int Count { get; set; }
 
-    private int[] _data = [];
-
+    /// <summary>Provides Setup.</summary>
     [GlobalSetup]
     public void Setup() => _data = Enumerable.Range(0, Count).ToArray();
 
+    /// <summary>Provides ReactiveList_Connect_Preloaded_InitialSnapshot.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int ReactiveList_Connect_Preloaded_InitialSnapshot()
     {
@@ -32,6 +37,8 @@ public class DynamicDataParityBenchmarks
         return total;
     }
 
+    /// <summary>Provides SourceList_Connect_Preloaded_InitialSnapshot.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Connect_Preloaded_InitialSnapshot()
     {
@@ -42,6 +49,8 @@ public class DynamicDataParityBenchmarks
         return total;
     }
 
+    /// <summary>Provides ReactiveList_FilterTransformSort.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int ReactiveList_FilterTransformSort()
     {
@@ -58,6 +67,8 @@ public class DynamicDataParityBenchmarks
         return total;
     }
 
+    /// <summary>Provides SourceList_FilterTransformSortBind.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_FilterTransformSortBind()
     {
@@ -73,6 +84,8 @@ public class DynamicDataParityBenchmarks
         return bound.Count;
     }
 
+    /// <summary>Provides ReactiveList_INCC_AddRange_WithItemsSubscriber.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int ReactiveList_INCC_AddRange_WithItemsSubscriber()
     {
@@ -84,6 +97,8 @@ public class DynamicDataParityBenchmarks
         return events;
     }
 
+    /// <summary>Provides SourceList_INCC_AddRange_WithBoundSubscriber.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_INCC_AddRange_WithBoundSubscriber()
     {
@@ -98,6 +113,8 @@ public class DynamicDataParityBenchmarks
         return events;
     }
 
+    /// <summary>Provides QuaternaryList_Stream_AddRange_DeliveryWait.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int QuaternaryList_Stream_AddRange_DeliveryWait()
     {
@@ -116,6 +133,8 @@ public class DynamicDataParityBenchmarks
         return events;
     }
 
+    /// <summary>Provides SourceList_Stream_AddRange_Delivery.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     public int SourceList_Stream_AddRange_Delivery()
     {

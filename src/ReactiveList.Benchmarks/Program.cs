@@ -11,6 +11,7 @@ using BenchmarkDotNet.Toolchains.InProcess.Emit;
 ThreadPool.SetMinThreads(4, 4);
 
 var config = ManualConfig.Create(DefaultConfig.Instance);
+
 var hasJobOverride = args.Any(arg =>
     arg.Equals("--job", StringComparison.OrdinalIgnoreCase) ||
     arg.StartsWith("--job=", StringComparison.OrdinalIgnoreCase));

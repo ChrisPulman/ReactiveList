@@ -13,14 +13,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Tests;
 
-/// <summary>
-/// Tests for ReactiveListExtensions.
-/// </summary>
+/// <summary>Tests for ReactiveListExtensions.</summary>
 public class ReactiveListExtensionsTests
 {
-    /// <summary>
-    /// Tests that WhereChanges filters changes by predicate.
-    /// </summary>
+    /// <summary>Tests that WhereChanges filters changes by predicate.</summary>
     [Test]
     public void WhereChanges_FiltersChangesByPredicate()
     {
@@ -45,12 +41,10 @@ public class ReactiveListExtensionsTests
         list.Add(10);
 
         // Assert
-        addedItems.Should().BeEquivalentTo(new[] { 7, 10 });
+        addedItems.Should().BeEquivalentTo([7, 10]);
     }
 
-    /// <summary>
-    /// Tests that WhereReason filters by specific change reason.
-    /// </summary>
+    /// <summary>Tests that WhereReason filters by specific change reason.</summary>
     [Test]
     public void WhereReason_FiltersAddOnly()
     {
@@ -71,9 +65,7 @@ public class ReactiveListExtensionsTests
         addCount.Should().Be(2);
     }
 
-    /// <summary>
-    /// Tests that OnAdd returns only added items.
-    /// </summary>
+    /// <summary>Tests that OnAdd returns only added items.</summary>
     [Test]
     public void OnAdd_ReturnsAddedItems()
     {
@@ -91,12 +83,10 @@ public class ReactiveListExtensionsTests
         list.Add(3);
 
         // Assert
-        addedItems.Should().BeEquivalentTo(new[] { 1, 2, 3 });
+        addedItems.Should().BeEquivalentTo([1, 2, 3]);
     }
 
-    /// <summary>
-    /// Tests that OnRemove returns only removed items.
-    /// </summary>
+    /// <summary>Tests that OnRemove returns only removed items.</summary>
     [Test]
     public void OnRemove_ReturnsRemovedItems()
     {
@@ -114,12 +104,10 @@ public class ReactiveListExtensionsTests
         list.Remove(1);
 
         // Assert
-        removedItems.Should().BeEquivalentTo(new[] { 1 });
+        removedItems.Should().BeEquivalentTo([1]);
     }
 
-    /// <summary>
-    /// Tests that SelectChanges transforms items correctly using change selector.
-    /// </summary>
+    /// <summary>Tests that SelectChanges transforms items correctly using change selector.</summary>
     [Test]
     public void SelectChanges_TransformsItems()
     {
@@ -138,13 +126,11 @@ public class ReactiveListExtensionsTests
         list.Add(3);
 
         // Assert
-        transformedItems.Should().BeEquivalentTo(new[] { "Item_1", "Item_2", "Item_3" });
+        transformedItems.Should().BeEquivalentTo(["Item_1", "Item_2", "Item_3"]);
     }
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// Tests that CreateView creates a filtered view.
-    /// </summary>
+    /// <summary>Tests that CreateView creates a filtered view.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateView_CreatesFilteredView()
@@ -161,12 +147,10 @@ public class ReactiveListExtensionsTests
 
         // Assert
         view.Count.Should().Be(5);
-        view.Should().BeEquivalentTo(new[] { 6, 7, 8, 9, 10 });
+        view.Should().BeEquivalentTo([6, 7, 8, 9, 10]);
     }
 
-    /// <summary>
-    /// Tests that CreateView updates when source changes.
-    /// </summary>
+    /// <summary>Tests that CreateView updates when source changes.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task CreateView_UpdatesOnSourceChange()
@@ -183,12 +167,10 @@ public class ReactiveListExtensionsTests
         await Task.Delay(100);
 
         // Assert
-        view.Should().BeEquivalentTo(new[] { 2, 3, 5 });
+        view.Should().BeEquivalentTo([2, 3, 5]);
     }
 
-    /// <summary>
-    /// Tests that DynamicFilteredView updates when filter changes.
-    /// </summary>
+    /// <summary>Tests that DynamicFilteredView updates when filter changes.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task DynamicCreateView_UpdatesOnFilterChange()
@@ -209,12 +191,10 @@ public class ReactiveListExtensionsTests
         await Task.Delay(100);
 
         // Assert
-        view.Should().BeEquivalentTo(new[] { 4, 5 });
+        view.Should().BeEquivalentTo([4, 5]);
     }
 
-    /// <summary>
-    /// Tests that SortBy creates a sorted view.
-    /// </summary>
+    /// <summary>Tests that SortBy creates a sorted view.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task SortBy_CreatesSortedView()
@@ -228,12 +208,10 @@ public class ReactiveListExtensionsTests
         await Task.Delay(50);
 
         // Assert
-        view.Should().BeEquivalentTo(new[] { 1, 2, 3, 5, 8, 9 }, options => options.WithStrictOrdering());
+        view.Should().BeEquivalentTo([1, 2, 3, 5, 8, 9], options => options.WithStrictOrdering());
     }
 
-    /// <summary>
-    /// Tests that SortBy with key selector creates a sorted view.
-    /// </summary>
+    /// <summary>Tests that SortBy with key selector creates a sorted view.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task SortBy_WithKeySelector_CreatesSortedView()
@@ -251,9 +229,7 @@ public class ReactiveListExtensionsTests
         view[0].Should().Be("apple");
     }
 
-    /// <summary>
-    /// Tests that GroupBy creates a grouped view.
-    /// </summary>
+    /// <summary>Tests that GroupBy creates a grouped view.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task GroupBy_CreatesGroupedView()
@@ -270,13 +246,11 @@ public class ReactiveListExtensionsTests
         view.Count.Should().Be(2);
         view.ContainsKey("odd").Should().BeTrue();
         view.ContainsKey("even").Should().BeTrue();
-        view["odd"].Should().BeEquivalentTo(new[] { 1, 3, 5 });
-        view["even"].Should().BeEquivalentTo(new[] { 2, 4, 6 });
+        view["odd"].Should().BeEquivalentTo([1, 3, 5]);
+        view["even"].Should().BeEquivalentTo([2, 4, 6]);
     }
 
-    /// <summary>
-    /// Tests that GroupBy updates when items are added.
-    /// </summary>
+    /// <summary>Tests that GroupBy updates when items are added.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
     public async Task GroupBy_UpdatesOnAdd()
@@ -293,12 +267,10 @@ public class ReactiveListExtensionsTests
         await Task.Delay(100);
 
         // Assert
-        view["even"].Should().BeEquivalentTo(new[] { 2, 4 });
+        view["even"].Should().BeEquivalentTo([2, 4]);
     }
 
-    /// <summary>
-    /// Tests that AddRange with ReadOnlySpan works correctly.
-    /// </summary>
+    /// <summary>Tests that AddRange with ReadOnlySpan works correctly.</summary>
     [Test]
     public void AddRange_WithSpan_AddsItems()
     {
@@ -311,12 +283,10 @@ public class ReactiveListExtensionsTests
 
         // Assert
         list.Count.Should().Be(5);
-        list.Should().BeEquivalentTo(new[] { 1, 2, 3, 4, 5 });
+        list.Should().BeEquivalentTo([1, 2, 3, 4, 5]);
     }
 
-    /// <summary>
-    /// Tests that CopyTo with Span works correctly.
-    /// </summary>
+    /// <summary>Tests that CopyTo with Span works correctly.</summary>
     [Test]
     public void CopyTo_WithSpan_CopiesItems()
     {
@@ -329,12 +299,10 @@ public class ReactiveListExtensionsTests
         list.CopyTo(destination);
 
         // Assert
-        destination.ToArray().Should().BeEquivalentTo(new[] { 1, 2, 3, 4, 5 });
+        destination.ToArray().Should().BeEquivalentTo([1, 2, 3, 4, 5]);
     }
 
-    /// <summary>
-    /// Tests that AsSpan returns correct data.
-    /// </summary>
+    /// <summary>Tests that AsSpan returns correct data.</summary>
     [Test]
     public void AsSpan_ReturnsItems()
     {
@@ -352,9 +320,7 @@ public class ReactiveListExtensionsTests
         span[2].Should().Be(3);
     }
 
-    /// <summary>
-    /// Tests that AsMemory returns correct data.
-    /// </summary>
+    /// <summary>Tests that AsMemory returns correct data.</summary>
     [Test]
     public void AsMemory_ReturnsItems()
     {

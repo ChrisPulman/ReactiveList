@@ -12,14 +12,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// ReactiveList Add Tests.
-/// </summary>
+/// <summary>ReactiveList Add Tests.</summary>
 public class ReactiveListAddTests
 {
-    /// <summary>
-    /// Determines whether this instance [can add array item].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add array item].</summary>
     [Test]
     public void CanAddArrayItem()
     {
@@ -30,9 +26,7 @@ public class ReactiveListAddTests
         fixture.Count.Should().Be(2);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add complex array item].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add complex array item].</summary>
     [Test]
     public void CanAddComplexArrayItem()
     {
@@ -43,9 +37,7 @@ public class ReactiveListAddTests
         fixture.Count.Should().Be(3);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add multiple single complex items].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add multiple single complex items].</summary>
     [Test]
     public void CanAddMultipleSingleComplexItems()
     {
@@ -60,9 +52,7 @@ public class ReactiveListAddTests
         fixture.Count.Should().Be(3);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add multiple single complex items and edit].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add multiple single complex items and edit].</summary>
     [Test]
     public void CanAddMultipleSingleComplexItemsAndEdit()
     {
@@ -79,9 +69,7 @@ public class ReactiveListAddTests
         fixture.Count.Should().Be(3);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add multiple single items].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add multiple single items].</summary>
     [Test]
     public void CanAddMultipleSingleItems()
     {
@@ -96,9 +84,7 @@ public class ReactiveListAddTests
         fixture.Count.Should().Be(3);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add single complex item].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add single complex item].</summary>
     [Test]
     public void CanAddSingleComplexItem()
     {
@@ -109,9 +95,7 @@ public class ReactiveListAddTests
         fixture.Count.Should().Be(1);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add single item].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add single item].</summary>
     [Test]
     public void CanAddSingleItem()
     {
@@ -122,9 +106,7 @@ public class ReactiveListAddTests
         fixture.Count.Should().Be(1);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can clear and add item].
-    /// </summary>
+    /// <summary>Determines whether this instance [can clear and add item].</summary>
     [Test]
     public void CanClearAndAddItem()
     {
@@ -155,9 +137,7 @@ public class ReactiveListAddTests
         fixture.ItemsRemoved.Count.Should().Be(1);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can observe add array of item asynchronous].
-    /// </summary>
+    /// <summary>Determines whether this instance [can observe add array of item asynchronous].</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task CanObserveAddArrayOfItemAsync()
@@ -178,9 +158,7 @@ public class ReactiveListAddTests
         }
     }
 
-    /// <summary>
-    /// Determines whether this instance [can observe add single item asynchronous].
-    /// </summary>
+    /// <summary>Determines whether this instance [can observe add single item asynchronous].</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task CanObserveAddSingleItemAsync()
@@ -202,9 +180,7 @@ public class ReactiveListAddTests
         }
     }
 
-    /// <summary>
-    /// Determines whether this instance [can replace all items].
-    /// </summary>
+    /// <summary>Determines whether this instance [can replace all items].</summary>
     [Test]
     public void CanReplaceAllItems()
     {
@@ -225,9 +201,7 @@ public class ReactiveListAddTests
         fixture.Items[0].Should().Be("three");
     }
 
-    /// <summary>
-    /// Determines whether this instance [can replace all items many times].
-    /// </summary>
+    /// <summary>Determines whether this instance [can replace all items many times].</summary>
     [Test]
     public void CanReplaceAllItemsManyTimes()
     {
@@ -254,9 +228,7 @@ public class ReactiveListAddTests
         fixture.Items[0].Should().Be("six");
     }
 
-    /// <summary>
-    /// Determines whether this instance [can replace all items with complex items].
-    /// </summary>
+    /// <summary>Determines whether this instance [can replace all items with complex items].</summary>
     [Test]
     public void CanReplaceAllItemsWithComplexItems()
     {
@@ -277,9 +249,7 @@ public class ReactiveListAddTests
         fixture.Items[0].Name.Should().Be("Celine");
     }
 
-    /// <summary>
-    /// Determines whether this instance [can replace all items with complex items and edit].
-    /// </summary>
+    /// <summary>Determines whether this instance [can replace all items with complex items and edit].</summary>
     [Test]
     public void CanReplaceAllItemsWithComplexItemsAndEdit()
     {
@@ -306,9 +276,7 @@ public class ReactiveListAddTests
         fixture.Items[2].Name.Should().Be("Clifford");
     }
 
-    /// <summary>
-    /// Determines whether this instance [can replace all items with complex items and edit and remove].
-    /// </summary>
+    /// <summary>Determines whether this instance [can replace all items with complex items and edit and remove].</summary>
     [Test]
     public void CanReplaceAllItemsWithComplexItemsAndEditAndRemove()
     {
@@ -340,9 +308,7 @@ public class ReactiveListAddTests
         fixture.ItemsRemoved.Count.Should().Be(1);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can replace all items with complex items and edit and remove and add].
-    /// </summary>
+    /// <summary>Determines whether this instance [can replace all items with complex items and edit and remove and add].</summary>
     [Test]
     public void CanReplaceAllItemsWithComplexItemsAndEditAndRemoveAndAdd()
     {
@@ -385,9 +351,7 @@ public class ReactiveListAddTests
         fixture.ItemsRemoved.Count.Should().Be(0);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can replace all items with complex items and edit and remove and add and clear].
-    /// </summary>
+    /// <summary>Determines whether this instance [can replace all items with complex items and edit and remove and add and clear].</summary>
     [Test]
     public void CanReplaceAllItemsWithComplexItemsAndEditAndRemoveAndAddAndClear()
     {
@@ -429,9 +393,7 @@ public class ReactiveListAddTests
         fixture.ItemsRemoved.Count.Should().Be(3);
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add items and insert items].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add items and insert items].</summary>
     [Test]
     public void CanAddItemsAndInsertItems()
     {
@@ -452,9 +414,7 @@ public class ReactiveListAddTests
         fixture.Items[1].Should().Be("three");
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add items and insert items and remove at index].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add items and insert items and remove at index].</summary>
     [Test]
     public void CanAddItemsAndInsertItemsAndRemoveAtIndex()
     {
@@ -480,9 +440,7 @@ public class ReactiveListAddTests
         fixture.ItemsRemoved.Count.Should().Be(1);
     }
 
-    /// <summary>
-    /// Determines whether this instance can enumerate.
-    /// </summary>
+    /// <summary>Determines whether this instance can enumerate.</summary>
     [Test]
     public void CanEnumerate()
     {
@@ -496,9 +454,7 @@ public class ReactiveListAddTests
         }
     }
 
-    /// <summary>
-    /// Determines whether this instance [can get an element at the index or return default].
-    /// </summary>
+    /// <summary>Determines whether this instance [can get an element at the index or return default].</summary>
     [Test]
     public void CanGetElementAtOrDefault()
     {
@@ -506,14 +462,12 @@ public class ReactiveListAddTests
         fixture.Clear();
         fixture.AddRange(["one", "two"]);
         fixture.Count.Should().Be(2);
-        fixture.ElementAtOrDefault(0).Should().Be("one");
-        fixture.ElementAtOrDefault(1).Should().Be("two");
-        fixture.ElementAtOrDefault(2).Should().BeNull();
+        Assert.Equal("one", fixture.ElementAtOrDefault(0));
+        Assert.Equal("two", fixture.ElementAtOrDefault(1));
+        Assert.Equal<string?>(null, fixture.ElementAtOrDefault(2));
     }
 
-    /// <summary>
-    /// Determines whether this instance [can add items to a list then add to fixture].
-    /// </summary>
+    /// <summary>Determines whether this instance [can add items to a list then add to fixture].</summary>
     [Test]
     public void CanAddItemsToAListThenAddToFixture()
     {

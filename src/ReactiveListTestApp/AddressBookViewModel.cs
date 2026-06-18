@@ -24,14 +24,13 @@ namespace ReactiveListTestApp;
 /// and should be disposed when no longer needed to release resources.</remarks>
 public class AddressBookViewModel : RxObject
 {
-    // --- The Data Stores ---
     private readonly QuaternaryList<Contact> _contactList = [];
+
     private readonly QuaternaryDictionary<Guid, Contact> _contactMap = [];
+
     private readonly BehaviorSignal<string> _searchText = new(string.Empty);
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="AddressBookViewModel"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="AddressBookViewModel"/> class.</summary>
     /// <remarks>This constructor sets up the necessary indices and data pipelines required for the view model
     /// to function correctly. Use this constructor when creating a new AddressBookViewModel instance for managing
     /// address book data in the application.</remarks>
@@ -42,56 +41,40 @@ public class AddressBookViewModel : RxObject
         InitializeCommands();
     }
 
-    /// <summary>
-    /// Gets a read-only collection containing all contacts currently managed by the application.
-    /// </summary>
+    /// <summary>Gets a read-only collection containing all contacts currently managed by the application.</summary>
     /// <remarks>The collection reflects real-time changes to the underlying contacts. Subscribers to the
     /// collection's change events are notified when contacts are added, removed, or updated.</remarks>
     public ReadOnlyObservableCollection<Contact> AllContacts { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets the collection of contacts marked as favorites by the user.
-    /// </summary>
+    /// <summary>Gets the collection of contacts marked as favorites by the user.</summary>
     /// <remarks>The returned collection is read-only and reflects changes to the underlying favorites list in
     /// real time. Items in this collection are automatically updated when contacts are added to or removed from the
     /// user's favorites.</remarks>
     public ReadOnlyObservableCollection<Contact> FavoriteContacts { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets a read-only collection of contacts located in New York.
-    /// </summary>
+    /// <summary>Gets a read-only collection of contacts located in New York.</summary>
     public ReadOnlyObservableCollection<Contact> NewYorkContacts { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets a read-only, observable collection of contacts that match the current search criteria.
-    /// </summary>
+    /// <summary>Gets a read-only, observable collection of contacts that match the current search criteria.</summary>
     /// <remarks>The contents of the collection are updated automatically when the search criteria change or
     /// when the underlying data changes. Subscribers can monitor collection changes by handling the CollectionChanged
     /// event.</remarks>
     public ReadOnlyObservableCollection<Contact> SearchResults { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets or sets the current search query text.
-    /// </summary>
+    /// <summary>Gets or sets the current search query text.</summary>
     public string SearchQuery
     {
         get => _searchText.Value;
         set => _searchText.OnNext(value ?? string.Empty);
     }
 
-    /// <summary>
-    /// Gets the command to bulk import contacts.
-    /// </summary>
+    /// <summary>Gets the command to bulk import contacts.</summary>
     public ReactiveCommand<int, Unit> BulkImportCommand { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets the command to remove inactive HR contacts.
-    /// </summary>
+    /// <summary>Gets the command to remove inactive HR contacts.</summary>
     public ReactiveCommand<Unit, Unit> BulkRemoveInactiveCommand { get; private set; } = null!;
 
-    /// <summary>
-    /// Adds the specified number of new contacts to the collection in bulk.
-    /// </summary>
+    /// <summary>Adds the specified number of new contacts to the collection in bulk.</summary>
     /// <remarks>This method generates new contacts with sample data and adds them to the collection
     /// efficiently. Use this method to quickly populate the contact list for testing or initialization purposes. The
     /// method does not check for duplicate contacts.</remarks>
@@ -113,27 +96,23 @@ public class AddressBookViewModel : RxObject
         _contactMap.AddRange(newContacts.Select(c => new KeyValuePair<Guid, Contact>(c.Id, c)));
     }
 
-    /// <summary>
-    /// Removes all inactive contacts in the HR department from the contact list and associated mappings.
-    /// </summary>
+    /// <summary>Removes all inactive contacts in the HR department from the contact list and associated mappings.</summary>
     /// <remarks>This method performs a bulk removal operation for contacts identified as inactive within the
     /// HR department. It updates both the main contact list and any related lookup structures to ensure consistency.
     /// The operation is optimized for performance and is thread-safe.</remarks>
     public void BulkRemoveInactive()
     {
         // Query utilizing Secondary Index for speed
-        var hrDept = _contactList.GetItemsBySecondaryIndex("ByDepartment", "HR").ToArray();
+        var departmentContacts = _contactList.GetItemsBySecondaryIndex("ByDepartment", "HR").ToArray();
 
         // Bulk Thread-Safe Remove
-        _contactList.RemoveRange(hrDept);
+        _contactList.RemoveRange(departmentContacts);
 
         // Sync Dictionary
-        _contactMap.RemoveKeys(hrDept.Select(c => c.Id));
+        _contactMap.RemoveKeys(departmentContacts.Select(c => c.Id));
     }
 
-    /// <summary>
-    /// Updates the city name for all contacts whose home address matches the specified old city.
-    /// </summary>
+    /// <summary>Updates the city name for all contacts whose home address matches the specified old city.</summary>
     /// <remarks>This method updates all contacts in the list whose home address city matches the specified
     /// old city. If no contacts match, no changes are made. The operation replaces the entire city name for each
     /// affected contact's home address.</remarks>
@@ -166,9 +145,7 @@ public class AddressBookViewModel : RxObject
         base.Dispose(disposing);
     }
 
-    /// <summary>
-    /// Determines whether the specified contact matches the given query based on last name or email address.
-    /// </summary>
+    /// <summary>Determines whether the specified contact matches the given query based on last name or email address.</summary>
     /// <param name="c">The contact to evaluate. If <paramref name="c"/> is <see langword="null"/>, the method returns <see
     /// langword="false"/>.</param>
     /// <param name="query">The search query to match against the contact's last name or email address. If <paramref name="query"/> is <see
@@ -176,7 +153,7 @@ public class AddressBookViewModel : RxObject
     /// <returns>true if the contact's last name or email address contains the query string, ignoring case; otherwise, false.</returns>
     private static bool Matches(Contact? c, string query)
     {
-        if (c == null)
+        if (c is null)
         {
             return false;
         }
@@ -190,9 +167,7 @@ public class AddressBookViewModel : RxObject
                c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// Initializes the command properties used for bulk import and removal operations.
-    /// </summary>
+    /// <summary>Initializes the command properties used for bulk import and removal operations.</summary>
     /// <remarks>This method sets up the BulkImportCommand and BulkRemoveInactiveCommand properties with their
     /// respective actions. It should be called during object initialization to ensure that command properties are
     /// properly configured before use.</remarks>
@@ -202,9 +177,7 @@ public class AddressBookViewModel : RxObject
         BulkRemoveInactiveCommand = ReactiveCommand.Create(BulkRemoveInactive);
     }
 
-    /// <summary>
-    /// Initializes lookup indices for contact data to enable efficient access by city, department, and email address.
-    /// </summary>
+    /// <summary>Initializes lookup indices for contact data to enable efficient access by city, department, and email address.</summary>
     /// <remarks>This method should be called before performing queries or updates that rely on indexed
     /// access. Initializing indices improves performance for lookups and updates based on city, department, or email,
     /// but must be done prior to using these features.</remarks>
@@ -218,9 +191,7 @@ public class AddressBookViewModel : RxObject
         _contactMap.AddValueIndex("ByEmail", c => c.Email);
     }
 
-    /// <summary>
-    /// Initializes contact-related data pipelines and views for the current instance.
-    /// </summary>
+    /// <summary>Initializes contact-related data pipelines and views for the current instance.</summary>
     /// <remarks>This method sets up observable views for all contacts, favorites, contacts filtered by city,
     /// and dynamic search results. It configures throttling and filtering to optimize UI responsiveness and resource
     /// usage. This method should be called during initialization to ensure that contact views are available and kept up

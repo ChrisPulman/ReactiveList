@@ -14,14 +14,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Covers low-level quad collection and pooled helper paths that are not reached by the public collection tests.
-/// </summary>
+/// <summary>Covers low-level quad collection and pooled helper paths that are not reached by the public collection tests.</summary>
 public class QuadCollectionCoverageTests
 {
-    /// <summary>
-    /// Verifies QuadList indexing, resizing, removal, copy, and enumerator wrapper behavior.
-    /// </summary>
+    /// <summary>Verifies QuadList indexing, resizing, removal, copy, and enumerator wrapper behavior.</summary>
     [Test]
     public void QuadList_ShouldSupportMutationAndEnumerationPaths()
     {
@@ -59,6 +55,7 @@ public class QuadCollectionCoverageTests
         structEnumerator.Current.Should().Be(0);
         while (structEnumerator.MoveNext())
         {
+            _ = structEnumerator.Current;
         }
 
         structEnumerator.MoveNext().Should().BeFalse();
@@ -71,6 +68,7 @@ public class QuadCollectionCoverageTests
         ((IEnumerator)enumerator).Current.Should().Be(0);
         while (enumerator.MoveNext())
         {
+            _ = enumerator.Current;
         }
 
         enumerator.MoveNext().Should().BeFalse();
@@ -87,9 +85,7 @@ public class QuadCollectionCoverageTests
         list.Dispose();
     }
 
-    /// <summary>
-    /// Verifies QuadList guard clauses for invalid indexes.
-    /// </summary>
+    /// <summary>Verifies QuadList guard clauses for invalid indexes.</summary>
     [Test]
     public void QuadList_InvalidIndexes_ShouldThrow()
     {
@@ -107,9 +103,7 @@ public class QuadCollectionCoverageTests
         removeTooHigh.Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    /// <summary>
-    /// Verifies QuadDictionary collision handling, ref updates, free-list reuse, and wrapper enumeration.
-    /// </summary>
+    /// <summary>Verifies QuadDictionary collision handling, ref updates, free-list reuse, and wrapper enumeration.</summary>
     [Test]
     public void QuadDictionary_ShouldHandleCollisionsAndRemovedSlots()
     {
@@ -140,8 +134,8 @@ public class QuadCollectionCoverageTests
         existed.Should().BeTrue();
         existingRef.Should().Be(5);
 
-        dictionary.Keys.Should().BeEquivalentTo(new[] { "one", "four", "five" });
-        dictionary.Values.Should().BeEquivalentTo(new[] { 10, 4, 5 });
+        dictionary.Keys.Should().BeEquivalentTo(["one", "four", "five"]);
+        dictionary.Values.Should().BeEquivalentTo([10, 4, 5]);
 
         var copied = new List<KeyValuePair<string, int>>();
         dictionary.CopyTo(copied);
@@ -160,6 +154,7 @@ public class QuadCollectionCoverageTests
         first.Key.Should().NotBeNull();
         while (structEnumerator.MoveNext())
         {
+            _ = structEnumerator.Current;
         }
 
         structEnumerator.TryGetNext(out var afterLast).Should().BeFalse();
@@ -179,9 +174,7 @@ public class QuadCollectionCoverageTests
         dictionary.Dispose();
     }
 
-    /// <summary>
-    /// Verifies QuadDictionary duplicate, missing-key, capacity, resize, and clear behavior.
-    /// </summary>
+    /// <summary>Verifies QuadDictionary duplicate, missing-key, capacity, resize, and clear behavior.</summary>
     [Test]
     public void QuadDictionary_ShouldCoverGuardsCapacityAndClear()
     {
@@ -229,9 +222,7 @@ public class QuadCollectionCoverageTests
         nullKeyValue.Should().Be(1);
     }
 
-    /// <summary>
-    /// Verifies pooled batch change tracking including growth and reset on disposal.
-    /// </summary>
+    /// <summary>Verifies pooled batch change tracking including growth and reset on disposal.</summary>
     [Test]
     public void BatchChangeTracker_ShouldTrackGrowAndDispose()
     {
@@ -258,9 +249,7 @@ public class QuadCollectionCoverageTests
         tracker.RemovedItems.Length.Should().Be(0);
     }
 
-    /// <summary>
-    /// Verifies ChangeToken value storage and change detection.
-    /// </summary>
+    /// <summary>Verifies ChangeToken value storage and change detection.</summary>
     [Test]
     public void ChangeToken_ShouldReportVersionChanges()
     {
@@ -273,9 +262,7 @@ public class QuadCollectionCoverageTests
         token.Should().Be(new ChangeToken<int>(7, 3));
     }
 
-    /// <summary>
-    /// Verifies PooledBuffer list copying and idempotent disposal.
-    /// </summary>
+    /// <summary>Verifies PooledBuffer list copying and idempotent disposal.</summary>
     [Test]
     public void PooledBuffer_FromList_ShouldExposeCopiedSpanAndDispose()
     {
@@ -288,9 +275,7 @@ public class QuadCollectionCoverageTests
         buffer.Dispose();
     }
 
-    /// <summary>
-    /// Verifies ValueBuffer stack, rent, growth, and disposal paths.
-    /// </summary>
+    /// <summary>Verifies ValueBuffer stack, rent, growth, and disposal paths.</summary>
     [Test]
     public void ValueBuffer_ShouldUseStackThenRentedStorage()
     {
@@ -314,9 +299,7 @@ public class QuadCollectionCoverageTests
         buffer.Dispose();
     }
 
-    /// <summary>
-    /// Verifies shard hashing produces stable in-range shard indexes for null, positive, and negative hash codes.
-    /// </summary>
+    /// <summary>Verifies shard hashing produces stable in-range shard indexes for null, positive, and negative hash codes.</summary>
     [Test]
     public void ShardHash_ShouldReturnExpectedShardRanges()
     {
@@ -332,17 +315,28 @@ public class QuadCollectionCoverageTests
         ShardHash.GetShardIndex4(negative).Should().BeInRange(0, 3);
     }
 
+    /// <summary>Provides ConstantHashStringComparer.</summary>
     private sealed class ConstantHashStringComparer : IEqualityComparer<string>
     {
+        /// <summary>Provides Equals.</summary>
+        /// <param name="x">The x value.</param>
+        /// <param name="y">The y value.</param>
+        /// <returns>The result.</returns>
         public bool Equals(string? x, string? y) => StringComparer.Ordinal.Equals(x, y);
 
+        /// <summary>Provides GetHashCode.</summary>
+        /// <param name="obj">The obj value.</param>
+        /// <returns>The result.</returns>
         public int GetHashCode(string obj) => 17;
     }
 
+    /// <summary>Provides FixedHash.</summary>
     private sealed class FixedHash
     {
         private readonly int _hashCode;
 
+        /// <summary>Initializes a new instance of the <see cref="FixedHash"/> class.</summary>
+        /// <param name="hashCode">The hashCode value.</param>
         public FixedHash(int hashCode) => _hashCode = hashCode;
 
         public override int GetHashCode() => _hashCode;

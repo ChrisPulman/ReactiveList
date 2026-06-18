@@ -10,14 +10,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Contains unit tests for the QuaternaryExtensions class.
-/// </summary>
+/// <summary>Contains unit tests for the QuaternaryExtensions class.</summary>
 public class QuaternaryExtensionsTests
 {
-    /// <summary>
-    /// Verifies that CreateView returns a view with all items when no filter is applied.
-    /// </summary>
+    /// <summary>Verifies that CreateView returns a view with all items when no filter is applied.</summary>
     [Test]
     public void CreateView_WithoutFilter_ShouldContainAllItems()
     {
@@ -29,9 +25,7 @@ public class QuaternaryExtensionsTests
         Assert.Equal(5, view.Items.Count);
     }
 
-    /// <summary>
-    /// Verifies that CreateView with filter returns only matching items.
-    /// </summary>
+    /// <summary>Verifies that CreateView with filter returns only matching items.</summary>
     [Test]
     public void CreateView_WithFilter_ShouldContainOnlyMatchingItems()
     {
@@ -45,9 +39,7 @@ public class QuaternaryExtensionsTests
         Assert.Contains(4, view.Items);
     }
 
-    /// <summary>
-    /// Verifies that CreateViewBySecondaryIndex filters items by the secondary index key.
-    /// </summary>
+    /// <summary>Verifies that CreateViewBySecondaryIndex filters items by the secondary index key.</summary>
     [Test]
     public void CreateViewBySecondaryIndex_ShouldFilterByKey()
     {
@@ -65,9 +57,7 @@ public class QuaternaryExtensionsTests
         Assert.All(view.Items, p => Assert.Equal("NYC", p.City));
     }
 
-    /// <summary>
-    /// Verifies that CreateViewBySecondaryIndex with multiple keys includes items matching any key.
-    /// </summary>
+    /// <summary>Verifies that CreateViewBySecondaryIndex with multiple keys includes items matching any key.</summary>
     [Test]
     public void CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
     {
@@ -80,14 +70,12 @@ public class QuaternaryExtensionsTests
             new TestPerson("Diana", "NYC")
         ]);
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", new[] { "NYC", "LA" }, Sequencer.Default, throttleMs: 10);
+        using var view = list.CreateViewBySecondaryIndex("ByCity", ["NYC", "LA"], Sequencer.Default, throttleMs: 10);
 
         Assert.Equal(3, view.Items.Count);
     }
 
-    /// <summary>
-    /// Verifies that ToProperty sets the property correctly.
-    /// </summary>
+    /// <summary>Verifies that ToProperty sets the property correctly.</summary>
     [Test]
     public void ToProperty_ShouldSetProperty()
     {
@@ -102,9 +90,7 @@ public class QuaternaryExtensionsTests
         Assert.Equal(3, result!.Count);
     }
 
-    /// <summary>
-    /// Verifies that ReactiveView updates when items are added to the source list.
-    /// </summary>
+    /// <summary>Verifies that ReactiveView updates when items are added to the source list.</summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
     [Test]
     public async Task ReactiveView_ShouldUpdateOnAdd()
@@ -121,9 +107,7 @@ public class QuaternaryExtensionsTests
         Assert.Contains(42, view.Items);
     }
 
-    /// <summary>
-    /// Verifies that ReactiveView updates when items are removed from the source list.
-    /// </summary>
+    /// <summary>Verifies that ReactiveView updates when items are removed from the source list.</summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
     [Test]
     public async Task ReactiveView_ShouldUpdateOnRemove()
@@ -145,9 +129,7 @@ public class QuaternaryExtensionsTests
         Assert.DoesNotContain(2, view.Items);
     }
 
-    /// <summary>
-    /// Verifies that ReactiveView updates when RemoveRange is called.
-    /// </summary>
+    /// <summary>Verifies that ReactiveView updates when RemoveRange is called.</summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
     [Test]
     public async Task ReactiveView_ShouldUpdateOnRemoveRange()
@@ -170,9 +152,7 @@ public class QuaternaryExtensionsTests
         Assert.DoesNotContain(4, view.Items);
     }
 
-    /// <summary>
-    /// Verifies that CreateViewBySecondaryIndex updates when new matching items are added.
-    /// </summary>
+    /// <summary>Verifies that CreateViewBySecondaryIndex updates when new matching items are added.</summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
     [Test]
     public async Task CreateViewBySecondaryIndex_ShouldUpdateOnAdd()
@@ -193,9 +173,7 @@ public class QuaternaryExtensionsTests
         Assert.Equal(2, view.Items.Count);
     }
 
-    /// <summary>
-    /// Verifies that CreateViewBySecondaryIndex doesn't include non-matching items when added.
-    /// </summary>
+    /// <summary>Verifies that CreateViewBySecondaryIndex doesn't include non-matching items when added.</summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
     [Test]
     public async Task CreateViewBySecondaryIndex_ShouldNotIncludeNonMatchingItems()
@@ -217,6 +195,9 @@ public class QuaternaryExtensionsTests
         Assert.Single(view.Items);
     }
 
-    private record TestPerson(string Name, string City);
+    /// <summary>Provides TestPerson.</summary>
+    /// <param name="Name">The Name value.</param>
+    /// <param name="City">The City value.</param>
+    private sealed record TestPerson(string Name, string City);
 }
 #endif

@@ -14,6 +14,7 @@ using ReactiveUI.Primitives.Signals;
 
 namespace ReactiveList.Benchmarks;
 
+/// <summary>Provides MicroParityBenchmarks.</summary>
 [MemoryDiagnoser]
 [CategoriesColumn]
 [RankColumn]
@@ -21,19 +22,29 @@ public class MicroParityBenchmarks : IDisposable
 {
     private const string GroupIndexName = "Group";
 
+    private int[] _numbers = [];
+
+    private int[] _evens = [];
+
+    private MicroItem[] _items = [];
+
+    private KeyValuePair<int, MicroItem>[] _pairs = [];
+
+    private QuaternaryList<MicroItem>? _indexedList;
+
+    private SourceList<MicroItem>? _sourceItemList;
+
+    private QuaternaryDictionary<int, MicroItem>? _indexedDictionary;
+
+    private SourceCache<MicroItem, int>? _sourceCache;
+
+    private bool _disposed;
+
+    /// <summary>Gets or sets the item count.</summary>
     [Params(1, 8, 32, 128)]
     public int Count { get; set; }
 
-    private int[] _numbers = [];
-    private int[] _evens = [];
-    private MicroItem[] _items = [];
-    private KeyValuePair<int, MicroItem>[] _pairs = [];
-    private QuaternaryList<MicroItem>? _indexedList;
-    private SourceList<MicroItem>? _sourceItemList;
-    private QuaternaryDictionary<int, MicroItem>? _indexedDictionary;
-    private SourceCache<MicroItem, int>? _sourceCache;
-    private bool _disposed;
-
+    /// <summary>Provides Setup.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -60,15 +71,19 @@ public class MicroParityBenchmarks : IDisposable
         _disposed = false;
     }
 
+    /// <summary>Provides Cleanup.</summary>
     [GlobalCleanup]
     public void Cleanup() => Dispose(disposing: true);
 
+    /// <summary>Provides Dispose.</summary>
     public void Dispose()
     {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>Provides ReactiveList_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("List", "AddRange")]
     public int ReactiveList_AddRange()
@@ -78,6 +93,8 @@ public class MicroParityBenchmarks : IDisposable
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "AddRange")]
     public int SourceList_AddRange()
@@ -87,6 +104,8 @@ public class MicroParityBenchmarks : IDisposable
         return list.Count;
     }
 
+    /// <summary>Provides ReactiveList_RemoveRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "RemoveRange")]
     public int ReactiveList_RemoveRange()
@@ -96,6 +115,8 @@ public class MicroParityBenchmarks : IDisposable
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_RemoveRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "RemoveRange")]
     public int SourceList_RemoveRange()
@@ -106,6 +127,8 @@ public class MicroParityBenchmarks : IDisposable
         return list.Count;
     }
 
+    /// <summary>Provides ReactiveList_RemoveMany.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "RemoveMany")]
     public int ReactiveList_RemoveMany()
@@ -115,6 +138,8 @@ public class MicroParityBenchmarks : IDisposable
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_RemoveMany.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "RemoveMany")]
     public int SourceList_RemoveMany()
@@ -125,6 +150,8 @@ public class MicroParityBenchmarks : IDisposable
         return list.Count;
     }
 
+    /// <summary>Provides ReactiveList_ConnectAddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "Connect")]
     public int ReactiveList_ConnectAddRange()
@@ -136,6 +163,8 @@ public class MicroParityBenchmarks : IDisposable
         return total;
     }
 
+    /// <summary>Provides SourceList_ConnectAddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "Connect")]
     public int SourceList_ConnectAddRange()
@@ -147,6 +176,8 @@ public class MicroParityBenchmarks : IDisposable
         return total;
     }
 
+    /// <summary>Provides ReactiveList_FilteredView.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "View")]
     public int ReactiveList_FilteredView()
@@ -156,6 +187,8 @@ public class MicroParityBenchmarks : IDisposable
         return view.Count;
     }
 
+    /// <summary>Provides SourceList_FilteredBind.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "View")]
     public int SourceList_FilteredBind()
@@ -169,6 +202,8 @@ public class MicroParityBenchmarks : IDisposable
         return view.Count;
     }
 
+    /// <summary>Provides ReactiveList_DynamicFilteredView.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "DynamicView")]
     public int ReactiveList_DynamicFilteredView()
@@ -180,6 +215,8 @@ public class MicroParityBenchmarks : IDisposable
         return view.Count;
     }
 
+    /// <summary>Provides SourceList_DynamicFilteredBind.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("List", "DynamicView")]
     public int SourceList_DynamicFilteredBind()
@@ -195,6 +232,8 @@ public class MicroParityBenchmarks : IDisposable
         return view.Count;
     }
 
+    /// <summary>Provides QuaternaryList_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("QuaternaryList", "AddRange")]
     public int QuaternaryList_AddRange()
@@ -204,6 +243,8 @@ public class MicroParityBenchmarks : IDisposable
         return list.Count;
     }
 
+    /// <summary>Provides SourceList_ItemAddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("QuaternaryList", "AddRange")]
     public int SourceList_ItemAddRange()
@@ -213,6 +254,8 @@ public class MicroParityBenchmarks : IDisposable
         return list.Count;
     }
 
+    /// <summary>Provides QuaternaryList_SecondaryLookup.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("QuaternaryList", "Lookup")]
     public int QuaternaryList_SecondaryLookup()
@@ -220,6 +263,8 @@ public class MicroParityBenchmarks : IDisposable
         return _indexedList!.GetItemsBySecondaryIndex(GroupIndexName, 1).Count();
     }
 
+    /// <summary>Provides SourceList_SecondaryScan.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("QuaternaryList", "Lookup")]
     public int SourceList_SecondaryScan()
@@ -227,6 +272,8 @@ public class MicroParityBenchmarks : IDisposable
         return _sourceItemList!.Items.Count(static item => item.Group == 1);
     }
 
+    /// <summary>Provides QuaternaryDictionary_AddRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("Dictionary", "AddRange")]
     public int QuaternaryDictionary_AddRange()
@@ -236,6 +283,8 @@ public class MicroParityBenchmarks : IDisposable
         return dictionary.Count;
     }
 
+    /// <summary>Provides SourceCache_AddOrUpdateRange.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("Dictionary", "AddRange")]
     public int SourceCache_AddOrUpdateRange()
@@ -245,6 +294,8 @@ public class MicroParityBenchmarks : IDisposable
         return cache.Count;
     }
 
+    /// <summary>Provides QuaternaryDictionary_TryGetValue.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("Dictionary", "Lookup")]
     public bool QuaternaryDictionary_TryGetValue()
@@ -252,6 +303,8 @@ public class MicroParityBenchmarks : IDisposable
         return _indexedDictionary!.TryGetValue(Count - 1, out _);
     }
 
+    /// <summary>Provides SourceCache_Lookup.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("Dictionary", "Lookup")]
     public bool SourceCache_Lookup()
@@ -259,6 +312,8 @@ public class MicroParityBenchmarks : IDisposable
         return _sourceCache!.Lookup(Count - 1).HasValue;
     }
 
+    /// <summary>Provides QuaternaryDictionary_SecondaryLookup.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("Dictionary", "SecondaryLookup")]
     public int QuaternaryDictionary_SecondaryLookup()
@@ -266,6 +321,8 @@ public class MicroParityBenchmarks : IDisposable
         return _indexedDictionary!.GetValuesBySecondaryIndex(GroupIndexName, 1).Count();
     }
 
+    /// <summary>Provides SourceCache_SecondaryScan.</summary>
+    /// <returns>The result.</returns>
     [Benchmark]
     [BenchmarkCategory("Dictionary", "SecondaryLookup")]
     public int SourceCache_SecondaryScan()
@@ -273,6 +330,8 @@ public class MicroParityBenchmarks : IDisposable
         return _sourceCache!.Items.Count(static item => item.Group == 1);
     }
 
+    /// <summary>Provides Dispose.</summary>
+    /// <param name="disposing">The disposing value.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
@@ -297,5 +356,9 @@ public class MicroParityBenchmarks : IDisposable
         _disposed = true;
     }
 
+    /// <summary>Provides MicroItem.</summary>
+    /// <param name="Id">The Id value.</param>
+    /// <param name="Group">The Group value.</param>
+    /// <param name="Value">The Value value.</param>
     private readonly record struct MicroItem(int Id, int Group, int Value);
 }

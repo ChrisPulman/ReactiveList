@@ -14,14 +14,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for ReactiveView.
-/// </summary>
+/// <summary>Tests for ReactiveView.</summary>
 public class ReactiveViewTests
 {
-    /// <summary>
-    /// Constructor should throw when stream is null.
-    /// </summary>
+    /// <summary>Constructor should throw when stream is null.</summary>
     [Test]
     public void Constructor_WithNullStream_ShouldThrow()
     {
@@ -36,9 +32,7 @@ public class ReactiveViewTests
             .WithParameterName("stream");
     }
 
-    /// <summary>
-    /// Constructor should throw when filter is null.
-    /// </summary>
+    /// <summary>Constructor should throw when filter is null.</summary>
     [Test]
     public void Constructor_WithNullFilter_ShouldThrow()
     {
@@ -55,9 +49,7 @@ public class ReactiveViewTests
             .WithParameterName("filter");
     }
 
-    /// <summary>
-    /// Constructor should load initial snapshot.
-    /// </summary>
+    /// <summary>Constructor should load initial snapshot.</summary>
     [Test]
     public void Constructor_WithSnapshot_ShouldLoadItems()
     {
@@ -74,9 +66,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEquivalentTo(["one", "two", "three"]);
     }
 
-    /// <summary>
-    /// Constructor should filter snapshot items.
-    /// </summary>
+    /// <summary>Constructor should filter snapshot items.</summary>
     [Test]
     public void Constructor_WithFilter_ShouldFilterSnapshot()
     {
@@ -93,9 +83,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEquivalentTo(["apple", "apricot"]);
     }
 
-    /// <summary>
-    /// Constructor with null snapshot should not throw.
-    /// </summary>
+    /// <summary>Constructor with null snapshot should not throw.</summary>
     [Test]
     public void Constructor_WithNullSnapshot_ShouldNotThrow()
     {
@@ -114,9 +102,7 @@ public class ReactiveViewTests
         act.Should().NotThrow();
     }
 
-    /// <summary>
-    /// Items property should be read-only.
-    /// </summary>
+    /// <summary>Items property should be read-only.</summary>
     [Test]
     public void Items_ShouldBeReadOnly()
     {
@@ -132,9 +118,7 @@ public class ReactiveViewTests
         view.Items.Should().BeOfType<System.Collections.ObjectModel.ReadOnlyObservableCollection<string>>();
     }
 
-    /// <summary>
-    /// Added notification should add item to view.
-    /// </summary>
+    /// <summary>Added notification should add item to view.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task AddedNotification_ShouldAddItemToView()
@@ -155,9 +139,7 @@ public class ReactiveViewTests
         view.Items.Should().Contain("newItem");
     }
 
-    /// <summary>
-    /// Added notification with filter should only add matching items.
-    /// </summary>
+    /// <summary>Added notification with filter should only add matching items.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task AddedNotification_WithFilter_ShouldOnlyAddMatchingItems()
@@ -179,9 +161,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEquivalentTo(["abcd"]);
     }
 
-    /// <summary>
-    /// Removed notification should remove item from view.
-    /// </summary>
+    /// <summary>Removed notification should remove item from view.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task RemovedNotification_ShouldRemoveItemFromView()
@@ -202,9 +182,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEquivalentTo(["one", "three"]);
     }
 
-    /// <summary>
-    /// Cleared notification should clear view.
-    /// </summary>
+    /// <summary>Cleared notification should clear view.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task ClearedNotification_ShouldClearView()
@@ -225,9 +203,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEmpty();
     }
 
-    /// <summary>
-    /// BatchOperation notification should add batch items.
-    /// </summary>
+    /// <summary>BatchOperation notification should add batch items.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task BatchOperationNotification_ShouldAddBatchItems()
@@ -254,9 +230,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEquivalentTo(["item1", "item2", "item3"]);
     }
 
-    /// <summary>
-    /// BatchOperation with filter should only add matching items.
-    /// </summary>
+    /// <summary>BatchOperation with filter should only add matching items.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task BatchOperationNotification_WithFilter_ShouldFilterItems()
@@ -283,9 +257,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEquivalentTo(["apple", "apricot"]);
     }
 
-    /// <summary>
-    /// ToProperty should set property.
-    /// </summary>
+    /// <summary>ToProperty should set property.</summary>
     [Test]
     public void ToProperty_ShouldSetProperty()
     {
@@ -305,9 +277,7 @@ public class ReactiveViewTests
         capturedItems.Should().BeSameAs(view.Items);
     }
 
-    /// <summary>
-    /// ToProperty should throw when setter is null.
-    /// </summary>
+    /// <summary>ToProperty should throw when setter is null.</summary>
     [Test]
     public void ToProperty_WithNullSetter_ShouldThrow()
     {
@@ -326,9 +296,7 @@ public class ReactiveViewTests
             .WithParameterName("propertySetter");
     }
 
-    /// <summary>
-    /// Dispose should clean up subscription.
-    /// </summary>
+    /// <summary>Dispose should clean up subscription.</summary>
     [Test]
     public void Dispose_ShouldCleanUpSubscription()
     {
@@ -346,9 +314,7 @@ public class ReactiveViewTests
         act.Should().NotThrow();
     }
 
-    /// <summary>
-    /// Multiple dispose should be safe.
-    /// </summary>
+    /// <summary>Multiple dispose should be safe.</summary>
     [Test]
     public void Dispose_MultipleCalls_ShouldBeSafe()
     {
@@ -367,9 +333,7 @@ public class ReactiveViewTests
         act.Should().NotThrow();
     }
 
-    /// <summary>
-    /// PropertyChanged should fire when items updated.
-    /// </summary>
+    /// <summary>PropertyChanged should fire when items updated.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task PropertyChanged_ShouldFireWhenItemsUpdated()
@@ -386,10 +350,12 @@ public class ReactiveViewTests
 
         view.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == "Items")
+            if (e.PropertyName != "Items")
             {
-                propertyChangedFired = true;
+                return;
             }
+
+            propertyChangedFired = true;
         };
 
         subject.OnNext(new CacheNotify<string>(CacheAction.Added, "test"));
@@ -399,9 +365,7 @@ public class ReactiveViewTests
         propertyChangedFired.Should().BeTrue();
     }
 
-    /// <summary>
-    /// Added notification with null item should not add anything.
-    /// </summary>
+    /// <summary>Added notification with null item should not add anything.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task AddedNotification_WithNullItem_ShouldNotAdd()
@@ -422,9 +386,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEmpty();
     }
 
-    /// <summary>
-    /// Removed notification with null item should not throw.
-    /// </summary>
+    /// <summary>Removed notification with null item should not throw.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task RemovedNotification_WithNullItem_ShouldNotThrow()
@@ -447,9 +409,7 @@ public class ReactiveViewTests
         await act.Should().NotThrowAsync();
     }
 
-    /// <summary>
-    /// Batch notification with null batch should not throw.
-    /// </summary>
+    /// <summary>Batch notification with null batch should not throw.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task BatchNotification_WithNullBatch_ShouldNotThrow()
@@ -472,9 +432,7 @@ public class ReactiveViewTests
         await act.Should().NotThrowAsync();
     }
 
-    /// <summary>
-    /// View should buffer multiple notifications.
-    /// </summary>
+    /// <summary>View should buffer multiple notifications.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task View_ShouldBufferMultipleNotifications()
@@ -498,9 +456,7 @@ public class ReactiveViewTests
         view.Items.Should().BeEquivalentTo(["one", "two", "three"]);
     }
 
-    /// <summary>
-    /// Updated action should not add or remove.
-    /// </summary>
+    /// <summary>Updated action should not add or remove.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task UpdatedAction_ShouldNotChangeItems()

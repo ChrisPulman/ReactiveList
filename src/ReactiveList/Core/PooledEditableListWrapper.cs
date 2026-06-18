@@ -58,7 +58,7 @@ public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollect
     public void AddRange(IEnumerable<T> items)
     {
         ThrowIfReturned();
-        var itemArray = (items as T[]) ?? items.ToArray();
+        var itemArray = (items as T[]) ?? [.. items];
         _list!.AddRange(itemArray);
         if (_observableCollection is null)
         {

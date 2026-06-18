@@ -16,14 +16,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Additional coverage tests for <see cref="ReactiveList{T}"/>.
-/// </summary>
+/// <summary>Additional coverage tests for <see cref="ReactiveList{T}"/>.</summary>
 public class ReactiveListCoverageTests
 {
-    /// <summary>
-    /// Reactive observables and collection metadata should reflect list changes.
-    /// </summary>
+    /// <summary>Reactive observables and collection metadata should reflect list changes.</summary>
     [Test]
     public void ObservablePropertiesAndMetadata_ShouldReflectChanges()
     {
@@ -53,15 +49,12 @@ public class ReactiveListCoverageTests
             .Which.Should().Equal("uno");
     }
 
-    /// <summary>
-    /// Explicit non-generic collection APIs should validate and mutate consistently.
-    /// </summary>
+    /// <summary>Explicit non-generic collection APIs should validate and mutate consistently.</summary>
     [Test]
     public void NonGenericCollectionMembers_ShouldValidateAndMutate()
     {
         ReactiveList<string> fixture = ["one", "two"];
         var list = (IList)fixture;
-        var collection = (ICollection)fixture;
 
         list[0].Should().Be("one");
         list[0] = "zero";
@@ -77,20 +70,20 @@ public class ReactiveListCoverageTests
         list.Remove(42);
 
         var objects = new object[fixture.Count];
-        collection.CopyTo(objects, 0);
+        ((ICollection)fixture).CopyTo(objects, 0);
         objects.Should().Equal("zero", "two", "three");
 
         var typed = new string[fixture.Count];
-        collection.CopyTo(typed, 0);
+        ((ICollection)fixture).CopyTo(typed, 0);
         typed.Should().Equal("zero", "two", "three");
 
         Action addWrongType = () => list.Add(42);
         Action insertWrongType = () => list.Insert(0, 42);
-        Action copyNull = () => collection.CopyTo(null!, 0);
-        Action copyMultiDimensional = () => collection.CopyTo(Array.CreateInstance(typeof(string), 1, 1), 0);
-        Action copyNonZeroLowerBound = () => collection.CopyTo(Array.CreateInstance(typeof(string), [3], [1]), 0);
-        Action copyNegativeIndex = () => collection.CopyTo(new string[3], -1);
-        Action copyTooSmall = () => collection.CopyTo(new string[2], 0);
+        Action copyNull = () => ((ICollection)fixture).CopyTo(null!, 0);
+        Action copyMultiDimensional = () => ((ICollection)fixture).CopyTo(Array.CreateInstance(typeof(string), 1, 1), 0);
+        Action copyNonZeroLowerBound = () => ((ICollection)fixture).CopyTo(Array.CreateInstance(typeof(string), [3], [1]), 0);
+        Action copyNegativeIndex = () => ((ICollection)fixture).CopyTo(new string[3], -1);
+        Action copyTooSmall = () => ((ICollection)fixture).CopyTo(new string[2], 0);
         Action copyInvalidArrayType = () => ((ICollection)new ReactiveList<int>([1])).CopyTo(new string[1], 0);
 
         addWrongType.Should().Throw<InvalidCastException>();
@@ -111,13 +104,11 @@ public class ReactiveListCoverageTests
         fixture.Count.Should().Be(0);
     }
 
-    /// <summary>
-    /// Generic explicit members and empty batch branches should be no-ops.
-    /// </summary>
+    /// <summary>Generic explicit members and empty batch branches should be no-ops.</summary>
     [Test]
     public void GenericExplicitMembersAndEmptyBatches_ShouldBehaveConsistently()
     {
-        ReactiveList<int> emptyFromEnumerable = new(Array.Empty<int>());
+        ReactiveList<int> emptyFromEnumerable = new([]);
         ReactiveList<int> fixture = [1, 2, 3, 4];
         var genericCollection = (ICollection<int>)fixture;
         var genericList = (IList<int>)fixture;
@@ -128,8 +119,8 @@ public class ReactiveListCoverageTests
         ((IList)fixture).Contains(null).Should().BeFalse();
 
         fixture.AddRange(Array.Empty<int>());
-        fixture.InsertRange(2, Array.Empty<int>());
-        fixture.Remove(Array.Empty<int>());
+        fixture.InsertRange(2, []);
+        fixture.Remove([]);
         fixture.RemoveRange(0, 0);
 
         fixture.Count.Should().Be(4);
@@ -142,15 +133,13 @@ public class ReactiveListCoverageTests
         fixture.Count.Should().Be(0);
     }
 
-    /// <summary>
-    /// Reactive2DList guard branches should validate outer indexes and null row values.
-    /// </summary>
+    /// <summary>Reactive2DList guard branches should validate outer indexes and null row values.</summary>
     [Test]
     public void Reactive2DList_Guards_ShouldValidateOuterIndexesAndNullRows()
     {
         Reactive2DList<string> grid = [["a"]];
 
-        Action addManyBadOuter = () => grid.AddToInner(10, new[] { "b" });
+        Action addManyBadOuter = () => grid.AddToInner(10, ["b"]);
         Action addSingleBadOuter = () => grid.AddToInner(-1, "b");
         Action insertNullItem = () => grid.Insert(0, (string)null!);
 
@@ -163,9 +152,8 @@ public class ReactiveListCoverageTests
     }
 
 #if NET6_0_OR_GREATER
-    /// <summary>
-    /// Span and memory helpers should copy snapshots and validate destination size.
-    /// </summary>
+
+    /// <summary>Span and memory helpers should copy snapshots and validate destination size.</summary>
     [Test]
     public void SpanAndMemoryHelpers_ShouldCopySnapshotsAndValidateDestination()
     {
@@ -193,9 +181,8 @@ public class ReactiveListCoverageTests
 #endif
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// ClearWithoutDeallocation should support silent and notifying branches.
-    /// </summary>
+
+    /// <summary>ClearWithoutDeallocation should support silent and notifying branches.</summary>
     [Test]
     public void ClearWithoutDeallocation_ShouldSupportSilentAndNotifyingBranches()
     {
@@ -226,9 +213,7 @@ public class ReactiveListCoverageTests
     }
 #endif
 
-    /// <summary>
-    /// Removal APIs should validate ranges and report only removed items.
-    /// </summary>
+    /// <summary>Removal APIs should validate ranges and report only removed items.</summary>
     [Test]
     public void RemovalBranches_ShouldValidateRangesAndReportRemovedItems()
     {
@@ -263,9 +248,7 @@ public class ReactiveListCoverageTests
         fixture.Count.Should().Be(0);
     }
 
-    /// <summary>
-    /// CollectionChanged should use specific actions for single changes and reset for batches.
-    /// </summary>
+    /// <summary>CollectionChanged should use specific actions for single changes and reset for batches.</summary>
     [Test]
     public void CollectionChanged_ShouldUseSpecificActionsForSingleChangesAndResetForBatches()
     {
@@ -289,9 +272,7 @@ public class ReactiveListCoverageTests
         events[2].NewStartingIndex.Should().Be(1);
     }
 
-    /// <summary>
-    /// ReplaceAll should emit old and new batches when either side is populated.
-    /// </summary>
+    /// <summary>ReplaceAll should emit old and new batches when either side is populated.</summary>
     [Test]
     public void ReplaceAll_ShouldEmitOldAndNewBatchesWhenPresent()
     {
@@ -304,15 +285,13 @@ public class ReactiveListCoverageTests
         });
 
         fixture.ReplaceAll(["one", "two"]);
-        fixture.ReplaceAll(Array.Empty<string>());
+        fixture.ReplaceAll([]);
 
         fixture.Count.Should().Be(0);
         actions.Should().Equal(CacheAction.BatchAdded, CacheAction.BatchRemoved);
     }
 
-    /// <summary>
-    /// Subscribe should delegate to CurrentItems and Dispose should release resources.
-    /// </summary>
+    /// <summary>Subscribe should delegate to CurrentItems and Dispose should release resources.</summary>
     [Test]
     public void SubscribeAndDispose_ShouldUseCurrentItemsAndReleaseResources()
     {
@@ -358,7 +337,7 @@ public class ReactiveListCoverageTests
         setInvalidIndex.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("index");
 
-        InvokePrivate(deserializedFixture, "OnDeserialized", new StreamingContext());
+        InvokePrivate(deserializedFixture, "OnDeserialized", default(StreamingContext));
         InvokePrivate(fixture, "OnPropertyChanged", "Custom");
         InvokePrivate(fixture, "NotifyCleared", Array.Empty<int>(), true);
         InvokePrivate(fixture, "NotifyCleared", Array.Empty<int>(), false);
@@ -378,32 +357,54 @@ public class ReactiveListCoverageTests
         changed.Any(static items => items.Length == 0).Should().BeTrue();
     }
 
-    private sealed class DisposeHarness<T> : ReactiveList<T>
-        where T : notnull
-    {
-        public void DisposeWithoutManagedResources() => Dispose(false);
-    }
-
-    private sealed class RecordingObserver<T> : IObserver<IEnumerable<T>>
-    {
-        public List<T[]> Snapshots { get; } = [];
-
-        public void OnCompleted()
-        {
-        }
-
-        public void OnError(Exception error)
-        {
-        }
-
-        public void OnNext(IEnumerable<T> value) => Snapshots.Add(value.ToArray());
-    }
-
+    /// <summary>Provides GetPrivateField.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    /// <param name="target">The target value.</param>
+    /// <param name="fieldName">The fieldName value.</param>
+    /// <returns>The result.</returns>
     private static object GetPrivateField<T>(ReactiveList<T> target, string fieldName)
         where T : notnull =>
         typeof(ReactiveList<T>).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;
 
+    /// <summary>Provides InvokePrivate.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    /// <param name="target">The target value.</param>
+    /// <param name="methodName">The methodName value.</param>
+    /// <param name="args">The args value.</param>
+    /// <returns>The result.</returns>
     private static object? InvokePrivate<T>(ReactiveList<T> target, string methodName, params object?[] args)
         where T : notnull =>
         typeof(ReactiveList<T>).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(target, args);
+
+    /// <summary>Provides DisposeHarness.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    private sealed class DisposeHarness<T> : ReactiveList<T>
+        where T : notnull
+    {
+        /// <summary>Provides DisposeWithoutManagedResources.</summary>
+        public void DisposeWithoutManagedResources() => Dispose(false);
+    }
+
+    /// <summary>Provides RecordingObserver.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    private sealed class RecordingObserver<T> : IObserver<IEnumerable<T>>
+    {
+        /// <summary>Gets Snapshots.</summary>
+        public List<T[]> Snapshots { get; } = [];
+
+        /// <summary>Provides OnCompleted.</summary>
+        public void OnCompleted()
+        {
+        }
+
+        /// <summary>Provides OnError.</summary>
+        /// <param name="error">The error value.</param>
+        public void OnError(Exception error)
+        {
+        }
+
+        /// <summary>Provides OnNext.</summary>
+        /// <param name="value">The value.</param>
+        public void OnNext(IEnumerable<T> value) => Snapshots.Add(value.ToArray());
+    }
 }

@@ -76,7 +76,7 @@ internal ref struct ValueBuffer<T>
             return;
         }
 
-        ArrayPool<T>.Shared.Return(_rentedArray, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_rentedArray, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _rentedArray = null;
     }
 
@@ -96,7 +96,7 @@ internal ref struct ValueBuffer<T>
         var newCapacity = _rentedArray!.Length * 2;
         var newArray = ArrayPool<T>.Shared.Rent(newCapacity);
         _rentedArray.AsSpan(0, _count).CopyTo(newArray);
-        ArrayPool<T>.Shared.Return(_rentedArray, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_rentedArray, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _rentedArray = newArray;
     }
 }

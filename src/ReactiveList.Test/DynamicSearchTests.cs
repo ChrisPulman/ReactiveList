@@ -13,14 +13,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for dynamic search functionality with reactive views.
-/// </summary>
+/// <summary>Tests for dynamic search functionality with reactive views.</summary>
 public class DynamicSearchTests
 {
-    /// <summary>
-    /// Search should return matching items when query matches LastName.
-    /// </summary>
+    /// <summary>Search should return matching items when query matches LastName.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task SearchByLastName_WhenQueryMatchesShouldReturnMatchingItemsAsync()
@@ -65,9 +61,7 @@ public class DynamicSearchTests
         searchResults.Select(c => c.LastName).Should().Contain("Smith10");
     }
 
-    /// <summary>
-    /// Search should return matching items when query matches Email.
-    /// </summary>
+    /// <summary>Search should return matching items when query matches Email.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task SearchByEmail_WhenQueryMatchesShouldReturnMatchingItemsAsync()
@@ -110,9 +104,7 @@ public class DynamicSearchTests
         searchResults.Select(c => c.Email).Should().Contain("user10@company.com");
     }
 
-    /// <summary>
-    /// Empty search query should return all items.
-    /// </summary>
+    /// <summary>Empty search query should return all items.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task EmptyQuery_ShouldReturnAllItemsAsync()
@@ -152,9 +144,7 @@ public class DynamicSearchTests
         searchResults.Should().HaveCount(3);
     }
 
-    /// <summary>
-    /// Search should be case insensitive.
-    /// </summary>
+    /// <summary>Search should be case insensitive.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task Search_ShouldBeCaseInsensitiveAsync()
@@ -199,9 +189,7 @@ public class DynamicSearchTests
         searchResults.Should().HaveCount(1);
     }
 
-    /// <summary>
-    /// Search results should update when contacts are added after search.
-    /// </summary>
+    /// <summary>Search results should update when contacts are added after search.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task SearchResults_ShouldUpdateWhenContactsAddedAsync()
@@ -259,9 +247,7 @@ public class DynamicSearchTests
         searchResults.First().Email.Should().Be("user1@company.com");
     }
 
-    /// <summary>
-    /// Non-matching query should return empty results.
-    /// </summary>
+    /// <summary>Non-matching query should return empty results.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task NonMatchingQuery_ShouldReturnEmptyResultsAsync()
@@ -300,9 +286,13 @@ public class DynamicSearchTests
         searchResults.Should().BeEmpty();
     }
 
+    /// <summary>Provides Matches.</summary>
+    /// <param name="c">The c value.</param>
+    /// <param name="query">The query value.</param>
+    /// <returns>The result.</returns>
     private static bool Matches(TestContact? c, string query)
     {
-        if (c == null)
+        if (c is null)
         {
             return false;
         }
@@ -316,6 +306,10 @@ public class DynamicSearchTests
                c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Provides TestContact.</summary>
+    /// <param name="FirstName">The FirstName value.</param>
+    /// <param name="LastName">The LastName value.</param>
+    /// <param name="Email">The Email value.</param>
     private sealed record TestContact(string FirstName, string LastName, string Email);
 }
 #endif

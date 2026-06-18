@@ -58,7 +58,7 @@ where TKey : notnull
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _indexName = indexName ?? throw new ArgumentNullException(nameof(indexName));
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keysObservable);
+        ThrowHelper.ThrowIfNull(keysObservable);
 
         _filteredItems = [];
         Items = new ReadOnlyObservableCollection<T>(_filteredItems);
@@ -133,7 +133,7 @@ where TKey : notnull
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
     public DynamicSecondaryIndexReactiveView<T, TKey> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
+        ThrowHelper.ThrowIfNull(propertySetter);
         propertySetter(Items);
         return this;
     }

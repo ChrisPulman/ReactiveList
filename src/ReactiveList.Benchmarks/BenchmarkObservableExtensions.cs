@@ -6,24 +6,42 @@ using System.Runtime.ExceptionServices;
 
 namespace ReactiveList.Benchmarks;
 
+/// <summary>Provides BenchmarkObservableExtensions.</summary>
 internal static class BenchmarkObservableExtensions
 {
-    public static IDisposable SubscribeObserver<T>(this IObservable<T> source, Action<T> onNext)
+    /// <summary>Provides observable benchmark helpers.</summary>
+    /// <typeparam name="T">The observable item type.</typeparam>
+    /// <param name="source">The source observable.</param>
+    extension<T>(IObservable<T> source)
     {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(onNext);
+        /// <summary>Subscribes an action observer.</summary>
+        /// <param name="onNext">The next-value handler.</param>
+        /// <returns>The subscription disposable.</returns>
+        public IDisposable SubscribeObserver(Action<T> onNext)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            ArgumentNullException.ThrowIfNull(onNext);
 
-        return source.Subscribe(new ActionObserver<T>(onNext));
+            return source.Subscribe(new ActionObserver<T>(onNext));
+        }
     }
 
+    /// <summary>Provides ActionObserver.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    /// <param name="onNext">The onNext value.</param>
     private sealed class ActionObserver<T>(Action<T> onNext) : IObserver<T>
     {
+        /// <summary>Provides OnCompleted.</summary>
         public void OnCompleted()
         {
         }
 
+        /// <summary>Provides OnError.</summary>
+        /// <param name="error">The error value.</param>
         public void OnError(Exception error) => ExceptionDispatchInfo.Capture(error).Throw();
 
+        /// <summary>Provides OnNext.</summary>
+        /// <param name="value">The value.</param>
         public void OnNext(T value) => onNext(value);
     }
 }

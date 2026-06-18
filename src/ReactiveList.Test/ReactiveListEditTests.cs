@@ -9,14 +9,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// ReactiveList Edit Tests.
-/// </summary>
+/// <summary>ReactiveList Edit Tests.</summary>
 public class ReactiveListEditTests
 {
-    /// <summary>
-    /// Edit should allow batch add operations.
-    /// </summary>
+    /// <summary>Edit should allow batch add operations.</summary>
     [Test]
     public void Edit_ShouldAllowBatchAddOperations()
     {
@@ -35,9 +31,7 @@ public class ReactiveListEditTests
         fixture[2].Should().Be("three");
     }
 
-    /// <summary>
-    /// Edit should allow batch remove operations.
-    /// </summary>
+    /// <summary>Edit should allow batch remove operations.</summary>
     [Test]
     public void Edit_ShouldAllowBatchRemoveOperations()
     {
@@ -54,9 +48,7 @@ public class ReactiveListEditTests
         fixture[1].Should().Be("three");
     }
 
-    /// <summary>
-    /// Edit should allow mixed operations.
-    /// </summary>
+    /// <summary>Edit should allow mixed operations.</summary>
     [Test]
     public void Edit_ShouldAllowMixedOperations()
     {
@@ -76,9 +68,7 @@ public class ReactiveListEditTests
         fixture.Should().NotContain("one");
     }
 
-    /// <summary>
-    /// Edit should allow clear and repopulate.
-    /// </summary>
+    /// <summary>Edit should allow clear and repopulate.</summary>
     [Test]
     public void Edit_ShouldAllowClearAndRepopulate()
     {
@@ -96,9 +86,7 @@ public class ReactiveListEditTests
         fixture[1].Should().Be("beta");
     }
 
-    /// <summary>
-    /// Edit should throw when action is null.
-    /// </summary>
+    /// <summary>Edit should throw when action is null.</summary>
     [Test]
     public void Edit_ShouldThrowWhenActionIsNull()
     {
@@ -110,9 +98,7 @@ public class ReactiveListEditTests
             .WithParameterName("editAction");
     }
 
-    /// <summary>
-    /// Edit should raise property changed once for count.
-    /// </summary>
+    /// <summary>Edit should raise property changed once for count.</summary>
     [Test]
     public void Edit_ShouldRaisePropertyChanged()
     {
@@ -126,10 +112,12 @@ public class ReactiveListEditTests
                 countChanges++;
             }
 
-            if (args.PropertyName == "Item[]")
+            if (args.PropertyName != "Item[]")
             {
-                itemArrayChanges++;
+                return;
             }
+
+            itemArrayChanges++;
         };
 
         fixture.Edit(list =>
@@ -143,9 +131,7 @@ public class ReactiveListEditTests
         itemArrayChanges.Should().Be(1);
     }
 
-    /// <summary>
-    /// Edit should allow insert at index.
-    /// </summary>
+    /// <summary>Edit should allow insert at index.</summary>
     [Test]
     public void Edit_ShouldAllowInsertAtIndex()
     {
@@ -159,9 +145,7 @@ public class ReactiveListEditTests
         fixture[2].Should().Be("three");
     }
 
-    /// <summary>
-    /// Edit should allow remove at index.
-    /// </summary>
+    /// <summary>Edit should allow remove at index.</summary>
     [Test]
     public void Edit_ShouldAllowRemoveAtIndex()
     {
@@ -174,9 +158,7 @@ public class ReactiveListEditTests
         fixture[1].Should().Be("three");
     }
 
-    /// <summary>
-    /// Edit should allow add range.
-    /// </summary>
+    /// <summary>Edit should allow add range.</summary>
     [Test]
     public void Edit_ShouldAllowAddRange()
     {
@@ -191,9 +173,7 @@ public class ReactiveListEditTests
         fixture[3].Should().Be("four");
     }
 
-    /// <summary>
-    /// Edit should allow replace operation.
-    /// </summary>
+    /// <summary>Edit should allow replace operation.</summary>
     [Test]
     public void Edit_ShouldAllowReplaceOperation()
     {
@@ -212,9 +192,7 @@ public class ReactiveListEditTests
         fixture[2].Should().Be("three");
     }
 
-    /// <summary>
-    /// Edit should work with complex types.
-    /// </summary>
+    /// <summary>Edit should work with complex types.</summary>
     [Test]
     public void Edit_ShouldWorkWithComplexTypes()
     {
@@ -231,9 +209,7 @@ public class ReactiveListEditTests
         fixture[1].Name.Should().Be("Bob");
     }
 
-    /// <summary>
-    /// Edit should handle empty action gracefully.
-    /// </summary>
+    /// <summary>Edit should handle empty action gracefully.</summary>
     [Test]
     public void Edit_ShouldHandleEmptyActionGracefully()
     {
@@ -246,9 +222,7 @@ public class ReactiveListEditTests
         fixture[1].Should().Be("two");
     }
 
-    /// <summary>
-    /// Edit should allow move operation.
-    /// </summary>
+    /// <summary>Edit should allow move operation.</summary>
     [Test]
     public void Edit_ShouldAllowMoveOperation()
     {
@@ -262,9 +236,7 @@ public class ReactiveListEditTests
         fixture[2].Should().Be("one");
     }
 
-    /// <summary>
-    /// Edit should allow multiple operations in sequence.
-    /// </summary>
+    /// <summary>Edit should allow multiple operations in sequence.</summary>
     [Test]
     public void Edit_ShouldAllowMultipleOperationsInSequence()
     {

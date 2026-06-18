@@ -52,7 +52,7 @@ internal sealed class PooledBuffer<T> : IDisposable
             return;
         }
 
-        ArrayPool<T>.Shared.Return(_buffer, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_buffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _buffer = null!;
     }
 }

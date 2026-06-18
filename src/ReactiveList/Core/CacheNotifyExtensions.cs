@@ -80,7 +80,7 @@ public static class CacheNotifyExtensions
                 throw new ArgumentNullException(nameof(source));
             }
 
-            return source.Keep(n => n.Action == CacheAction.Added || n.Action == CacheAction.BatchAdded);
+            return source.Keep(n => n.Action is CacheAction.Added or CacheAction.BatchAdded);
         }
 
         /// <summary>Filters the stream to only include remove notifications (single and batch).</summary>
@@ -93,7 +93,7 @@ public static class CacheNotifyExtensions
                 throw new ArgumentNullException(nameof(source));
             }
 
-            return source.Keep(n => n.Action == CacheAction.Removed || n.Action == CacheAction.BatchRemoved);
+            return source.Keep(n => n.Action is CacheAction.Removed or CacheAction.BatchRemoved);
         }
 
         /// <summary>Projects single item notifications to their items.</summary>

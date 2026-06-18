@@ -75,10 +75,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <summary>Gets the typed shard containers used by the dictionary implementation.</summary>
     private QuadDictionary<TKey, TValue>[] Quads { get; } =
     [
-        new QuadDictionary<TKey, TValue>(),
-        new QuadDictionary<TKey, TValue>(),
-        new QuadDictionary<TKey, TValue>(),
-        new QuadDictionary<TKey, TValue>()
+        [],
+        [],
+        [],
+        []
     ];
 
     /// <summary>Gets or sets the value associated with the specified key.</summary>
@@ -280,7 +280,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             return;
         }
 
-        AddRangeCore(pairs.ToArray());
+        AddRangeCore([.. pairs]);
     }
 
     /// <summary>Adds a secondary index for values using the specified key selector function.</summary>
@@ -404,7 +404,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="keys">The collection of keys to remove.</param>
     public void RemoveKeys(IEnumerable<TKey> keys)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(keys);
+        Internal.ThrowHelper.ThrowIfNull(keys);
 
         // Fast path for arrays
         if (keys is TKey[] array)
@@ -421,7 +421,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
 
         // Slow path: materialize
-        RemoveKeysCore(keys.ToArray());
+        RemoveKeysCore([.. keys]);
     }
 
     /// <summary>Removes all entries that match the specified predicate from the dictionary.</summary>
@@ -429,13 +429,13 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <returns>The number of entries removed from the dictionary.</returns>
     public int RemoveMany(Func<KeyValuePair<TKey, TValue>, bool> predicate)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(predicate);
+        Internal.ThrowHelper.ThrowIfNull(predicate);
 
         var totalRemoved = 0;
 
         // Use pooled arrays for keys to remove
         var keysBuffer = ArrayPool<TKey>.Shared.Rent(64);
-        var keysCount = 0;
+        int keysCount;
 
         try
         {
@@ -457,7 +457,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                             {
                                 var newBuffer = ArrayPool<TKey>.Shared.Rent(keysBuffer.Length * 2);
                                 keysBuffer.AsSpan(0, keysCount).CopyTo(newBuffer);
-                                ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
+                                ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
                                 keysBuffer = newBuffer;
                             }
 
@@ -495,7 +495,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
         finally
         {
-            ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
+            ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
         }
 
         return totalRemoved;
@@ -505,7 +505,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="editAction">An action that receives the dictionary interface to perform modifications.</param>
     public void Edit(Action<IDictionary<TKey, TValue>> editAction)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(editAction);
+        Internal.ThrowHelper.ThrowIfNull(editAction);
 
         // Acquire all locks for the edit operation
         for (var i = 0; i < ShardCount; i++)
@@ -537,7 +537,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <exception cref="ArgumentNullException">Thrown when array is null.</exception>
     public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
     {
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(array);
+        Internal.ThrowHelper.ThrowIfNull(array);
 
         for (var i = 0; i < ShardCount; i++)
         {

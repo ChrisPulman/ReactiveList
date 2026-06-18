@@ -21,14 +21,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Tests;
 
-/// <summary>
-/// Coverage tests for reactive view implementations.
-/// </summary>
+/// <summary>Coverage tests for reactive view implementations.</summary>
 public class ViewCoverageTests
 {
-    /// <summary>
-    /// Filtered views should track update transitions and refreshes.
-    /// </summary>
+    /// <summary>Filtered views should track update transitions and refreshes.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task FilteredReactiveView_UpdateTransitions_ShouldAddRemoveReplaceAndRefresh()
@@ -78,9 +74,7 @@ public class ViewCoverageTests
         filteredProperties.Should().Contain(nameof(view.Count));
     }
 
-    /// <summary>
-    /// Sorted views should maintain comparer order through source changes.
-    /// </summary>
+    /// <summary>Sorted views should maintain comparer order through source changes.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task SortedReactiveView_Changes_ShouldKeepItemsSorted()
@@ -125,9 +119,7 @@ public class ViewCoverageTests
         view.Items.Should().Equal(0, 2, 2);
     }
 
-    /// <summary>
-    /// Grouped views should expose dictionary members and update group membership.
-    /// </summary>
+    /// <summary>Grouped views should expose dictionary members and update group membership.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task GroupedReactiveView_DictionarySurfaceAndUpdates_ShouldTrackGroups()
@@ -143,8 +135,8 @@ public class ViewCoverageTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        view.Keys.Should().BeEquivalentTo(new[] { "north", "south" });
-        view.Values.SelectMany(static group => group).Should().BeEquivalentTo(new[] { north, south });
+        view.Keys.Should().BeEquivalentTo(["north", "south"]);
+        view.Values.SelectMany(static group => group).Should().BeEquivalentTo([north, south]);
         view["north"].Should().ContainSingle().Which.Should().Be(north);
         view.TryGetValue("north", out var northGroup).Should().BeTrue();
         northGroup.Should().ContainSingle().Which.Should().Be(north);
@@ -164,7 +156,7 @@ public class ViewCoverageTests
         list.Update(changedScore, movedRegion);
         await WaitForPipeline();
         view.ContainsKey("north").Should().BeFalse();
-        view["south"].Should().BeEquivalentTo(new[] { south, movedRegion });
+        view["south"].Should().BeEquivalentTo([south, movedRegion]);
 
         list.Remove(south);
         await WaitForPipeline();
@@ -197,9 +189,7 @@ public class ViewCoverageTests
         InvokePrivate(view, "RemoveFromGroup", north);
     }
 
-    /// <summary>
-    /// Dynamic filtered views should rebuild on filter changes and track source changes.
-    /// </summary>
+    /// <summary>Dynamic filtered views should rebuild on filter changes and track source changes.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task DynamicFilteredReactiveView_FilterAndSourceChanges_ShouldRebuildAndTrackTransitions()
@@ -263,14 +253,12 @@ public class ViewCoverageTests
         dynamicFilteredProperties.Should().Contain(nameof(view.Count));
     }
 
-    /// <summary>
-    /// Dynamic reactive views should apply single and batch stream actions.
-    /// </summary>
+    /// <summary>Dynamic reactive views should apply single and batch stream actions.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task DynamicReactiveView_StreamActions_ShouldApplyCurrentFilterAndBatches()
     {
-        using var source = new ReactiveSourceHarness<int>(new[] { 1, 2, 3 });
+        using var source = new ReactiveSourceHarness<int>([1, 2, 3]);
         using var filters = new BehaviorSignal<Func<int, bool>>(static item => item % 2 == 0);
 
         using var view = new DynamicReactiveView<int>(
@@ -295,12 +283,12 @@ public class ViewCoverageTests
         await WaitForPipeline();
         view.Items.Should().Equal(4);
 
-        source.AddItems(new[] { 6, 7 });
+        source.AddItems([6, 7]);
         source.Emit(new CacheNotify<int>(CacheAction.BatchAdded, default, CreateBatch(6, 7)));
         await WaitForPipeline();
         view.Items.Should().Equal(4, 6);
 
-        source.RemoveItems(new[] { 4, 6 });
+        source.RemoveItems([4, 6]);
         source.Emit(new CacheNotify<int>(CacheAction.BatchRemoved, default, CreateBatch(4, 6)));
         await WaitForPipeline();
         view.Items.Should().BeEmpty();
@@ -321,14 +309,12 @@ public class ViewCoverageTests
         view.Dispose();
     }
 
-    /// <summary>
-    /// Dynamic reactive views should use the default include-all filter when null filters are emitted.
-    /// </summary>
+    /// <summary>Dynamic reactive views should use the default include-all filter when null filters are emitted.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task DynamicReactiveView_NullFilters_ShouldUseDefaultIncludeAllFilter()
     {
-        using var source = new ReactiveSourceHarness<int>(new[] { 1 });
+        using var source = new ReactiveSourceHarness<int>([1]);
         using var filters = new BehaviorSignal<Func<int, bool>>(null!);
 
         using var view = new DynamicReactiveView<int>(
@@ -347,9 +333,8 @@ public class ViewCoverageTests
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
-    /// <summary>
-    /// Secondary-index dictionary views should remove values when updates leave the index.
-    /// </summary>
+
+    /// <summary>Secondary-index dictionary views should remove values when updates leave the index.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task SecondaryIndexReactiveView_DictionaryUpdates_ShouldRemoveValuesThatLeaveTheIndex()
@@ -403,9 +388,7 @@ public class ViewCoverageTests
         secondaryProperties.Should().Contain(nameof(view.Count));
     }
 
-    /// <summary>
-    /// Dynamic secondary-index views should track key changes and dictionary updates.
-    /// </summary>
+    /// <summary>Dynamic secondary-index views should track key changes and dictionary updates.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task DynamicSecondaryIndexViews_KeyChangesAndDictionaryUpdates_ShouldTrackCurrentKeys()
@@ -416,7 +399,7 @@ public class ViewCoverageTests
         list.Add(north);
         list.Add(south);
         list.AddIndex("region", static item => item.Region);
-        using var listKeys = new BehaviorSignal<string[]>(new[] { "north" });
+        using var listKeys = new BehaviorSignal<string[]>(["north"]);
 
         using var listView = new DynamicSecondaryIndexReactiveView<ViewItem, string>(
             list,
@@ -445,16 +428,16 @@ public class ViewCoverageTests
         await WaitForPipeline();
         listView.Items.Should().ContainSingle().Which.Should().Be(north);
 
-        listKeys.OnNext(new[] { "south" });
+        listKeys.OnNext(["south"]);
         await WaitForPipeline();
         listView.Items.Should().ContainSingle().Which.Should().Be(south);
 
         var secondSouth = new ViewItem(3, "south");
         list.Add(secondSouth);
         await WaitForPipeline();
-        listView.Items.Should().BeEquivalentTo(new[] { south, secondSouth });
+        listView.Items.Should().BeEquivalentTo([south, secondSouth]);
 
-        list.ReplaceAll(new[] { north });
+        list.ReplaceAll([north]);
         await WaitForPipeline();
         listView.Items.Should().BeEmpty();
         listViewProperties.Should().Contain(nameof(listView.Count));
@@ -463,7 +446,7 @@ public class ViewCoverageTests
         dictionary.Add(1, north);
         dictionary.Add(2, south);
         dictionary.AddValueIndex("region", static item => item.Region);
-        using var dictionaryKeys = new BehaviorSignal<string[]>(new[] { "north" });
+        using var dictionaryKeys = new BehaviorSignal<string[]>(["north"]);
 
         using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, ViewItem>.Create<string>(
             dictionary,
@@ -496,9 +479,9 @@ public class ViewCoverageTests
         await WaitForPipeline();
         dictionaryView.Items.Single(static item => item.Key == 4).Value.Score.Should().Be(10);
 
-        dictionaryKeys.OnNext(new[] { "south" });
+        dictionaryKeys.OnNext(["south"]);
         await WaitForPipeline();
-        dictionaryView.Items.Select(static item => item.Key).Should().BeEquivalentTo(new[] { 1, 2 });
+        dictionaryView.Items.Select(static item => item.Key).Should().BeEquivalentTo([1, 2]);
 
         dictionary.AddOrUpdate(5, new ViewItem(5, "north"));
         await WaitForPipeline();
@@ -521,13 +504,11 @@ public class ViewCoverageTests
         dictionaryViewProperties.Should().Contain(nameof(dictionaryView.Count));
     }
 
-    /// <summary>
-    /// Dynamic view constructors should ignore initial probe errors and keep default state.
-    /// </summary>
+    /// <summary>Dynamic view constructors should ignore initial probe errors and keep default state.</summary>
     [Test]
     public void DynamicViews_InitialProbeErrors_ShouldUseDefaultValues()
     {
-        using var source = new ReactiveSourceHarness<int>(new[] { 1 });
+        using var source = new ReactiveSourceHarness<int>([1]);
         using var dynamicView = new DynamicReactiveView<int>(
             source,
             new FirstSubscriptionErrorObservable<Func<int, bool>>(),
@@ -557,7 +538,7 @@ public class ViewCoverageTests
         using var twoValueListView = new DynamicSecondaryIndexReactiveView<MutableViewItem, string>(
             list,
             "region",
-            new TwoValueObservable<string[]>(new[] { "north" }, new[] { "south" }),
+            new TwoValueObservable<string[]>(["north"], ["south"]),
             Sequencer.Immediate,
             TimeSpan.Zero);
 
@@ -577,16 +558,14 @@ public class ViewCoverageTests
         using var twoValueDictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create<string>(
             dictionary,
             "region",
-            new TwoValueObservable<string[]>(new[] { "north" }, new[] { "south" }),
+            new TwoValueObservable<string[]>(["north"], ["south"]),
             Sequencer.Immediate,
             TimeSpan.Zero);
 
         twoValueDictionaryView.Items.Should().BeEmpty();
     }
 
-    /// <summary>
-    /// Dynamic secondary-index views should handle mutable update transitions directly.
-    /// </summary>
+    /// <summary>Dynamic secondary-index views should handle mutable update transitions directly.</summary>
     [Test]
     public void DynamicSecondaryIndexViews_MutableUpdates_ShouldAddRemoveClearAndRebuild()
     {
@@ -596,7 +575,7 @@ public class ViewCoverageTests
         list.Add(listNorth);
         list.Add(listSouth);
         list.AddIndex("region", static item => item.Region);
-        using var listKeys = new BehaviorSignal<string[]>(new[] { "north" });
+        using var listKeys = new BehaviorSignal<string[]>(["north"]);
         using var listView = new DynamicSecondaryIndexReactiveView<MutableViewItem, string>(
             list,
             "region",
@@ -629,7 +608,7 @@ public class ViewCoverageTests
         dictionary.Add(1, dictionaryNorth);
         dictionary.Add(2, dictionarySouth);
         dictionary.AddValueIndex("region", static item => item.Region);
-        using var dictionaryKeys = new BehaviorSignal<string[]>(new[] { "north" });
+        using var dictionaryKeys = new BehaviorSignal<string[]>(["north"]);
         using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create<string>(
             dictionary,
             "region",
@@ -677,7 +656,7 @@ public class ViewCoverageTests
         using var nullableKeyDictionary = new QuaternaryDictionary<string, MutableViewItem>();
         nullableKeyDictionary.Add("north-1", new MutableViewItem(3, "north"));
         nullableKeyDictionary.AddValueIndex("region", static item => item.Region);
-        using var nullableKeyKeys = new BehaviorSignal<string[]>(new[] { "north" });
+        using var nullableKeyKeys = new BehaviorSignal<string[]>(["north"]);
         using var nullableKeyView = DynamicSecondaryIndexDictionaryReactiveView<string, MutableViewItem>.Create<string>(
             nullableKeyDictionary,
             "region",
@@ -697,14 +676,29 @@ public class ViewCoverageTests
     }
 #endif
 
+    /// <summary>Provides WaitForPipeline.</summary>
+    /// <returns>The result.</returns>
     private static async Task WaitForPipeline() => await Task.Delay(30);
 
+    /// <summary>Provides InvokePrivate.</summary>
+    /// <param name="target">The target value.</param>
+    /// <param name="methodName">The methodName value.</param>
+    /// <param name="args">The args value.</param>
+    /// <returns>The result.</returns>
     private static object? InvokePrivate(object target, string methodName, params object?[] args) =>
         target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(target, args);
 
+    /// <summary>Provides GetPrivateField.</summary>
+    /// <param name="target">The target value.</param>
+    /// <param name="fieldName">The fieldName value.</param>
+    /// <returns>The result.</returns>
     private static object GetPrivateField(object target, string fieldName) =>
         target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;
 
+    /// <summary>Provides CreateBatch.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    /// <returns>The result.</returns>
+    /// <param name="items">The items value.</param>
     private static PooledBatch<T> CreateBatch<T>(params T[] items)
     {
         var array = ArrayPool<T>.Shared.Rent(items.Length);
@@ -712,21 +706,30 @@ public class ViewCoverageTests
         return new PooledBatch<T>(array, items.Length);
     }
 
-    private sealed record ViewItem(int Id, string Region, int Score = 0);
-
+    /// <summary>Provides MutableViewItem.</summary>
+    /// <param name="id">The id value.</param>
+    /// <param name="region">The region value.</param>
     private sealed class MutableViewItem(int id, string region)
     {
+        /// <summary>Gets Id.</summary>
         public int Id { get; } = id;
 
+        /// <summary>Gets or sets Region.</summary>
         public string Region { get; set; } = region;
 
+        /// <summary>Gets or sets Score.</summary>
         public int Score { get; set; }
     }
 
+    /// <summary>Provides FirstSubscriptionErrorObservable.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
     private sealed class FirstSubscriptionErrorObservable<T> : IObservable<T>
     {
         private int _subscriptions;
 
+        /// <summary>Provides Subscribe.</summary>
+        /// <param name="observer">The observer value.</param>
+        /// <returns>The result.</returns>
         public IDisposable Subscribe(IObserver<T> observer)
         {
             if (Interlocked.Increment(ref _subscriptions) == 1)
@@ -738,8 +741,15 @@ public class ViewCoverageTests
         }
     }
 
+    /// <summary>Provides TwoValueObservable.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
+    /// <param name="first">The first value.</param>
+    /// <param name="second">The second value.</param>
     private sealed class TwoValueObservable<T>(T first, T second) : IObservable<T>
     {
+        /// <summary>Provides Subscribe.</summary>
+        /// <param name="observer">The observer value.</param>
+        /// <returns>The result.</returns>
         public IDisposable Subscribe(IObserver<T> observer)
         {
             observer.OnNext(first);
@@ -748,44 +758,60 @@ public class ViewCoverageTests
         }
     }
 
+    /// <summary>Provides ReactiveSourceHarness.</summary>
+    /// <typeparam name="T">The T type.</typeparam>
     private sealed class ReactiveSourceHarness<T> : IReactiveSource<T>
         where T : notnull
     {
         private readonly List<T> _items;
+
         private readonly Signal<CacheNotify<T>> _stream = new();
 
+        /// <summary>Initializes a new instance of the ReactiveSourceHarness class.</summary>
+        /// <param name="items">The items value.</param>
         public ReactiveSourceHarness(IEnumerable<T> items) => _items = new List<T>(items);
 
         public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
+        /// <summary>Gets Count.</summary>
         public int Count => _items.Count;
 
+        /// <summary>Gets IsDisposed.</summary>
         public bool IsDisposed { get; private set; }
 
+        /// <summary>Gets IsReadOnly.</summary>
         public bool IsReadOnly => false;
 
+        /// <summary>Gets Stream.</summary>
         public IObservable<CacheNotify<T>> Stream => _stream.AsObservable();
 
+        /// <summary>Gets Version.</summary>
         public long Version { get; private set; }
 
+        /// <summary>Provides AddItem.</summary>
+        /// <param name="item">The item value.</param>
         public void AddItem(T item)
         {
             _items.Add(item);
             Version++;
         }
 
+        /// <summary>Provides AddItems.</summary>
+        /// <param name="items">The items value.</param>
         public void AddItems(IEnumerable<T> items)
         {
             _items.AddRange(items);
             Version++;
         }
 
+        /// <summary>Provides ClearItems.</summary>
         public void ClearItems()
         {
             _items.Clear();
             Version++;
         }
 
+        /// <summary>Provides Dispose.</summary>
         public void Dispose()
         {
             if (IsDisposed)
@@ -797,16 +823,24 @@ public class ViewCoverageTests
             _stream.Dispose();
         }
 
+        /// <summary>Provides Emit.</summary>
+        /// <param name="notification">The notification value.</param>
         public void Emit(CacheNotify<T> notification) => _stream.OnNext(notification);
 
+        /// <summary>Provides GetEnumerator.</summary>
+        /// <returns>The result.</returns>
         public IEnumerator<T> GetEnumerator() => _items.GetEnumerator();
 
+        /// <summary>Provides RemoveItem.</summary>
+        /// <param name="item">The item value.</param>
         public void RemoveItem(T item)
         {
             _items.Remove(item);
             Version++;
         }
 
+        /// <summary>Provides RemoveItems.</summary>
+        /// <param name="items">The items value.</param>
         public void RemoveItems(IEnumerable<T> items)
         {
             foreach (var item in items)
@@ -817,11 +851,20 @@ public class ViewCoverageTests
             Version++;
         }
 
+        /// <summary>Provides ToArray.</summary>
+        /// <returns>The result.</returns>
         public T[] ToArray() => _items.ToArray();
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        /// <summary>Provides RaiseReset.</summary>
         public void RaiseReset() =>
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
+
+    /// <summary>Provides ViewItem.</summary>
+    /// <param name="Id">The Id value.</param>
+    /// <param name="Region">The Region value.</param>
+    /// <param name="Score">The Score value.</param>
+    private sealed record ViewItem(int Id, string Region, int Score = 0);
 }

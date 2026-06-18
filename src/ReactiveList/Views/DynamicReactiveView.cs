@@ -65,9 +65,9 @@ where T : notnull
 #endif
     {
 #if NET8_0_OR_GREATER
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(source);
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(filterObservable);
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(scheduler);
+        ThrowHelper.ThrowIfNull(source);
+        ThrowHelper.ThrowIfNull(filterObservable);
+        ThrowHelper.ThrowIfNull(scheduler);
 #else
         if (source is null)
         {
@@ -131,7 +131,7 @@ where T : notnull
     public DynamicReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
     {
 #if NET8_0_OR_GREATER
-        CP.Reactive.Internal.ThrowHelper.ThrowIfNull(propertySetter);
+        ThrowHelper.ThrowIfNull(propertySetter);
 #else
         if (propertySetter is null)
         {

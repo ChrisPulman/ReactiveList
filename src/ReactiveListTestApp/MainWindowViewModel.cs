@@ -9,14 +9,10 @@ using ReactiveUI;
 
 namespace ReactiveListTestApp;
 
-/// <summary>
-/// ViewModel for the MainWindow that handles navigation.
-/// </summary>
+/// <summary>ViewModel for the MainWindow that handles navigation.</summary>
 public class MainWindowViewModel : RxObject
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MainWindowViewModel"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MainWindowViewModel"/> class.</summary>
     public MainWindowViewModel()
     {
         NavigateToMainCommand = ReactiveCommand.Create(() =>
@@ -26,13 +22,9 @@ public class MainWindowViewModel : RxObject
             this.NavigateToView<AddressBookViewModel>("mainWindow")).DisposeWith(Disposables);
     }
 
-    /// <summary>
-    /// Gets the command to navigate to the main view.
-    /// </summary>
+    /// <summary>Gets the command to navigate to the main view.</summary>
     public ReactiveCommand<Unit, Unit> NavigateToMainCommand { get; }
 
-    /// <summary>
-    /// Gets the command to navigate to the address book view.
-    /// </summary>
+    /// <summary>Gets the command to navigate to the address book view.</summary>
     public ReactiveCommand<Unit, Unit> NavigateToAddressBookCommand { get; }
 }

@@ -41,6 +41,6 @@ internal static class ShardHash
     /// <param name="n">The input shard count.</param>
     /// <returns>The bit count.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int BitCount(int n) => CP.Reactive.Internal.BitOperationsCompat.Log2((uint)n);
+    private static int BitCount(int n) => BitOperationsCompat.Log2((uint)n);
 }
 #endif

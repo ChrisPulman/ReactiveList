@@ -10,14 +10,10 @@ using TUnit.Core;
 
 namespace ReactiveList.Test;
 
-/// <summary>
-/// Tests for CacheNotify record.
-/// </summary>
+/// <summary>Tests for CacheNotify record.</summary>
 public class CacheNotifyTests
 {
-    /// <summary>
-    /// Constructor should initialize Action and Item.
-    /// </summary>
+    /// <summary>Constructor should initialize Action and Item.</summary>
     [Test]
     public void Constructor_WithActionAndItem_ShouldInitialize()
     {
@@ -28,9 +24,7 @@ public class CacheNotifyTests
         notify.Batch.Should().BeNull();
     }
 
-    /// <summary>
-    /// Constructor should initialize with batch.
-    /// </summary>
+    /// <summary>Constructor should initialize with batch.</summary>
     [Test]
     public void Constructor_WithBatch_ShouldInitialize()
     {
@@ -48,9 +42,7 @@ public class CacheNotifyTests
         batch.Dispose();
     }
 
-    /// <summary>
-    /// Constructor with null item should be valid.
-    /// </summary>
+    /// <summary>Constructor with null item should be valid.</summary>
     [Test]
     public void Constructor_WithNullItem_ShouldBeValid()
     {
@@ -60,9 +52,7 @@ public class CacheNotifyTests
         notify.Item.Should().BeNull();
     }
 
-    /// <summary>
-    /// Record equality should work correctly.
-    /// </summary>
+    /// <summary>Record equality should work correctly.</summary>
     [Test]
     public void RecordEquality_ShouldWorkCorrectly()
     {
@@ -73,9 +63,7 @@ public class CacheNotifyTests
         (notify1 == notify2).Should().BeTrue();
     }
 
-    /// <summary>
-    /// Record inequality for different actions.
-    /// </summary>
+    /// <summary>Record inequality for different actions.</summary>
     [Test]
     public void RecordInequality_DifferentActions_ShouldNotBeEqual()
     {
@@ -86,9 +74,7 @@ public class CacheNotifyTests
         (notify1 != notify2).Should().BeTrue();
     }
 
-    /// <summary>
-    /// Record inequality for different items.
-    /// </summary>
+    /// <summary>Record inequality for different items.</summary>
     [Test]
     public void RecordInequality_DifferentItems_ShouldNotBeEqual()
     {
@@ -98,9 +84,7 @@ public class CacheNotifyTests
         notify1.Should().NotBe(notify2);
     }
 
-    /// <summary>
-    /// CacheNotify for Added action.
-    /// </summary>
+    /// <summary>CacheNotify for Added action.</summary>
     [Test]
     public void CacheNotify_AddedAction_ShouldHaveCorrectState()
     {
@@ -110,9 +94,7 @@ public class CacheNotifyTests
         notify.Item.Should().Be(42);
     }
 
-    /// <summary>
-    /// CacheNotify for Removed action.
-    /// </summary>
+    /// <summary>CacheNotify for Removed action.</summary>
     [Test]
     public void CacheNotify_RemovedAction_ShouldHaveCorrectState()
     {
@@ -122,9 +104,7 @@ public class CacheNotifyTests
         notify.Item.Should().Be(42);
     }
 
-    /// <summary>
-    /// CacheNotify for Updated action.
-    /// </summary>
+    /// <summary>CacheNotify for Updated action.</summary>
     [Test]
     public void CacheNotify_UpdatedAction_ShouldHaveCorrectState()
     {
@@ -134,9 +114,7 @@ public class CacheNotifyTests
         notify.Item.Should().Be("updated");
     }
 
-    /// <summary>
-    /// CacheNotify for Cleared action.
-    /// </summary>
+    /// <summary>CacheNotify for Cleared action.</summary>
     [Test]
     public void CacheNotify_ClearedAction_ShouldHaveCorrectState()
     {
@@ -146,9 +124,7 @@ public class CacheNotifyTests
         notify.Item.Should().BeNull();
     }
 
-    /// <summary>
-    /// CacheNotify for BatchOperation action.
-    /// </summary>
+    /// <summary>CacheNotify for BatchOperation action.</summary>
     [Test]
     public void CacheNotify_BatchOperationAction_ShouldHaveCorrectState()
     {
@@ -166,9 +142,7 @@ public class CacheNotifyTests
         batch.Dispose();
     }
 
-    /// <summary>
-    /// CacheNotify with expression should work.
-    /// </summary>
+    /// <summary>CacheNotify with expression should work.</summary>
     [Test]
     public void CacheNotify_WithExpression_ShouldWork()
     {
@@ -180,9 +154,7 @@ public class CacheNotifyTests
         notify2.Item.Should().Be(10);
     }
 
-    /// <summary>
-    /// GetHashCode should be consistent.
-    /// </summary>
+    /// <summary>GetHashCode should be consistent.</summary>
     [Test]
     public void GetHashCode_ShouldBeConsistent()
     {
@@ -194,9 +166,7 @@ public class CacheNotifyTests
         hash1.Should().Be(hash2);
     }
 
-    /// <summary>
-    /// ToString should return meaningful representation.
-    /// </summary>
+    /// <summary>ToString should return meaningful representation.</summary>
     [Test]
     public void ToString_ShouldReturnMeaningfulRepresentation()
     {
@@ -209,9 +179,7 @@ public class CacheNotifyTests
         result.Should().Contain("test");
     }
 
-    /// <summary>
-    /// CacheNotify with value types.
-    /// </summary>
+    /// <summary>CacheNotify with value types.</summary>
     [Test]
     public void CacheNotify_WithValueTypes_ShouldWork()
     {
@@ -220,9 +188,7 @@ public class CacheNotifyTests
         notify.Item.Should().Be(DateTime.Today);
     }
 
-    /// <summary>
-    /// CacheNotify with complex types.
-    /// </summary>
+    /// <summary>CacheNotify with complex types.</summary>
     [Test]
     public void CacheNotify_WithComplexTypes_ShouldWork()
     {

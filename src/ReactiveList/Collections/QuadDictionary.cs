@@ -290,12 +290,12 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                 }
 
                 // Clear entry and add to free list
-                if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>())
+                if (Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>())
                 {
                     entry.SetKey(default!);
                 }
 
-                if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TValue>())
+                if (Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TValue>())
                 {
                     entry.SetValue(default);
                 }
@@ -324,7 +324,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         }
 
         _buckets.AsSpan(0, _bucketsLength).Clear();
-        if (CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>())
+        if (Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>())
         {
             _entries.AsSpan(0, _entryIndex).Clear();
         }
@@ -344,7 +344,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         }
 
         var requiredBucketCount = (int)Math.Ceiling(capacity / LoadFactor);
-        var newSize = CP.Reactive.Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)requiredBucketCount);
+        var newSize = Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)requiredBucketCount);
         ResizeTo((int)newSize);
     }
 
@@ -435,7 +435,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             return;
         }
 
-        ArrayPool<Entry>.Shared.Return(_entries, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>());
+        ArrayPool<Entry>.Shared.Return(_entries, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>());
         _entries = null!;
     }
 
@@ -486,7 +486,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// <remarks>The new capacity is rounded up to the next power of two to optimize memory usage and
     /// performance. This method is intended for internal use and should not be called directly by consumers of the
     /// class.</remarks>
-    private void Resize() => ResizeTo((int)CP.Reactive.Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)_entries.Length * 2));
+    private void Resize() => ResizeTo((int)Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)_entries.Length * 2));
 
     /// <summary>Resizes the internal storage arrays to accommodate the specified number of entries.</summary>
     /// <remarks>This method reinitializes the internal buckets and entries arrays to the specified size and
@@ -518,7 +518,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         }
 
         ArrayPool<int>.Shared.Return(_buckets, clearArray: false);
-        ArrayPool<Entry>.Shared.Return(_entries, clearArray: CP.Reactive.Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>());
+        ArrayPool<Entry>.Shared.Return(_entries, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>());
 
         _entries = newEntries;
         _buckets = newBuckets;
