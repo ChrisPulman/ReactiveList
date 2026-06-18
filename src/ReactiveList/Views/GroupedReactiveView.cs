@@ -2,18 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
-using ReactiveUI.Primitives.Disposables;
-
 namespace CP.Reactive.Views;
 
 /// <summary>Provides a grouped view over a <see cref="IReactiveList{T}"/> that automatically updates when the source list changes.</summary>
@@ -31,13 +19,9 @@ where TKey : notnull
 
     private readonly ObservableCollection<ReactiveGroup<TKey, T>> _groupCollection = [];
 
-    private readonly MultipleDisposable _disposables = new();
+    private readonly MultipleDisposable _disposables = [];
 
-#if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
-#else
-    private readonly object _lock = new();
-#endif
 
     /// <summary>Initializes a new instance of the <see cref="GroupedReactiveView{T, TKey}"/> class.</summary>
     /// <param name="source">The source reactive list to group.</param>

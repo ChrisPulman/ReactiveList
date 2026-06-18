@@ -405,7 +405,7 @@ public class ReactiveListRemoveTests
     {
         using var fixture = new ReactiveList<int>([1, 2, 3, 4, 5]);
         var receivedChanges = new System.Collections.Generic.List<ChangeSet<int>>();
-        using var subscription = fixture.Connect().Subscribe(cs => receivedChanges.Add(cs));
+        using var subscription = fixture.Connect().Subscribe(receivedChanges.Add);
         receivedChanges.Clear();
 
         var removed = fixture.RemoveMany(x => x > 3);

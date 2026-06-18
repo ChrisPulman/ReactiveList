@@ -2,18 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
-using ReactiveUI.Primitives.Disposables;
-
 namespace CP.Reactive.Views;
 
 /// <summary>
@@ -28,13 +16,9 @@ where T : notnull
 
     private readonly ObservableCollection<T> _filteredItems;
 
-    private readonly MultipleDisposable _disposables = new();
+    private readonly MultipleDisposable _disposables = [];
 
-#if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
-#else
-    private readonly object _lock = new();
-#endif
 
     private Func<T, bool> _currentFilter;
 

@@ -2,16 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-#if NET8_0_OR_GREATER || NETFRAMEWORK
-
-using System.Buffers;
-using System.Collections;
-using System.Runtime.CompilerServices;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-
 namespace CP.Reactive.Collections;
 
 /// <summary>
@@ -1109,4 +1099,3 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }
-#endif

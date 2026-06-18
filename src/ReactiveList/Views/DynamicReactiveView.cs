@@ -2,15 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
-using CP.Reactive.Internal;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
-using ReactiveUI.Primitives.Disposables;
-
 namespace CP.Reactive.Views;
 
 /// <summary>
@@ -32,7 +23,7 @@ where T : notnull
 
     private readonly IReactiveSource<T> _source;
 
-    private readonly MultipleDisposable _disposables = new();
+    private readonly MultipleDisposable _disposables = [];
 
     private readonly ISequencer _scheduler;
 

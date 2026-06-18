@@ -2,9 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Specialized;
-using CP.Reactive.Core;
-
 namespace CP.Reactive.Collections;
 
 /// <summary>Base interface for all reactive collections providing change observation.</summary>

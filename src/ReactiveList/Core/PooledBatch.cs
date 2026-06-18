@@ -2,9 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Buffers;
-using CP.Reactive.Internal;
-
 namespace CP.Reactive.Core;
 
 /// <summary>Represents a batch of items obtained from an array pool, along with the number of valid items in the batch.</summary>
