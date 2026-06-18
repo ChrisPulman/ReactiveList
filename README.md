@@ -3,9 +3,16 @@
 [![NuGet](https://img.shields.io/nuget/v/ReactiveList.svg?style=flat-square)](https://www.nuget.org/packages/ReactiveList/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ReactiveList.svg?style=flat-square)](https://www.nuget.org/packages/ReactiveList/)
 [![License](https://img.shields.io/github/license/ChrisPulman/ReactiveList.svg?style=flat-square)](LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/ChrisPulman/ReactiveList/BuildOnly.yml?branch=main&style=flat-square)](https://github.com/ChrisPulman/ReactiveList/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/ChrisPulman/ReactiveList/BuildDeploy.yml?branch=main&style=flat-square)](https://github.com/ChrisPulman/ReactiveList/actions)
+
 
 ReactiveList is a high-performance, thread-safe observable collection library for .NET. It provides list, dictionary, sharded, indexed, and view-based collection types that publish change streams for UI binding, reactive workflows, live data processing, and low-allocation batch operations.
+
+
+<p align="center">
+  <img src="Images/HeroImage.png" alt="ReactiveList V5 dual package configuration" width="500" />
+</p>
+
 
 ## V5.0.x Breaking Change
 
