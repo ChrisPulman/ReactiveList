@@ -4,7 +4,7 @@
     <TargetFrameworks>$(CoreTargetFrameworks)</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>CP.Reactive</RootNamespace>
+    <RootNamespace>CP.Primitives</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
@@ -40,10 +40,10 @@
     <Using Include="System.Collections.Specialized"/>
     <Using Include="System.ComponentModel"/>
     <Using Include="System.Threading.Channels"/>
-    <Using Include="CP.Reactive.Core"/>
-    <Using Include="CP.Reactive.Collections"/>
-    <Using Include="CP.Reactive.Internal"/>
-    <Using Include="CP.Reactive.Views"/>
+    <Using Include="CP.Primitives.Core"/>
+    <Using Include="CP.Primitives.Collections"/>
+    <Using Include="CP.Primitives.Internal"/>
+    <Using Include="CP.Primitives.Views"/>
     <Using Include="System.Collections.ObjectModel"/>
     <Using Include="System.Runtime.Serialization"/>
     <Using Include="System.Runtime.ExceptionServices"/>

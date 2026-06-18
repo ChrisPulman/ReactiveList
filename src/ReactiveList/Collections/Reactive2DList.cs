@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Collections;
-
+#else
+namespace CP.Primitives.Collections;
+#endif
 /// <summary>
 /// Represents a two-dimensional reactive list, where each element is itself a reactive list of items of type
 /// <typeparamref name="T"/>. Provides methods for managing and observing changes to a collection of collections in a

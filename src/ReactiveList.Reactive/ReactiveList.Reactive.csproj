@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>$(CoreTargetFrameworks)</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CP.Reactive</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);REACTIVELIST_REACTIVE</DefineConstants>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\ReactiveList\**\*.cs" Exclude="..\ReactiveList\bin\**;..\ReactiveList\obj\**" Link="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ReactiveUI.Primitives.Reactive" Version="5.4.0" PrivateAssets="analyzers" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+    <PackageReference Include="System.Buffers" Version="4.6.1" />
+    <PackageReference Include="System.Memory" Version="4.6.3" />
+    <PackageReference Include="System.Threading.Channels" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ReactiveList.Tests" />
+    <InternalsVisibleTo Include="ReactiveList.Reactive.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Buffers"/>
+    <Using Include="System.Collections"/>
+    <Using Include="System.Collections.Concurrent"/>
+    <Using Include="System.Collections.ObjectModel"/>
+    <Using Include="System.Collections.Specialized"/>
+    <Using Include="System.ComponentModel"/>
+    <Using Include="System.Diagnostics"/>
+    <Using Include="System.Diagnostics.CodeAnalysis"/>
+    <Using Include="System.Linq.Expressions"/>
+    <Using Include="System.Reactive.Concurrency.IScheduler" Alias="ISequencer"/>
+    <Using Include="System.Runtime.CompilerServices"/>
+    <Using Include="System.Runtime.ExceptionServices"/>
+    <Using Include="System.Runtime.InteropServices"/>
+    <Using Include="System.Runtime.Serialization"/>
+    <Using Include="System.Threading.Channels"/>
+    <Using Include="CP.Reactive.Core"/>
+    <Using Include="CP.Reactive.Collections"/>
+    <Using Include="CP.Reactive.Internal"/>
+    <Using Include="CP.Reactive.Views"/>
+    <Using Include="ReactiveUI.Primitives.Disposables"/>
+    <Using Include="ReactiveUI.Primitives.Reactive"/>
+    <Using Include="ReactiveUI.Primitives.Reactive.Concurrency"/>
+    <Using Include="ReactiveUI.Primitives.Reactive.Signals"/>
+    <Using Include="ReactiveUI.Primitives.Signals"/>
+  </ItemGroup>
+
+</Project>

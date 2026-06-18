@@ -7,8 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
+using CP.Primitives.Collections;
+using CP.Primitives.Core;
 using TUnit.Core;
 
 namespace ReactiveList.Test;

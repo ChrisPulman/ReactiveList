@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Defines methods for maintaining a secondary index that tracks changes to a collection of items.</summary>
 /// <remarks>Implementations of this interface are notified when items are added, removed, or updated in the
 /// primary collection, allowing the secondary index to stay synchronized. This interface is typically used to support

@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
-using CP.Reactive.Collections;
+using CP.Primitives.Collections;
 using DynamicData;
 
 namespace ReactiveList.Benchmarks;

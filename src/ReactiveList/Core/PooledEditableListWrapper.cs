@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>A pooled version of <see cref="EditableListWrapper{T}"/> that supports reuse through object pooling.</summary>
 /// <typeparam name="T">The type of elements in the wrapped list.</typeparam>
 /// <remarks>

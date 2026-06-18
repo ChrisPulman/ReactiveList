@@ -10,8 +10,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Reflection;
-using CP.Reactive;
-using CP.Reactive.Core;
+using CP.Primitives;
+using CP.Primitives.Core;
 using FluentAssertions;
 using ReactiveUI.Primitives.Concurrency;
 using TUnit.Core;
@@ -669,7 +669,7 @@ public class CoreCoverageTests
     [Test]
     public void ReactivePrimitivesGeneratedBridgeAttribute_ShouldBeConstructible()
     {
-        var attributeType = typeof(CP.Reactive.Collections.ReactiveList<int>).Assembly.GetType(
+        var attributeType = typeof(CP.Primitives.Collections.ReactiveList<int>).Assembly.GetType(
             "ReactiveUI.Primitives.R3Bridge.Generated.PrimitivesR3BridgeGeneratedAttribute");
 
         attributeType.Should().NotBeNull();

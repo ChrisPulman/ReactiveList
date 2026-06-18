@@ -5,9 +5,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
-using CP.Reactive.Views;
+using CP.Primitives.Collections;
+using CP.Primitives.Core;
+using CP.Primitives.Views;
 using FluentAssertions;
 using TUnit.Core;
 

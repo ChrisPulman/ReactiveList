@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive;
-
+#else
+namespace CP.Primitives;
+#endif
 /// <summary>Provides extension methods for reactive list operations including filtering, transforming, and observing changes.</summary>
 public static class ReactiveListExtensions
 {
@@ -376,7 +379,7 @@ public static class ReactiveListExtensions
                         observer.OnCompleted();
                     });
 
-                return ReactiveUI.Primitives.Disposables.Scope.Create(() =>
+                return Scope.Create(() =>
                 {
                     subscription.Dispose();
                     foreach (var group in groups)
@@ -517,7 +520,7 @@ public static class ReactiveListExtensions
             }
 #endif
 
-            return new FilteredReactiveView<T>(list, filter, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+            return new FilteredReactiveView<T>(list, filter, scheduler ?? ReactiveListScheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
         }
 
         /// <summary>Creates an unfiltered view of the reactive list that updates automatically when the source changes.</summary>
@@ -554,7 +557,7 @@ public static class ReactiveListExtensions
             }
 #endif
 
-            return new DynamicFilteredReactiveView<T>(list, filterObservable, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+            return new DynamicFilteredReactiveView<T>(list, filterObservable, scheduler ?? ReactiveListScheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
         }
 
         /// <summary>Creates a sorted view of the reactive list that updates automatically when the source changes.</summary>
@@ -582,7 +585,7 @@ public static class ReactiveListExtensions
             }
 #endif
 
-            return new SortedReactiveView<T>(list, comparer, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+            return new SortedReactiveView<T>(list, comparer, scheduler ?? ReactiveListScheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
         }
 
         /// <summary>Creates a sorted view of the reactive list using a key selector.</summary>
@@ -617,7 +620,7 @@ public static class ReactiveListExtensions
                 ? Comparer<T>.Create((x, y) => Comparer<TKey>.Default.Compare(keySelector(y), keySelector(x)))
                 : Comparer<T>.Create((x, y) => Comparer<TKey>.Default.Compare(keySelector(x), keySelector(y)));
 
-            return new SortedReactiveView<T>(list, comparer, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+            return new SortedReactiveView<T>(list, comparer, scheduler ?? ReactiveListScheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
         }
 
         /// <summary>Creates a grouped view of the reactive list.</summary>
@@ -647,7 +650,7 @@ public static class ReactiveListExtensions
             }
 #endif
 
-            return new GroupedReactiveView<T, TKey>(list, keySelector, scheduler ?? Sequencer.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
+            return new GroupedReactiveView<T, TKey>(list, keySelector, scheduler ?? ReactiveListScheduler.CurrentThread, TimeSpan.FromMilliseconds(throttleMs));
         }
     }
 

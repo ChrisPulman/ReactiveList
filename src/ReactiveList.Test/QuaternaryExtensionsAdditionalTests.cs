@@ -7,9 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CP.Reactive;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
+using CP.Primitives;
+using CP.Primitives.Collections;
+using CP.Primitives.Core;
 using FluentAssertions;
 using ReactiveUI.Primitives.Signals;
 using TUnit.Core;
@@ -55,13 +55,13 @@ public class QuaternaryExtensionsAdditionalTests
 
         // Test DynamicReactiveView with a simple direct filter first
         var simpleFilterSubject = new BehaviorSignal<Func<Employee, bool>>(e => e.Department == "Engineering");
-        using var simpleView = new CP.Reactive.Views.DynamicReactiveView<Employee>(list, simpleFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
+        using var simpleView = new CP.Primitives.Views.DynamicReactiveView<Employee>(list, simpleFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
         simpleView.Items.Count.Should().Be(2, "DynamicReactiveView with simple filter should work");
 
         // Test DynamicReactiveView with ItemMatchesSecondaryIndex filter directly
         var indexFilterSubject = new BehaviorSignal<Func<Employee, bool>>(
             item => new HashSet<string>(["Engineering"]).Any(key => list.ItemMatchesSecondaryIndex("ByDepartment", item, key)));
-        using var indexView = new CP.Reactive.Views.DynamicReactiveView<Employee>(list, indexFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
+        using var indexView = new CP.Primitives.Views.DynamicReactiveView<Employee>(list, indexFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
         indexView.Items.Count.Should().Be(2, "DynamicReactiveView with ItemMatchesSecondaryIndex filter should work");
 
         var departmentFilter = new BehaviorSignal<string[]>(["Engineering"]);
@@ -321,7 +321,7 @@ public class QuaternaryExtensionsAdditionalTests
         // Create the view directly (not through extension method)
         var keysObservable = new BehaviorSignal<string[]>(["Engineering"]);
 
-        using var view = new CP.Reactive.Views.DynamicSecondaryIndexReactiveView<Employee, string>(
+        using var view = new CP.Primitives.Views.DynamicSecondaryIndexReactiveView<Employee, string>(
             list,
             "ByDepartment",
             keysObservable,

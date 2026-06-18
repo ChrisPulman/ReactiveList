@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Collections;
-
+#else
+namespace CP.Primitives.Collections;
+#endif
 /// <summary>
 /// Represents a thread-safe, sharded dictionary that distributes key-value pairs across four internal partitions for
 /// improved concurrency and scalability.
@@ -328,7 +331,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     public SecondaryIndexReactiveView<TKey, TValue> CreateViewBySecondaryIndex<TIndexKey>(
         string indexName,
         TIndexKey key,
-        ReactiveUI.Primitives.Concurrency.ISequencer scheduler,
+        ISequencer scheduler,
         int throttleMs = 50)
         where TIndexKey : notnull
     {

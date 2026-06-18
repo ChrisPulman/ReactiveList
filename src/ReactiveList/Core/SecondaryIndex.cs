@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Provides a thread-safe secondary index for associating items with keys derived from a selector function.</summary>
 /// <typeparam name="T">The type of items to be indexed.</typeparam>
 /// <typeparam name="TKey">The type of the key used for indexing. Must be non-nullable.</typeparam>

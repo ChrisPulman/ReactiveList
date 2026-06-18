@@ -5,9 +5,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CP.Reactive;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
+using CP.Primitives;
+using CP.Primitives.Collections;
+using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 
@@ -53,7 +53,7 @@ public class ReactiveListExtensionsTests
         var addCount = 0;
 
         using var subscription = list.Connect()
-            .WhereReason(CP.Reactive.Core.ChangeReason.Add)
+            .WhereReason(CP.Primitives.Core.ChangeReason.Add)
             .Subscribe((Action<ChangeSet<string>>)(cs => addCount++));
 
         // Act

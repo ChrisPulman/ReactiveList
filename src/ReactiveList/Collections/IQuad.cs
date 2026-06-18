@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Collections;
-
+#else
+namespace CP.Primitives.Collections;
+#endif
 /// <summary>Defines a contract for a high-performance shard container used within quaternary collections.</summary>
 /// <remarks>
 /// IQuad represents an internal shard that stores elements. It is optimized for fast add/remove

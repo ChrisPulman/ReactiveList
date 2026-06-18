@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using CP.Reactive.Collections;
+using CP.Primitives.Collections;
 using FluentAssertions;
 using TUnit.Core;
 

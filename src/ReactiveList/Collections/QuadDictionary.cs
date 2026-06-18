@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Collections;
-
+#else
+namespace CP.Primitives.Collections;
+#endif
 /// <summary>
 /// Provides a high-performance, pooled hash table for storing key/value pairs, supporting fast lookup and insertion
 /// operations with customizable key equality comparison.

@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Specifies the type of action performed on a cache entry.</summary>
 /// <remarks>Use this enumeration to indicate the nature of a cache operation, such as when an entry is added,
 /// removed, updated, cleared, evicted, or when a batch operation is performed. This can be useful for event handling,

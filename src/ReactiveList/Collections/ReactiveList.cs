@@ -6,8 +6,11 @@
 using System.Runtime.InteropServices;
 #endif
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Collections;
-
+#else
+namespace CP.Primitives.Collections;
+#endif
 /// <summary>
 /// Represents a thread-safe, observable list that provides reactive notifications for item additions, removals, and
 /// changes.

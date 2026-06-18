@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Specifies the reason for a change in a reactive collection.</summary>
 /// <remarks>
 /// This enumeration provides a unified change reason type compatible with DynamicData patterns.
