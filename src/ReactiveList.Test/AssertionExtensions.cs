@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using CP.Reactive.Core;
+using CP.Primitives.Core;
 using TUnit.Assertions.Exceptions;
 
 namespace FluentAssertions;

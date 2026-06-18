@@ -9,8 +9,8 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
+using CP.Primitives.Collections;
+using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 

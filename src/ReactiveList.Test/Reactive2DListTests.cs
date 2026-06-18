@@ -5,7 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CP.Reactive.Collections;
+using CP.Primitives.Collections;
 using FluentAssertions;
 using TUnit.Core;
 

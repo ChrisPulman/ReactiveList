@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Views;
-
+#else
+namespace CP.Primitives.Views;
+#endif
 /// <summary>
 /// Provides a reactive view over a <see cref="QuaternaryDictionary{TKey, TValue}"/> filtered by a secondary index key.
 /// The view automatically updates when the source dictionary changes.

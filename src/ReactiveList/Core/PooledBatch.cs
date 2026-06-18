@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Represents a batch of items obtained from an array pool, along with the number of valid items in the batch.</summary>
 /// <remarks>The underlying array is returned to the shared array pool when the batch is disposed. After calling
 /// <see cref="Dispose"/>, the contents of <paramref name="Items"/> should not be accessed. This type is sealed and not

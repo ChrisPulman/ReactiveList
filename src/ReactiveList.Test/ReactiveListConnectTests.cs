@@ -5,9 +5,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CP.Reactive;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
+using CP.Primitives;
+using CP.Primitives.Collections;
+using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 

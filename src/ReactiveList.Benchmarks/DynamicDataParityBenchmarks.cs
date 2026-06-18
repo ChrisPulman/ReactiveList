@@ -5,8 +5,8 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using BenchmarkDotNet.Attributes;
-using CP.Reactive;
-using CP.Reactive.Collections;
+using CP.Primitives;
+using CP.Primitives.Collections;
 using DynamicData;
 using DynamicData.Binding;
 
@@ -56,7 +56,7 @@ public class DynamicDataParityBenchmarks
     {
         using var list = new ReactiveList<int>();
         var total = 0;
-        var pipeline = CP.Reactive.ReactiveListExtensions.SortBy<int, int>(
+        var pipeline = CP.Primitives.ReactiveListExtensions.SortBy<int, int>(
             list.Connect()
                 .WhereChanges(static change => change.Current % 2 == 0)
                 .SelectChanges(static (int item) => item * 2),

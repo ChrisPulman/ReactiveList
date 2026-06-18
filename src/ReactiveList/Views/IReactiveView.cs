@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Views;
-
+#else
+namespace CP.Primitives.Views;
+#endif
 /// <summary>Defines methods for binding a reactive view's items collection to a property.</summary>
 /// <typeparam name="TView">The concrete view type (for fluent chaining).</typeparam>
 /// <typeparam name="TItem">The type of items in the view's collection.</typeparam>

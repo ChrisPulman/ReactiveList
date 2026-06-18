@@ -6,8 +6,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
-using CP.Reactive;
-using CP.Reactive.Collections;
+using CP.Primitives;
+using CP.Primitives.Collections;
 using FluentAssertions;
 using TUnit.Core;
 

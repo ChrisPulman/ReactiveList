@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Internal;
-
+#else
+namespace CP.Primitives.Internal;
+#endif
 /// <summary>Represents a change token for tracking collection modifications with minimal allocations.</summary>
 /// <typeparam name="T">The type of items in the collection.</typeparam>
 internal readonly record struct ChangeToken<T>

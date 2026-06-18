@@ -4,8 +4,8 @@
 
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Columns;
-using CP.Reactive;
-using CP.Reactive.Collections;
+using CP.Primitives;
+using CP.Primitives.Collections;
 using DynamicData;
 
 namespace ReactiveList.Benchmarks;

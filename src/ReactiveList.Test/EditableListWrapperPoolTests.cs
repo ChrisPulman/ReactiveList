@@ -6,7 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using CP.Reactive.Core;
+using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 

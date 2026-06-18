@@ -5,7 +5,7 @@
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Linq;
-using CP.Reactive.Core;
+using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 

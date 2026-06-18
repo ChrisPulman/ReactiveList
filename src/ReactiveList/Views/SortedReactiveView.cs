@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Views;
-
+#else
+namespace CP.Primitives.Views;
+#endif
 /// <summary>Provides a sorted, read-only view over a <see cref="IReactiveList{T}"/> that automatically updates when the source list changes.</summary>
 /// <typeparam name="T">The type of elements in the view.</typeparam>
 public sealed class SortedReactiveView<T> : IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<SortedReactiveView<T>, T>, IDisposable

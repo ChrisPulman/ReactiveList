@@ -7,8 +7,11 @@ using System.Buffers;
 using System.Runtime.CompilerServices;
 #endif
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Represents a set of changes to a collection, compatible with DynamicData patterns.</summary>
 /// <remarks>
 /// This struct uses array pooling on .NET 6+ for optimal memory efficiency.

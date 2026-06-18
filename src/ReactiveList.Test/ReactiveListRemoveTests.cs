@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using CP.Reactive;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
+using CP.Primitives;
+using CP.Primitives.Collections;
+using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 

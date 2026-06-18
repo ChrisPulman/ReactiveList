@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Internal;
-
+#else
+namespace CP.Primitives.Internal;
+#endif
 /// <summary>A simple grouping implementation for change grouping.</summary>
 /// <typeparam name="TKey">The type of the grouping key.</typeparam>
 /// <typeparam name="TElement">The type of elements in the group.</typeparam>

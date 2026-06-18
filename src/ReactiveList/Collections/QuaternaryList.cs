@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Collections;
-
+#else
+namespace CP.Primitives.Collections;
+#endif
 /// <summary>
 /// Represents a high-performance, thread-safe list that partitions its elements across four internal shards for
 /// efficient concurrent access and batch operations. Supports secondary indexing for fast lookups by custom keys.

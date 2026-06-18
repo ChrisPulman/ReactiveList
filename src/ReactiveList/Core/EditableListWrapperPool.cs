@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Provides a thread-safe object pool for reusing instances of <see cref="PooledEditableListWrapper{T}"/>.</summary>
 /// <remarks>
 /// Object pooling reduces GC pressure by reusing wrapper instances instead of allocating new ones.

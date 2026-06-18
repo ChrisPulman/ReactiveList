@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Represents a notification describing a cache action and the associated item or batch of items.</summary>
 /// <param name="Action"> Gets the cache action that triggered the notification. </param>
 /// <param name="Item"> Gets the item associated with the cache action, or default if the action applies to a batch. </param>

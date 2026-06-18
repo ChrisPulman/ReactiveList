@@ -5,8 +5,8 @@
 using System.Collections.ObjectModel;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Columns;
-using CP.Reactive;
-using CP.Reactive.Collections;
+using CP.Primitives;
+using CP.Primitives.Collections;
 using DynamicData;
 using DynamicData.Binding;
 using ReactiveUI.Primitives.Concurrency;

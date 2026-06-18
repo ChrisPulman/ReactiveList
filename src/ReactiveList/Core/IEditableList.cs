@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Represents a generic list that supports batch addition and item reordering operations.</summary>
 /// <remarks>In addition to standard list operations, this interface provides methods for adding multiple items at
 /// once and for moving items within the list. Implementations may vary in thread safety and performance

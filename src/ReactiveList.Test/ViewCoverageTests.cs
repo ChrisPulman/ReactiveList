@@ -13,9 +13,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using CP.Reactive.Collections;
-using CP.Reactive.Core;
-using CP.Reactive.Views;
+using CP.Primitives.Collections;
+using CP.Primitives.Core;
+using CP.Primitives.Views;
 using FluentAssertions;
 using TUnit.Core;
 

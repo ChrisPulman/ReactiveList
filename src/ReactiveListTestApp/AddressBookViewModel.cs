@@ -5,8 +5,8 @@
 using System.Collections.ObjectModel;
 using System.Reactive;
 using System.Reactive.Disposables.Fluent;
-using CP.Reactive;
-using CP.Reactive.Collections;
+using CP.Primitives;
+using CP.Primitives.Collections;
 using CrissCross;
 using ReactiveUI;
 using ReactiveUI.Primitives.Concurrency;

@@ -5,8 +5,8 @@
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using CP.Reactive;
-using CP.Reactive.Collections;
+using CP.Primitives;
+using CP.Primitives.Collections;
 using TUnit.Core;
 
 namespace ReactiveList.Test;

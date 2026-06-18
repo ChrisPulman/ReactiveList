@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Internal;
-
+#else
+namespace CP.Primitives.Internal;
+#endif
 /// <summary>Internal observable helpers used to keep ReactiveList source compact while depending on ReactiveUI.Primitives.</summary>
 internal static class ObservableMixins
 {
@@ -76,7 +79,7 @@ internal static class ObservableMixins
         /// <param name="timeSpan">The buffering period.</param>
         /// <returns>An observable producing buffered lists.</returns>
         public IObservable<IList<TSource>> Buffer(TimeSpan timeSpan) =>
-            source.Buffer(timeSpan, Sequencer.Default);
+            source.Buffer(timeSpan, ReactiveListScheduler.Default);
 
         /// <summary>Buffers values from the source for a given interval using a custom sequencer.</summary>
         /// <param name="timeSpan">The buffering period.</param>
@@ -140,7 +143,7 @@ internal static class ObservableMixins
                             flushScheduled = true;
                         }
 
-                        disposables.Add(sequencer.Schedule(timeSpan, Flush));
+                        disposables.Add(ReactiveListScheduler.Schedule(sequencer, timeSpan, Flush));
                     },
                     error =>
                     {
@@ -181,7 +184,7 @@ internal static class ObservableMixins
         /// <param name="dueTime">The delay before emitting the latest value.</param>
         /// <returns>An observable that emits throttled values.</returns>
         public IObservable<TSource> Throttle(TimeSpan dueTime) =>
-            source.Throttle(dueTime, Sequencer.Default);
+            source.Throttle(dueTime, ReactiveListScheduler.Default);
 
         /// <summary>Throttles notifications, using a custom sequencer.</summary>
         /// <param name="dueTime">The delay before emitting the latest value.</param>
@@ -224,7 +227,7 @@ internal static class ObservableMixins
                             currentVersion = ++version;
                         }
 
-                        disposables.Add(sequencer.Schedule(dueTime, () =>
+                        disposables.Add(ReactiveListScheduler.Schedule(sequencer, dueTime, () =>
                         {
                             TSource? valueToEmit;
                             lock (gate)

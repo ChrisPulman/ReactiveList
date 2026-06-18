@@ -4,7 +4,7 @@
 
 using System;
 using System.Buffers;
-using CP.Reactive.Core;
+using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 

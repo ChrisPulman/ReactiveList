@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CP.Reactive.Core;
+using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 

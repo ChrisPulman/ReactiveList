@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Internal;
-
+#else
+namespace CP.Primitives.Internal;
+#endif
 /// <summary>
 /// Provides a wrapper around a generic list that supports editable operations and optional synchronization with an
 /// observable collection.

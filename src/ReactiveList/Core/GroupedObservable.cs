@@ -2,8 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+#if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
-
+#else
+namespace CP.Primitives.Core;
+#endif
 /// <summary>Represents a grouped observable sequence keyed by <typeparamref name="TKey"/>.</summary>
 /// <typeparam name="TKey">The grouping key type.</typeparam>
 /// <typeparam name="TElement">The element type.</typeparam>
