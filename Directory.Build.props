@@ -63,7 +63,7 @@
   
   <ItemGroup>
     <!--<Compile Update="**\*.cs" DependentUpon="I%(Filename).cs" />-->
-    <PackageReference Include="StyleSharp.Analyzers" Version="3.12.10" PrivateAssets="All" />
+    <PackageReference Include="StyleSharp.Analyzers" Version="3.12.14" PrivateAssets="All" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.15.0" PrivateAssets="All" />
   </ItemGroup>
 </Project>
