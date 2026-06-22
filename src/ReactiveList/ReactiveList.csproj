@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ReactiveUI.Primitives" Version="5.4.0" PrivateAssets="analyzers" />
+    <PackageReference Include="ReactiveUI.Primitives" Version="5.6.0" PrivateAssets="analyzers" />
   </ItemGroup>
 
   <!-- System.Buffers and System.Memory for .NET Framework -->
@@ -31,23 +31,25 @@
   <ItemGroup>
     <Using Include="System.Buffers"/>
     <Using Include="System.Collections"/>
-    <Using Include="System.Diagnostics"/>
-    <Using Include="System.Diagnostics.CodeAnalysis"/>
-    <Using Include="System.Runtime.CompilerServices"/>
-    <Using Include="System.Runtime.InteropServices"/>
-    <Using Include="System.Runtime.InteropServices"/>
+    <Using Include="System.ComponentModel"/>
     <Using Include="System.Collections.Concurrent"/>
     <Using Include="System.Collections.Specialized"/>
-    <Using Include="System.ComponentModel"/>
+    <Using Include="System.Collections.ObjectModel"/>
+    <Using Include="System.Diagnostics"/>
+    <Using Include="System.Diagnostics.CodeAnalysis"/>
+    <Using Include="System.Linq.Expressions"/>
+    <Using Include="System.Runtime.CompilerServices"/>
+    <Using Include="System.Runtime.InteropServices"/>
+    <Using Include="System.Runtime.Serialization"/>
+    <Using Include="System.Runtime.ExceptionServices"/>
     <Using Include="System.Threading.Channels"/>
     <Using Include="CP.Primitives.Core"/>
     <Using Include="CP.Primitives.Collections"/>
     <Using Include="CP.Primitives.Internal"/>
     <Using Include="CP.Primitives.Views"/>
-    <Using Include="System.Collections.ObjectModel"/>
-    <Using Include="System.Runtime.Serialization"/>
-    <Using Include="System.Runtime.ExceptionServices"/>
-    <Using Include="System.Linq.Expressions"/>
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="ReactiveUI.Primitives.Concurrency"/>
     <Using Include="ReactiveUI.Primitives"/>
     <Using Include="ReactiveUI.Primitives.Disposables"/>
