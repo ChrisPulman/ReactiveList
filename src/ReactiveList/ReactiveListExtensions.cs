@@ -445,7 +445,7 @@ public static class ReactiveListExtensions
     /// <typeparam name="T">The item type carried by the receiver.</typeparam>
     /// <param name="source">The source sequence.</param>
     extension<T>(IObservable<ChangeSet<T>> source)
-        where T : System.ComponentModel.INotifyPropertyChanged
+        where T : INotifyPropertyChanged
     {
         /// <summary>Automatically refreshes items when the specified property changes (via INotifyPropertyChanged).</summary>
         /// <param name="propertyName">The name of the property to watch for changes. If null or empty, watches all properties.</param>
@@ -470,7 +470,7 @@ public static class ReactiveListExtensions
                     {
                         var item = change.Current;
                         var index = change.CurrentIndex;
-                        var refreshObservable = Observable.FromEventPattern<System.ComponentModel.PropertyChangedEventHandler, System.ComponentModel.PropertyChangedEventArgs>(
+                        var refreshObservable = Observable.FromEventPattern<PropertyChangedEventHandler, PropertyChangedEventArgs>(
                             h => item.PropertyChanged += h,
                             h => item.PropertyChanged -= h)
                             .Keep(e => watchAllProperties || e.EventArgs.PropertyName == propertyName || string.IsNullOrEmpty(e.EventArgs.PropertyName))
@@ -480,7 +480,7 @@ public static class ReactiveListExtensions
                     }
                 }
 
-                return ObservableMixins.Blend(results);
+                return results.Blend();
             });
         }
 
