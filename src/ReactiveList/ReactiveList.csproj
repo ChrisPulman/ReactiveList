@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ReactiveUI.Primitives" Version="5.6.0" PrivateAssets="analyzers" />
+    <PackageReference Include="ReactiveUI.Primitives" Version="5.7.0" PrivateAssets="analyzers" />
   </ItemGroup>
 
   <!-- System.Buffers and System.Memory for .NET Framework -->
