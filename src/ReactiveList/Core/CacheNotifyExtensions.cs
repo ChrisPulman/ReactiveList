@@ -24,12 +24,9 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Change<T>? ToChange()
         {
-            if (notification is null)
-            {
-                return null;
-            }
-
-            return notification.Action switch
+            return notification is null
+                ? null
+                : notification.Action switch
             {
                 CacheAction.Added when notification.Item is not null =>
                     Change<T>.CreateAdd(notification.Item, notification.CurrentIndex),
@@ -59,10 +56,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<CacheNotify<T>> WhereAction(CacheAction action)
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source.Keep(n => n.Action == action);
         }
@@ -72,10 +66,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<CacheNotify<T>> WhereAdded()
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source.Keep(n => n.Action is CacheAction.Added or CacheAction.BatchAdded);
         }
@@ -85,10 +76,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<CacheNotify<T>> WhereRemoved()
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source.Keep(n => n.Action is CacheAction.Removed or CacheAction.BatchRemoved);
         }
@@ -98,10 +86,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<T> SelectItems()
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source
                 .Keep(n => n.Item is not null)
@@ -113,10 +98,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<T> SelectAllItems()
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source.FlatMap(n =>
             {
@@ -127,12 +109,7 @@ public static class CacheNotifyExtensions
                     return items;
                 }
 
-                if (n.Item is not null)
-                {
-                    return [n.Item];
-                }
-
-                return [];
+                return n.Item is not null ? [n.Item] : [];
             });
         }
 
@@ -156,10 +133,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<(T Item, int OldIndex, int NewIndex)> OnItemMoved()
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source
                 .WhereAction(CacheAction.Moved)
@@ -178,10 +152,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<IList<CacheNotify<T>>> BufferNotifications(TimeSpan bufferTime)
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source
                 .Buffer(bufferTime)
@@ -194,10 +165,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<CacheNotify<T>> ThrottleNotifications(TimeSpan throttleTime)
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source.Throttle(throttleTime);
         }
@@ -208,15 +176,8 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<CacheNotify<T>> ObserveOnScheduler(ISequencer scheduler)
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
-
-            if (scheduler is null)
-            {
-                throw new ArgumentNullException(nameof(scheduler));
-            }
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(scheduler);
 
             return source.ObserveOn(scheduler);
         }
@@ -228,15 +189,8 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<TResult> TransformItems<TResult>(Func<T, TResult> selector)
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
-
-            if (selector is null)
-            {
-                throw new ArgumentNullException(nameof(selector));
-            }
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(selector);
 
             return source.SelectAllItems().Map(selector);
         }
@@ -247,15 +201,8 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<T> FilterItems(Func<T, bool> predicate)
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
-
-            if (predicate is null)
-            {
-                throw new ArgumentNullException(nameof(predicate));
-            }
+            ThrowHelper.ThrowIfNull(source);
+            ThrowHelper.ThrowIfNull(predicate);
 
             return source.SelectAllItems().Keep(predicate);
         }
@@ -265,10 +212,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<CacheNotify<T>> AutoDisposeBatches()
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source.Tap(n => n.Batch?.Dispose());
         }
@@ -278,10 +222,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<(CacheAction Action, int Count)> CountByAction()
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source.Map(n =>
             {
@@ -300,10 +241,7 @@ public static class CacheNotifyExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IObservable<ChangeSet<T>> ToChangeSets()
         {
-            if (source is null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ThrowHelper.ThrowIfNull(source);
 
             return source.Map(notification =>
             {
@@ -346,12 +284,7 @@ public static class CacheNotifyExtensions
                 }
 
                 var change = notification.ToChange();
-                if (change.HasValue)
-                {
-                    return new ChangeSet<T>(change.Value);
-                }
-
-                return ChangeSet<T>.Empty;
+                return change.HasValue ? new ChangeSet<T>(change.Value) : ChangeSet<T>.Empty;
             }).Where(cs => cs.Count > 0);
         }
     }

@@ -414,12 +414,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public bool Contains(object? value)
     {
-        if (!IsCompatibleObject(value))
-        {
-            return false;
-        }
-
-        return Contains((T)value!);
+        return IsCompatibleObject(value) && Contains((T)value!);
     }
 
     /// <inheritdoc/>
@@ -438,10 +433,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void CopyTo(Array array, int index)
     {
-        if (array is null)
-        {
-            throw new ArgumentNullException(nameof(array));
-        }
+        ThrowHelper.ThrowIfNull(array);
 
         if (array.Rank != 1)
         {
@@ -490,10 +482,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="editAction">The action to perform on the internal list.</param>
     public void Edit(Action<IEditableList<T>> editAction)
     {
-        if (editAction is null)
-        {
-            throw new ArgumentNullException(nameof(editAction));
-        }
+        ThrowHelper.ThrowIfNull(editAction);
 
         lock (_lock)
         {
@@ -546,12 +535,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public int IndexOf(object? value)
     {
-        if (IsCompatibleObject(value))
-        {
-            return IndexOf((T)value!);
-        }
-
-        return -1;
+        return IsCompatibleObject(value) ? IndexOf((T)value!) : -1;
     }
 
     /// <inheritdoc/>
@@ -694,10 +678,7 @@ public class ReactiveList<T> : IReactiveList<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int RemoveMany(Func<T, bool> predicate)
     {
-        if (predicate is null)
-        {
-            throw new ArgumentNullException(nameof(predicate));
-        }
+        ThrowHelper.ThrowIfNull(predicate);
 
         lock (_lock)
         {
@@ -927,13 +908,9 @@ public class ReactiveList<T> : IReactiveList<T>
         {
             args = CountPropertyChangedEventArgs;
         }
-        else if (propertyName == ItemArray)
-        {
-            args = ItemArrayPropertyChangedEventArgs;
-        }
         else
         {
-            args = new PropertyChangedEventArgs(propertyName);
+            args = propertyName == ItemArray ? ItemArrayPropertyChangedEventArgs : new(propertyName);
         }
 
         PropertyChanged?.Invoke(this, args);
@@ -1016,12 +993,7 @@ public class ReactiveList<T> : IReactiveList<T>
             return result;
         }
 
-        if (notification.Item is not null)
-        {
-            return [notification.Item];
-        }
-
-        return [];
+        return notification.Item is not null ? [notification.Item] : [];
     }
 
     /// <summary>Sets data for the SetItem operation.</summary>

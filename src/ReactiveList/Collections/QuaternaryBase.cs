@@ -190,8 +190,8 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
     public abstract IEnumerator<TItem> GetEnumerator();
 
     /// <summary>Returns an enumerator that iterates through a collection.</summary>
-    /// <returns>An <see cref="System.Collections.IEnumerator"/> object that can be used to iterate through the collection.</returns>
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    /// <returns>An <see cref="IEnumerator"/> object that can be used to iterate through the collection.</returns>
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>Attempts to enqueue a cache event for processing and increments the version counter.</summary>
     /// <param name="action">The cache action type.</param>
@@ -269,10 +269,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void EmitBatchAddedFromList(IList<TItem> items, int count)
     {
-        if (items is null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ThrowHelper.ThrowIfNull(items);
 
         if (!HasChangeObservers())
         {
@@ -331,10 +328,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void EmitBatchRemovedFromList(IList<TItem> items, int count)
     {
-        if (items is null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ThrowHelper.ThrowIfNull(items);
 
         if (!HasChangeObservers())
         {
@@ -494,7 +488,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
         if (evt.Batch is not null)
         {
             // Batch operations use Reset to avoid index issues with sharded collections
-            args = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset);
+            args = new(NotifyCollectionChangedAction.Reset);
             evt.Batch.Dispose();
         }
         else
@@ -510,14 +504,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
 
             // For Add/Remove with single items, we can't provide index in sharded collection
             // Use Reset for safety to ensure UI updates correctly
-            if (action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove)
-            {
-                args = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset);
-            }
-            else
-            {
-                args = new NotifyCollectionChangedEventArgs(action);
-            }
+            args = action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove ? new(NotifyCollectionChangedAction.Reset) : new(action);
         }
 
         // Dispatch to the captured synchronization context (UI thread)

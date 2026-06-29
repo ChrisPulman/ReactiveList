@@ -37,7 +37,7 @@ where T : notnull
         _comparer = comparer ?? throw new ArgumentNullException(nameof(comparer));
 
         _sortedItems = [];
-        Items = new ReadOnlyObservableCollection<T>(_sortedItems);
+        Items = new(_sortedItems);
 
         // Initialize with current items sorted
         RebuildView();

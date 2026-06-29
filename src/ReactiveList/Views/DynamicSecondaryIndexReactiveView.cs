@@ -47,7 +47,7 @@ where TKey : notnull
         ThrowHelper.ThrowIfNull(keysObservable);
 
         _filteredItems = [];
-        Items = new ReadOnlyObservableCollection<T>(_filteredItems);
+        Items = new(_filteredItems);
 
         var hasInitialKeys = TryGetLatest(keysObservable, out var initialKeys);
         _currentKeys = initialKeys?.ToHashSet() ?? [];

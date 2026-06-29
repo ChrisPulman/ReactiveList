@@ -56,7 +56,7 @@ where TKey : notnull
         _valueMatchesIndex = valueMatchesIndex ?? throw new ArgumentNullException(nameof(valueMatchesIndex));
 
         _filteredItems = [];
-        Items = new ReadOnlyObservableCollection<TValue>(_filteredItems);
+        Items = new(_filteredItems);
 
         // Initialize with current matching items
         RebuildView();

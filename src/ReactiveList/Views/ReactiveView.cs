@@ -49,7 +49,7 @@ where T : notnull
     public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T> snapshot, Func<T, bool> filter, TimeSpan throttle, ISequencer sheduler)
 #endif
     {
-        Items = new ReadOnlyObservableCollection<T>(_target);
+        Items = new(_target);
 
         if (stream is null)
         {

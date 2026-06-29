@@ -111,7 +111,7 @@ public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollect
     }
 
     /// <inheritdoc/>
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <inheritdoc/>
     public int IndexOf(T item)

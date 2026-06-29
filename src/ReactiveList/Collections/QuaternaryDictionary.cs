@@ -82,15 +82,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     public TValue this[TKey key]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get
-        {
-            if (TryGetValue(key, out var val))
-            {
-                return val;
-            }
-
-            throw new KeyNotFoundException();
-        }
+        get => TryGetValue(key, out var val) ? val : throw new KeyNotFoundException();
 
         set => AddOrUpdate(key, value);
     }
@@ -313,12 +305,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     public IEnumerable<TValue> GetValuesBySecondaryIndex<TIndexKey>(string indexName, TIndexKey key)
         where TIndexKey : notnull
     {
-        if (Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<TValue, TIndexKey> typedIdx)
-        {
-            return typedIdx.Lookup(key);
-        }
-
-        return [];
+        return Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<TValue, TIndexKey> typedIdx ? typedIdx.Lookup(key) : [];
     }
 
     /// <summary>Creates a reactive view filtered by a secondary index key.</summary>
@@ -335,12 +322,9 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         int throttleMs = 50)
         where TIndexKey : notnull
     {
-        if (!Indices.TryGetValue(indexName, out var idx) || idx is not SecondaryIndex<TValue, TIndexKey>)
-        {
-            throw new InvalidOperationException($"Secondary index '{indexName}' does not exist or has incompatible type.");
-        }
-
-        return SecondaryIndexReactiveView<TKey, TValue>.Create(
+        return !Indices.TryGetValue(indexName, out var idx) || idx is not SecondaryIndex<TValue, TIndexKey>
+            ? throw new InvalidOperationException($"Secondary index '{indexName}' does not exist or has incompatible type.")
+            : SecondaryIndexReactiveView<TKey, TValue>.Create(
             this,
             indexName,
             key,
@@ -357,12 +341,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     public bool ValueMatchesSecondaryIndex<TIndexKey>(string indexName, TValue value, TIndexKey key)
         where TIndexKey : notnull
     {
-        if (!Indices.TryGetValue(indexName, out var idx))
-        {
-            return false;
-        }
-
-        return idx.MatchesKey(value, key);
+        return Indices.TryGetValue(indexName, out var idx) && idx.MatchesKey(value, key);
     }
 
     /// <summary>Adds the specified key/value pair to the collection.</summary>
@@ -386,19 +365,14 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public (bool HasValue, TValue? Value) Lookup(TKey key)
     {
-        if (TryGetValue(key, out var value))
-        {
-            return (true, value);
-        }
-
-        return (false, default);
+        return TryGetValue(key, out var value) ? (true, value) : (false, default);
     }
 
     /// <summary>Removes all entries with keys in the specified collection from the dictionary.</summary>
     /// <param name="keys">The collection of keys to remove.</param>
     public void RemoveKeys(IEnumerable<TKey> keys)
     {
-        Internal.ThrowHelper.ThrowIfNull(keys);
+        ThrowHelper.ThrowIfNull(keys);
 
         // Fast path for arrays
         if (keys is TKey[] array)
@@ -423,7 +397,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <returns>The number of entries removed from the dictionary.</returns>
     public int RemoveMany(Func<KeyValuePair<TKey, TValue>, bool> predicate)
     {
-        Internal.ThrowHelper.ThrowIfNull(predicate);
+        ThrowHelper.ThrowIfNull(predicate);
 
         var totalRemoved = 0;
 
@@ -451,7 +425,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                             {
                                 var newBuffer = ArrayPool<TKey>.Shared.Rent(keysBuffer.Length * 2);
                                 keysBuffer.AsSpan(0, keysCount).CopyTo(newBuffer);
-                                ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
+                                ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
                                 keysBuffer = newBuffer;
                             }
 
@@ -489,7 +463,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
         finally
         {
-            ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
+            ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
         }
 
         return totalRemoved;
@@ -499,7 +473,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="editAction">An action that receives the dictionary interface to perform modifications.</param>
     public void Edit(Action<IDictionary<TKey, TValue>> editAction)
     {
-        Internal.ThrowHelper.ThrowIfNull(editAction);
+        ThrowHelper.ThrowIfNull(editAction);
 
         // Acquire all locks for the edit operation
         for (var i = 0; i < ShardCount; i++)
@@ -531,7 +505,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <exception cref="ArgumentNullException">Thrown when array is null.</exception>
     public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
     {
-        Internal.ThrowHelper.ThrowIfNull(array);
+        ThrowHelper.ThrowIfNull(array);
 
         for (var i = 0; i < ShardCount; i++)
         {

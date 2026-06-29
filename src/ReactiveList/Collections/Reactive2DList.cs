@@ -68,10 +68,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="items"/> is null.</exception>
     public void AddRange(IEnumerable<IEnumerable<T>> items)
     {
-        if (items is null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ThrowHelper.ThrowIfNull(items);
 
         base.AddRange(items.Select(static item => new ReactiveList<T>(item)).ToArray());
     }
@@ -81,10 +78,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="items"/> is null.</exception>
     public void AddRange(IEnumerable<T> items)
     {
-        if (items is null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ThrowHelper.ThrowIfNull(items);
 
         base.AddRange(items.Select(static item => new ReactiveList<T>(item)).ToArray());
     }
@@ -98,10 +92,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// collections.</exception>
     public void AddToInner(int outerIndex, IEnumerable<T> items)
     {
-        if (items is null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ThrowHelper.ThrowIfNull(items);
 
         if (outerIndex < 0 || outerIndex >= Count)
         {
@@ -180,10 +171,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="items"/> is null.</exception>
     public void Insert(int index, IEnumerable<T> items)
     {
-        if (items is null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ThrowHelper.ThrowIfNull(items);
 
         base.Insert(index, [.. items]);
     }
@@ -209,10 +197,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="items"/> is null.</exception>
     public void Insert(int index, IEnumerable<T> items, int innerIndex)
     {
-        if (items is null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ThrowHelper.ThrowIfNull(items);
 
         this[index].InsertRange(innerIndex, items);
     }

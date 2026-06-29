@@ -241,7 +241,7 @@ public static class ReactiveListExtensions
                 for (var i = 0; i < changes.Count; i++)
                 {
                     var c = changes[i];
-                    transformed[i] = new Change<TResult>(
+                    transformed[i] = new(
                         c.Reason,
                         selector(c.Current),
                         c.Previous is not null ? selector(c.Previous) : default,
@@ -352,7 +352,7 @@ public static class ReactiveListExtensions
                             var group = groups.FirstOrDefault(g => EqualityComparer<TKey>.Default.Equals(g.Key, key));
                             if (group is null)
                             {
-                                group = new GroupedObservable<TKey, T>(key);
+                                group = new(key);
                                 groups.Add(group);
                                 observer.OnNext(group);
                             }
