@@ -43,7 +43,7 @@ public static class EditableListWrapperPool
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PooledEditableListWrapper<T> Rent<T>(
         List<T> list,
-        System.Collections.ObjectModel.ObservableCollection<T>? observableCollection = null)
+        ObservableCollection<T>? observableCollection = null)
     {
         if (State.Get<T>().TryRent(out var wrapper) && wrapper is not null)
         {

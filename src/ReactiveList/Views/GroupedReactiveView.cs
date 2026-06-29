@@ -40,7 +40,7 @@ where TKey : notnull
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _keySelector = keySelector ?? throw new ArgumentNullException(nameof(keySelector));
 
-        Groups = new ReadOnlyObservableCollection<ReactiveGroup<TKey, T>>(_groupCollection);
+        Groups = new(_groupCollection);
 
         // Initialize with current items
         RebuildView();

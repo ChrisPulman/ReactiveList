@@ -48,7 +48,7 @@ where T : notnull
 
         _currentFilter = _ => true;
         _filteredItems = [];
-        Items = new ReadOnlyObservableCollection<T>(_filteredItems);
+        Items = new(_filteredItems);
 
         // Initialize with current items (no filter initially)
         RebuildView();

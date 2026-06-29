@@ -380,12 +380,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     public IEnumerable<T> GetItemsBySecondaryIndex<TKey>(string indexName, TKey key)
         where TKey : notnull
     {
-        if (Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<T, TKey> typedIdx)
-        {
-            return typedIdx.Lookup(key);
-        }
-
-        return [];
+        return Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<T, TKey> typedIdx ? typedIdx.Lookup(key) : [];
     }
 
     /// <summary>Determines whether the specified item matches the given key in the specified secondary index.</summary>
@@ -397,12 +392,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     public bool ItemMatchesSecondaryIndex<TKey>(string indexName, T item, TKey key)
         where TKey : notnull
     {
-        if (!Indices.TryGetValue(indexName, out var idx))
-        {
-            return false;
-        }
-
-        return idx.MatchesKey(item, key);
+        return Indices.TryGetValue(indexName, out var idx) && idx.MatchesKey(item, key);
     }
 
     /// <summary>Determines whether the collection contains a specific value.</summary>

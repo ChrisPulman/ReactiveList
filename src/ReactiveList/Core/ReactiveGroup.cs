@@ -22,7 +22,7 @@ public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollecti
     {
         Key = key;
         _items = items;
-        Items = new ReadOnlyObservableCollection<T>(_items);
+        Items = new(_items);
         _items.CollectionChanged += (s, e) =>
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));

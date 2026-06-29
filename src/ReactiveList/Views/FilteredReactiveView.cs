@@ -37,7 +37,7 @@ where T : notnull
         _filter = filter ?? throw new ArgumentNullException(nameof(filter));
 
         _filteredItems = [];
-        Items = new ReadOnlyObservableCollection<T>(_filteredItems);
+        Items = new(_filteredItems);
 
         // Initialize with current items
         RebuildView();

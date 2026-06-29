@@ -61,7 +61,7 @@ where TKey : notnull
         _valueMatchesIndex = valueMatchesIndex ?? throw new ArgumentNullException(nameof(valueMatchesIndex));
 
         _filteredItems = [];
-        Items = new ReadOnlyObservableCollection<KeyValuePair<TKey, TValue>>(_filteredItems);
+        Items = new(_filteredItems);
 
         var hasInitialKeys = TryGetLatest(keysObservable, out var initialKeys);
         _currentKeys = initialKeys?.ToHashSet() ?? [];
@@ -133,7 +133,7 @@ where TKey : notnull
             typedKeys,
             scheduler,
             throttle,
-            static (dict, name, key) => dict.GetValuesBySecondaryIndex<TIndexKey>(name, (TIndexKey)key),
+            static (dict, name, key) => dict.GetValuesBySecondaryIndex(name, (TIndexKey)key),
             static (dict, name, value, key) => dict.ValueMatchesSecondaryIndex(name, value, (TIndexKey)key));
     }
 

@@ -82,7 +82,7 @@ where T : notnull
         _source = source;
         _throttle = throttle;
         _scheduler = scheduler;
-        Items = new ReadOnlyObservableCollection<T>(_target);
+        Items = new(_target);
 
         var hasInitialFilter = TryGetLatest(filterObservable, out var initialFilter);
         if (hasInitialFilter)

@@ -48,10 +48,7 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
     /// <param name="changes">The changes array. This array is not copied on .NET Framework.</param>
     public ChangeSet(Change<T>[] changes)
     {
-        if (changes is null)
-        {
-            throw new ArgumentNullException(nameof(changes));
-        }
+        ThrowHelper.ThrowIfNull(changes);
 
 #if NET6_0_OR_GREATER
         _changes = ArrayPool<Change<T>>.Shared.Rent(changes.Length);
@@ -100,15 +97,7 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
     /// <exception cref="ArgumentOutOfRangeException">index is less than 0 or greater than or equal to Count.</exception>
     public Change<T> this[int index]
     {
-        get
-        {
-            if ((uint)index >= (uint)Count)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
-
-            return _changes![index];
-        }
+        get => (uint)index >= (uint)Count ? throw new ArgumentOutOfRangeException(nameof(index)) : _changes![index];
     }
 
 #if NET6_0_OR_GREATER

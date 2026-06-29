@@ -120,7 +120,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             Array.Copy(_items, index + 1, _items, index, _count - index);
         }
 
-        if (!Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
+        if (!ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
         {
             return;
         }
@@ -159,7 +159,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     /// <summary>Removes all elements from the list.</summary>
     public void Clear()
     {
-        if (Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
+        if (ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
         {
             Array.Clear(_items, 0, _count);
         }
@@ -210,7 +210,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             return;
         }
 
-        ArrayPool<T>.Shared.Return(_items, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_items, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _items = null!;
     }
 
@@ -262,7 +262,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             return 0;
         }
 
-        if (Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
+        if (ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>())
         {
             Array.Clear(items, writeIndex, removed);
         }
@@ -293,7 +293,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
         var newCapacity = _items.Length == 0 ? MinimumSize : _items.Length * 2;
         if (newCapacity < minCapacity)
         {
-            newCapacity = (int)Internal.BitOperationsCompat.RoundUpToPowerOf2((uint)minCapacity);
+            newCapacity = (int)BitOperationsCompat.RoundUpToPowerOf2((uint)minCapacity);
         }
 
         var newItems = ArrayPool<T>.Shared.Rent(newCapacity);
@@ -302,7 +302,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             Array.Copy(_items, newItems, _count);
         }
 
-        ArrayPool<T>.Shared.Return(_items, clearArray: Internal.ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+        ArrayPool<T>.Shared.Return(_items, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _items = newItems;
     }
 
@@ -384,7 +384,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
         public readonly T Current => _list._items[_index];
 
         /// <summary>Gets the current element.</summary>
-        readonly object IEnumerator.Current => Current!;
+        readonly object IEnumerator.Current => Current;
 
         /// <summary>Advances the enumerator to the next element.</summary>
         /// <returns>true if the enumerator was successfully advanced; false if it has passed the end.</returns>
