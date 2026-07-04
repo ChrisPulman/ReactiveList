@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ReactiveUI.Primitives.Reactive" Version="5.8.0" PrivateAssets="analyzers" />
+    <PackageReference Include="ReactiveUI.Primitives.Reactive" Version="6.0.0" PrivateAssets="analyzers" />
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
