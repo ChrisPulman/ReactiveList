@@ -43,6 +43,9 @@ public class DynamicSearchTests
     /// <summary>The secondary email.</summary>
     private const string SecondaryEmail = "user1@company.com";
 
+    /// <summary>A query that cannot match the deterministic contact data.</summary>
+    private const string NonMatchingQuery = "NonExistent";
+
     /// <summary>The tertiary first name.</summary>
     private const string TertiaryFirstName = "User2";
 
@@ -331,6 +334,11 @@ public class DynamicSearchTests
                     }
                 }
 
+                if (!string.Equals(query, NonMatchingQuery, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
                 processedQuery.TrySetResult(query);
             });
 
@@ -341,11 +349,11 @@ public class DynamicSearchTests
         ]);
 
         // Act - search for non-existent
-        searchText.OnNext("NonExistent");
+        searchText.OnNext(NonMatchingQuery);
         await processedQuery.Task;
 
         // Assert
-        searchResults.Should().BeEmpty();
+        await TUnit.Assertions.Assert.That(searchResults.Count).IsEqualTo(0);
     }
 
     /// <summary>Provides Matches.</summary>

@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
@@ -10,16 +9,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <SupportedOSPlatformVersion>10.0.18362.0</SupportedOSPlatformVersion>
   </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="CrissCross.WPF.UI" />
     <PackageReference Include="ReactiveUI.Primitives" />
-    <PackageReference Include="ReactiveUI.Primitives.Reactive" />
     <PackageReference Include="ReactiveUI.Primitives.Wpf" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\ReactiveList\ReactiveList.csproj" />
   </ItemGroup>
-
 </Project>

@@ -14,6 +14,7 @@
   <Folder Name="/Tests/">
     <Project Path="ReactiveList.Reactive.Test/ReactiveList.Reactive.Tests.csproj" />
     <Project Path="ReactiveList.Test/ReactiveList.Tests.csproj" />
+    <Project Path="ReactiveListTestApp.Tests/ReactiveListTestApp.Tests.csproj" />
   </Folder>
   <Project Path="../build/_build.csproj">
     <Build Project="false" />
