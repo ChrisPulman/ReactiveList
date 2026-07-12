@@ -322,6 +322,16 @@ public class ViewCoverageTests
             filters,
             TimeSpan.FromMilliseconds(TestConstants.TestValueTen),
             Sequencer.Immediate);
+        var applied = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        view.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(view.Items))
+            {
+                return;
+            }
+
+            applied.TrySetResult(true);
+        };
 
         source.RemoveItem(TestConstants.TestValueTwo);
         source.AddItem(TestConstants.TestValueFour);
@@ -332,15 +342,16 @@ public class ViewCoverageTests
         source.AddItem(TestConstants.TestValueSix);
         source.Emit(new CacheNotify<int>(CacheAction.Added, TestConstants.TestValueSix));
 
-        await WaitForPipeline();
+        await applied.Task;
 
         view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
 
+        applied = new(TaskCreationOptions.RunContinuationsAsynchronously);
         source.ClearItems();
         source.AddItem(TestConstants.TestValueEight);
         source.Emit(new CacheNotify<int>(CacheAction.BatchOperation, default));
 
-        await WaitForPipeline();
+        await applied.Task;
 
         view.Items.Should().Equal(TestConstants.TestValueEight);
     }
