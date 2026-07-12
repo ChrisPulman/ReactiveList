@@ -169,6 +169,12 @@ where T : notnull
                             needsRebuild = true;
                             break;
                         }
+
+                    default:
+                        {
+                            // Ignore invalid enum values to preserve the view's current state.
+                            break;
+                        }
                 }
             }
 
@@ -232,11 +238,18 @@ where T : notnull
     private void RebuildView()
     {
         _sortedItems.Clear();
-        var sorted = _source.ToList();
-        sorted.Sort(_comparer);
-        foreach (var item in sorted)
+        var sourceItems = _source.Items;
+        var count = sourceItems.Count;
+        var sorted = new List<T>(count);
+        for (var i = 0; i < count; i++)
         {
-            _sortedItems.Add(item);
+            sorted.Add(sourceItems[i]);
+        }
+
+        sorted.Sort(_comparer);
+        for (var i = 0; i < sorted.Count; i++)
+        {
+            _sortedItems.Add(sorted[i]);
         }
     }
 

@@ -27,11 +27,11 @@ public class Reactive2DListTests
     [Test]
     public void Constructor_ShouldInitializeWithItems()
     {
-        var items = new List<List<int>> { new() { 1, 2 }, new() { 3, 4 } };
+        var items = new List<List<int>> { new() { 1, TestData.TestValueTwo }, new() { TestData.TestValueThree, TestData.TestValueFour } };
         var list = new Reactive2DList<int>(items);
-        Assert.Equal(2, list.Count);
-        Assert.Equal(2, list[0].Count);
-        Assert.Equal(2, list[1].Count);
+        Assert.Equal(TestData.TestValueTwo, list.Count);
+        Assert.Equal(TestData.TestValueTwo, list[0].Count);
+        Assert.Equal(TestData.TestValueTwo, list[1].Count);
         list.Dispose();
     }
 
@@ -39,11 +39,11 @@ public class Reactive2DListTests
     [Test]
     public void Constructor_ShouldInitializeWithReactiveLists()
     {
-        var items = new List<ReactiveList<int>> { new() { 1, 2 }, new() { 3, 4 } };
+        var items = new List<ReactiveList<int>> { new() { 1, TestData.TestValueTwo }, new() { TestData.TestValueThree, TestData.TestValueFour } };
         var list = new Reactive2DList<int>(items);
-        Assert.Equal(2, list.Count);
-        Assert.Equal(2, list[0].Count);
-        Assert.Equal(2, list[1].Count);
+        Assert.Equal(TestData.TestValueTwo, list.Count);
+        Assert.Equal(TestData.TestValueTwo, list[0].Count);
+        Assert.Equal(TestData.TestValueTwo, list[1].Count);
         list.Dispose();
     }
 
@@ -51,10 +51,10 @@ public class Reactive2DListTests
     [Test]
     public void Constructor_ShouldInitializeWithSingleItem()
     {
-        var list = new Reactive2DList<int>(5);
+        var list = new Reactive2DList<int>(TestData.TestValueFive);
         Assert.Single(list);
         Assert.Single(list[0]);
-        Assert.Equal(5, list[0][0]);
+        Assert.Equal(TestData.TestValueFive, list[0][0]);
         list.Dispose();
     }
 
@@ -62,14 +62,14 @@ public class Reactive2DListTests
     [Test]
     public void Constructor_ShouldInitializeWithItemEnumerable()
     {
-        IEnumerable<int> items = Enumerable.Range(7, 2);
+        IEnumerable<int> items = Enumerable.Range(TestData.TestValueSeven, TestData.TestValueTwo);
         var list = new Reactive2DList<int>(items);
 
-        Assert.Equal(2, list.Count);
+        Assert.Equal(TestData.TestValueTwo, list.Count);
         Assert.Single(list[0]);
         Assert.Single(list[1]);
-        Assert.Equal(7, list[0][0]);
-        Assert.Equal(8, list[1][0]);
+        Assert.Equal(TestData.TestValueSeven, list[0][0]);
+        Assert.Equal(TestData.TestValueEight, list[1][0]);
         list.Dispose();
     }
 
@@ -77,10 +77,10 @@ public class Reactive2DListTests
     [Test]
     public void Constructor_ShouldInitializeWithReactiveList()
     {
-        var items = new ReactiveList<int> { 1, 2, 3, 4 };
+        var items = new ReactiveList<int> { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour };
         var list = new Reactive2DList<int>(items);
         Assert.Single(list);
-        Assert.Equal(4, list[0].Count);
+        Assert.Equal(TestData.TestValueFour, list[0].Count);
         list.Dispose();
     }
 
@@ -89,9 +89,9 @@ public class Reactive2DListTests
     public void AddRange_ShouldAddItems()
     {
         var list = new Reactive2DList<int>();
-        var items = new List<List<int>> { new() { 1, 2 }, new() { 3, 4 } };
+        var items = new List<List<int>> { new() { 1, TestData.TestValueTwo }, new() { TestData.TestValueThree, TestData.TestValueFour } };
         list.AddRange(items);
-        Assert.Equal(2, list.Count);
+        Assert.Equal(TestData.TestValueTwo, list.Count);
         list.Dispose();
     }
 
@@ -100,9 +100,9 @@ public class Reactive2DListTests
     public void AddRange_ShouldAddSingleItems()
     {
         var list = new Reactive2DList<int>();
-        var items = new List<int> { 1, 2, 3, 4 };
+        var items = new List<int> { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour };
         list.AddRange(items);
-        Assert.Equal(4, list.Count);
+        Assert.Equal(TestData.TestValueFour, list.Count);
         list.Dispose();
     }
 
@@ -110,15 +110,15 @@ public class Reactive2DListTests
     [Test]
     public void AddRange_ShouldInsertItemsAtIndex()
     {
-        var list = new Reactive2DList<int>([5]);
-        var items = new List<List<int>> { new() { 1, 2 }, new() { 3, 4 } };
+        var list = new Reactive2DList<int>([TestData.TestValueFive]);
+        var items = new List<List<int>> { new() { 1, TestData.TestValueTwo }, new() { TestData.TestValueThree, TestData.TestValueFour } };
         list.AddRange(items);
-        Assert.Equal(3, list.Count);
-        Assert.Equal(5, list[0][0]);
-        Assert.Equal(2, list[1].Count);
-        Assert.Equal(2, list[1][1]);
-        Assert.Equal(2, list[2].Count);
-        Assert.Equal(4, list[2][1]);
+        Assert.Equal(TestData.TestValueThree, list.Count);
+        Assert.Equal(TestData.TestValueFive, list[0][0]);
+        Assert.Equal(TestData.TestValueTwo, list[1].Count);
+        Assert.Equal(TestData.TestValueTwo, list[1][1]);
+        Assert.Equal(TestData.TestValueTwo, list[TestData.TestValueTwo].Count);
+        Assert.Equal(TestData.TestValueFour, list[TestData.TestValueTwo][1]);
         list.Dispose();
     }
 
@@ -126,13 +126,13 @@ public class Reactive2DListTests
     [Test]
     public void Insert_ShouldInsertItemsAtIndex()
     {
-        var list = new Reactive2DList<int>([5]);
-        var items = new List<int> { 1, 2, 3, 4 };
+        var list = new Reactive2DList<int>([TestData.TestValueFive]);
+        var items = new List<int> { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour };
         list.Insert(0, items);
-        Assert.Equal(2, list.Count);
+        Assert.Equal(TestData.TestValueTwo, list.Count);
         Assert.Equal(1, list[0][0]);
-        Assert.Equal(4, list[0][3]);
-        Assert.Equal(5, list[1][0]);
+        Assert.Equal(TestData.TestValueFour, list[0][TestData.TestValueThree]);
+        Assert.Equal(TestData.TestValueFive, list[1][0]);
         list.Dispose();
     }
 
@@ -140,10 +140,10 @@ public class Reactive2DListTests
     [Test]
     public void Insert_ShouldInsertSingleItemAtIndex()
     {
-        var list = new Reactive2DList<int>([5]);
-        list.Insert(0, 10);
-        Assert.Equal(2, list.Count);
-        Assert.Equal(10, list[0][0]);
+        var list = new Reactive2DList<int>([TestData.TestValueFive]);
+        list.Insert(0, TestData.TestValueTen);
+        Assert.Equal(TestData.TestValueTwo, list.Count);
+        Assert.Equal(TestData.TestValueTen, list[0][0]);
         list.Dispose();
     }
 
@@ -151,10 +151,10 @@ public class Reactive2DListTests
     [Test]
     public void Insert_ShouldInsertReactiveListAtIndex()
     {
-        var list = new Reactive2DList<int>([5]);
-        var reactiveList = new ReactiveList<int> { 1, 2, 3, 4 };
+        var list = new Reactive2DList<int>([TestData.TestValueFive]);
+        var reactiveList = new ReactiveList<int> { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour };
         list.Insert(0, reactiveList);
-        Assert.Equal(2, list.Count);
+        Assert.Equal(TestData.TestValueTwo, list.Count);
         Assert.Equal(1, list[0][0]);
         list.Dispose();
     }
@@ -163,13 +163,13 @@ public class Reactive2DListTests
     [Test]
     public void Insert_ShouldInsertItemsInReactiveListAtIndex()
     {
-        var list = new Reactive2DList<int>([5]);
-        var items = new List<int> { 1, 2, 3, 4 };
+        var list = new Reactive2DList<int>([TestData.TestValueFive]);
+        var items = new List<int> { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour };
         list.Insert(0, items, 0);
-        Assert.Equal(5, list[0].Count);
+        Assert.Equal(TestData.TestValueFive, list[0].Count);
         Assert.Equal(1, list[0][0]);
-        Assert.Equal(4, list[0][3]);
-        Assert.Equal(5, list[0][4]);
+        Assert.Equal(TestData.TestValueFour, list[0][TestData.TestValueThree]);
+        Assert.Equal(TestData.TestValueFive, list[0][TestData.TestValueFour]);
         list.Dispose();
     }
 
@@ -177,11 +177,11 @@ public class Reactive2DListTests
     [Test]
     public void GetItem_ShouldReturnItemAtSpecifiedIndices()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2, 3 }, new() { 4, 5, 6 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo, TestData.TestValueThree }, new() { TestData.TestValueFour, TestData.TestValueFive, TestData.TestValueSix }]);
 
-        var item = list.GetItem(1, 2);
+        var item = list.GetItem(1, TestData.TestValueTwo);
 
-        item.Should().Be(6);
+        item.Should().Be(TestData.TestValueSix);
         list.Dispose();
     }
 
@@ -189,12 +189,12 @@ public class Reactive2DListTests
     [Test]
     public void GetItem_ShouldThrowWhenOuterIndexIsNegative()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
         var action = () => list.GetItem(-1, 0);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("outerIndex");
+            .WithParameterName(TestData.OuterIndexParameterName);
         list.Dispose();
     }
 
@@ -202,12 +202,12 @@ public class Reactive2DListTests
     [Test]
     public void GetItem_ShouldThrowWhenOuterIndexExceedsCount()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
-        var action = () => list.GetItem(5, 0);
+        var action = () => list.GetItem(TestData.TestValueFive, 0);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("outerIndex");
+            .WithParameterName(TestData.OuterIndexParameterName);
         list.Dispose();
     }
 
@@ -215,12 +215,12 @@ public class Reactive2DListTests
     [Test]
     public void GetItem_ShouldThrowWhenInnerIndexIsNegative()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
         var action = () => list.GetItem(0, -1);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("innerIndex");
+            .WithParameterName(TestData.InnerIndexParameterName);
         list.Dispose();
     }
 
@@ -228,12 +228,12 @@ public class Reactive2DListTests
     [Test]
     public void GetItem_ShouldThrowWhenInnerIndexExceedsCount()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
-        var action = () => list.GetItem(0, 5);
+        var action = () => list.GetItem(0, TestData.TestValueFive);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("innerIndex");
+            .WithParameterName(TestData.InnerIndexParameterName);
         list.Dispose();
     }
 
@@ -241,11 +241,11 @@ public class Reactive2DListTests
     [Test]
     public void SetItem_ShouldUpdateItemAtSpecifiedIndices()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2, 3 }, new() { 4, 5, 6 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo, TestData.TestValueThree }, new() { TestData.TestValueFour, TestData.TestValueFive, TestData.TestValueSix }]);
 
-        list.SetItem(1, 1, 99);
+        list.SetItem(1, 1, TestData.TestValueNinetyNine);
 
-        list.GetItem(1, 1).Should().Be(99);
+        list.GetItem(1, 1).Should().Be(TestData.TestValueNinetyNine);
         list.Dispose();
     }
 
@@ -253,12 +253,12 @@ public class Reactive2DListTests
     [Test]
     public void SetItem_ShouldThrowWhenOuterIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
-        var action = () => list.SetItem(5, 0, 99);
+        var action = () => list.SetItem(TestData.TestValueFive, 0, TestData.TestValueNinetyNine);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("outerIndex");
+            .WithParameterName(TestData.OuterIndexParameterName);
         list.Dispose();
     }
 
@@ -266,12 +266,12 @@ public class Reactive2DListTests
     [Test]
     public void SetItem_ShouldThrowWhenInnerIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
-        var action = () => list.SetItem(0, 5, 99);
+        var action = () => list.SetItem(0, TestData.TestValueFive, TestData.TestValueNinetyNine);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("innerIndex");
+            .WithParameterName(TestData.InnerIndexParameterName);
         list.Dispose();
     }
 
@@ -279,12 +279,12 @@ public class Reactive2DListTests
     [Test]
     public void Flatten_ShouldReturnAllItemsInOrder()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }, new() { 3, 4 }, new() { 5, 6 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }, new() { TestData.TestValueThree, TestData.TestValueFour }, new() { TestData.TestValueFive, TestData.TestValueSix }]);
 
         var flattened = list.Flatten().ToList();
 
-        flattened.Should().HaveCount(6);
-        flattened.Should().ContainInOrder(1, 2, 3, 4, 5, 6);
+        flattened.Should().HaveCount(TestData.TestValueSix);
+        flattened.Should().ContainInOrder(1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive, TestData.TestValueSix);
         list.Dispose();
     }
 
@@ -306,15 +306,15 @@ public class Reactive2DListTests
     {
         var list = new Reactive2DList<int>
         {
-            new ReactiveList<int> { 1, 2 },
+            new ReactiveList<int> { 1, TestData.TestValueTwo },
             new ReactiveList<int>(),
-            new ReactiveList<int> { 3 }
+            new ReactiveList<int> { TestData.TestValueThree }
         };
 
         var flattened = list.Flatten().ToList();
 
-        flattened.Should().HaveCount(3);
-        flattened.Should().ContainInOrder(1, 2, 3);
+        flattened.Should().HaveCount(TestData.TestValueThree);
+        flattened.Should().ContainInOrder(1, TestData.TestValueTwo, TestData.TestValueThree);
         list.Dispose();
     }
 
@@ -322,11 +322,11 @@ public class Reactive2DListTests
     [Test]
     public void TotalCount_ShouldReturnSumOfAllInnerListCounts()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }, new() { 3, 4, 5 }, new() { 6 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }, new() { TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive }, new() { TestData.TestValueSix }]);
 
         var total = list.TotalCount();
 
-        total.Should().Be(6);
+        total.Should().Be(TestData.TestValueSix);
         list.Dispose();
     }
 
@@ -348,14 +348,14 @@ public class Reactive2DListTests
     {
         var list = new Reactive2DList<int>
         {
-            new ReactiveList<int> { 1, 2 },
+            new ReactiveList<int> { 1, TestData.TestValueTwo },
             new ReactiveList<int>(),
-            new ReactiveList<int> { 3 }
+            new ReactiveList<int> { TestData.TestValueThree }
         };
 
         var total = list.TotalCount();
 
-        total.Should().Be(3);
+        total.Should().Be(TestData.TestValueThree);
         list.Dispose();
     }
 
@@ -363,13 +363,13 @@ public class Reactive2DListTests
     [Test]
     public void AddToInner_ShouldAddItemsToSpecifiedInnerList()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }, new() { 3, 4 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }, new() { TestData.TestValueThree, TestData.TestValueFour }]);
 
-        list.AddToInner(0, [5, 6]);
+        list.AddToInner(0, [TestData.TestValueFive, TestData.TestValueSix]);
 
-        list[0].Count.Should().Be(4);
-        list[0][2].Should().Be(5);
-        list[0][3].Should().Be(6);
+        list[0].Count.Should().Be(TestData.TestValueFour);
+        list[0][TestData.TestValueTwo].Should().Be(TestData.TestValueFive);
+        list[0][TestData.TestValueThree].Should().Be(TestData.TestValueSix);
         list.Dispose();
     }
 
@@ -377,12 +377,12 @@ public class Reactive2DListTests
     [Test]
     public void AddToInner_ShouldAddSingleItemToSpecifiedInnerList()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }, new() { 3, 4 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }, new() { TestData.TestValueThree, TestData.TestValueFour }]);
 
-        list.AddToInner(1, 99);
+        list.AddToInner(1, TestData.TestValueNinetyNine);
 
-        list[1].Count.Should().Be(3);
-        list[1][2].Should().Be(99);
+        list[1].Count.Should().Be(TestData.TestValueThree);
+        list[1][TestData.TestValueTwo].Should().Be(TestData.TestValueNinetyNine);
         list.Dispose();
     }
 
@@ -390,12 +390,12 @@ public class Reactive2DListTests
     [Test]
     public void AddToInner_ShouldThrowWhenOuterIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
-        var action = () => list.AddToInner(5, 99);
+        var action = () => list.AddToInner(TestData.TestValueFive, TestData.TestValueNinetyNine);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("outerIndex");
+            .WithParameterName(TestData.OuterIndexParameterName);
         list.Dispose();
     }
 
@@ -403,12 +403,12 @@ public class Reactive2DListTests
     [Test]
     public void AddToInner_ShouldThrowWhenItemsIsNull()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
         var action = () => list.AddToInner(0, (IEnumerable<int>)null!);
 
         action.Should().Throw<ArgumentNullException>()
-            .WithParameterName("items");
+            .WithParameterName(TestData.ItemsParameterName);
         list.Dispose();
     }
 
@@ -416,13 +416,13 @@ public class Reactive2DListTests
     [Test]
     public void RemoveFromInner_ShouldRemoveItemAtSpecifiedIndices()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2, 3 }, new() { 4, 5, 6 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo, TestData.TestValueThree }, new() { TestData.TestValueFour, TestData.TestValueFive, TestData.TestValueSix }]);
 
         list.RemoveFromInner(0, 1);
 
-        list[0].Count.Should().Be(2);
+        list[0].Count.Should().Be(TestData.TestValueTwo);
         list[0][0].Should().Be(1);
-        list[0][1].Should().Be(3);
+        list[0][1].Should().Be(TestData.TestValueThree);
         list.Dispose();
     }
 
@@ -430,12 +430,12 @@ public class Reactive2DListTests
     [Test]
     public void RemoveFromInner_ShouldThrowWhenOuterIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
-        var action = () => list.RemoveFromInner(5, 0);
+        var action = () => list.RemoveFromInner(TestData.TestValueFive, 0);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("outerIndex");
+            .WithParameterName(TestData.OuterIndexParameterName);
         list.Dispose();
     }
 
@@ -443,12 +443,12 @@ public class Reactive2DListTests
     [Test]
     public void ClearInner_ShouldClearTheSpecifiedInnerList()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2, 3 }, new() { 4, 5, 6 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo, TestData.TestValueThree }, new() { TestData.TestValueFour, TestData.TestValueFive, TestData.TestValueSix }]);
 
         list.ClearInner(0);
 
         list[0].Count.Should().Be(0);
-        list[1].Count.Should().Be(3); // Other list unchanged
+        list[1].Count.Should().Be(TestData.TestValueThree); // Other list unchanged
         list.Dispose();
     }
 
@@ -456,12 +456,12 @@ public class Reactive2DListTests
     [Test]
     public void ClearInner_ShouldThrowWhenOuterIndexIsOutOfRange()
     {
-        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, 2 }]);
+        var list = new Reactive2DList<int>((ReactiveList<int>[])[new() { 1, TestData.TestValueTwo }]);
 
-        var action = () => list.ClearInner(5);
+        var action = () => list.ClearInner(TestData.TestValueFive);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("outerIndex");
+            .WithParameterName(TestData.OuterIndexParameterName);
         list.Dispose();
     }
 
@@ -472,7 +472,7 @@ public class Reactive2DListTests
         var action = () => new Reactive2DList<int>((IEnumerable<IEnumerable<int>>)null!);
 
         action.Should().Throw<ArgumentNullException>()
-            .WithParameterName("items");
+            .WithParameterName(TestData.ItemsParameterName);
     }
 
     /// <summary>Constructor should throw when item enumerable is null.</summary>
@@ -481,7 +481,7 @@ public class Reactive2DListTests
     {
         var exception = Assert.Throws<ArgumentNullException>(() => _ = new Reactive2DList<int>((IEnumerable<int>)null!));
 
-        Assert.Equal("items", exception.ParamName);
+        Assert.Equal(TestData.ItemsParameterName, exception.ParamName);
     }
 
     /// <summary>Constructor should throw when reactive list item is null.</summary>
@@ -503,7 +503,7 @@ public class Reactive2DListTests
         var action = () => list.AddRange((IEnumerable<IEnumerable<int>>)null!);
 
         action.Should().Throw<ArgumentNullException>()
-            .WithParameterName("items");
+            .WithParameterName(TestData.ItemsParameterName);
         list.Dispose();
     }
 
@@ -516,7 +516,7 @@ public class Reactive2DListTests
         var action = () => list.AddRange((IEnumerable<int>)null!);
 
         action.Should().Throw<ArgumentNullException>()
-            .WithParameterName("items");
+            .WithParameterName(TestData.ItemsParameterName);
         list.Dispose();
     }
 
@@ -529,7 +529,7 @@ public class Reactive2DListTests
         var action = () => list.Insert(0, (IEnumerable<int>)null!);
 
         action.Should().Throw<ArgumentNullException>()
-            .WithParameterName("items");
+            .WithParameterName(TestData.ItemsParameterName);
         list.Dispose();
     }
 
@@ -542,7 +542,7 @@ public class Reactive2DListTests
         var action = () => list.Insert(0, (IEnumerable<int>)null!, 0);
 
         action.Should().Throw<ArgumentNullException>()
-            .WithParameterName("items");
+            .WithParameterName(TestData.ItemsParameterName);
         list.Dispose();
     }
 }

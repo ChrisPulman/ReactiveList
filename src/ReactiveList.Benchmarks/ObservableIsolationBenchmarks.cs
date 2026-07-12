@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Columns;
 using CP.Primitives;
 using CP.Primitives.Collections;
 using DynamicData;
@@ -16,7 +15,13 @@ namespace ReactiveList.Benchmarks;
 [RankColumn]
 public sealed class ObservableIsolationBenchmarks : IDisposable
 {
+    private const int GroupMask = 7;
+
     private const string GroupIndexName = "Group";
+
+    private const int IndexedGroup = 3;
+
+    private const int ValueMultiplier = 17;
 
     private BenchItem[] _items = [];
 
@@ -40,19 +45,19 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
     {
         _disposed = false;
         _items = Enumerable.Range(0, Count)
-            .Select(static index => new BenchItem(index, index & 7, index * 17))
+            .Select(static index => new BenchItem(index, index & GroupMask, index * ValueMultiplier))
             .ToArray();
         _pairs = _items.Select(static item => KeyValuePair.Create(item.Id, item)).ToArray();
 
-        _indexedList = new QuaternaryList<BenchItem>();
+        _indexedList = new();
         _indexedList.AddRange(_items);
         _indexedList.AddIndex(GroupIndexName, static item => item.Group);
 
-        _indexedDictionary = new QuaternaryDictionary<int, BenchItem>();
+        _indexedDictionary = new();
         _indexedDictionary.AddRange(_pairs);
         _indexedDictionary.AddValueIndex(GroupIndexName, static item => item.Group);
 
-        _sourceCache = new SourceCache<BenchItem, int>(static item => item.Id);
+        _sourceCache = new(static item => item.Id);
         _sourceCache.AddOrUpdate(_items);
     }
 
@@ -146,7 +151,7 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
     [BenchmarkCategory("IndexedLookup")]
     public int QuaternaryList_SecondaryIndexLookup()
     {
-        return _indexedList!.GetItemsBySecondaryIndex(GroupIndexName, 3).Count();
+        return _indexedList!.GetItemsBySecondaryIndex(GroupIndexName, IndexedGroup).Count();
     }
 
     /// <summary>Provides QuaternaryDictionary_SecondaryIndexLookup.</summary>
@@ -155,7 +160,7 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
     [BenchmarkCategory("IndexedLookup")]
     public int QuaternaryDictionary_SecondaryIndexLookup()
     {
-        return _indexedDictionary!.GetValuesBySecondaryIndex(GroupIndexName, 3).Count();
+        return _indexedDictionary!.GetValuesBySecondaryIndex(GroupIndexName, IndexedGroup).Count();
     }
 
     /// <summary>Provides SourceCache_SecondaryScan.</summary>
@@ -164,12 +169,12 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
     [BenchmarkCategory("IndexedLookup")]
     public int SourceCache_SecondaryScan()
     {
-        return _sourceCache!.Items.Count(static item => item.Group == 3);
+        return _sourceCache!.Items.Count(static item => item.Group == IndexedGroup);
     }
 
     /// <summary>Provides BenchItem.</summary>
     /// <param name="Id">The Id value.</param>
     /// <param name="Group">The Group value.</param>
-    /// <param name="Value">The Value value.</param>
+    /// <param name="Value">The Value.</param>
     private readonly record struct BenchItem(int Id, int Group, int Value);
 }

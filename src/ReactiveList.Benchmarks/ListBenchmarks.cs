@@ -13,6 +13,10 @@ namespace ReactiveList.Benchmarks;
 [MemoryDiagnoser]
 public class ListBenchmarks
 {
+    private const int HalfCountDivisor = 2;
+
+    private const int ParityDivisor = 2;
+
     private int[] _data = [];
 
     /// <summary>Gets or sets the item count.</summary>
@@ -59,7 +63,7 @@ public class ListBenchmarks
     public int List_RemoveRange()
     {
         var list = new List<int>(_data);
-        list.RemoveRange(0, Count / 2);
+        list.RemoveRange(0, Count / HalfCountDivisor);
         return list.Count;
     }
 
@@ -69,7 +73,7 @@ public class ListBenchmarks
     public int ReactiveList_RemoveRange()
     {
         using var list = new ReactiveList<int>(_data);
-        list.RemoveRange(0, Count / 2);
+        list.RemoveRange(0, Count / HalfCountDivisor);
         return list.Count;
     }
 
@@ -80,7 +84,7 @@ public class ListBenchmarks
     {
         using var list = new SourceList<int>();
         list.Edit(l => l.AddRange(_data));
-        list.Edit(l => l.RemoveRange(0, Count / 2));
+        list.Edit(l => l.RemoveRange(0, Count / HalfCountDivisor));
         return list.Count;
     }
 
@@ -173,7 +177,7 @@ public class ListBenchmarks
     public int List_Filter()
     {
         var list = new List<int>(_data);
-        return list.Where(x => x % 2 == 0).Count();
+        return list.Count(static x => x % ParityDivisor == 0);
     }
 
     /// <summary>Provides ReactiveList_Filter.</summary>
@@ -182,7 +186,7 @@ public class ListBenchmarks
     public int ReactiveList_Filter()
     {
         using var list = new ReactiveList<int>(_data);
-        return list.Where(x => x % 2 == 0).Count();
+        return list.Count(static x => x % ParityDivisor == 0);
     }
 
     /// <summary>Provides SourceList_Filter.</summary>
@@ -192,7 +196,7 @@ public class ListBenchmarks
     {
         using var list = new SourceList<int>();
         list.Edit(l => l.AddRange(_data));
-        return list.Items.Where(x => x % 2 == 0).Count();
+        return list.Items.Count(static x => x % ParityDivisor == 0);
     }
 
     /// <summary>Provides ReactiveList_Connect.</summary>
@@ -275,7 +279,7 @@ public class ListBenchmarks
     public int ReactiveList_Move()
     {
         using var list = new ReactiveList<int>(_data);
-        list.Move(0, Count / 2);
+        list.Move(0, Count / HalfCountDivisor);
         return list.Count;
     }
 
@@ -286,7 +290,7 @@ public class ListBenchmarks
     {
         using var list = new SourceList<int>();
         list.Edit(l => l.AddRange(_data));
-        list.Move(0, Count / 2);
+        list.Move(0, Count / HalfCountDivisor);
         return list.Count;
     }
 
@@ -296,7 +300,7 @@ public class ListBenchmarks
     public int ReactiveList_RemoveMany()
     {
         using var list = new ReactiveList<int>(_data);
-        list.RemoveMany(x => x % 2 == 0);
+        list.RemoveMany(static x => x % ParityDivisor == 0);
         return list.Count;
     }
 
@@ -307,7 +311,7 @@ public class ListBenchmarks
     {
         using var list = new SourceList<int>();
         list.Edit(l => l.AddRange(_data));
-        list.RemoveMany(list.Items.Where(x => x % 2 == 0));
+        list.RemoveMany(list.Items.Where(static x => x % ParityDivisor == 0));
         return list.Count;
     }
 }

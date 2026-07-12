@@ -6,10 +6,10 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
-using CP.Primitives;
 using CP.Primitives.Collections;
 using FluentAssertions;
 using TUnit.Core;
+using static ReactiveList.Test.TestData;
 
 namespace ReactiveList.Test;
 
@@ -25,10 +25,10 @@ public class ReactiveListSerializationTests
 
         var deserialized = RoundTrip(list);
 
-        deserialized.Count.Should().Be(3);
+        deserialized.Count.Should().Be(TestValueThree);
         deserialized[0].Should().Be("one");
         deserialized[1].Should().Be("two");
-        deserialized[2].Should().Be("three");
+        deserialized[TestValueTwo].Should().Be("three");
     }
 
     /// <summary>Deserialized ReactiveList should work normally.</summary>
@@ -36,23 +36,23 @@ public class ReactiveListSerializationTests
     public void DeserializedReactiveList_ShouldWorkNormally()
     {
         var list = new ReactiveList<int>();
-        list.AddRange([1, 2, 3]);
+        list.AddRange([1, TestValueTwo, TestValueThree]);
 
         var deserialized = RoundTrip(list);
 
         // Test that we can add items
-        deserialized.Add(4);
-        deserialized.Count.Should().Be(4);
+        deserialized.Add(TestValueFour);
+        deserialized.Count.Should().Be(TestValueFour);
 
         // Test that Items property works
-        deserialized.Items.Should().BeEquivalentTo([1, 2, 3, 4]);
+        deserialized.Items.Should().BeEquivalentTo([1, TestValueTwo, TestValueThree, TestValueFour]);
 
         // Test that observables work
         var addedItems = Array.Empty<int>();
         deserialized.Added.Subscribe(items => addedItems = items.ToArray());
 
-        deserialized.Add(5);
-        addedItems.Should().BeEquivalentTo([5]);
+        deserialized.Add(TestValueFive);
+        addedItems.Should().BeEquivalentTo([TestValueFive]);
     }
 
     /// <summary>Deserialized ReactiveList should support remove operations.</summary>
@@ -65,7 +65,7 @@ public class ReactiveListSerializationTests
         var deserialized = RoundTrip(list);
 
         deserialized.Remove("b");
-        deserialized.Count.Should().Be(2);
+        deserialized.Count.Should().Be(TestValueTwo);
         deserialized.Items.Should().BeEquivalentTo(["a", "c"]);
     }
 
@@ -74,7 +74,7 @@ public class ReactiveListSerializationTests
     public void DeserializedReactiveList_ShouldSupportClearOperations()
     {
         var list = new ReactiveList<int>();
-        list.AddRange([1, 2, 3, 4, 5]);
+        list.AddRange([1, TestValueTwo, TestValueThree, TestValueFour, TestValueFive]);
 
         var deserialized = RoundTrip(list);
 
@@ -99,17 +99,19 @@ public class ReactiveListSerializationTests
     [Test]
     public void ReactiveListWithComplexTypes_ShouldBeSerializable()
     {
-        var list = new ReactiveList<TestData>();
-        list.Add(new TestData("Alice", 30));
-        list.Add(new TestData("Bob", 25));
+        var list = new ReactiveList<TestData>
+        {
+            new("Alice", TestValueThirty),
+            new("Bob", TestValueTwentyFive)
+        };
 
         var deserialized = RoundTrip(list);
 
-        deserialized.Count.Should().Be(2);
+        deserialized.Count.Should().Be(TestValueTwo);
         deserialized[0].Name.Should().Be("Alice");
-        deserialized[0].Age.Should().Be(30);
+        deserialized[0].Age.Should().Be(TestValueThirty);
         deserialized[1].Name.Should().Be("Bob");
-        deserialized[1].Age.Should().Be(25);
+        deserialized[1].Age.Should().Be(TestValueTwentyFive);
     }
 
     /// <summary>Round-trips a value through the .NET Framework serializer.</summary>

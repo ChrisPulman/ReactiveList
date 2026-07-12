@@ -23,20 +23,22 @@ public class ReactiveListNotificationComplianceTests
     [Test]
     public void IndexerSet_ShouldEmitSingleReplaceAndNoCountPropertyChange()
     {
-        using var list = new ReactiveList<int>([1, 2, 3]);
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var collectionEvents = new List<NotifyCollectionChangedEventArgs>();
         var propertyNames = new List<string?>();
         list.CollectionChanged += (_, args) => collectionEvents.Add(args);
         list.PropertyChanged += (_, args) => propertyNames.Add(args.PropertyName);
 
-        list[1] = 20;
+        list[1] = TestData.TestValueTwenty;
 
-        list.Should().Equal(1, 20, 3);
+        list.Should().Equal(1, TestData.TestValueTwenty, TestData.TestValueThree);
         collectionEvents.Should().ContainSingle();
         collectionEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Replace);
-        collectionEvents[0].OldItems!.Cast<int>().Should().Equal(2);
-        collectionEvents[0].NewItems!.Cast<int>().Should().Equal(20);
-        propertyNames.Should().Equal("Item[]");
+        var oldItems = collectionEvents[0].OldItems ?? throw new InvalidOperationException("Replace notification did not include old items.");
+        var newItems = collectionEvents[0].NewItems ?? throw new InvalidOperationException("Replace notification did not include new items.");
+        oldItems.Cast<int>().Should().Equal(TestData.TestValueTwo);
+        newItems.Cast<int>().Should().Equal(TestData.TestValueTwenty);
+        propertyNames.Should().Equal(TestData.IndexerPropertyName);
     }
 
     /// <summary>Bulk operations on the UI-facing Items collection should coalesce to one collection notification.</summary>
@@ -47,14 +49,14 @@ public class ReactiveListNotificationComplianceTests
         var itemEvents = new List<NotifyCollectionChangedEventArgs>();
         ((INotifyCollectionChanged)list.Items).CollectionChanged += (_, args) => itemEvents.Add(args);
 
-        var values = new[] { 1, 2, 3, 4 };
+        var values = new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour };
         list.AddRange(values.AsSpan());
 
         itemEvents.Should().ContainSingle();
         itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
 
         itemEvents.Clear();
-        list.Remove([1, 3]);
+        list.Remove([1, TestData.TestValueThree]);
         itemEvents.Should().ContainSingle();
         itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
 
@@ -84,7 +86,7 @@ public class ReactiveListNotificationComplianceTests
     [Test]
     public void DynamicReactiveView_WithColdFilterSubject_ShouldConstructImmediately()
     {
-        using var source = new ReactiveList<int>([1, 2, 3]);
+        using var source = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         using var filters = new Signal<Func<int, bool>>();
 
         using var view = new DynamicReactiveView<int>(
@@ -93,9 +95,9 @@ public class ReactiveListNotificationComplianceTests
             TimeSpan.Zero,
             Sequencer.Immediate);
 
-        view.Items.Should().Equal(1, 2, 3);
+        view.Items.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
         filters.OnNext(static item => item > 1);
-        view.Items.Should().Equal(2, 3);
+        view.Items.Should().Equal(TestData.TestValueTwo, TestData.TestValueThree);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -120,7 +122,7 @@ public class ReactiveListNotificationComplianceTests
 
         view.Items.Should().BeEmpty();
         keys.OnNext(["north"]);
-        await Task.Delay(25);
+        await Task.Delay(TestData.TestValueTwentyFive);
         view.Items.Should().ContainSingle().Which.Should().Be(north);
     }
 
@@ -132,10 +134,10 @@ public class ReactiveListNotificationComplianceTests
         var listProperties = new List<string?>();
         ((INotifyPropertyChanged)list).PropertyChanged += (_, args) => listProperties.Add(args.PropertyName);
 
-        list.AddRange([1, 2, 3]);
+        list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
         listProperties.Should().Contain(nameof(list.Count));
-        listProperties.Should().Contain("Item[]");
+        listProperties.Should().Contain(TestData.IndexerPropertyName);
 
         using var dictionary = new QuaternaryDictionary<int, string>();
         var dictionaryProperties = new List<string?>();
@@ -144,7 +146,7 @@ public class ReactiveListNotificationComplianceTests
         dictionary.AddRange([new KeyValuePair<int, string>(1, "one")]);
 
         dictionaryProperties.Should().Contain(nameof(dictionary.Count));
-        dictionaryProperties.Should().Contain("Item[]");
+        dictionaryProperties.Should().Contain(TestData.IndexerPropertyName);
     }
 
     /// <summary>Optimized quaternary list range removal should preserve multiset semantics for duplicate values.</summary>
@@ -152,12 +154,12 @@ public class ReactiveListNotificationComplianceTests
     public void QuaternaryList_RemoveRange_ShouldRemoveOnlyRequestedDuplicateCount()
     {
         using var list = new QuaternaryList<int>();
-        list.AddRange([1, 1, 1, 2, 3]);
+        list.AddRange([1, 1, 1, TestData.TestValueTwo, TestData.TestValueThree]);
 
-        list.RemoveRange([1, 1, 4]);
+        list.RemoveRange([1, 1, TestData.TestValueFour]);
 
-        list.Count.Should().Be(3);
-        list.ToArray().Should().BeEquivalentTo([1, 2, 3]);
+        list.Count.Should().Be(TestData.TestValueThree);
+        list.ToArray().Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
     }
 
     /// <summary>Dictionary range operations should keep count exact for overwrites and no-op removals.</summary>
@@ -177,24 +179,24 @@ public class ReactiveListNotificationComplianceTests
         [
             new KeyValuePair<int, string>(1, "one"),
             new KeyValuePair<int, string>(1, "uno"),
-            new KeyValuePair<int, string>(2, "two")
+            new KeyValuePair<int, string>(TestData.TestValueTwo, "two")
         ]);
 
-        dictionary.Count.Should().Be(2);
+        dictionary.Count.Should().Be(TestData.TestValueTwo);
         received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
         notifications.Should().Be(1);
 
         received.Reset();
-        dictionary.RemoveKeys([99]);
-        dictionary.Count.Should().Be(2);
-        received.Wait(TimeSpan.FromMilliseconds(50)).Should().BeFalse();
+        dictionary.RemoveKeys([TestData.TestValueNinetyNine]);
+        dictionary.Count.Should().Be(TestData.TestValueTwo);
+        received.Wait(TimeSpan.FromMilliseconds(TestData.TestValueFifty)).Should().BeFalse();
         notifications.Should().Be(1);
 
         received.Reset();
         dictionary.RemoveKeys([1]);
         dictionary.Count.Should().Be(1);
         received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        notifications.Should().Be(2);
+        notifications.Should().Be(TestData.TestValueTwo);
     }
 #endif
 

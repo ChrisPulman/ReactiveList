@@ -14,6 +14,8 @@ namespace CP.Primitives.Internal;
 /// <typeparam name="T">The type of elements in the buffer.</typeparam>
 internal ref struct ValueBuffer<T>
 {
+    private const int BufferGrowthFactor = 2;
+
     private readonly Span<T> _stackBuffer;
 
     private T[]? _rentedArray;
@@ -82,7 +84,7 @@ internal ref struct ValueBuffer<T>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void MoveToRented()
     {
-        var newCapacity = _stackBuffer.Length * 2;
+        var newCapacity = _stackBuffer.Length * BufferGrowthFactor;
         _rentedArray = ArrayPool<T>.Shared.Rent(newCapacity);
         _stackBuffer.Slice(0, _count).CopyTo(_rentedArray);
     }
@@ -91,7 +93,7 @@ internal ref struct ValueBuffer<T>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void GrowRented()
     {
-        var newCapacity = _rentedArray!.Length * 2;
+        var newCapacity = _rentedArray!.Length * BufferGrowthFactor;
         var newArray = ArrayPool<T>.Shared.Rent(newCapacity);
         _rentedArray.AsSpan(0, _count).CopyTo(newArray);
         ArrayPool<T>.Shared.Return(_rentedArray, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());

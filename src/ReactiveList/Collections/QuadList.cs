@@ -22,6 +22,8 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
 {
     private const int MinimumSize = 16;
 
+    private const int CapacityGrowthFactor = 2;
+
     private T[] _items;
 
     private int _count;
@@ -290,7 +292,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     /// <param name="minCapacity">The minCapacity value.</param>
     private void Grow(int minCapacity)
     {
-        var newCapacity = _items.Length == 0 ? MinimumSize : _items.Length * 2;
+        var newCapacity = _items.Length == 0 ? MinimumSize : _items.Length * CapacityGrowthFactor;
         if (newCapacity < minCapacity)
         {
             newCapacity = (int)BitOperationsCompat.RoundUpToPowerOf2((uint)minCapacity);
@@ -362,7 +364,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
         public override readonly bool Equals(object? obj) => obj is Enumerator other && Equals(other);
 
         /// <inheritdoc/>
-        public override readonly int GetHashCode() => ((_list?.GetHashCode() ?? 0) * 397) ^ _index;
+        public override readonly int GetHashCode() => _list?.GetHashCode() ?? 0;
     }
 
     /// <summary>Wrapper to implement IEnumerator for foreach support.</summary>

@@ -14,6 +14,21 @@ namespace ReactiveList.Test;
 /// <summary>Tests for EditableListWrapper.</summary>
 public class EditableListWrapperTests
 {
+    /// <summary>The second ordinal.</summary>
+    private const int SecondOrdinal = 2;
+
+    /// <summary>The range item count.</summary>
+    private const int RangeItemCount = 3;
+
+    /// <summary>The out of range index.</summary>
+    private const int OutOfRangeIndex = 5;
+
+    /// <summary>The third item.</summary>
+    private const string ThirdItem = "three";
+
+    /// <summary>The updated item.</summary>
+    private const string UpdatedItem = "updated";
+
     /// <summary>Constructor should initialize with list only.</summary>
     [Test]
     public void Constructor_WithListOnly_ShouldInitialize()
@@ -21,7 +36,7 @@ public class EditableListWrapperTests
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        wrapper.Count.Should().Be(2);
+        wrapper.Count.Should().Be(SecondOrdinal);
         wrapper[0].Should().Be("one");
         wrapper[1].Should().Be("two");
     }
@@ -34,8 +49,8 @@ public class EditableListWrapperTests
         var observable = new ObservableCollection<string>(list);
         var wrapper = new EditableListWrapper<string>(list, observable);
 
-        wrapper.Count.Should().Be(2);
-        observable.Count.Should().Be(2);
+        wrapper.Count.Should().Be(SecondOrdinal);
+        observable.Count.Should().Be(SecondOrdinal);
     }
 
     /// <summary>IsReadOnly should return false.</summary>
@@ -50,7 +65,7 @@ public class EditableListWrapperTests
     [Test]
     public void Indexer_Get_ShouldReturnCorrectItem()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper[1].Should().Be("two");
@@ -63,9 +78,9 @@ public class EditableListWrapperTests
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        wrapper[0] = "updated";
+        wrapper[0] = UpdatedItem;
 
-        list[0].Should().Be("updated");
+        list[0].Should().Be(UpdatedItem);
     }
 
     /// <summary>Indexer set should update both list and observable collection.</summary>
@@ -76,10 +91,10 @@ public class EditableListWrapperTests
         var observable = new ObservableCollection<string>(list);
         var wrapper = new EditableListWrapper<string>(list, observable);
 
-        wrapper[0] = "updated";
+        wrapper[0] = UpdatedItem;
 
-        list[0].Should().Be("updated");
-        observable[0].Should().Be("updated");
+        list[0].Should().Be(UpdatedItem);
+        observable[0].Should().Be(UpdatedItem);
     }
 
     /// <summary>Add should add to list only when no observable collection.</summary>
@@ -115,9 +130,9 @@ public class EditableListWrapperTests
         var list = new List<string>();
         var wrapper = new EditableListWrapper<string>(list);
 
-        wrapper.AddRange(["one", "two", "three"]);
+        wrapper.AddRange(["one", "two", ThirdItem]);
 
-        list.Should().BeEquivalentTo(["one", "two", "three"]);
+        list.Should().BeEquivalentTo(["one", "two", ThirdItem]);
     }
 
     /// <summary>AddRange should add items to both list and observable collection.</summary>
@@ -141,7 +156,7 @@ public class EditableListWrapperTests
         var list = new List<string>();
         var wrapper = new EditableListWrapper<string>(list);
 
-        wrapper.AddRange(Enumerable.Range(1, 3).Select(i => $"item{i}"));
+        wrapper.AddRange(Enumerable.Range(1, RangeItemCount).Select(i => $"item{i}"));
 
         list.Should().BeEquivalentTo(["item1", "item2", "item3"]);
     }
@@ -189,7 +204,7 @@ public class EditableListWrapperTests
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        wrapper.Contains("three").Should().BeFalse();
+        wrapper.Contains(ThirdItem).Should().BeFalse();
     }
 
     /// <summary>CopyTo should copy items to array.</summary>
@@ -204,26 +219,26 @@ public class EditableListWrapperTests
 
         array[0].Should().BeNull();
         array[1].Should().Be("one");
-        array[2].Should().Be("two");
+        array[SecondOrdinal].Should().Be("two");
     }
 
     /// <summary>GetEnumerator should enumerate items.</summary>
     [Test]
     public void GetEnumerator_ShouldEnumerateItems()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         var items = wrapper.ToList();
 
-        items.Should().BeEquivalentTo(["one", "two", "three"]);
+        items.Should().BeEquivalentTo(["one", "two", ThirdItem]);
     }
 
     /// <summary>IndexOf should return correct index.</summary>
     [Test]
     public void IndexOf_ShouldReturnCorrectIndex()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.IndexOf("two").Should().Be(1);
@@ -236,71 +251,71 @@ public class EditableListWrapperTests
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        wrapper.IndexOf("three").Should().Be(-1);
+        wrapper.IndexOf(ThirdItem).Should().Be(-1);
     }
 
     /// <summary>Insert should insert at correct position without observable.</summary>
     [Test]
     public void Insert_WithoutObservable_ShouldInsertAtPosition()
     {
-        var list = new List<string> { "one", "three" };
+        var list = new List<string> { "one", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.Insert(1, "two");
 
-        list.Should().BeEquivalentTo(["one", "two", "three"], options => options.WithStrictOrdering());
+        list.Should().BeEquivalentTo(["one", "two", ThirdItem], options => options.WithStrictOrdering());
     }
 
     /// <summary>Insert should insert at correct position with observable.</summary>
     [Test]
     public void Insert_WithObservable_ShouldInsertInBoth()
     {
-        var list = new List<string> { "one", "three" };
+        var list = new List<string> { "one", ThirdItem };
         var observable = new ObservableCollection<string>(list);
         var wrapper = new EditableListWrapper<string>(list, observable);
 
         wrapper.Insert(1, "two");
 
-        list.Should().BeEquivalentTo(["one", "two", "three"], options => options.WithStrictOrdering());
-        observable.Should().BeEquivalentTo(["one", "two", "three"], options => options.WithStrictOrdering());
+        list.Should().BeEquivalentTo(["one", "two", ThirdItem], options => options.WithStrictOrdering());
+        observable.Should().BeEquivalentTo(["one", "two", ThirdItem], options => options.WithStrictOrdering());
     }
 
     /// <summary>Move should move item to new position.</summary>
     [Test]
     public void Move_ShouldMoveItemToNewPosition()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
-        wrapper.Move(0, 2);
+        wrapper.Move(0, SecondOrdinal);
 
-        list.Should().BeEquivalentTo(["two", "three", "one"], options => options.WithStrictOrdering());
+        list.Should().BeEquivalentTo(["two", ThirdItem, "one"], options => options.WithStrictOrdering());
     }
 
     /// <summary>Move should move item in both list and observable collection.</summary>
     [Test]
     public void Move_WithObservable_ShouldMoveInBoth()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var observable = new ObservableCollection<string>(list);
         var wrapper = new EditableListWrapper<string>(list, observable);
 
-        wrapper.Move(0, 2);
+        wrapper.Move(0, SecondOrdinal);
 
-        list.Should().BeEquivalentTo(["two", "three", "one"], options => options.WithStrictOrdering());
-        observable.Should().BeEquivalentTo(["two", "three", "one"], options => options.WithStrictOrdering());
+        list.Should().BeEquivalentTo(["two", ThirdItem, "one"], options => options.WithStrictOrdering());
+        observable.Should().BeEquivalentTo(["two", ThirdItem, "one"], options => options.WithStrictOrdering());
     }
 
     /// <summary>Move should do nothing when old and new index are same.</summary>
     [Test]
     public void Move_WhenSameIndex_ShouldDoNothing()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.Move(1, 1);
 
-        list.Should().BeEquivalentTo(["one", "two", "three"], options => options.WithStrictOrdering());
+        list.Should().BeEquivalentTo(["one", "two", ThirdItem], options => options.WithStrictOrdering());
     }
 
     /// <summary>Move should throw when old index is out of range.</summary>
@@ -323,7 +338,7 @@ public class EditableListWrapperTests
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        var act = () => wrapper.Move(0, 5);
+        var act = () => wrapper.Move(0, OutOfRangeIndex);
 
         act.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("newIndex");
@@ -333,13 +348,13 @@ public class EditableListWrapperTests
     [Test]
     public void Remove_ExistingItem_ShouldRemoveAndReturnTrue()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         var result = wrapper.Remove("two");
 
         result.Should().BeTrue();
-        list.Should().BeEquivalentTo(["one", "three"]);
+        list.Should().BeEquivalentTo(["one", ThirdItem]);
     }
 
     /// <summary>Remove should return false for non-existing item.</summary>
@@ -349,50 +364,50 @@ public class EditableListWrapperTests
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        var result = wrapper.Remove("three");
+        var result = wrapper.Remove(ThirdItem);
 
         result.Should().BeFalse();
-        list.Count.Should().Be(2);
+        list.Count.Should().Be(SecondOrdinal);
     }
 
     /// <summary>Remove should remove from both list and observable collection.</summary>
     [Test]
     public void Remove_WithObservable_ShouldRemoveFromBoth()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var observable = new ObservableCollection<string>(list);
         var wrapper = new EditableListWrapper<string>(list, observable);
 
         wrapper.Remove("two");
 
-        list.Should().BeEquivalentTo(["one", "three"]);
-        observable.Should().BeEquivalentTo(["one", "three"]);
+        list.Should().BeEquivalentTo(["one", ThirdItem]);
+        observable.Should().BeEquivalentTo(["one", ThirdItem]);
     }
 
     /// <summary>RemoveAt should remove item at index without observable.</summary>
     [Test]
     public void RemoveAt_WithoutObservable_ShouldRemoveAtIndex()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.RemoveAt(1);
 
-        list.Should().BeEquivalentTo(["one", "three"]);
+        list.Should().BeEquivalentTo(["one", ThirdItem]);
     }
 
     /// <summary>RemoveAt should remove from both list and observable collection.</summary>
     [Test]
     public void RemoveAt_WithObservable_ShouldRemoveFromBoth()
     {
-        var list = new List<string> { "one", "two", "three" };
+        var list = new List<string> { "one", "two", ThirdItem };
         var observable = new ObservableCollection<string>(list);
         var wrapper = new EditableListWrapper<string>(list, observable);
 
         wrapper.RemoveAt(1);
 
-        list.Should().BeEquivalentTo(["one", "three"]);
-        observable.Should().BeEquivalentTo(["one", "three"]);
+        list.Should().BeEquivalentTo(["one", ThirdItem]);
+        observable.Should().BeEquivalentTo(["one", ThirdItem]);
     }
 
     /// <summary>Non-generic GetEnumerator should enumerate items.</summary>
@@ -403,10 +418,9 @@ public class EditableListWrapperTests
         var wrapper = new EditableListWrapper<string>(list);
 
         var items = new List<object?>();
-        var enumerator = ((System.Collections.IEnumerable)wrapper).GetEnumerator();
-        while (enumerator.MoveNext())
+        foreach (var item in ((System.Collections.IEnumerable)wrapper))
         {
-            items.Add(enumerator.Current);
+            items.Add(item);
         }
 
         items.Should().BeEquivalentTo(["one", "two"]);

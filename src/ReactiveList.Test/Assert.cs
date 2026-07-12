@@ -171,7 +171,7 @@ internal static class Assert
             return exception;
         }
 
-        Fail($"Expected exception of type {typeof(T).Name}.");
+        Fail($"Expected exception of type {typeof(T)}.");
         throw new InvalidOperationException("The assertion failure did not throw.");
     }
 

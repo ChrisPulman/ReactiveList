@@ -17,6 +17,108 @@ namespace ReactiveList.Test;
 /// <summary>Covers low-level quad collection and pooled helper paths that are not reached by the public collection tests.</summary>
 public class QuadCollectionCoverageTests
 {
+    /// <summary>The quad list item count.</summary>
+    private const int QuadListItemCount = 40;
+
+    /// <summary>The quad list mutation index.</summary>
+    private const int QuadListMutationIndex = 3;
+
+    /// <summary>The quad list replacement value.</summary>
+    private const int QuadListReplacementValue = 300;
+
+    /// <summary>The missing lookup value.</summary>
+    private const int MissingLookupValue = 999;
+
+    /// <summary>The copy padding.</summary>
+    private const int CopyPadding = 2;
+
+    /// <summary>The highest remaining value.</summary>
+    private const int HighestRemainingValue = 38;
+
+    /// <summary>The removed tail value.</summary>
+    private const int RemovedTailValue = 39;
+
+    /// <summary>The second dictionary value.</summary>
+    private const int SecondDictionaryValue = 2;
+
+    /// <summary>The initial dictionary count.</summary>
+    private const int InitialDictionaryCount = 3;
+
+    /// <summary>The duplicate dictionary value.</summary>
+    private const int DuplicateDictionaryValue = 22;
+
+    /// <summary>The fourth dictionary value.</summary>
+    private const int FourthDictionaryValue = 4;
+
+    /// <summary>The fifth dictionary value.</summary>
+    private const int FifthDictionaryValue = 5;
+
+    /// <summary>The updated dictionary value.</summary>
+    private const int UpdatedDictionaryValue = 10;
+
+    /// <summary>The initial dictionary capacity.</summary>
+    private const int InitialDictionaryCapacity = 8;
+
+    /// <summary>The expanded dictionary capacity.</summary>
+    private const int ExpandedDictionaryCapacity = 128;
+
+    /// <summary>The dictionary population count.</summary>
+    private const int DictionaryPopulationCount = 120;
+
+    /// <summary>The existing dictionary key.</summary>
+    private const int ExistingDictionaryKey = 42;
+
+    /// <summary>The auto resize item count.</summary>
+    private const int AutoResizeItemCount = 20;
+
+    /// <summary>The auto resize capacity.</summary>
+    private const int AutoResizeCapacity = 64;
+
+    /// <summary>The auto resize last key.</summary>
+    private const int AutoResizeLastKey = 19;
+
+    /// <summary>The added tracker item count.</summary>
+    private const int AddedTrackerItemCount = 24;
+
+    /// <summary>The removed tracker item count.</summary>
+    private const int RemovedTrackerItemCount = 20;
+
+    /// <summary>The initial token version.</summary>
+    private const int InitialTokenVersion = 7;
+
+    /// <summary>The tracked item count.</summary>
+    private const int TrackedItemCount = 3;
+
+    /// <summary>The next token version.</summary>
+    private const int NextTokenVersion = 8;
+
+    /// <summary>The second buffered value.</summary>
+    private const int SecondBufferedValue = 2;
+
+    /// <summary>The third buffered value.</summary>
+    private const int ThirdBufferedValue = 3;
+
+    /// <summary>The value buffer final count.</summary>
+    private const int ValueBufferFinalCount = 40;
+
+    /// <summary>The four way shard count.</summary>
+    private const int FourWayShardCount = 4;
+
+    /// <summary>The four way maximum index.</summary>
+    private const int FourWayMaximumIndex = 3;
+
+    /// <summary>The eight way shard count.</summary>
+    private const int EightWayShardCount = 8;
+
+    /// <summary>The eight way maximum index.</summary>
+    private const int EightWayMaximumIndex = 7;
+
+    /// <summary>The sixteen way shard count.</summary>
+    private const int SixteenWayShardCount = 16;
+
+    /// <summary>The sixteen way maximum index.</summary>
+    private const int SixteenWayMaximumIndex = 15;
+
     /// <summary>Verifies QuadList indexing, resizing, removal, copy, and enumerator wrapper behavior.</summary>
     [Test]
     public void QuadList_ShouldSupportMutationAndEnumerationPaths()
@@ -24,21 +126,21 @@ public class QuadCollectionCoverageTests
         using var list = new QuadList<int>();
 
         list.AddRange(ReadOnlySpan<int>.Empty);
-        Enumerable.Range(0, 40).ToList().ForEach(list.Add);
+        Enumerable.Range(0, QuadListItemCount).ToList().ForEach(list.Add);
 
-        list.Count.Should().Be(40);
-        list[3].Should().Be(3);
+        list.Count.Should().Be(QuadListItemCount);
+        list[QuadListMutationIndex].Should().Be(QuadListMutationIndex);
 
-        list[3] = 300;
-        list[3].Should().Be(300);
-        list.Contains(300).Should().BeTrue();
-        list.IndexOf(300).Should().Be(3);
+        list[QuadListMutationIndex] = QuadListReplacementValue;
+        list[QuadListMutationIndex].Should().Be(QuadListReplacementValue);
+        list.Contains(QuadListReplacementValue).Should().BeTrue();
+        list.IndexOf(QuadListReplacementValue).Should().Be(QuadListMutationIndex);
 
-        list.Remove(300).Should().BeTrue();
-        list.Remove(999).Should().BeFalse();
+        list.Remove(QuadListReplacementValue).Should().BeTrue();
+        list.Remove(MissingLookupValue).Should().BeFalse();
         list.RemoveAt(list.Count - 1);
 
-        var copied = new int[list.Count + 2];
+        var copied = new int[list.Count + CopyPadding];
         list.CopyTo(copied, 1);
         copied[1].Should().Be(0);
 
@@ -77,8 +179,8 @@ public class QuadCollectionCoverageTests
         nonGenericEnumerator.MoveNext().Should().BeTrue();
         nonGenericEnumerator.Current.Should().Be(0);
 
-        list.AsSpan().ToArray().Should().Contain(38);
-        list.AsSpan().ToArray().Should().NotContain(39);
+        list.AsSpan().ToArray().Should().Contain(HighestRemainingValue);
+        list.AsSpan().ToArray().Should().NotContain(RemovedTailValue);
         list.Clear();
         list.Count.Should().Be(0);
         list.Dispose();
@@ -89,8 +191,7 @@ public class QuadCollectionCoverageTests
     [Test]
     public void QuadList_InvalidIndexes_ShouldThrow()
     {
-        using var list = new QuadList<string>();
-        list.Add("first");
+        using var list = new QuadList<string> { "first" };
 
         Action getNegative = () => _ = list[-1];
         Action getTooHigh = () => _ = list[1];
@@ -110,32 +211,32 @@ public class QuadCollectionCoverageTests
         using var dictionary = new QuadDictionary<string, int>(new ConstantHashStringComparer());
 
         dictionary.TryAdd("one", 1).Should().BeTrue();
-        dictionary.TryAdd("two", 2).Should().BeTrue();
-        dictionary.TryAdd("three", 3).Should().BeTrue();
-        dictionary.TryAdd("two", 22).Should().BeFalse();
-        dictionary.Count.Should().Be(3);
+        dictionary.TryAdd("two", SecondDictionaryValue).Should().BeTrue();
+        dictionary.TryAdd("three", InitialDictionaryCount).Should().BeTrue();
+        dictionary.TryAdd("two", DuplicateDictionaryValue).Should().BeFalse();
+        dictionary.Count.Should().Be(InitialDictionaryCount);
 
         dictionary.Remove("two", out var removedMiddle).Should().BeTrue();
-        removedMiddle.Should().Be(2);
+        removedMiddle.Should().Be(SecondDictionaryValue);
         dictionary.Remove("three").Should().BeTrue();
         dictionary.Remove("missing", out var missingValue).Should().BeFalse();
         missingValue.Should().Be(default(int));
 
-        dictionary.TryAdd("four", 4).Should().BeTrue();
+        dictionary.TryAdd("four", FourthDictionaryValue).Should().BeTrue();
         dictionary["one"].Should().Be(1);
-        dictionary["one"] = 10;
-        dictionary["one"].Should().Be(10);
+        dictionary["one"] = UpdatedDictionaryValue;
+        dictionary["one"].Should().Be(UpdatedDictionaryValue);
 
         ref var valueRef = ref dictionary.GetValueRefOrAddDefault("five", out var existed);
         existed.Should().BeFalse();
-        valueRef = 5;
+        valueRef = FifthDictionaryValue;
 
         ref var existingRef = ref dictionary.GetValueRefOrAddDefault("five", out existed);
         existed.Should().BeTrue();
-        existingRef.Should().Be(5);
+        existingRef.Should().Be(FifthDictionaryValue);
 
         dictionary.Keys.Should().BeEquivalentTo(["one", "four", "five"]);
-        dictionary.Values.Should().BeEquivalentTo([10, 4, 5]);
+        dictionary.Values.Should().BeEquivalentTo([UpdatedDictionaryValue, FourthDictionaryValue, FifthDictionaryValue]);
 
         var copied = new List<KeyValuePair<string, int>>();
         dictionary.CopyTo(copied);
@@ -180,18 +281,18 @@ public class QuadCollectionCoverageTests
     {
         using var dictionary = new QuadDictionary<int, string>();
 
-        dictionary.EnsureCapacity(8);
-        dictionary.EnsureCapacity(128);
+        dictionary.EnsureCapacity(InitialDictionaryCapacity);
+        dictionary.EnsureCapacity(ExpandedDictionaryCapacity);
 
-        Enumerable.Range(0, 120).ToList().ForEach(i => dictionary.Add(i, $"value-{i}"));
+        Enumerable.Range(0, DictionaryPopulationCount).ToList().ForEach(i => dictionary.Add(i, $"value-{i}"));
 
-        dictionary.Count.Should().Be(120);
-        dictionary.ContainsKey(42).Should().BeTrue();
-        dictionary.TryGetValue(999, out var missing).Should().BeFalse();
+        dictionary.Count.Should().Be(DictionaryPopulationCount);
+        dictionary.ContainsKey(ExistingDictionaryKey).Should().BeTrue();
+        dictionary.TryGetValue(MissingLookupValue, out var missing).Should().BeFalse();
         missing.Should().BeNull();
 
-        Action duplicateAdd = () => dictionary.Add(42, "duplicate");
-        Action missingIndexer = () => _ = dictionary[999];
+        Action duplicateAdd = () => dictionary.Add(ExistingDictionaryKey, "duplicate");
+        Action missingIndexer = () => _ = dictionary[MissingLookupValue];
         Action nullCopyTarget = () => dictionary.CopyTo(null!);
         Action nullKeysTarget = () => dictionary.CopyKeysTo(null!);
         Action nullValuesTarget = () => dictionary.CopyValuesTo(null!);
@@ -207,14 +308,14 @@ public class QuadCollectionCoverageTests
         dictionary.Clear();
 
         using var autoResize = new QuadDictionary<int, int>();
-        for (var i = 0; i < 20; i++)
+        for (var i = 0; i < AutoResizeItemCount; i++)
         {
             autoResize.Add(i, i);
         }
 
         autoResize.Remove(1).Should().BeTrue();
-        autoResize.EnsureCapacity(64);
-        autoResize.Keys.Should().Contain(19);
+        autoResize.EnsureCapacity(AutoResizeCapacity);
+        autoResize.Keys.Should().Contain(AutoResizeLastKey);
 
         using var nullableKeyDictionary = new QuadDictionary<string?, int>();
         nullableKeyDictionary.TryAdd(null, 1).Should().BeTrue();
@@ -228,12 +329,12 @@ public class QuadCollectionCoverageTests
     {
         var tracker = default(BatchChangeTracker<string>);
 
-        for (var i = 0; i < 24; i++)
+        for (var i = 0; i < AddedTrackerItemCount; i++)
         {
             tracker.TrackAdded($"added-{i}");
         }
 
-        for (var i = 0; i < 20; i++)
+        for (var i = 0; i < RemovedTrackerItemCount; i++)
         {
             tracker.TrackRemoved($"removed-{i}");
         }
@@ -253,13 +354,13 @@ public class QuadCollectionCoverageTests
     [Test]
     public void ChangeToken_ShouldReportVersionChanges()
     {
-        var token = new ChangeToken<int>(version: 7, count: 3);
+        var token = new ChangeToken(version: 7, count: 3);
 
-        token.Version.Should().Be(7);
-        token.Count.Should().Be(3);
-        token.HasChanged(7).Should().BeFalse();
-        token.HasChanged(8).Should().BeTrue();
-        token.Should().Be(new ChangeToken<int>(7, 3));
+        token.Version.Should().Be(InitialTokenVersion);
+        token.Count.Should().Be(TrackedItemCount);
+        token.HasChanged(InitialTokenVersion).Should().BeFalse();
+        token.HasChanged(NextTokenVersion).Should().BeTrue();
+        token.Should().Be(new ChangeToken(InitialTokenVersion, TrackedItemCount));
     }
 
     /// <summary>Verifies PooledBuffer list copying and idempotent disposal.</summary>
@@ -283,17 +384,17 @@ public class QuadCollectionCoverageTests
         var buffer = new ValueBuffer<int>(in stack);
 
         buffer.Add(1);
-        buffer.Add(2);
-        buffer.Span.ToArray().Should().Equal(1, 2);
+        buffer.Add(SecondBufferedValue);
+        buffer.Span.ToArray().Should().Equal(1, SecondBufferedValue);
 
-        buffer.Add(3);
-        for (var i = 4; i <= 40; i++)
+        buffer.Add(ThirdBufferedValue);
+        for (var i = 4; i <= ValueBufferFinalCount; i++)
         {
             buffer.Add(i);
         }
 
-        buffer.Count.Should().Be(40);
-        buffer.Span.ToArray().Should().Equal(Enumerable.Range(1, 40));
+        buffer.Count.Should().Be(ValueBufferFinalCount);
+        buffer.Span.ToArray().Should().Equal(Enumerable.Range(1, ValueBufferFinalCount));
 
         buffer.Dispose();
         buffer.Dispose();
@@ -303,16 +404,16 @@ public class QuadCollectionCoverageTests
     [Test]
     public void ShardHash_ShouldReturnExpectedShardRanges()
     {
-        ShardHash.GetShardIndex<string?>(null, 4).Should().Be(0);
+        ShardHash.GetShardIndex<string?>(null, FourWayShardCount).Should().Be(0);
         ShardHash.GetShardIndex4<string?>(null).Should().Be(0);
 
         var positive = new FixedHash(1);
         var negative = new FixedHash(int.MinValue);
 
-        ShardHash.GetShardIndex(positive, 8).Should().BeInRange(0, 7);
-        ShardHash.GetShardIndex(negative, 16).Should().BeInRange(0, 15);
-        ShardHash.GetShardIndex4(positive).Should().Be(ShardHash.GetShardIndex(positive, 4));
-        ShardHash.GetShardIndex4(negative).Should().BeInRange(0, 3);
+        ShardHash.GetShardIndex(positive, EightWayShardCount).Should().BeInRange(0, EightWayMaximumIndex);
+        ShardHash.GetShardIndex(negative, SixteenWayShardCount).Should().BeInRange(0, SixteenWayMaximumIndex);
+        ShardHash.GetShardIndex4(positive).Should().Be(ShardHash.GetShardIndex(positive, FourWayShardCount));
+        ShardHash.GetShardIndex4(negative).Should().BeInRange(0, FourWayMaximumIndex);
     }
 
     /// <summary>Provides ConstantHashStringComparer.</summary>

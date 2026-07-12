@@ -26,6 +26,30 @@ namespace ReactiveList.Test;
 /// intended to validate the public API and observable behaviors of QuaternaryDictionary.</remarks>
 public class QuaternaryDictionaryTests
 {
+    private const int SecondDictionaryKey = 2;
+
+    private const int ThirdDictionaryKey = 3;
+
+    private const int FourthDictionaryKey = 4;
+
+    private const int FiveCharacterLength = 5;
+
+    private const int NineCharacterLength = 9;
+
+    private const int TenthDictionaryKey = 10;
+
+    private const int ElevenCharacterLength = 11;
+
+    private const int TwentiethDictionaryKey = 20;
+
+    private const int MissingDictionaryKey = 99;
+
+    private const string ThreeText = "three";
+
+    private const string LengthIndexName = "ByLength";
+
+    private const string ShortValue = "short";
+
     /// <summary>
     /// Verifies that the QuaternaryDictionary correctly stores values added with Add and allows updating values using
     /// the indexer.
@@ -35,9 +59,7 @@ public class QuaternaryDictionaryTests
     [Test]
     public void AddAndIndexer_ShouldStoreAndUpdateValues()
     {
-        using var dict = new QuaternaryDictionary<int, string>();
-
-        dict.Add(1, "one");
+        using var dict = new QuaternaryDictionary<int, string> { { 1, "one" } };
 
         dict[1].Should().Be("one");
 
@@ -59,10 +81,10 @@ public class QuaternaryDictionaryTests
     {
         using var dict = new QuaternaryDictionary<int, string>();
 
-        dict.TryAdd(2, "two").Should().BeTrue();
-        dict.TryAdd(2, "dos").Should().BeFalse();
+        dict.TryAdd(SecondDictionaryKey, "two").Should().BeTrue();
+        dict.TryAdd(SecondDictionaryKey, "dos").Should().BeFalse();
 
-        dict[2].Should().Be("two");
+        dict[SecondDictionaryKey].Should().Be("two");
     }
 
     /// <summary>
@@ -89,12 +111,12 @@ public class QuaternaryDictionaryTests
             reset.Set();
         });
 
-        dict.AddOrUpdate(3, "tres");
-        dict.AddOrUpdate(3, "three");
+        dict.AddOrUpdate(ThirdDictionaryKey, "tres");
+        dict.AddOrUpdate(ThirdDictionaryKey, ThreeText);
 
         reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
         actions.Should().ContainInOrder(CacheAction.Added, CacheAction.Updated);
-        dict[3].Should().Be("three");
+        dict[ThirdDictionaryKey].Should().Be(ThreeText);
     }
 
     /// <summary>
@@ -107,8 +129,7 @@ public class QuaternaryDictionaryTests
     [Test]
     public void Remove_ShouldRemoveExistingAndReturnFalseForMissing()
     {
-        using var dict = new QuaternaryDictionary<int, string>();
-        dict.Add(1, "one");
+        using var dict = new QuaternaryDictionary<int, string> { { 1, "one" } };
 
         dict.Remove(1).Should().BeTrue();
         dict.ContainsKey(1).Should().BeFalse();
@@ -137,8 +158,8 @@ public class QuaternaryDictionaryTests
         var items = new[]
         {
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three")
+            new KeyValuePair<int, string>(SecondDictionaryKey, "two"),
+            new KeyValuePair<int, string>(ThirdDictionaryKey, ThreeText)
         };
 
         dict.AddRange(items);
@@ -147,12 +168,12 @@ public class QuaternaryDictionaryTests
         notification.Should().NotBeNull();
         notification!.Action.Should().Be(CacheAction.BatchAdded);
         notification.Batch.Should().NotBeNull();
-        notification.Batch!.Count.Should().Be(3);
+        notification.Batch!.Count.Should().Be(ThirdDictionaryKey);
         notification.Batch.Dispose();
 
-        dict.Count.Should().Be(3);
-        dict.Keys.Should().BeEquivalentTo([1, 2, 3]);
-        dict.Values.Should().BeEquivalentTo(["one", "two", "three"]);
+        dict.Count.Should().Be(ThirdDictionaryKey);
+        dict.Keys.Should().BeEquivalentTo([1, SecondDictionaryKey, ThirdDictionaryKey]);
+        dict.Values.Should().BeEquivalentTo(["one", "two", ThreeText]);
     }
 
     /// <summary>
@@ -165,9 +186,11 @@ public class QuaternaryDictionaryTests
     [Test]
     public void CopyTo_ShouldCopyAllEntries()
     {
-        using var dict = new QuaternaryDictionary<int, string>();
-        dict.Add(1, "one");
-        dict.Add(2, "two");
+        using var dict = new QuaternaryDictionary<int, string>
+        {
+            { 1, "one" },
+            { SecondDictionaryKey, "two" }
+        };
 
         var array = new KeyValuePair<int, string>[3];
 
@@ -184,37 +207,39 @@ public class QuaternaryDictionaryTests
     public void ValueIndex_ShouldTrackAddsAndRemovals()
     {
         using var dict = new QuaternaryDictionary<int, string>();
-        dict.AddValueIndex("ByLength", v => v.Length);
+        dict.AddValueIndex(LengthIndexName, v => v.Length);
 
         dict.AddRange([
-            new KeyValuePair<int, string>(1, "short"),
-            new KeyValuePair<int, string>(2, "longvalue")
+            new KeyValuePair<int, string>(1, ShortValue),
+            new KeyValuePair<int, string>(SecondDictionaryKey, "longvalue")
         ]);
 
-        GetLookup(dict, "ByLength", 5).Should().ContainSingle().Which.Should().Be("short");
+        GetLookup(dict, LengthIndexName, FiveCharacterLength).Should().ContainSingle().Which.Should().Be(ShortValue);
 
         dict.Remove(1);
 
-        GetLookup(dict, "ByLength", 5).Should().BeEmpty();
+        GetLookup(dict, LengthIndexName, FiveCharacterLength).Should().BeEmpty();
 
         dict.Clear();
 
-        GetLookup(dict, "ByLength", 9).Should().BeEmpty();
+        GetLookup(dict, LengthIndexName, NineCharacterLength).Should().BeEmpty();
     }
 
     /// <summary>Verifies that the Lookup method returns the correct result for existing and non-existing keys.</summary>
     [Test]
     public void Lookup_ShouldReturnCorrectResult()
     {
-        using var dict = new QuaternaryDictionary<int, string>();
-        dict.Add(1, "one");
-        dict.Add(2, "two");
+        using var dict = new QuaternaryDictionary<int, string>
+        {
+            { 1, "one" },
+            { SecondDictionaryKey, "two" }
+        };
 
         var result1 = dict.Lookup(1);
         result1.HasValue.Should().BeTrue();
         result1.Value.Should().Be("one");
 
-        var result2 = dict.Lookup(99);
+        var result2 = dict.Lookup(MissingDictionaryKey);
         result2.HasValue.Should().BeFalse();
         result2.Value.Should().BeNull();
     }
@@ -226,9 +251,9 @@ public class QuaternaryDictionaryTests
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three"),
-            new KeyValuePair<int, string>(4, "four")
+            new KeyValuePair<int, string>(SecondDictionaryKey, "two"),
+            new KeyValuePair<int, string>(ThirdDictionaryKey, ThreeText),
+            new KeyValuePair<int, string>(FourthDictionaryKey, "four")
         ]);
 
         CacheNotify<KeyValuePair<int, string>>? notification = null;
@@ -244,15 +269,15 @@ public class QuaternaryDictionaryTests
             reset.Set();
         });
 
-        dict.RemoveKeys([2, 4]);
+        dict.RemoveKeys([SecondDictionaryKey, FourthDictionaryKey]);
 
         reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
         notification.Should().NotBeNull();
-        dict.Count.Should().Be(2);
-        dict.ContainsKey(2).Should().BeFalse();
-        dict.ContainsKey(4).Should().BeFalse();
+        dict.Count.Should().Be(SecondDictionaryKey);
+        dict.ContainsKey(SecondDictionaryKey).Should().BeFalse();
+        dict.ContainsKey(FourthDictionaryKey).Should().BeFalse();
         dict.ContainsKey(1).Should().BeTrue();
-        dict.ContainsKey(3).Should().BeTrue();
+        dict.ContainsKey(ThirdDictionaryKey).Should().BeTrue();
     }
 
     /// <summary>Verifies that RemoveMany with a predicate removes matching entries.</summary>
@@ -262,17 +287,17 @@ public class QuaternaryDictionaryTests
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
             new KeyValuePair<int, string>(1, "tiny"),
-            new KeyValuePair<int, string>(2, "medium"),
-            new KeyValuePair<int, string>(3, "verylongvalue")
+            new KeyValuePair<int, string>(SecondDictionaryKey, "medium"),
+            new KeyValuePair<int, string>(ThirdDictionaryKey, "verylongvalue")
         ]);
 
         var removedCount = dict.RemoveMany(kvp => kvp.Value.Length > 5);
 
-        removedCount.Should().Be(2);
+        removedCount.Should().Be(SecondDictionaryKey);
         dict.Count.Should().Be(1);
         dict.ContainsKey(1).Should().BeTrue();
-        dict.ContainsKey(2).Should().BeFalse();
-        dict.ContainsKey(3).Should().BeFalse();
+        dict.ContainsKey(SecondDictionaryKey).Should().BeFalse();
+        dict.ContainsKey(ThirdDictionaryKey).Should().BeFalse();
     }
 
     /// <summary>Verifies that the Edit method allows batch modifications with a single notification.</summary>
@@ -282,7 +307,7 @@ public class QuaternaryDictionaryTests
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two")
+            new KeyValuePair<int, string>(SecondDictionaryKey, "two")
         ]);
 
         var notifications = new List<CacheAction>();
@@ -301,15 +326,15 @@ public class QuaternaryDictionaryTests
         dict.Edit(innerDict =>
         {
             innerDict.Clear();
-            innerDict.Add(10, "ten");
-            innerDict.Add(20, "twenty");
+            innerDict.Add(TenthDictionaryKey, "ten");
+            innerDict.Add(TwentiethDictionaryKey, "twenty");
         });
 
         reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
         notifications.Should().ContainSingle().Which.Should().Be(CacheAction.BatchOperation);
-        dict.Count.Should().Be(2);
-        dict.ContainsKey(10).Should().BeTrue();
-        dict.ContainsKey(20).Should().BeTrue();
+        dict.Count.Should().Be(SecondDictionaryKey);
+        dict.ContainsKey(TenthDictionaryKey).Should().BeTrue();
+        dict.ContainsKey(TwentiethDictionaryKey).Should().BeTrue();
         dict.ContainsKey(1).Should().BeFalse();
     }
 
@@ -318,23 +343,23 @@ public class QuaternaryDictionaryTests
     public void Edit_ShouldUpdateValueIndicesCorrectly()
     {
         using var dict = new QuaternaryDictionary<int, string>();
-        dict.AddValueIndex("ByLength", v => v.Length);
+        dict.AddValueIndex(LengthIndexName, v => v.Length);
 
         dict.AddRange([
-            new KeyValuePair<int, string>(1, "short"),
-            new KeyValuePair<int, string>(2, "longvalue")
+            new KeyValuePair<int, string>(1, ShortValue),
+            new KeyValuePair<int, string>(SecondDictionaryKey, "longvalue")
         ]);
 
         dict.Edit(innerDict =>
         {
             innerDict.Clear();
-            innerDict.Add(3, "tiny");
-            innerDict.Add(4, "biggervalue");
+            innerDict.Add(ThirdDictionaryKey, "tiny");
+            innerDict.Add(FourthDictionaryKey, "biggervalue");
         });
 
-        GetLookup(dict, "ByLength", 5).Should().BeEmpty();
-        GetLookup(dict, "ByLength", 4).Should().ContainSingle().Which.Should().Be("tiny");
-        GetLookup(dict, "ByLength", 11).Should().ContainSingle().Which.Should().Be("biggervalue");
+        GetLookup(dict, LengthIndexName, FiveCharacterLength).Should().BeEmpty();
+        GetLookup(dict, LengthIndexName, FourthDictionaryKey).Should().ContainSingle().Which.Should().Be("tiny");
+        GetLookup(dict, LengthIndexName, ElevenCharacterLength).Should().ContainSingle().Which.Should().Be("biggervalue");
     }
 
     /// <summary>Verifies that GetValuesBySecondaryIndex returns matching values.</summary>
@@ -342,30 +367,29 @@ public class QuaternaryDictionaryTests
     public void GetValuesBySecondaryIndex_ShouldReturnMatchingValues()
     {
         using var dict = new QuaternaryDictionary<int, string>();
-        dict.AddValueIndex("ByLength", v => v.Length);
+        dict.AddValueIndex(LengthIndexName, v => v.Length);
 
         dict.AddRange([
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three"),
-            new KeyValuePair<int, string>(4, "four")
+            new KeyValuePair<int, string>(SecondDictionaryKey, "two"),
+            new KeyValuePair<int, string>(ThirdDictionaryKey, ThreeText),
+            new KeyValuePair<int, string>(FourthDictionaryKey, "four")
         ]);
 
-        var threeCharValues = dict.GetValuesBySecondaryIndex("ByLength", 3).ToList();
-        threeCharValues.Should().HaveCount(2);
+        var threeCharValues = dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).ToList();
+        threeCharValues.Should().HaveCount(SecondDictionaryKey);
         threeCharValues.Should().Contain("one");
         threeCharValues.Should().Contain("two");
 
-        var fiveCharValues = dict.GetValuesBySecondaryIndex("ByLength", 5).ToList();
-        fiveCharValues.Should().ContainSingle().Which.Should().Be("three");
+        var fiveCharValues = dict.GetValuesBySecondaryIndex(LengthIndexName, FiveCharacterLength).ToList();
+        fiveCharValues.Should().ContainSingle().Which.Should().Be(ThreeText);
     }
 
     /// <summary>Verifies that GetValuesBySecondaryIndex returns empty for non-existent index.</summary>
     [Test]
     public void GetValuesBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
     {
-        using var dict = new QuaternaryDictionary<int, string>();
-        dict.Add(1, "one");
+        using var dict = new QuaternaryDictionary<int, string> { { 1, "one" } };
 
         var result = dict.GetValuesBySecondaryIndex("NonExistent", "key");
         result.Should().BeEmpty();
@@ -376,12 +400,12 @@ public class QuaternaryDictionaryTests
     public void ValueMatchesSecondaryIndex_ShouldReturnCorrectResult()
     {
         using var dict = new QuaternaryDictionary<int, string>();
-        dict.AddValueIndex("ByLength", v => v.Length);
+        dict.AddValueIndex(LengthIndexName, v => v.Length);
         dict.Add(1, "test");
 
-        dict.ValueMatchesSecondaryIndex("ByLength", "test", 4).Should().BeTrue();
-        dict.ValueMatchesSecondaryIndex("ByLength", "test", 5).Should().BeFalse();
-        dict.ValueMatchesSecondaryIndex("NonExistent", "test", 4).Should().BeFalse();
+        dict.ValueMatchesSecondaryIndex(LengthIndexName, "test", FourthDictionaryKey).Should().BeTrue();
+        dict.ValueMatchesSecondaryIndex(LengthIndexName, "test", FiveCharacterLength).Should().BeFalse();
+        dict.ValueMatchesSecondaryIndex("NonExistent", "test", FourthDictionaryKey).Should().BeFalse();
     }
 
     /// <summary>Verifies that GetValuesBySecondaryIndex updates after additions and removals.</summary>
@@ -389,19 +413,19 @@ public class QuaternaryDictionaryTests
     public void GetValuesBySecondaryIndex_ShouldUpdateAfterAdditionsAndRemovals()
     {
         using var dict = new QuaternaryDictionary<int, string>();
-        dict.AddValueIndex("ByLength", v => v.Length);
+        dict.AddValueIndex(LengthIndexName, v => v.Length);
 
         dict.Add(1, "one");
-        dict.GetValuesBySecondaryIndex("ByLength", 3).Should().ContainSingle().Which.Should().Be("one");
+        dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).Should().ContainSingle().Which.Should().Be("one");
 
-        dict.Add(2, "two");
-        dict.GetValuesBySecondaryIndex("ByLength", 3).Should().HaveCount(2);
+        dict.Add(SecondDictionaryKey, "two");
+        dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).Should().HaveCount(SecondDictionaryKey);
 
         dict.Remove(1);
-        dict.GetValuesBySecondaryIndex("ByLength", 3).Should().ContainSingle().Which.Should().Be("two");
+        dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).Should().ContainSingle().Which.Should().Be("two");
 
         dict.Clear();
-        dict.GetValuesBySecondaryIndex("ByLength", 3).Should().BeEmpty();
+        dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).Should().BeEmpty();
     }
 
     /// <summary>Provides GetLookup.</summary>
@@ -415,12 +439,17 @@ public class QuaternaryDictionaryTests
         where TKey : notnull
     {
         // The Indices property is in the base class QuaternaryBase<TItem, TValue>
-        var baseType = dictionary.GetType().BaseType!;
-        var property = baseType.GetProperty("Indices", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy)!;
-        var indices = (ConcurrentDictionary<string, ISecondaryIndex<TValue>>)property.GetValue(dictionary)!;
+        var baseType = dictionary.GetType().BaseType ?? throw new InvalidOperationException("The dictionary has no base type.");
+        var property = baseType.GetProperty("Indices", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy)
+            ?? throw new MissingMemberException(baseType.FullName, "Indices");
+        var indices = (ConcurrentDictionary<string, ISecondaryIndex<TValue>>)(property.GetValue(dictionary)
+            ?? throw new InvalidOperationException("The secondary-index dictionary was null."));
         indices.TryGetValue(indexName, out var index).Should().BeTrue();
-        var lookupMethod = index!.GetType().GetMethod("Lookup", BindingFlags.Public | BindingFlags.Instance)!;
-        return (IEnumerable<TValue>)lookupMethod.Invoke(index, [key])!;
+        var concreteIndex = index ?? throw new InvalidOperationException($"The secondary index '{indexName}' was not found.");
+        var lookupMethod = concreteIndex.GetType().GetMethod(nameof(QuaternaryDictionary<,>.Lookup), BindingFlags.Public | BindingFlags.Instance)
+            ?? throw new MissingMethodException(concreteIndex.GetType().FullName, nameof(QuaternaryDictionary<,>.Lookup));
+        return (IEnumerable<TValue>)(lookupMethod.Invoke(concreteIndex, [key])
+            ?? throw new InvalidOperationException("The secondary-index lookup returned null."));
     }
 }
 #endif

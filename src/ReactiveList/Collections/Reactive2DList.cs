@@ -29,7 +29,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <param name="items">A collection of sequences, where each inner sequence represents the items for a row in the two-dimensional list.</param>
     /// <exception cref="ArgumentNullException">Thrown if items is null.</exception>
     public Reactive2DList(IEnumerable<IEnumerable<T>> items)
-        : base(items?.Select(i => new ReactiveList<T>(i)) ?? throw new ArgumentNullException(nameof(items)))
+        : base(CreateRows(items))
     {
     }
 
@@ -44,7 +44,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <param name="items">The collection of items to initialize the list with. Each item will be wrapped in a <see cref="ReactiveList{T}"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown if items is null.</exception>
     public Reactive2DList(IEnumerable<T> items)
-        : base(items?.Select(i => new ReactiveList<T>(i)) ?? throw new ArgumentNullException(nameof(items)))
+        : base(CreateSingleItemRows(items))
     {
     }
 
@@ -70,7 +70,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     {
         ThrowHelper.ThrowIfNull(items);
 
-        base.AddRange(items.Select(static item => new ReactiveList<T>(item)).ToArray());
+        base.AddRange(CreateRows(items));
     }
 
     /// <summary>Adds the elements of the specified collection to the current collection.</summary>
@@ -80,7 +80,7 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     {
         ThrowHelper.ThrowIfNull(items);
 
-        base.AddRange(items.Select(static item => new ReactiveList<T>(item)).ToArray());
+        base.AddRange(CreateSingleItemRows(items));
     }
 
     /// <summary>Adds the specified items to the inner collection at the given outer index.</summary>
@@ -245,7 +245,16 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
 
     /// <summary>Calculates the total number of items contained in all inner lists.</summary>
     /// <returns>The sum of the counts of all inner lists. Returns 0 if there are no items.</returns>
-    public int TotalCount() => Items.Sum(innerList => innerList.Count);
+    public int TotalCount()
+    {
+        var count = 0;
+        for (var i = 0; i < Items.Count; i++)
+        {
+            count += Items[i].Count;
+        }
+
+        return count;
+    }
 
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
@@ -260,5 +269,65 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
         }
 
         base.Dispose(disposing);
+    }
+
+    /// <summary>Materializes nested item sequences directly into reactive rows.</summary>
+    /// <param name="items">The nested item sequences.</param>
+    /// <returns>The materialized reactive rows.</returns>
+    private static ReactiveList<T>[] CreateRows(IEnumerable<IEnumerable<T>> items)
+    {
+        ThrowHelper.ThrowIfNull(items);
+
+        if (items is ICollection<IEnumerable<T>> collection)
+        {
+            var rows = new ReactiveList<T>[collection.Count];
+            var index = 0;
+            foreach (var item in collection)
+            {
+                rows[index++] = new(item);
+            }
+
+            return rows;
+        }
+
+        var result = items is IReadOnlyCollection<IEnumerable<T>> readOnlyCollection
+            ? new List<ReactiveList<T>>(readOnlyCollection.Count)
+            : [];
+        foreach (var item in items)
+        {
+            result.Add(new(item));
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>Materializes individual items directly into single-item reactive rows.</summary>
+    /// <param name="items">The items to wrap.</param>
+    /// <returns>The materialized single-item rows.</returns>
+    private static ReactiveList<T>[] CreateSingleItemRows(IEnumerable<T> items)
+    {
+        ThrowHelper.ThrowIfNull(items);
+
+        if (items is ICollection<T> collection)
+        {
+            var rows = new ReactiveList<T>[collection.Count];
+            var index = 0;
+            foreach (var item in collection)
+            {
+                rows[index++] = new(item);
+            }
+
+            return rows;
+        }
+
+        var result = items is IReadOnlyCollection<T> readOnlyCollection
+            ? new List<ReactiveList<T>>(readOnlyCollection.Count)
+            : [];
+        foreach (var item in items)
+        {
+            result.Add(new(item));
+        }
+
+        return result.ToArray();
     }
 }

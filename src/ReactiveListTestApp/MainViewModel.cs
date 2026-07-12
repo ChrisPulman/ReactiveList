@@ -5,7 +5,6 @@
 using System.Collections.ObjectModel;
 using System.Reactive;
 using System.Reactive.Disposables.Fluent;
-using System.Reactive.Linq;
 using CP.Primitives;
 using CP.Primitives.Collections;
 using CrissCross;
@@ -19,6 +18,30 @@ namespace ReactiveListTestApp;
 public class MainViewModel : RxObject
 {
     private const string DepartmentIndex = "ByDepartment";
+
+    private const string EngineeringDepartment = "Engineering";
+
+    private const int DepartmentAlternation = 2;
+
+    private const int FavoriteInterval = 3;
+
+    private const int CityInterval = 4;
+
+    private const int OperationLogCapacity = 16;
+
+    private const int LookupDisplayLimit = 6;
+
+    private const int ContactBatchSize = 6;
+
+    private const int DynamicFilterDivisor = 3;
+
+    private const int DynamicFilterFloor = 10;
+
+    private const int InitialNumberCount = 12;
+
+    private const int InitialContactCount = 8;
+
+    private const int InitialContactBatch = 2;
 
     private readonly ReactiveList<int> _numbers = [];
 
@@ -137,9 +160,9 @@ public class MainViewModel : RxObject
             $"User{index}",
             $"Person{index}",
             $"user{index}@company.test",
-            index % 2 == 0 ? "Engineering" : "HR",
-            index % 3 == 0,
-            new Address("1 Test Street", index % 4 == 0 ? "New York" : "London", "10001", "UK"));
+            index % DepartmentAlternation == 0 ? EngineeringDepartment : "HR",
+            index % FavoriteInterval == 0,
+            new Address("1 Test Street", index % CityInterval == 0 ? "New York" : "London", "10001", "UK"));
 
     /// <summary>Provides AddItem.</summary>
     /// <param name="prefix">The prefix value.</param>
@@ -168,11 +191,11 @@ public class MainViewModel : RxObject
         _contacts.AddIndex(DepartmentIndex, static contact => contact.Department);
         _contactsById.AddValueIndex(DepartmentIndex, static contact => contact.Department);
 
-        _contacts.CreateViewBySecondaryIndex(DepartmentIndex, "Engineering", sequencer, throttleMs: 0)
+        _contacts.CreateViewBySecondaryIndex(DepartmentIndex, EngineeringDepartment, sequencer, throttleMs: 0)
             .ToProperty(collection => EngineeringContacts = collection)
             .DisposeWith(Disposables);
 
-        QuaternaryExtensions.CreateViewBySecondaryIndex<Guid, Contact, string>(_contactsById, DepartmentIndex, "Engineering", sequencer, throttleMs: 0)
+        QuaternaryExtensions.CreateViewBySecondaryIndex<Guid, Contact, string>(_contactsById, DepartmentIndex, EngineeringDepartment, sequencer, throttleMs: 0)
             .ToProperty(collection => EngineeringDictionaryContacts = collection)
             .DisposeWith(Disposables);
     }
@@ -200,21 +223,21 @@ public class MainViewModel : RxObject
     private void Log(string message)
     {
         OperationLog.Insert(0, $"{DateTime.Now:HH:mm:ss} {message}");
-        if (OperationLog.Count <= 16)
+        if (OperationLog.Count <= OperationLogCapacity)
         {
             return;
         }
 
-        OperationLog.RemoveRange(16, OperationLog.Count - 16);
+        OperationLog.RemoveRange(OperationLogCapacity, OperationLog.Count - OperationLogCapacity);
     }
 
     /// <summary>Provides RefreshDictionaryLookups.</summary>
     private void RefreshDictionaryLookups()
     {
         var engineering = _contactsById
-            .GetValuesBySecondaryIndex(DepartmentIndex, "Engineering")
+            .GetValuesBySecondaryIndex(DepartmentIndex, EngineeringDepartment)
             .OrderBy(static contact => contact.Email)
-            .Take(6)
+            .Take(LookupDisplayLimit)
             .Select(static contact => $"{contact.Email} ({contact.HomeAddress.City})");
 
         DictionaryLookups.ReplaceAll(engineering);
@@ -240,7 +263,7 @@ public class MainViewModel : RxObject
     /// <summary>Provides RunIndexScenario.</summary>
     private void RunIndexScenario()
     {
-        var contacts = Enumerable.Range(_contactBatch * 6, 6).Select(CreateContact).ToArray();
+        var contacts = Enumerable.Range(_contactBatch * ContactBatchSize, ContactBatchSize).Select(CreateContact).ToArray();
         _contactBatch++;
 
         _contacts.AddRange(contacts);
@@ -302,9 +325,9 @@ public class MainViewModel : RxObject
         _numbers.Add(_nextNumber++);
         _numbers.InsertRange(0, [-_nextNumber]);
         _numbers.RemoveMany(static number => number < 0);
-        _numberFilter.OnNext(_nextNumber % 2 == 0
-            ? static number => number % 3 == 0
-            : static number => number >= 10);
+        _numberFilter.OnNext(_nextNumber % DepartmentAlternation == 0
+            ? static number => number % DynamicFilterDivisor == 0
+            : static number => number >= DynamicFilterFloor);
 
         Log("ReactiveList batch, INCC views, and dynamic filter updated.");
     }
@@ -313,11 +336,11 @@ public class MainViewModel : RxObject
     private void SeedCollections()
     {
         Items.AddRange(["Alpha", "Beta", "Gamma"]);
-        _numbers.AddRange(Enumerable.Range(1, 12));
+        _numbers.AddRange(Enumerable.Range(1, InitialNumberCount));
         _matrix.AddRange([["A1", "A2"], ["B1", "B2", "B3"]]);
 
-        var contacts = Enumerable.Range(0, 8).Select(CreateContact).ToArray();
-        _contactBatch = 2;
+        var contacts = Enumerable.Range(0, InitialContactCount).Select(CreateContact).ToArray();
+        _contactBatch = InitialContactBatch;
         _contacts.AddRange(contacts);
         _contactsById.AddRange(contacts.Select(static contact => KeyValuePair.Create(contact.Id, contact)));
 

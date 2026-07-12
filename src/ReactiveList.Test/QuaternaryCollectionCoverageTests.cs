@@ -25,6 +25,60 @@ namespace ReactiveList.Test;
 /// <summary>Covers quaternary list, dictionary, and base notification paths that are not reached by the public API tests.</summary>
 public class QuaternaryCollectionCoverageTests
 {
+    private const int CollectionValueTwo = 2;
+
+    private const int CollectionValueThree = 3;
+
+    private const int CollectionValueFour = 4;
+
+    private const int CollectionValueFive = 5;
+
+    private const int CollectionValueSix = 6;
+
+    private const int CollectionValueSeven = 7;
+
+    private const int CollectionValueEight = 8;
+
+    private const int ModuloBucketCount = 10;
+
+    private const int CollectionValueEleven = 11;
+
+    private const int ExpectedRemainingItems = 40;
+
+    private const int ReplacementValue = 42;
+
+    private const int ProcessorPollMilliseconds = 50;
+
+    private const int MissingCollectionValue = 99;
+
+    private const int FinalBatchSize = 100;
+
+    private const int ExpectedParityItems = 150;
+
+    private const int ParallelBatchSize = 300;
+
+    private const int FinalBatchStart = 600;
+
+    private const int MinimumRetainedItems = 700;
+
+    private const int MissingKeyOrIndex = 999;
+
+    private const int RemovedInitialKeys = 1060;
+
+    private const int LastRetainedKey = 1099;
+
+    private const int LargeBatchSize = 1100;
+
+    private const int FirstRetainedKey = 1101;
+
+    private const int DefinitelyMissingValue = 999_999;
+
+    private const string ParityIndexName = "Parity";
+
+    private const string LengthIndexName = "Length";
+
+    private const string ThreeText = "three";
+
     private static readonly KeyValuePair<int, string>[] ReplacementPairs = [new(2, "TWO")];
 
     private static readonly int[] MissingKeys = [999];
@@ -34,6 +88,13 @@ public class QuaternaryCollectionCoverageTests
     private static readonly List<int> EmptyIntList = [];
 
     private static readonly List<KeyValuePair<int, string>> EmptyPairs = [];
+
+    /// <summary>Provides a rename-safe marker for a deliberately absent secondary index.</summary>
+    private enum Missing
+    {
+        /// <summary>Represents the absent index name.</summary>
+        Marker
+    }
 
     /// <summary>Verifies QuaternaryList empty, enumerable, list, and secondary-index batch paths.</summary>
     [Test]
@@ -46,21 +107,21 @@ public class QuaternaryCollectionCoverageTests
         list.Count.Should().Be(0);
         list.Version.Should().Be(initialVersion);
 
-        list.AddIndex("Parity", item => item % 2);
-        list.AddRange(Yield(0, 1, 2, 3, 4));
-        list.RemoveRange(Yield(1, 3));
-        list.AddRange([10, 11]);
+        list.AddIndex(ParityIndexName, item => item % CollectionValueTwo);
+        list.AddRange(Yield(0, 1, CollectionValueTwo, CollectionValueThree, CollectionValueFour));
+        list.RemoveRange(Yield(1, CollectionValueThree));
+        list.AddRange([ModuloBucketCount, CollectionValueEleven]);
         list.AddRange(EmptyIntList);
         list.AddRange([]);
         list.RemoveRange([]);
         list.RemoveRange(EmptyIntList);
         list.RemoveRange([]);
-        list.RemoveRange([2]);
+        list.RemoveRange([CollectionValueTwo]);
 
-        list.Count.Should().Be(4);
-        list.Should().BeEquivalentTo([0, 4, 10, 11]);
-        list.GetItemsBySecondaryIndex("Parity", 0).Should().BeEquivalentTo([0, 4, 10]);
-        list.GetItemsBySecondaryIndex("Parity", 1).Should().ContainSingle().Which.Should().Be(11);
+        list.Count.Should().Be(CollectionValueFour);
+        list.Should().BeEquivalentTo([0, CollectionValueFour, ModuloBucketCount, CollectionValueEleven]);
+        list.GetItemsBySecondaryIndex(ParityIndexName, 0).Should().BeEquivalentTo([0, CollectionValueFour, ModuloBucketCount]);
+        list.GetItemsBySecondaryIndex(ParityIndexName, 1).Should().ContainSingle().Which.Should().Be(CollectionValueEleven);
         list.Version.Should().BeGreaterThan(initialVersion);
     }
 
@@ -69,26 +130,26 @@ public class QuaternaryCollectionCoverageTests
     public void QuaternaryList_LargeBatchOverloads_ShouldUseParallelPaths()
     {
         using var list = new QuaternaryList<int>();
-        list.AddIndex("Mod10", item => item % 10);
+        list.AddIndex("Mod10", item => item % ModuloBucketCount);
 
-        var firstBatch = Enumerable.Range(0, 1100).ToArray();
+        var firstBatch = Enumerable.Range(0, LargeBatchSize).ToArray();
         list.AddRange(firstBatch);
-        list.RemoveRange(firstBatch.Where(item => item % 3 == 0).ToArray());
+        list.RemoveRange(firstBatch.Where(item => item % CollectionValueThree == 0).ToArray());
 
-        list.Count.Should().BeGreaterThan(700);
+        list.Count.Should().BeGreaterThan(MinimumRetainedItems);
         list.Contains(0).Should().BeFalse();
         list.Contains(1).Should().BeTrue();
 
-        var secondBatch = Enumerable.Range(1100, 1100).ToList();
+        var secondBatch = Enumerable.Range(LargeBatchSize, LargeBatchSize).ToList();
         list.AddRange(secondBatch);
-        list.RemoveRange(secondBatch.Where(item => item % 2 == 0).ToList());
+        list.RemoveRange(secondBatch.Where(item => item % CollectionValueTwo == 0).ToList());
 
-        list.Contains(1100).Should().BeFalse();
-        list.Contains(1101).Should().BeTrue();
-        list.GetItemsBySecondaryIndex("Mod10", 1).Should().Contain(1101);
+        list.Contains(LargeBatchSize).Should().BeFalse();
+        list.Contains(FirstRetainedKey).Should().BeTrue();
+        list.GetItemsBySecondaryIndex("Mod10", 1).Should().Contain(FirstRetainedKey);
 
         var countBeforeMissingRemove = list.Count;
-        list.RemoveRange([999_999]);
+        list.RemoveRange([DefinitelyMissingValue]);
         list.Count.Should().Be(countBeforeMissingRemove);
     }
 
@@ -97,24 +158,24 @@ public class QuaternaryCollectionCoverageTests
     public void QuaternaryList_SingleShardParallelBatchesAndRemoveManyGrowth_ShouldMaintainIndexes()
     {
         using var list = new QuaternaryList<ConstantShardItem>();
-        list.AddIndex("Parity", static item => item.Id % 2);
+        list.AddIndex(ParityIndexName, static item => item.Id % CollectionValueTwo);
 
-        var arrayBatch = Enumerable.Range(0, 300).Select(static id => new ConstantShardItem(id)).ToArray();
+        var arrayBatch = Enumerable.Range(0, ParallelBatchSize).Select(static id => new ConstantShardItem(id)).ToArray();
         list.AddRange(arrayBatch);
-        list.GetItemsBySecondaryIndex("Parity", 0).Should().HaveCount(150);
+        list.GetItemsBySecondaryIndex(ParityIndexName, 0).Should().HaveCount(ExpectedParityItems);
         list.RemoveRange(arrayBatch);
         list.Count.Should().Be(0);
 
-        var listBatch = Enumerable.Range(300, 300).Select(static id => new ConstantShardItem(id)).ToList();
+        var listBatch = Enumerable.Range(ParallelBatchSize, ParallelBatchSize).Select(static id => new ConstantShardItem(id)).ToList();
         list.AddRange(listBatch);
-        list.GetItemsBySecondaryIndex("Parity", 1).Should().HaveCount(150);
+        list.GetItemsBySecondaryIndex(ParityIndexName, 1).Should().HaveCount(ExpectedParityItems);
         list.RemoveRange(listBatch);
         list.Count.Should().Be(0);
 
-        list.AddRange(Enumerable.Range(600, 100).Select(static id => new ConstantShardItem(id)).ToArray());
-        list.RemoveMany(static _ => true).Should().Be(100);
+        list.AddRange(Enumerable.Range(FinalBatchStart, FinalBatchSize).Select(static id => new ConstantShardItem(id)).ToArray());
+        list.RemoveMany(static _ => true).Should().Be(FinalBatchSize);
         list.Count.Should().Be(0);
-        list.GetItemsBySecondaryIndex("Parity", 0).Should().BeEmpty();
+        list.GetItemsBySecondaryIndex(ParityIndexName, 0).Should().BeEmpty();
     }
 
     /// <summary>Verifies QuaternaryList edit wrapper members and reflected members not exposed by ICollection.</summary>
@@ -122,27 +183,29 @@ public class QuaternaryCollectionCoverageTests
     public void QuaternaryList_EditWrapper_ShouldExposeCollectionMembers()
     {
         using var list = new QuaternaryList<int>();
-        list.AddIndex("Parity", item => item % 2);
-        list.AddRange([1, 2, 3]);
+        list.AddIndex(ParityIndexName, item => item % CollectionValueTwo);
+        list.AddRange([1, CollectionValueTwo, CollectionValueThree]);
 
         list.Edit(editor =>
         {
-            editor.Count.Should().Be(3);
+            editor.Count.Should().Be(CollectionValueThree);
             editor.IsReadOnly.Should().BeFalse();
-            editor.Contains(2).Should().BeTrue();
+            editor.Contains(CollectionValueTwo).Should().BeTrue();
 
             var copy = new int[3];
             editor.CopyTo(copy, 0);
-            copy.Should().BeEquivalentTo([1, 2, 3]);
-            editor.Should().BeEquivalentTo([1, 2, 3]);
+            copy.Should().BeEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
+            editor.Should().BeEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
 
             editor.Remove(1).Should().BeTrue();
-            editor.Remove(99).Should().BeFalse();
-            editor.Add(4);
+            editor.Remove(MissingCollectionValue).Should().BeFalse();
+            editor.Add(CollectionValueFour);
 
             var wrapperType = editor.GetType();
-            wrapperType.GetMethod("AddRange")!.Invoke(editor, [ReflectedAddRangeItems]);
-            wrapperType.GetProperty("Item")!.GetValue(editor, [0]).Should().NotBeNull();
+            var addRangeMethod = wrapperType.GetMethod("AddRange") ?? throw new MissingMethodException(wrapperType.FullName, "AddRange");
+            var itemProperty = wrapperType.GetProperty("Item") ?? throw new MissingMemberException(wrapperType.FullName, "Item");
+            addRangeMethod.Invoke(editor, [ReflectedAddRangeItems]);
+            itemProperty.GetValue(editor, [0]).Should().NotBeNull();
 
             var editorEnumerator = editor.GetEnumerator();
             while (editorEnumerator.MoveNext())
@@ -153,20 +216,20 @@ public class QuaternaryCollectionCoverageTests
             editorEnumerator.MoveNext().Should().BeFalse();
             ((IEnumerable)editor).GetEnumerator().MoveNext().Should().BeTrue();
 
-            Action badIndex = () => wrapperType.GetProperty("Item")!.GetValue(editor, [999]);
-            Action replaceByIndex = () => wrapperType.GetProperty("Item")!.SetValue(editor, 7, [0]);
+            Action badIndex = () => itemProperty.GetValue(editor, [MissingKeyOrIndex]);
+            Action replaceByIndex = () => itemProperty.SetValue(editor, CollectionValueSeven, [0]);
 
             badIndex.Should().Throw<TargetInvocationException>().WithInnerException<ArgumentOutOfRangeException>();
             replaceByIndex.Should().Throw<TargetInvocationException>().WithInnerException<NotSupportedException>();
         });
 
-        list.Should().BeEquivalentTo([2, 3, 4, 5, 6]);
-        list.GetItemsBySecondaryIndex("Parity", 0).Should().BeEquivalentTo([2, 4, 6]);
+        list.Should().BeEquivalentTo([CollectionValueTwo, CollectionValueThree, CollectionValueFour, CollectionValueFive, CollectionValueSix]);
+        list.GetItemsBySecondaryIndex(ParityIndexName, 0).Should().BeEquivalentTo([CollectionValueTwo, CollectionValueFour, CollectionValueSix]);
 
         using var noIndexList = new QuaternaryList<int>();
-        noIndexList.AddRange([1, 2]);
+        noIndexList.AddRange([1, CollectionValueTwo]);
         noIndexList.Edit(editor => editor.Remove(1).Should().BeTrue());
-        noIndexList.Should().ContainSingle().Which.Should().Be(2);
+        noIndexList.Should().ContainSingle().Which.Should().Be(CollectionValueTwo);
     }
 
     /// <summary>Verifies QuaternaryList snapshot and index guard paths.</summary>
@@ -174,7 +237,7 @@ public class QuaternaryCollectionCoverageTests
     public void QuaternaryList_SnapshotAndInvalidIndexes_ShouldBehaveAsExpected()
     {
         using var list = new QuaternaryList<int>();
-        list.AddRange([0, 4, 8, 1]);
+        list.AddRange([0, CollectionValueFour, CollectionValueEight, 1]);
 
         list.Snapshot().Should().BeEquivalentTo(list.ToArray());
         using var enumerator = ((IEnumerable<int>)list).GetEnumerator();
@@ -194,8 +257,8 @@ public class QuaternaryCollectionCoverageTests
         nonGenericEnumerator.MoveNext().Should().BeFalse();
 
         Action negativeIndex = () => _ = list[-1];
-        Action tooHighIndex = () => _ = list[99];
-        Action setter = () => list[0] = 42;
+        Action tooHighIndex = () => _ = list[MissingCollectionValue];
+        Action setter = () => list[0] = ReplacementValue;
 
         negativeIndex.Should().Throw<ArgumentOutOfRangeException>();
         tooHighIndex.Should().Throw<ArgumentOutOfRangeException>();
@@ -225,9 +288,9 @@ public class QuaternaryCollectionCoverageTests
                 reset.Set();
             };
 
-            list.Add(42);
+            list.Add(ReplacementValue);
 
-            reset.Wait(TimeSpan.FromSeconds(2)).Should().BeTrue();
+            reset.Wait(TimeSpan.FromSeconds(CollectionValueTwo)).Should().BeTrue();
             context.PostCount.Should().BeGreaterThan(0);
             action.Should().Be(NotifyCollectionChangedAction.Reset);
         }
@@ -249,39 +312,39 @@ public class QuaternaryCollectionCoverageTests
 
         dictionary.AddRange(Yield(
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three")));
-        dictionary.AddValueIndex("Length", value => value.Length);
+            new KeyValuePair<int, string>(CollectionValueTwo, "two"),
+            new KeyValuePair<int, string>(CollectionValueThree, ThreeText)));
+        dictionary.AddValueIndex(LengthIndexName, value => value.Length);
         dictionary.AddRange(EmptyPairs);
 
-        using var view = dictionary.CreateViewBySecondaryIndex("Length", 3, Sequencer.Immediate, throttleMs: 1);
-        view.Count.Should().Be(2);
+        using var view = dictionary.CreateViewBySecondaryIndex(LengthIndexName, CollectionValueThree, Sequencer.Immediate, throttleMs: 1);
+        view.Count.Should().Be(CollectionValueTwo);
 
         dictionary.AddRange([
-            new(4, "four"),
-            new(5, "five")
+            new(CollectionValueFour, "four"),
+            new(CollectionValueFive, "five")
         ]);
-        dictionary.Add(new KeyValuePair<int, string>(6, "six"));
+        dictionary.Add(new KeyValuePair<int, string>(CollectionValueSix, "six"));
         dictionary.AddRange([]);
 
         dictionary.RemoveKeys(Yield(1));
         dictionary.RemoveKeys(EmptyIntList);
         dictionary.RemoveKeys([]);
         dictionary.RemoveKeys([]);
-        dictionary.RemoveKeys([4]);
+        dictionary.RemoveKeys([CollectionValueFour]);
         dictionary.RemoveKeys(MissingKeys);
 
-        dictionary.Count.Should().Be(4);
+        dictionary.Count.Should().Be(CollectionValueFour);
         dictionary.ContainsKey(1).Should().BeFalse();
-        dictionary.ContainsKey(4).Should().BeFalse();
-        dictionary.GetValuesBySecondaryIndex("Length", 3).Should().BeEquivalentTo(["two", "six"]);
-        dictionary.GetValuesBySecondaryIndex("Length", 4).Should().ContainSingle().Which.Should().Be("five");
+        dictionary.ContainsKey(CollectionValueFour).Should().BeFalse();
+        dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueThree).Should().BeEquivalentTo(["two", "six"]);
+        dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour).Should().ContainSingle().Which.Should().Be("five");
         dictionary.AddRange(ReplacementPairs);
-        dictionary.AddRange([new(2, "deux")]);
-        dictionary[2].Should().Be("deux");
+        dictionary.AddRange([new(CollectionValueTwo, "deux")]);
+        dictionary[CollectionValueTwo].Should().Be("deux");
 
-        Action missingIndex = () => dictionary.CreateViewBySecondaryIndex("Missing", 3, Sequencer.Immediate);
-        Action incompatibleIndex = () => dictionary.CreateViewBySecondaryIndex("Length", "three", Sequencer.Immediate);
+        Action missingIndex = () => dictionary.CreateViewBySecondaryIndex(nameof(Missing), CollectionValueThree, Sequencer.Immediate);
+        Action incompatibleIndex = () => dictionary.CreateViewBySecondaryIndex(LengthIndexName, ThreeText, Sequencer.Immediate);
 
         missingIndex.Should().Throw<InvalidOperationException>();
         incompatibleIndex.Should().Throw<InvalidOperationException>();
@@ -292,29 +355,29 @@ public class QuaternaryCollectionCoverageTests
     public void QuaternaryDictionary_LargeBatchOverloads_ShouldUseParallelPaths()
     {
         using var dictionary = new QuaternaryDictionary<int, string>();
-        dictionary.AddValueIndex("Length", value => value.Length);
+        dictionary.AddValueIndex(LengthIndexName, value => value.Length);
 
-        var firstBatch = Enumerable.Range(0, 1100)
+        var firstBatch = Enumerable.Range(0, LargeBatchSize)
             .Select(i => new KeyValuePair<int, string>(i, $"value-{i}"))
             .ToArray();
 
         dictionary.AddRange(firstBatch);
-        dictionary.RemoveKeys(Enumerable.Range(0, 1060).ToArray());
+        dictionary.RemoveKeys(Enumerable.Range(0, RemovedInitialKeys).ToArray());
 
-        dictionary.Count.Should().Be(40);
+        dictionary.Count.Should().Be(ExpectedRemainingItems);
         dictionary.ContainsKey(0).Should().BeFalse();
-        dictionary.ContainsKey(1099).Should().BeTrue();
+        dictionary.ContainsKey(LastRetainedKey).Should().BeTrue();
 
-        var secondBatch = Enumerable.Range(1100, 1100)
+        var secondBatch = Enumerable.Range(LargeBatchSize, LargeBatchSize)
             .Select(i => new KeyValuePair<int, string>(i, $"value-{i}"))
             .ToList();
 
         dictionary.AddRange(secondBatch);
-        dictionary.RemoveKeys(secondBatch.Select(pair => pair.Key).Where(key => key % 2 == 0).ToList());
+        dictionary.RemoveKeys(secondBatch.Select(pair => pair.Key).Where(key => key % CollectionValueTwo == 0).ToList());
 
-        dictionary.ContainsKey(1100).Should().BeFalse();
-        dictionary.ContainsKey(1101).Should().BeTrue();
-        dictionary.GetValuesBySecondaryIndex("Length", "value-1101".Length).Should().Contain("value-1101");
+        dictionary.ContainsKey(LargeBatchSize).Should().BeFalse();
+        dictionary.ContainsKey(FirstRetainedKey).Should().BeTrue();
+        dictionary.GetValuesBySecondaryIndex(LengthIndexName, "value-1101".Length).Should().Contain("value-1101");
     }
 
     /// <summary>Verifies QuaternaryDictionary parallel paths when all keys land in one shard, plus RemoveMany buffer growth.</summary>
@@ -322,35 +385,35 @@ public class QuaternaryCollectionCoverageTests
     public void QuaternaryDictionary_SingleShardParallelBatchesAndRemoveManyGrowth_ShouldMaintainIndexes()
     {
         using var dictionary = new QuaternaryDictionary<ConstantShardKey, string>();
-        dictionary.AddValueIndex("Length", static value => value.Length);
+        dictionary.AddValueIndex(LengthIndexName, static value => value.Length);
 
-        var arrayBatch = Enumerable.Range(0, 300)
+        var arrayBatch = Enumerable.Range(0, ParallelBatchSize)
             .Select(static id => new KeyValuePair<ConstantShardKey, string>(new ConstantShardKey(id), $"v{id}"))
             .ToArray();
 
         dictionary.AddRange(arrayBatch);
-        dictionary.GetValuesBySecondaryIndex("Length", 2).Should().Contain("v0");
+        dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueTwo).Should().Contain("v0");
         dictionary.RemoveKeys(arrayBatch.Select(static pair => pair.Key).ToArray());
         dictionary.Count.Should().Be(0);
 
-        var listBatch = Enumerable.Range(300, 300)
+        var listBatch = Enumerable.Range(ParallelBatchSize, ParallelBatchSize)
             .Select(static id => new KeyValuePair<ConstantShardKey, string>(new ConstantShardKey(id), $"v{id}"))
             .ToList();
 
         dictionary.AddRange(listBatch);
-        dictionary.GetValuesBySecondaryIndex("Length", 4).Should().Contain("v300");
+        dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour).Should().Contain("v300");
         dictionary.RemoveKeys(listBatch.ConvertAll(static pair => pair.Key));
         dictionary.Count.Should().Be(0);
 
-        dictionary.AddRange(Enumerable.Range(600, 100)
+        dictionary.AddRange(Enumerable.Range(FinalBatchStart, FinalBatchSize)
             .Select(static id => new KeyValuePair<ConstantShardKey, string>(new ConstantShardKey(id), $"v{id}"))
             .ToArray());
 
-        dictionary.RemoveMany(static _ => true).Should().Be(100);
+        dictionary.RemoveMany(static _ => true).Should().Be(FinalBatchSize);
         dictionary.Count.Should().Be(0);
-        dictionary.GetValuesBySecondaryIndex("Length", 4).Should().BeEmpty();
+        dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour).Should().BeEmpty();
 
-        dictionary.Add(new ConstantShardKey(999), "v999");
+        dictionary.Add(new ConstantShardKey(MissingKeyOrIndex), "v999");
         dictionary.RemoveMany(static _ => false).Should().Be(0);
         dictionary.Count.Should().Be(1);
     }
@@ -360,34 +423,34 @@ public class QuaternaryCollectionCoverageTests
     public void QuaternaryDictionary_EditWrapper_ShouldExposeDictionaryMembers()
     {
         using var dictionary = new QuaternaryDictionary<int, string>();
-        dictionary.AddValueIndex("Length", value => value.Length);
+        dictionary.AddValueIndex(LengthIndexName, value => value.Length);
         dictionary.AddRange([
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three")
+            new KeyValuePair<int, string>(CollectionValueTwo, "two"),
+            new KeyValuePair<int, string>(CollectionValueThree, ThreeText)
         ]);
 
         dictionary.Edit(editor =>
         {
-            editor.Count.Should().Be(3);
+            editor.Count.Should().Be(CollectionValueThree);
             editor.IsReadOnly.Should().BeFalse();
-            editor.Keys.Should().BeEquivalentTo([1, 2, 3]);
-            editor.Values.Should().BeEquivalentTo(["one", "two", "three"]);
+            editor.Keys.Should().BeEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
+            editor.Values.Should().BeEquivalentTo(["one", "two", ThreeText]);
             editor[1].Should().Be("one");
 
             editor[1] = "ONE";
-            editor[4] = "four";
-            editor.Add(5, "five");
-            editor.Add(new KeyValuePair<int, string>(6, "six"));
+            editor[CollectionValueFour] = "four";
+            editor.Add(CollectionValueFive, "five");
+            editor.Add(new KeyValuePair<int, string>(CollectionValueSix, "six"));
 
-            editor.ContainsKey(6).Should().BeTrue();
-            editor.TryGetValue(6, out var six).Should().BeTrue();
+            editor.ContainsKey(CollectionValueSix).Should().BeTrue();
+            editor.TryGetValue(CollectionValueSix, out var six).Should().BeTrue();
             six.Should().Be("six");
-            editor.Contains(new KeyValuePair<int, string>(6, "six")).Should().BeTrue();
+            editor.Contains(new KeyValuePair<int, string>(CollectionValueSix, "six")).Should().BeTrue();
 
             var copy = new KeyValuePair<int, string>[editor.Count];
             editor.CopyTo(copy, 0);
-            copy.Should().Contain(new KeyValuePair<int, string>(6, "six"));
+            copy.Should().Contain(new KeyValuePair<int, string>(CollectionValueSix, "six"));
 
             ((IEnumerable)editor).GetEnumerator().MoveNext().Should().BeTrue();
             var editorEnumerator = editor.GetEnumerator();
@@ -397,33 +460,31 @@ public class QuaternaryCollectionCoverageTests
             }
 
             editorEnumerator.MoveNext().Should().BeFalse();
-            editor.Remove(new KeyValuePair<int, string>(5, "wrong")).Should().BeFalse();
-            editor.Remove(new KeyValuePair<int, string>(5, "five")).Should().BeTrue();
-            editor.Remove(99).Should().BeFalse();
+            editor.Remove(new KeyValuePair<int, string>(CollectionValueFive, "wrong")).Should().BeFalse();
+            editor.Remove(new KeyValuePair<int, string>(CollectionValueFive, "five")).Should().BeTrue();
+            editor.Remove(MissingCollectionValue).Should().BeFalse();
 
-            Action missingKey = () => _ = editor[99];
+            Action missingKey = () => _ = editor[MissingCollectionValue];
             missingKey.Should().Throw<KeyNotFoundException>();
         });
 
         dictionary.Should().Contain(new KeyValuePair<int, string>(1, "ONE"));
-        dictionary.Should().Contain(new KeyValuePair<int, string>(4, "four"));
-        dictionary.Should().Contain(new KeyValuePair<int, string>(6, "six"));
-        dictionary.ContainsKey(5).Should().BeFalse();
-        dictionary.GetValuesBySecondaryIndex("Length", 3).Should().BeEquivalentTo(["ONE", "two", "six"]);
+        dictionary.Should().Contain(new KeyValuePair<int, string>(CollectionValueFour, "four"));
+        dictionary.Should().Contain(new KeyValuePair<int, string>(CollectionValueSix, "six"));
+        dictionary.ContainsKey(CollectionValueFive).Should().BeFalse();
+        dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueThree).Should().BeEquivalentTo(["ONE", "two", "six"]);
     }
 
     /// <summary>Verifies QuaternaryDictionary guard paths and legacy collection changed update notifications.</summary>
     [Test]
     public void QuaternaryDictionary_GuardsAndCollectionChanged_ShouldBehaveAsExpected()
     {
-        using var dictionary = new QuaternaryDictionary<int, string>();
-
-        dictionary.Add(1, "one");
+        using var dictionary = new QuaternaryDictionary<int, string> { { 1, "one" } };
         dictionary.Contains(new KeyValuePair<int, string>(1, "uno")).Should().BeFalse();
         dictionary.Remove(new KeyValuePair<int, string>(1, "uno")).Should().BeFalse();
 
         Action duplicate = () => dictionary.Add(1, "duplicate");
-        Action missingIndexer = () => _ = dictionary[99];
+        Action missingIndexer = () => _ = dictionary[MissingCollectionValue];
         Action nullCopy = () => dictionary.CopyTo(null!, 0);
         Action nullRemoveKeys = () => dictionary.RemoveKeys(null!);
         Action nullRemoveMany = () => dictionary.RemoveMany(null!);
@@ -447,7 +508,7 @@ public class QuaternaryCollectionCoverageTests
 
         dictionary[1] = "ONE";
 
-        reset.Wait(TimeSpan.FromSeconds(2)).Should().BeTrue();
+        reset.Wait(TimeSpan.FromSeconds(CollectionValueTwo)).Should().BeTrue();
         action.Should().Be(NotifyCollectionChangedAction.Reset);
     }
 
@@ -459,15 +520,15 @@ public class QuaternaryCollectionCoverageTests
         var received = new List<CacheNotify<int>>();
         using var subscription = harness.Stream.Subscribe(received.Add);
 
-        harness.EmitDirect([1, 2]);
-        harness.EmitAddedFromList([3, 4]);
-        harness.EmitRemovedFromList([5, 6]);
-        SpinWait.SpinUntil(() => received.Count >= 3, TimeSpan.FromSeconds(2)).Should().BeTrue();
+        harness.EmitDirect([1, CollectionValueTwo]);
+        harness.EmitAddedFromList([CollectionValueThree, CollectionValueFour]);
+        harness.EmitRemovedFromList([CollectionValueFive, CollectionValueSix]);
+        SpinWait.SpinUntil(() => received.Count >= 3, TimeSpan.FromSeconds(CollectionValueTwo)).Should().BeTrue();
 
         received.Select(static notification => notification.Action)
             .Should().Equal(CacheAction.BatchOperation, CacheAction.BatchAdded, CacheAction.BatchRemoved);
         received.Select(static notification => notification.Batch!.Count)
-            .Should().Equal(2, 2, 2);
+            .Should().Equal(CollectionValueTwo, CollectionValueTwo, CollectionValueTwo);
 
         Action nullAdded = () => harness.EmitAddedFromList(null!);
         Action nullRemoved = () => harness.EmitRemovedFromList(null!);
@@ -490,20 +551,20 @@ public class QuaternaryCollectionCoverageTests
         noObserverHarness.CollectionChanged += nullHandler;
         noObserverHarness.CollectionChanged -= nullHandler;
 
-        noObserverHarness.EmitDirect([1, 2]);
-        noObserverHarness.EmitOwnedRemoved([3, 4]);
-        noObserverHarness.EmitRemovedFromList([5, 6]);
+        noObserverHarness.EmitDirect([1, CollectionValueTwo]);
+        noObserverHarness.EmitOwnedRemoved([CollectionValueThree, CollectionValueFour]);
+        noObserverHarness.EmitRemovedFromList([CollectionValueFive, CollectionValueSix]);
 
         using var harness = new QuaternaryBaseHarness();
         var actions = new List<NotifyCollectionChangedAction>();
         harness.CollectionChanged += (_, args) => actions.Add(args.Action);
 
-        harness.EmitDirect([1, 2]);
-        harness.EmitSingle(CacheAction.Added, 3);
-        harness.EmitSingle(CacheAction.Removed, 4);
-        harness.EmitSingle(CacheAction.Moved, 5);
+        harness.EmitDirect([1, CollectionValueTwo]);
+        harness.EmitSingle(CacheAction.Added, CollectionValueThree);
+        harness.EmitSingle(CacheAction.Removed, CollectionValueFour);
+        harness.EmitSingle(CacheAction.Moved, CollectionValueFive);
 
-        SpinWait.SpinUntil(() => actions.Count >= 4, TimeSpan.FromSeconds(2)).Should().BeTrue();
+        SpinWait.SpinUntil(() => actions.Count >= 4, TimeSpan.FromSeconds(CollectionValueTwo)).Should().BeTrue();
         actions.Should().Equal(
             NotifyCollectionChangedAction.Reset,
             NotifyCollectionChangedAction.Reset,
@@ -517,12 +578,15 @@ public class QuaternaryCollectionCoverageTests
     public async Task QuaternaryBase_PrivateEventProcessorEdges_ShouldExecute()
     {
         var baseType = typeof(QuaternaryBase<int, int>);
-        var processEvents = baseType.GetMethod("ProcessEventsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var ensureStarted = baseType.GetMethod("EnsureEventProcessorStarted", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var processEvents = baseType.GetMethod("ProcessEventsAsync", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingMethodException(baseType.FullName, "ProcessEventsAsync");
+        var ensureStarted = baseType.GetMethod("EnsureEventProcessorStarted", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingMethodException(baseType.FullName, "EnsureEventProcessorStarted");
 
         using (var nullStateHarness = new QuaternaryBaseHarness())
         {
-            await (Task)processEvents.Invoke(nullStateHarness, null)!;
+            await (Task)(processEvents.Invoke(nullStateHarness, null)
+                ?? throw new InvalidOperationException("The event processor did not return a task."));
         }
 
         using (var completedReaderHarness = new QuaternaryBaseHarness())
@@ -533,7 +597,8 @@ public class QuaternaryCollectionCoverageTests
             SetPrivateField(completedReaderHarness, "_pipeline", new Signal<CacheNotify<int>>());
             SetPrivateField(completedReaderHarness, "_cts", new CancellationTokenSource());
 
-            await (Task)processEvents.Invoke(completedReaderHarness, null)!;
+            await (Task)(processEvents.Invoke(completedReaderHarness, null)
+                ?? throw new InvalidOperationException("The event processor did not return a task."));
         }
 
         using (var failedWriteHarness = new QuaternaryBaseHarness())
@@ -546,7 +611,7 @@ public class QuaternaryCollectionCoverageTests
             SetPrivateField(failedWriteHarness, "_pipeline", new Signal<CacheNotify<int>>());
             SetPrivateField(failedWriteHarness, "_cts", new CancellationTokenSource());
 
-            failedWriteHarness.EmitDirect([1, 2]);
+            failedWriteHarness.EmitDirect([1, CollectionValueTwo]);
         }
 
         using (var nullHandlerHarness = new QuaternaryBaseHarness())
@@ -554,7 +619,7 @@ public class QuaternaryCollectionCoverageTests
             InvokePrivate(
                 nullHandlerHarness,
                 "InvokeLegacyINCC",
-                new CacheNotify<int>(CacheAction.BatchAdded, default, CreateBatch(1, 2)));
+                new CacheNotify<int>(CacheAction.BatchAdded, default, CreateBatch(1, CollectionValueTwo)));
         }
 
         using (var legacyHarness = new QuaternaryBaseHarness())
@@ -567,21 +632,19 @@ public class QuaternaryCollectionCoverageTests
             actions.Should().Contain(NotifyCollectionChangedAction.Reset);
         }
 
-        using (var startedRaceHarness = new QuaternaryBaseHarness())
+        using var startedRaceHarness = new QuaternaryBaseHarness();
+        var gate = new object();
+        SetPrivateField(startedRaceHarness, "_eventGate", gate);
+
+        Task ensureTask;
+        lock (gate)
         {
-            var gate = new object();
-            SetPrivateField(startedRaceHarness, "_eventGate", gate);
-
-            Task ensureTask;
-            lock (gate)
-            {
-                ensureTask = Task.Run(() => ensureStarted.Invoke(startedRaceHarness, null));
-                SpinWait.SpinUntil(() => ensureTask.IsCompleted, TimeSpan.FromMilliseconds(50));
-                SetPrivateField(startedRaceHarness, "_eventProcessorStarted", 1);
-            }
-
-            await ensureTask;
+            ensureTask = Task.Run(() => ensureStarted.Invoke(startedRaceHarness, null));
+            SpinWait.SpinUntil(() => ensureTask.IsCompleted, TimeSpan.FromMilliseconds(ProcessorPollMilliseconds));
+            SetPrivateField(startedRaceHarness, "_eventProcessorStarted", 1);
         }
+
+        await ensureTask;
     }
 
     /// <summary>Provides Yield.</summary>
@@ -611,8 +674,13 @@ public class QuaternaryCollectionCoverageTests
     /// <param name="methodName">The methodName value.</param>
     /// <param name="args">The args value.</param>
     /// <returns>The result.</returns>
-    private static object? InvokePrivate(object target, string methodName, params object?[] args) =>
-        target.GetType().BaseType!.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(target, args);
+    private static object? InvokePrivate(object target, string methodName, params object?[] args)
+    {
+        var baseType = target.GetType().BaseType ?? throw new InvalidOperationException("The test harness has no base type.");
+        var method = baseType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingMethodException(baseType.FullName, methodName);
+        return method.Invoke(target, args);
+    }
 
     /// <summary>Provides SetPrivateField.</summary>
     /// <param name="target">The target value.</param>
@@ -691,15 +759,13 @@ public class QuaternaryCollectionCoverageTests
     /// <summary>Provides QuaternaryBaseHarness.</summary>
     private sealed class QuaternaryBaseHarness : QuaternaryBase<int, int>
     {
-        private readonly QuadList<int>[] _quads =
+        protected override IReadOnlyList<IQuad<int>> BaseQuads { get; } =
         [
             new QuadList<int>(),
             new QuadList<int>(),
             new QuadList<int>(),
             new QuadList<int>()
         ];
-
-        protected override IReadOnlyList<IQuad<int>> BaseQuads => _quads;
 
         /// <summary>Provides EmitDirect.</summary>
         /// <param name="items">The items value.</param>

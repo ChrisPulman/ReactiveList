@@ -109,7 +109,7 @@ where TKey : notnull
         return new SecondaryIndexReactiveView<TKey, TValue>(
             source,
             indexName,
-            indexKey!,
+            indexKey,
             scheduler,
             throttle,
             static (dict, name, key) => dict.GetValuesBySecondaryIndex(name, (TIndexKey)key),
@@ -204,9 +204,19 @@ where TKey : notnull
                         break;
                     }
 
-                case CacheAction.BatchOperation or CacheAction.Refreshed:
+                case CacheAction.Moved or
+                     CacheAction.Refreshed or
+                     CacheAction.BatchOperation or
+                     CacheAction.BatchAdded or
+                     CacheAction.BatchRemoved:
                     {
                         RebuildView();
+                        break;
+                    }
+
+                default:
+                    {
+                        // Ignore invalid enum values to preserve the view's current state.
                         break;
                     }
             }

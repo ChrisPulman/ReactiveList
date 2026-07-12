@@ -13,16 +13,32 @@ namespace ReactiveList.Test;
 /// <summary>Contains unit tests for the QuaternaryExtensions class.</summary>
 public class QuaternaryExtensionsTests
 {
+    private const int SecondCollectionValue = 2;
+
+    private const int ThirdCollectionValue = 3;
+
+    private const int FourthCollectionValue = 4;
+
+    private const int FifthCollectionValue = 5;
+
+    private const int AddedCollectionValue = 42;
+
+    private const int ViewUpdateDelayMilliseconds = 200;
+
+    private const string AliceName = "Alice";
+
+    private const string CityIndexName = "ByCity";
+
     /// <summary>Verifies that CreateView returns a view with all items when no filter is applied.</summary>
     [Test]
     public void CreateView_WithoutFilter_ShouldContainAllItems()
     {
         using var list = new QuaternaryList<int>();
-        list.AddRange([1, 2, 3, 4, 5]);
+        list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
         using var view = list.CreateView(Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(5, view.Items.Count);
+        Assert.Equal(FifthCollectionValue, view.Items.Count);
     }
 
     /// <summary>Verifies that CreateView with filter returns only matching items.</summary>
@@ -30,13 +46,13 @@ public class QuaternaryExtensionsTests
     public void CreateView_WithFilter_ShouldContainOnlyMatchingItems()
     {
         using var list = new QuaternaryList<int>();
-        list.AddRange([1, 2, 3, 4, 5]);
+        list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
-        using var view = list.CreateView(x => x % 2 == 0, Sequencer.Default, throttleMs: 10);
+        using var view = list.CreateView(x => x % SecondCollectionValue == 0, Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(2, view.Items.Count);
-        Assert.Contains(2, view.Items);
-        Assert.Contains(4, view.Items);
+        Assert.Equal(SecondCollectionValue, view.Items.Count);
+        Assert.Contains(SecondCollectionValue, view.Items);
+        Assert.Contains(FourthCollectionValue, view.Items);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex filters items by the secondary index key.</summary>
@@ -44,16 +60,16 @@ public class QuaternaryExtensionsTests
     public void CreateViewBySecondaryIndex_ShouldFilterByKey()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex("ByCity", p => p.City);
+        list.AddIndex(CityIndexName, p => p.City);
         list.AddRange([
-            new TestPerson("Alice", "NYC"),
+            new TestPerson(AliceName, "NYC"),
             new TestPerson("Bob", "LA"),
             new TestPerson("Charlie", "NYC")
         ]);
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", Sequencer.Default, throttleMs: 10);
+        using var view = list.CreateViewBySecondaryIndex(CityIndexName, "NYC", Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(2, view.Items.Count);
+        Assert.Equal(SecondCollectionValue, view.Items.Count);
         Assert.All(view.Items, p => Assert.Equal("NYC", p.City));
     }
 
@@ -62,17 +78,17 @@ public class QuaternaryExtensionsTests
     public void CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex("ByCity", p => p.City);
+        list.AddIndex(CityIndexName, p => p.City);
         list.AddRange([
-            new TestPerson("Alice", "NYC"),
+            new TestPerson(AliceName, "NYC"),
             new TestPerson("Bob", "LA"),
             new TestPerson("Charlie", "Chicago"),
             new TestPerson("Diana", "NYC")
         ]);
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", ["NYC", "LA"], Sequencer.Default, throttleMs: 10);
+        using var view = list.CreateViewBySecondaryIndex(CityIndexName, ["NYC", "LA"], Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(3, view.Items.Count);
+        Assert.Equal(ThirdCollectionValue, view.Items.Count);
     }
 
     /// <summary>Verifies that ToProperty sets the property correctly.</summary>
@@ -80,14 +96,14 @@ public class QuaternaryExtensionsTests
     public void ToProperty_ShouldSetProperty()
     {
         using var list = new QuaternaryList<int>();
-        list.AddRange([1, 2, 3]);
+        list.AddRange([1, SecondCollectionValue, ThirdCollectionValue]);
 
         System.Collections.ObjectModel.ReadOnlyObservableCollection<int>? result = null;
         using var view = list.CreateView(Sequencer.Default, throttleMs: 10)
             .ToProperty(x => result = x);
 
         Assert.NotNull(result);
-        Assert.Equal(3, result!.Count);
+        Assert.Equal(ThirdCollectionValue, result!.Count);
     }
 
     /// <summary>Verifies that ReactiveView updates when items are added to the source list.</summary>
@@ -98,13 +114,13 @@ public class QuaternaryExtensionsTests
         using var list = new QuaternaryList<int>();
         using var view = list.CreateView(Sequencer.Default, throttleMs: 50);
 
-        list.Add(42);
+        list.Add(AddedCollectionValue);
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
         Assert.Single(view.Items);
-        Assert.Contains(42, view.Items);
+        Assert.Contains(AddedCollectionValue, view.Items);
     }
 
     /// <summary>Verifies that ReactiveView updates when items are removed from the source list.</summary>
@@ -113,20 +129,20 @@ public class QuaternaryExtensionsTests
     public async Task ReactiveView_ShouldUpdateOnRemove()
     {
         using var list = new QuaternaryList<int>();
-        list.AddRange([1, 2, 3]);
+        list.AddRange([1, SecondCollectionValue, ThirdCollectionValue]);
 
         using var view = list.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
-        Assert.Equal(3, view.Items.Count);
+        Assert.Equal(ThirdCollectionValue, view.Items.Count);
 
-        list.Remove(2);
+        list.Remove(SecondCollectionValue);
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(2, view.Items.Count);
-        Assert.DoesNotContain(2, view.Items);
+        Assert.Equal(SecondCollectionValue, view.Items.Count);
+        Assert.DoesNotContain(SecondCollectionValue, view.Items);
     }
 
     /// <summary>Verifies that ReactiveView updates when RemoveRange is called.</summary>
@@ -135,21 +151,21 @@ public class QuaternaryExtensionsTests
     public async Task ReactiveView_ShouldUpdateOnRemoveRange()
     {
         using var list = new QuaternaryList<int>();
-        list.AddRange([1, 2, 3, 4, 5]);
+        list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
         using var view = list.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
-        Assert.Equal(5, view.Items.Count);
+        Assert.Equal(FifthCollectionValue, view.Items.Count);
 
-        list.RemoveRange([2, 4]);
+        list.RemoveRange([SecondCollectionValue, FourthCollectionValue]);
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(3, view.Items.Count);
-        Assert.DoesNotContain(2, view.Items);
-        Assert.DoesNotContain(4, view.Items);
+        Assert.Equal(ThirdCollectionValue, view.Items.Count);
+        Assert.DoesNotContain(SecondCollectionValue, view.Items);
+        Assert.DoesNotContain(FourthCollectionValue, view.Items);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex updates when new matching items are added.</summary>
@@ -158,19 +174,19 @@ public class QuaternaryExtensionsTests
     public async Task CreateViewBySecondaryIndex_ShouldUpdateOnAdd()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex("ByCity", p => p.City);
-        list.Add(new TestPerson("Alice", "NYC"));
+        list.AddIndex(CityIndexName, p => p.City);
+        list.Add(new TestPerson(AliceName, "NYC"));
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", Sequencer.Default, throttleMs: 50);
+        using var view = list.CreateViewBySecondaryIndex(CityIndexName, "NYC", Sequencer.Default, throttleMs: 50);
 
         Assert.Single(view.Items);
 
         list.Add(new TestPerson("Bob", "NYC"));
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(2, view.Items.Count);
+        Assert.Equal(SecondCollectionValue, view.Items.Count);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex doesn't include non-matching items when added.</summary>
@@ -179,17 +195,17 @@ public class QuaternaryExtensionsTests
     public async Task CreateViewBySecondaryIndex_ShouldNotIncludeNonMatchingItems()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex("ByCity", p => p.City);
-        list.Add(new TestPerson("Alice", "NYC"));
+        list.AddIndex(CityIndexName, p => p.City);
+        list.Add(new TestPerson(AliceName, "NYC"));
 
-        using var view = list.CreateViewBySecondaryIndex("ByCity", "NYC", Sequencer.Default, throttleMs: 50);
+        using var view = list.CreateViewBySecondaryIndex(CityIndexName, "NYC", Sequencer.Default, throttleMs: 50);
 
         Assert.Single(view.Items);
 
         list.Add(new TestPerson("Bob", "LA"));
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
         // Should still be only 1 item (Alice from NYC)
         Assert.Single(view.Items);

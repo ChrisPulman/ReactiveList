@@ -105,6 +105,15 @@ internal static class AssertionExtensions
     /// <summary>Provides shared assertion helper methods.</summary>
     internal static class AssertionHelpers
     {
+        /// <summary>The assertion failure did not throw.</summary>
+        internal const string AssertionFailureDidNotThrow = "The assertion failure did not throw.";
+
+        /// <summary>The collection not null expectation.</summary>
+        internal const string CollectionNotNullExpectation = "Expected collection not to be null.";
+
+        /// <summary>The null display value.</summary>
+        internal const string NullDisplayValue = "<null>";
+
         /// <summary>Applies equivalency options.</summary>
         /// <param name="configure">The options configuration.</param>
         /// <returns>The configured options.</returns>
@@ -122,7 +131,7 @@ internal static class AssertionExtensions
         /// <summary>Formats a value for assertion output.</summary>
         /// <param name="value">The value.</param>
         /// <returns>The formatted value.</returns>
-        internal static string Format(object? value) => value is null ? "<null>" : value.ToString() ?? "<value>";
+        internal static string Format(object? value) => value is null ? NullDisplayValue : value.ToString() ?? "<value>";
 
         /// <summary>Asserts sequence equivalency.</summary>
         /// <param name="actual">The actual sequence.</param>
@@ -188,15 +197,10 @@ internal static class AssertionExtensions
                 return true;
             }
 
-            if (actual is not IConvertible actualConvertible ||
+            return actual is not IConvertible actualConvertible ||
                 expected is not IConvertible expectedConvertible ||
                 !IsNumeric(actualConvertible.GetTypeCode()) ||
-                !IsNumeric(expectedConvertible.GetTypeCode()))
-            {
-                return false;
-            }
-
-            return Convert.ToDecimal(actualConvertible, CultureInfo.InvariantCulture) ==
+                !IsNumeric(expectedConvertible.GetTypeCode()) ? false : Convert.ToDecimal(actualConvertible, CultureInfo.InvariantCulture) ==
                 Convert.ToDecimal(expectedConvertible, CultureInfo.InvariantCulture);
         }
 
@@ -209,7 +213,7 @@ internal static class AssertionExtensions
             if (actual is null || expected is null)
             {
                 AssertionHelpers.Fail("Cannot compare null values.");
-                throw new InvalidOperationException("The assertion failure did not throw.");
+                throw new InvalidOperationException(AssertionFailureDidNotThrow);
             }
 
             if (actual is IComparable comparable)
@@ -218,7 +222,7 @@ internal static class AssertionExtensions
             }
 
             AssertionHelpers.Fail($"Type {actual.GetType().FullName} is not comparable.");
-            throw new InvalidOperationException("The assertion failure did not throw.");
+            throw new InvalidOperationException(AssertionFailureDidNotThrow);
         }
 
         /// <summary>Formats a because clause.</summary>
@@ -238,9 +242,7 @@ internal static class AssertionExtensions
         /// <summary>Determines whether the type code represents a numeric value.</summary>
         /// <param name="typeCode">The type code.</param>
         /// <returns>true when the type code is numeric; otherwise, false.</returns>
-        private static bool IsNumeric(TypeCode typeCode) =>
-            typeCode is TypeCode.Byte or TypeCode.SByte or TypeCode.UInt16 or TypeCode.UInt32 or TypeCode.UInt64
-                or TypeCode.Int16 or TypeCode.Int32 or TypeCode.Int64 or TypeCode.Single or TypeCode.Double or TypeCode.Decimal;
+        private static bool IsNumeric(TypeCode typeCode) => typeCode is >= TypeCode.SByte and <= TypeCode.Decimal;
     }
 
     /// <summary>Provides EquivalencyAssertionOptions.</summary>
@@ -360,8 +362,8 @@ internal static class AssertionExtensions
                 return new AndWhichConstraint<TExpected>(expected);
             }
 
-            AssertionHelpers.Fail($"Expected value to be of type {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? "<null>"}.");
-            throw new InvalidOperationException("The assertion failure did not throw.");
+            AssertionHelpers.Fail($"Expected value to be of type {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
+            throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
         }
 
         /// <summary>Provides BeAssignableTo.</summary>
@@ -374,8 +376,8 @@ internal static class AssertionExtensions
                 return new AndWhichConstraint<TExpected>(expected);
             }
 
-            AssertionHelpers.Fail($"Expected value to be assignable to {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? "<null>"}.");
-            throw new InvalidOperationException("The assertion failure did not throw.");
+            AssertionHelpers.Fail($"Expected value to be assignable to {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
+            throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
         }
 
         /// <summary>Provides BeEquivalentTo.</summary>
@@ -534,20 +536,6 @@ internal static class AssertionExtensions
         /// <param name="becauseArgs">The becauseArgs value.</param>
         /// <returns>The result.</returns>
         public BooleanAssertions BeFalse(string because = "", params object[] becauseArgs) => Be(false, because, becauseArgs);
-
-        /// <summary>Provides Because.</summary>
-        /// <param name="because">The because value.</param>
-        /// <param name="args">The args value.</param>
-        /// <returns>The result.</returns>
-        private static string Because(string because, object[] args)
-        {
-            if (string.IsNullOrWhiteSpace(because))
-            {
-                return string.Empty;
-            }
-
-            return " because " + (args.Length == 0 ? because : string.Format(because, args));
-        }
     }
 
     /// <summary>Provides StringAssertions.</summary>
@@ -803,8 +791,8 @@ internal static class AssertionExtensions
         {
             if (_subject is null)
             {
-                AssertionHelpers.Fail("Expected collection not to be null.");
-                throw new InvalidOperationException("The assertion failure did not throw.");
+                AssertionHelpers.Fail(AssertionHelpers.CollectionNotNullExpectation);
+                throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
             }
 
             return this;
@@ -970,7 +958,7 @@ internal static class AssertionExtensions
         {
             if (_subject is IDictionary dictionary)
             {
-                if (!dictionary.Contains(expected!))
+                if (expected is null || !dictionary.Contains(expected))
                 {
                     AssertionHelpers.Fail($"Expected dictionary to contain key {AssertionHelpers.Format(expected)}.");
                 }
@@ -1042,8 +1030,8 @@ internal static class AssertionExtensions
                 return new AndWhichConstraint<TExpected>(expected);
             }
 
-            AssertionHelpers.Fail($"Expected value to be of type {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? "<null>"}.");
-            throw new InvalidOperationException("The assertion failure did not throw.");
+            AssertionHelpers.Fail($"Expected value to be of type {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
+            throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
         }
 
         /// <summary>Provides BeAssignableTo.</summary>
@@ -1056,8 +1044,8 @@ internal static class AssertionExtensions
                 return new AndWhichConstraint<TExpected>(expected);
             }
 
-            AssertionHelpers.Fail($"Expected value to be assignable to {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? "<null>"}.");
-            throw new InvalidOperationException("The assertion failure did not throw.");
+            AssertionHelpers.Fail($"Expected value to be assignable to {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
+            throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
         }
 
         /// <summary>Provides Be.</summary>
@@ -1080,8 +1068,8 @@ internal static class AssertionExtensions
         {
             if (_subject is null)
             {
-                AssertionHelpers.Fail("Expected collection not to be null.");
-                throw new InvalidOperationException("The assertion failure did not throw.");
+                AssertionHelpers.Fail(AssertionHelpers.CollectionNotNullExpectation);
+                throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
             }
 
             if (_subject is ICollection<TItem> collection)
@@ -1089,12 +1077,7 @@ internal static class AssertionExtensions
                 return collection.Count;
             }
 
-            if (_subject is IReadOnlyCollection<TItem> readOnlyCollection)
-            {
-                return readOnlyCollection.Count;
-            }
-
-            return _subject.Count();
+            return _subject is IReadOnlyCollection<TItem> readOnlyCollection ? readOnlyCollection.Count : _subject.Count();
         }
 
         /// <summary>Provides Snapshot.</summary>
@@ -1103,8 +1086,8 @@ internal static class AssertionExtensions
         {
             if (_subject is null)
             {
-                AssertionHelpers.Fail("Expected collection not to be null.");
-                throw new InvalidOperationException("The assertion failure did not throw.");
+                AssertionHelpers.Fail(AssertionHelpers.CollectionNotNullExpectation);
+                throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
             }
 
             return _subject.ToList();
@@ -1144,7 +1127,7 @@ internal static class AssertionExtensions
             }
 
             AssertionHelpers.Fail($"Expected exception {typeof(TException).FullName}, but no exception was thrown.");
-            throw new InvalidOperationException("The assertion failure did not throw.");
+            throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
         }
 
         /// <summary>Provides NotThrow.</summary>
@@ -1211,14 +1194,14 @@ internal static class AssertionExtensions
             {
                 if (!string.Equals(argumentException.ParamName, expected, StringComparison.Ordinal))
                 {
-                    AssertionHelpers.Fail($"Expected parameter name {expected}, but found {argumentException.ParamName ?? "<null>"}.");
+                    AssertionHelpers.Fail($"Expected parameter name {expected}, but found {argumentException.ParamName ?? AssertionHelpers.NullDisplayValue}.");
                 }
 
                 return this;
             }
 
             AssertionHelpers.Fail($"Expected an ArgumentException, but found {Which.GetType().FullName}.");
-            throw new InvalidOperationException("The assertion failure did not throw.");
+            throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
         }
 
         /// <summary>Provides WithInnerException.</summary>
@@ -1229,7 +1212,7 @@ internal static class AssertionExtensions
         {
             if (Which.InnerException is not TInnerException)
             {
-                AssertionHelpers.Fail($"Expected inner exception {typeof(TInnerException).FullName}, but found {Which.InnerException?.GetType().FullName ?? "<null>"}.");
+                AssertionHelpers.Fail($"Expected inner exception {typeof(TInnerException).FullName}, but found {Which.InnerException?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
             }
 
             return this;

@@ -2,10 +2,7 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-#if NET6_0_OR_GREATER
-using System.Buffers;
 using System.Runtime.CompilerServices;
-#endif
 
 #if REACTIVELIST_REACTIVE
 namespace CP.Reactive.Core;
@@ -14,17 +11,12 @@ namespace CP.Primitives.Core;
 #endif
 /// <summary>Represents a set of changes to a collection, compatible with DynamicData patterns.</summary>
 /// <remarks>
-/// This struct uses array pooling on .NET 6+ for optimal memory efficiency.
-/// The caller should dispose of the ChangeSet when done to return the array to the pool.
+/// This struct stores changes in a compact array. The disposable contract is retained for binary compatibility.
 /// </remarks>
 /// <typeparam name="T">The type of items in the collection.</typeparam>
 public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposable, IEquatable<ChangeSet<T>>
 {
     private readonly Change<T>[]? _changes;
-
-#if NET6_0_OR_GREATER
-    private readonly bool _isPooled;
-#endif
 
     /// <summary>Initializes a new instance of the <see cref="ChangeSet{T}"/> struct with a single change.</summary>
     /// <param name="change">The single change.</param>
@@ -34,12 +26,7 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
     public ChangeSet(Change<T> change)
 #endif
     {
-#if NET6_0_OR_GREATER
-        _changes = ArrayPool<Change<T>>.Shared.Rent(1);
-        _isPooled = true;
-#else
         _changes = new Change<T>[1];
-#endif
         _changes[0] = change;
         Count = 1;
     }
@@ -51,30 +38,27 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
         ThrowHelper.ThrowIfNull(changes);
 
 #if NET6_0_OR_GREATER
-        _changes = ArrayPool<Change<T>>.Shared.Rent(changes.Length);
-        changes.AsSpan().CopyTo(_changes);
-        _isPooled = true;
+        _changes = new Change<T>[changes.Length];
+        changes.CopyTo(_changes, 0);
 #else
         _changes = changes;
 #endif
+
         Count = changes.Length;
     }
-
-#if NET6_0_OR_GREATER
 
     /// <summary>Initializes a new instance of the <see cref="ChangeSet{T}"/> struct from a span.</summary>
     /// <param name="changes">The changes span.</param>
     public ChangeSet(ReadOnlySpan<Change<T>> changes)
     {
-        _changes = ArrayPool<Change<T>>.Shared.Rent(changes.Length);
+        _changes = new Change<T>[changes.Length];
         changes.CopyTo(_changes);
+
         Count = changes.Length;
-        _isPooled = true;
     }
-#endif
 
     /// <summary>Gets an empty change set.</summary>
-    public static ChangeSet<T> Empty => new([]);
+    public static ChangeSet<T> Empty => default;
 
     /// <summary>Gets the number of changes in the set.</summary>
     public int Count { get; }
@@ -100,13 +84,10 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
         get => (uint)index >= (uint)Count ? throw new ArgumentOutOfRangeException(nameof(index)) : _changes![index];
     }
 
-#if NET6_0_OR_GREATER
-
     /// <summary>Gets a span over the changes.</summary>
     /// <returns>A read-only span of the changes.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ReadOnlySpan<Change<T>> AsSpan() => _changes.AsSpan(0, Count);
-#endif
 
     /// <summary>Determines whether the specified ChangeSet is equal to the current ChangeSet.</summary>
     /// <param name="other">The ChangeSet to compare with the current ChangeSet.</param>
@@ -131,17 +112,9 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    /// <summary>Returns the pooled array to the pool.</summary>
+    /// <summary>Retained for compatibility. Change sets no longer own pooled storage.</summary>
     public void Dispose()
     {
-#if NET6_0_OR_GREATER
-        if (!_isPooled || _changes is null)
-        {
-            return;
-        }
-
-        ArrayPool<Change<T>>.Shared.Return(_changes, clearArray: RuntimeHelpers.IsReferenceOrContainsReferences<Change<T>>());
-#endif
     }
 
     /// <summary>Counts the number of changes with the specified reason.</summary>

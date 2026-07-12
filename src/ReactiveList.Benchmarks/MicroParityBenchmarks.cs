@@ -4,11 +4,9 @@
 
 using System.Collections.ObjectModel;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Columns;
 using CP.Primitives;
 using CP.Primitives.Collections;
 using DynamicData;
-using DynamicData.Binding;
 using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Signals;
 
@@ -20,7 +18,13 @@ namespace ReactiveList.Benchmarks;
 [RankColumn]
 public class MicroParityBenchmarks : IDisposable
 {
+    private const int GroupMask = 3;
+
     private const string GroupIndexName = "Group";
+
+    private const int HalfCountDivisor = 2;
+
+    private const int ValueMultiplier = 17;
 
     private int[] _numbers = [];
 
@@ -51,7 +55,7 @@ public class MicroParityBenchmarks : IDisposable
         _numbers = Enumerable.Range(0, Count).ToArray();
         _evens = _numbers.Where(static item => (item & 1) == 0).ToArray();
         _items = Enumerable.Range(0, Count)
-            .Select(static item => new MicroItem(item, item & 3, item * 17))
+            .Select(static item => new MicroItem(item, item & GroupMask, item * ValueMultiplier))
             .ToArray();
         _pairs = _items.Select(static item => KeyValuePair.Create(item.Id, item)).ToArray();
 
@@ -111,7 +115,7 @@ public class MicroParityBenchmarks : IDisposable
     public int ReactiveList_RemoveRange()
     {
         using var list = new ReactiveList<int>(_numbers);
-        list.RemoveRange(0, Count / 2);
+        list.RemoveRange(0, Count / HalfCountDivisor);
         return list.Count;
     }
 
@@ -123,7 +127,7 @@ public class MicroParityBenchmarks : IDisposable
     {
         using var list = new SourceList<int>();
         list.AddRange(_numbers);
-        list.Edit(innerList => innerList.RemoveRange(0, Count / 2));
+        list.Edit(innerList => innerList.RemoveRange(0, Count / HalfCountDivisor));
         return list.Count;
     }
 
@@ -359,6 +363,6 @@ public class MicroParityBenchmarks : IDisposable
     /// <summary>Provides MicroItem.</summary>
     /// <param name="Id">The Id value.</param>
     /// <param name="Group">The Group value.</param>
-    /// <param name="Value">The Value value.</param>
+    /// <param name="Value">The Value.</param>
     private readonly record struct MicroItem(int Id, int Group, int Value);
 }

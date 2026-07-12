@@ -15,20 +15,32 @@ namespace ReactiveList.Test;
 /// <summary>Tests for EditableListWrapperPool and PooledEditableListWrapper.</summary>
 public class EditableListWrapperPoolTests
 {
+    /// <summary>The second fixture value.</summary>
+    private const int SecondFixtureValue = 2;
+
+    /// <summary>The third fixture value.</summary>
+    private const int ThirdFixtureValue = 3;
+
+    /// <summary>The fourth fixture value.</summary>
+    private const int FourthFixtureValue = 4;
+
+    /// <summary>The fifth fixture value.</summary>
+    private const int FifthFixtureValue = 5;
+
     /// <summary>Tests that Rent returns a new wrapper when pool is empty.</summary>
     [Test]
     public void Rent_ReturnsNewWrapperWhenPoolEmpty()
     {
         // Arrange
         EditableListWrapperPool.Clear<int>();
-        var list = new List<int> { 1, 2, 3 };
+        var list = new List<int> { 1, SecondFixtureValue, ThirdFixtureValue };
 
         // Act
         using var wrapper = EditableListWrapperPool.Rent<int>(list);
 
         // Assert
         wrapper.Should().NotBeNull();
-        wrapper.Count.Should().Be(3);
+        wrapper.Count.Should().Be(ThirdFixtureValue);
     }
 
     /// <summary>Tests that Return adds wrapper to pool.</summary>
@@ -37,7 +49,7 @@ public class EditableListWrapperPoolTests
     {
         // Arrange
         EditableListWrapperPool.Clear<int>();
-        var list = new List<int> { 1, 2, 3 };
+        var list = new List<int> { 1, SecondFixtureValue, ThirdFixtureValue };
         var wrapper = EditableListWrapperPool.Rent<int>(list);
 
         // Act
@@ -53,8 +65,8 @@ public class EditableListWrapperPoolTests
     {
         // Arrange
         EditableListWrapperPool.Clear<int>();
-        var list1 = new List<int> { 1, 2, 3 };
-        var list2 = new List<int> { 4, 5 };
+        var list1 = new List<int> { 1, SecondFixtureValue, ThirdFixtureValue };
+        var list2 = new List<int> { FourthFixtureValue, FifthFixtureValue };
 
         var wrapper1 = EditableListWrapperPool.Rent<int>(list1);
         wrapper1.Dispose();
@@ -64,7 +76,7 @@ public class EditableListWrapperPoolTests
 
         // Assert
         wrapper2.Should().BeSameAs(wrapper1);
-        wrapper2.Count.Should().Be(2);
+        wrapper2.Count.Should().Be(SecondFixtureValue);
         EditableListWrapperPool.GetCurrentPoolSize<int>().Should().Be(0);
 
         wrapper2.Dispose();
@@ -82,17 +94,17 @@ public class EditableListWrapperPoolTests
         wrapper.Add(1);
         wrapper.Count.Should().Be(1);
 
-        wrapper.AddRange([2, 3, 4]);
-        wrapper.Count.Should().Be(4);
+        wrapper.AddRange([SecondFixtureValue, ThirdFixtureValue, FourthFixtureValue]);
+        wrapper.Count.Should().Be(FourthFixtureValue);
 
         wrapper.Insert(0, 0);
         wrapper[0].Should().Be(0);
 
-        wrapper.Remove(2);
-        wrapper.Contains(2).Should().BeFalse();
+        wrapper.Remove(SecondFixtureValue);
+        wrapper.Contains(SecondFixtureValue).Should().BeFalse();
 
         wrapper.RemoveAt(0);
-        wrapper.Count.Should().Be(3);
+        wrapper.Count.Should().Be(ThirdFixtureValue);
 
         wrapper.Clear();
         wrapper.Count.Should().Be(0);
@@ -109,11 +121,11 @@ public class EditableListWrapperPoolTests
 
         // Act
         wrapper.Add(1);
-        wrapper.Add(2);
-        wrapper.Add(3);
+        wrapper.Add(SecondFixtureValue);
+        wrapper.Add(ThirdFixtureValue);
 
         // Assert
-        observable.Should().BeEquivalentTo([1, 2, 3]);
+        observable.Should().BeEquivalentTo([1, SecondFixtureValue, ThirdFixtureValue]);
     }
 
     /// <summary>Tests that disposed wrapper throws when used.</summary>
@@ -121,12 +133,12 @@ public class EditableListWrapperPoolTests
     public void PooledWrapper_ThrowsAfterDispose()
     {
         // Arrange
-        var list = new List<int> { 1, 2, 3 };
+        var list = new List<int> { 1, SecondFixtureValue, ThirdFixtureValue };
         var wrapper = EditableListWrapperPool.Rent<int>(list);
         wrapper.Dispose();
 
         // Act & Assert
-        var action = () => wrapper.Add(4);
+        var action = () => wrapper.Add(FourthFixtureValue);
         action.Should().Throw<ObjectDisposedException>();
     }
 
@@ -137,7 +149,7 @@ public class EditableListWrapperPoolTests
         // Arrange
         EditableListWrapperPool.Clear<int>();
         var originalMax = EditableListWrapperPool.GetMaxPoolSize<int>();
-        EditableListWrapperPool.SetMaxPoolSize<int>(2);
+        EditableListWrapperPool.SetMaxPoolSize<int>(SecondFixtureValue);
 
         try
         {
@@ -154,7 +166,7 @@ public class EditableListWrapperPoolTests
 
             // Assert - only 2 should be pooled
             EditableListWrapperPool.GetCurrentPoolSize<int>().Should().BeGreaterThanOrEqualTo(0);
-            EditableListWrapperPool.GetCurrentPoolSize<int>().Should().BeLessThanOrEqualTo(2);
+            EditableListWrapperPool.GetCurrentPoolSize<int>().Should().BeLessThanOrEqualTo(SecondFixtureValue);
         }
         finally
         {
@@ -168,7 +180,7 @@ public class EditableListWrapperPoolTests
     public void IResettable_Reset_ClearsState()
     {
         // Arrange
-        var list = new List<int> { 1, 2, 3 };
+        var list = new List<int> { 1, SecondFixtureValue, ThirdFixtureValue };
         var wrapper = EditableListWrapperPool.Rent<int>(list);
 
         // Act

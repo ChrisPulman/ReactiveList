@@ -17,9 +17,49 @@ internal static class ArrayPoolClearHelper
     public static bool IsReferenceOrContainsReferences<T>()
     {
 #if NETFRAMEWORK
-        return !typeof(T).IsValueType;
+        return TypeCache<T>.ContainsReferences;
 #else
         return RuntimeHelpers.IsReferenceOrContainsReferences<T>();
 #endif
     }
+
+#if NETFRAMEWORK
+    /// <summary>Determines whether a type contains managed references.</summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <param name="visited">The value types already visited in the current traversal.</param>
+    /// <returns><see langword="true"/> when the type contains managed references; otherwise, <see langword="false"/>.</returns>
+    private static bool ContainsReferencesCore(Type type, HashSet<Type> visited)
+    {
+        if (!type.IsValueType)
+        {
+            return !type.IsPointer && !type.IsByRef;
+        }
+
+        if (type.IsPrimitive || type.IsEnum || !visited.Add(type))
+        {
+            return false;
+        }
+
+        var fields = type.GetFields(
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.NonPublic);
+        for (var i = 0; i < fields.Length; i++)
+        {
+            if (ContainsReferencesCore(fields[i].FieldType, visited))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Caches the reflection result once for each closed generic type.</summary>
+    /// <typeparam name="T">The type to inspect.</typeparam>
+    private static class TypeCache<T>
+    {
+        public static readonly bool ContainsReferences = ContainsReferencesCore(typeof(T), []);
+    }
+#endif
 }

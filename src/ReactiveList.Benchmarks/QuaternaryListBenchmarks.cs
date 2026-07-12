@@ -12,6 +12,24 @@ namespace ReactiveList.Benchmarks;
 [MemoryDiagnoser]
 public class QuaternaryListBenchmarks
 {
+    private const int HalfCountDivisor = 2;
+
+    private const int IndexedProbeItem = 4;
+
+    private const int MinimumLargeDatasetCount = 500;
+
+    private const int ModuloFourDivisor = 4;
+
+    private const int ModuloThreeDivisor = 3;
+
+    private const int ModuloTwoDivisor = 2;
+
+    private const int ModuloFiveDivisor = 5;
+
+    private const int PeriodicRemovalDivisor = 10;
+
+    private const int ValueMultiplier = 2;
+
     private int[] _data = [];
 
     /// <summary>Gets or sets the item count.</summary>
@@ -100,7 +118,7 @@ public class QuaternaryListBenchmarks
     public int List_RemoveRange()
     {
         var list = new List<int>(_data);
-        list.RemoveRange(0, Count / 2);
+        list.RemoveRange(0, Count / HalfCountDivisor);
         return list.Count;
     }
 
@@ -111,7 +129,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new QuaternaryList<int>();
         list.AddRange(_data);
-        list.RemoveRange(_data.Take(Count / 2));
+        list.RemoveRange(_data.Take(Count / HalfCountDivisor));
         return list.Count;
     }
 
@@ -122,7 +140,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new SourceList<int>();
         list.AddRange(_data);
-        list.RemoveMany(_data.Take(Count / 2));
+        list.RemoveMany(_data.Take(Count / HalfCountDivisor));
         return list.Count;
     }
 
@@ -193,7 +211,7 @@ public class QuaternaryListBenchmarks
     public int QuaternaryList_QueryIndex()
     {
         using var list = new QuaternaryList<int>();
-        list.AddIndex("Mod2", x => x % 2);
+        list.AddIndex("Mod2", static x => x % ModuloTwoDivisor);
         list.AddRange(_data);
         return list.GetItemsBySecondaryIndex("Mod2", 0).Count();
     }
@@ -234,7 +252,7 @@ public class QuaternaryListBenchmarks
             innerList.Clear();
             for (var i = 0; i < Count; i++)
             {
-                innerList.Add(i * 2);
+                innerList.Add(i * ValueMultiplier);
             }
         });
         return list.Count;
@@ -252,7 +270,7 @@ public class QuaternaryListBenchmarks
             innerList.Clear();
             for (var i = 0; i < Count; i++)
             {
-                innerList.Add(i * 2);
+                innerList.Add(i * ValueMultiplier);
             }
         });
         return list.Count;
@@ -265,7 +283,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new QuaternaryList<int>();
         list.AddRange(_data);
-        list.RemoveMany(x => x % 2 == 0);
+        list.RemoveMany(static x => x % ModuloTwoDivisor == 0);
         return list.Count;
     }
 
@@ -276,7 +294,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new SourceList<int>();
         list.AddRange(_data);
-        list.RemoveMany(list.Items.Where(x => x % 2 == 0));
+        list.RemoveMany(list.Items.Where(static x => x % ModuloTwoDivisor == 0));
         return list.Count;
     }
 
@@ -288,7 +306,7 @@ public class QuaternaryListBenchmarks
         using var list = new QuaternaryList<int>();
         var initialVersion = list.Version;
         list.AddRange(_data);
-        list.RemoveMany(x => x % 2 == 0);
+        list.RemoveMany(static x => x % ModuloTwoDivisor == 0);
         list.Clear();
         return list.Version - initialVersion;
     }
@@ -299,9 +317,9 @@ public class QuaternaryListBenchmarks
     public int QuaternaryList_MultipleIndices()
     {
         using var list = new QuaternaryList<int>();
-        list.AddIndex("Mod2", x => x % 2);
-        list.AddIndex("Mod3", x => x % 3);
-        list.AddIndex("Mod5", x => x % 5);
+        list.AddIndex("Mod2", static x => x % ModuloTwoDivisor);
+        list.AddIndex("Mod3", static x => x % ModuloThreeDivisor);
+        list.AddIndex("Mod5", static x => x % ModuloFiveDivisor);
         list.AddRange(_data);
         return list.GetItemsBySecondaryIndex("Mod2", 0).Count() +
                list.GetItemsBySecondaryIndex("Mod3", 0).Count() +
@@ -316,7 +334,7 @@ public class QuaternaryListBenchmarks
         using var list = new QuaternaryList<int>();
 
         // Large dataset to trigger parallel processing (threshold is 256)
-        var largeData = Enumerable.Range(0, Math.Max(Count, 500)).ToArray();
+        var largeData = Enumerable.Range(0, Math.Max(Count, MinimumLargeDatasetCount)).ToArray();
         list.AddRange(largeData);
         return list.Count;
     }
@@ -414,7 +432,7 @@ public class QuaternaryListBenchmarks
     public int List_Remove()
     {
         var list = new List<int>(_data);
-        for (var i = 0; i < Count / 2; i++)
+        for (var i = 0; i < Count / HalfCountDivisor; i++)
         {
             list.Remove(i);
         }
@@ -429,7 +447,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new QuaternaryList<int>();
         list.AddRange(_data);
-        for (var i = 0; i < Count / 2; i++)
+        for (var i = 0; i < Count / HalfCountDivisor; i++)
         {
             list.Remove(i);
         }
@@ -444,7 +462,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new SourceList<int>();
         list.AddRange(_data);
-        for (var i = 0; i < Count / 2; i++)
+        for (var i = 0; i < Count / HalfCountDivisor; i++)
         {
             list.Remove(i);
         }
@@ -458,7 +476,7 @@ public class QuaternaryListBenchmarks
     public int List_RemoveAll()
     {
         var list = new List<int>(_data);
-        list.RemoveAll(x => x % 2 == 0);
+        list.RemoveAll(static x => x % ModuloTwoDivisor == 0);
         return list.Count;
     }
 
@@ -514,7 +532,7 @@ public class QuaternaryListBenchmarks
         list.AddRange(_data);
         var events = 0;
         using var sub = list.Stream.SubscribeObserver(_ => events++);
-        list.RemoveRange(_data.Take(Count / 2));
+        list.RemoveRange(_data.Take(Count / HalfCountDivisor));
         return events;
     }
 
@@ -527,7 +545,7 @@ public class QuaternaryListBenchmarks
         list.AddRange(_data);
         var events = 0;
         using var sub = list.Connect().SubscribeObserver(_ => events++);
-        list.RemoveMany(_data.Take(Count / 2));
+        list.RemoveMany(_data.Take(Count / HalfCountDivisor));
         return events;
     }
 
@@ -538,7 +556,7 @@ public class QuaternaryListBenchmarks
     {
         using var list = new QuaternaryList<int>();
         list.AddRange(_data);
-        list.AddIndex("Mod2", x => x % 2);
+        list.AddIndex("Mod2", static x => x % ModuloTwoDivisor);
         return list.Count;
     }
 
@@ -548,9 +566,9 @@ public class QuaternaryListBenchmarks
     public bool QuaternaryList_ItemMatchesSecondaryIndex()
     {
         using var list = new QuaternaryList<int>();
-        list.AddIndex("Mod2", x => x % 2);
+        list.AddIndex("Mod2", static x => x % ModuloTwoDivisor);
         list.AddRange(_data);
-        return list.ItemMatchesSecondaryIndex("Mod2", 4, 0);
+        return list.ItemMatchesSecondaryIndex("Mod2", IndexedProbeItem, 0);
     }
 
     /// <summary>Provides QuaternaryList_IndexWithAddRemove.</summary>
@@ -559,9 +577,9 @@ public class QuaternaryListBenchmarks
     public int QuaternaryList_IndexWithAddRemove()
     {
         using var list = new QuaternaryList<int>();
-        list.AddIndex("Mod2", x => x % 2);
+        list.AddIndex("Mod2", static x => x % ModuloTwoDivisor);
         list.AddRange(_data);
-        list.RemoveMany(x => x % 4 == 0);
+        list.RemoveMany(static x => x % ModuloFourDivisor == 0);
         return list.GetItemsBySecondaryIndex("Mod2", 0).Count();
     }
 
@@ -614,7 +632,7 @@ public class QuaternaryListBenchmarks
         list.AddRange(_data);
         list.Add(Count);
         list.Remove(0);
-        list.RemoveMany(x => x % 10 == 0);
+        list.RemoveMany(static x => x % PeriodicRemovalDivisor == 0);
         return list.Count;
     }
 
@@ -627,7 +645,7 @@ public class QuaternaryListBenchmarks
         list.AddRange(_data);
         list.Add(Count);
         list.Remove(0);
-        list.RemoveMany(list.Items.Where(x => x % 10 == 0));
+        list.RemoveMany(list.Items.Where(static x => x % PeriodicRemovalDivisor == 0));
         return list.Count;
     }
 
@@ -639,7 +657,7 @@ public class QuaternaryListBenchmarks
         var list = new List<int>(_data);
         list.Add(Count);
         list.Remove(0);
-        list.RemoveAll(x => x % 10 == 0);
+        list.RemoveAll(static x => x % PeriodicRemovalDivisor == 0);
         return list.Count;
     }
 }

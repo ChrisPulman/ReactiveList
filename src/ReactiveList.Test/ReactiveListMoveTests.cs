@@ -16,79 +16,79 @@ public class ReactiveListMoveTests
     [Test]
     public void Move_ShouldReorderItemForwardInList()
     {
-        ReactiveList<string> fixture = ["one", "two", "three", "four"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText, "four"];
 
-        fixture.Move(0, 2);
+        fixture.Move(0, TestData.TestValueTwo);
 
-        fixture.Count.Should().Be(4);
+        fixture.Count.Should().Be(TestData.TestValueFour);
         fixture[0].Should().Be("two");
-        fixture[1].Should().Be("three");
-        fixture[2].Should().Be("one");
-        fixture[3].Should().Be("four");
+        fixture[1].Should().Be(TestData.ThreeText);
+        fixture[TestData.TestValueTwo].Should().Be("one");
+        fixture[TestData.TestValueThree].Should().Be("four");
     }
 
     /// <summary>Move should reorder item backward in list.</summary>
     [Test]
     public void Move_ShouldReorderItemBackwardInList()
     {
-        ReactiveList<string> fixture = ["one", "two", "three", "four"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText, "four"];
 
-        fixture.Move(3, 1);
+        fixture.Move(TestData.TestValueThree, 1);
 
-        fixture.Count.Should().Be(4);
+        fixture.Count.Should().Be(TestData.TestValueFour);
         fixture[0].Should().Be("one");
         fixture[1].Should().Be("four");
-        fixture[2].Should().Be("two");
-        fixture[3].Should().Be("three");
+        fixture[TestData.TestValueTwo].Should().Be("two");
+        fixture[TestData.TestValueThree].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Move should handle moving to first position.</summary>
     [Test]
     public void Move_ShouldHandleMovingToFirstPosition()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        fixture.Move(2, 0);
+        fixture.Move(TestData.TestValueTwo, 0);
 
-        fixture.Count.Should().Be(3);
-        fixture[0].Should().Be("three");
+        fixture.Count.Should().Be(TestData.TestValueThree);
+        fixture[0].Should().Be(TestData.ThreeText);
         fixture[1].Should().Be("one");
-        fixture[2].Should().Be("two");
+        fixture[TestData.TestValueTwo].Should().Be("two");
     }
 
     /// <summary>Move should handle moving to last position.</summary>
     [Test]
     public void Move_ShouldHandleMovingToLastPosition()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        fixture.Move(0, 2);
+        fixture.Move(0, TestData.TestValueTwo);
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Should().Be("two");
-        fixture[1].Should().Be("three");
-        fixture[2].Should().Be("one");
+        fixture[1].Should().Be(TestData.ThreeText);
+        fixture[TestData.TestValueTwo].Should().Be("one");
     }
 
     /// <summary>Move should do nothing when same index.</summary>
     [Test]
     public void Move_ShouldDoNothingWhenSameIndex()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Move(1, 1);
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Should().Be("one");
         fixture[1].Should().Be("two");
-        fixture[2].Should().Be("three");
+        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Move should throw when old index is negative.</summary>
     [Test]
     public void Move_ShouldThrowWhenOldIndexIsNegative()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         var action = () => fixture.Move(-1, 1);
 
@@ -100,9 +100,9 @@ public class ReactiveListMoveTests
     [Test]
     public void Move_ShouldThrowWhenOldIndexExceedsCount()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        var action = () => fixture.Move(3, 1);
+        var action = () => fixture.Move(TestData.TestValueThree, 1);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("oldIndex");
@@ -112,7 +112,7 @@ public class ReactiveListMoveTests
     [Test]
     public void Move_ShouldThrowWhenNewIndexIsNegative()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         var action = () => fixture.Move(1, -1);
 
@@ -124,9 +124,9 @@ public class ReactiveListMoveTests
     [Test]
     public void Move_ShouldThrowWhenNewIndexExceedsCount()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        var action = () => fixture.Move(1, 3);
+        var action = () => fixture.Move(1, TestData.TestValueThree);
 
         action.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("newIndex");
@@ -136,11 +136,11 @@ public class ReactiveListMoveTests
     [Test]
     public void Move_ShouldRaisePropertyChangedForItemArray()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
         var propertyNames = string.Empty;
         fixture.PropertyChanged += (sender, args) => propertyNames += args.PropertyName;
 
-        fixture.Move(0, 2);
+        fixture.Move(0, TestData.TestValueTwo);
 
         propertyNames.Should().Contain("Item[]");
     }
@@ -151,44 +151,44 @@ public class ReactiveListMoveTests
     {
         ReactiveList<TestData> fixture =
         [
-            new("Alice", 25),
-            new("Bob", 30),
-            new("Charlie", 35)
+            new("Alice", TestData.TestValueTwentyFive),
+            new("Bob", TestData.TestValueThirty),
+            new("Charlie", TestData.TestValueThirtyFive)
         ];
 
-        fixture.Move(2, 0);
+        fixture.Move(TestData.TestValueTwo, 0);
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Name.Should().Be("Charlie");
         fixture[1].Name.Should().Be("Alice");
-        fixture[2].Name.Should().Be("Bob");
+        fixture[TestData.TestValueTwo].Name.Should().Be("Bob");
     }
 
     /// <summary>Move should handle adjacent positions forward.</summary>
     [Test]
     public void Move_ShouldHandleAdjacentPositionsForward()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Move(0, 1);
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Should().Be("two");
         fixture[1].Should().Be("one");
-        fixture[2].Should().Be("three");
+        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Move should handle adjacent positions backward.</summary>
     [Test]
     public void Move_ShouldHandleAdjacentPositionsBackward()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Move(1, 0);
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Should().Be("two");
         fixture[1].Should().Be("one");
-        fixture[2].Should().Be("three");
+        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 }

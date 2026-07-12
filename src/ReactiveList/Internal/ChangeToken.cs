@@ -8,10 +8,9 @@ namespace CP.Reactive.Internal;
 namespace CP.Primitives.Internal;
 #endif
 /// <summary>Represents a change token for tracking collection modifications with minimal allocations.</summary>
-/// <typeparam name="T">The type of items in the collection.</typeparam>
-internal readonly record struct ChangeToken<T>
+internal readonly record struct ChangeToken
 {
-    /// <summary>Initializes a new instance of the <see cref="ChangeToken{T}"/> struct.</summary>
+    /// <summary>Initializes a new instance of the <see cref="ChangeToken"/> struct.</summary>
     /// <param name="version">The version number.</param>
     /// <param name="count">The item count.</param>
     public ChangeToken(long version, int count)

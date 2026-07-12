@@ -22,6 +22,16 @@ namespace CP.Primitives.Collections;
 public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     where T : notnull
 {
+    private const int InitialRemovalBufferSize = 64;
+
+    private const int CapacityGrowthFactor = 2;
+
+    private const int StackAllocationThreshold = 1024;
+
+    private const int ThirdShardIndex = 2;
+
+    private const int FourthShardIndex = 3;
+
     /// <inheritdoc/>
     protected override IReadOnlyList<IQuad<T>> BaseQuads => Quads;
 
@@ -156,7 +166,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         var totalRemoved = 0;
 
         // Use pooled buffer for removed items
-        var removedBuffer = ArrayPool<T>.Shared.Rent(64);
+        var removedBuffer = ArrayPool<T>.Shared.Rent(InitialRemovalBufferSize);
         var removedCount = 0;
 
         try
@@ -179,7 +189,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                             // Grow buffer if needed
                             if (removedCount >= removedBuffer.Length)
                             {
-                                var newBuffer = ArrayPool<T>.Shared.Rent(removedBuffer.Length * 2);
+                                var newBuffer = ArrayPool<T>.Shared.Rent(removedBuffer.Length * CapacityGrowthFactor);
                                 removedBuffer.AsSpan(0, removedCount).CopyTo(newBuffer);
                                 ArrayPool<T>.Shared.Return(removedBuffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
                                 removedBuffer = newBuffer;
@@ -249,94 +259,16 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
 
         var newItems = (items as T[]) ?? [.. items];
 
-        // Acquire all locks
-        for (var i = 0; i < ShardCount; i++)
-        {
-            Locks[i].EnterWriteLock();
-        }
+        EnterAllWriteLocks();
 
         try
         {
-            // Clear all shards and indices
-            for (var i = 0; i < ShardCount; i++)
-            {
-                Quads[i].Clear();
-            }
-
-            SetCount(0);
-
-            foreach (var idx in Indices.Values)
-            {
-                idx.Clear();
-            }
-
-            // Add new items to appropriate shards
-            if (newItems.Length > 0)
-            {
-                // Pre-calculate bucket assignments
-                var bucketCountsArray = new int[ShardCount];
-                var bucketIndicesArray = new int[ShardCount];
-
-                for (var i = 0; i < newItems.Length; i++)
-                {
-                    var shardIdx = GetShardIndex(newItems[i]);
-                    bucketCountsArray[shardIdx]++;
-                }
-
-                var bucketArrays = new T[ShardCount][];
-                for (var i = 0; i < ShardCount; i++)
-                {
-                    bucketArrays[i] = bucketCountsArray[i] > 0 ? ArrayPool<T>.Shared.Rent(bucketCountsArray[i]) : [];
-                }
-
-                try
-                {
-                    for (var i = 0; i < newItems.Length; i++)
-                    {
-                        var item = newItems[i];
-                        var shardIdx = GetShardIndex(item);
-                        bucketArrays[shardIdx][bucketIndicesArray[shardIdx]++] = item;
-                    }
-
-                    for (var sIdx = 0; sIdx < ShardCount; sIdx++)
-                    {
-                        var bucketCount = bucketCountsArray[sIdx];
-                        if (bucketCount == 0)
-                        {
-                            continue;
-                        }
-
-                        var bucket = bucketArrays[sIdx].AsSpan(0, bucketCount);
-                        Quads[sIdx].AddRange(bucket);
-                        AddToCount(bucketCount);
-
-                        if (!Indices.IsEmpty)
-                        {
-                            for (var i = 0; i < bucketCount; i++)
-                            {
-                                NotifyIndicesAdded(bucket[i]);
-                            }
-                        }
-                    }
-                }
-                finally
-                {
-                    for (var i = 0; i < ShardCount; i++)
-                    {
-                        if (bucketCountsArray[i] > 0)
-                        {
-                            ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
-                        }
-                    }
-                }
-            }
+            ClearItemsAndIndices();
+            AddReplacementItems(newItems);
         }
         finally
         {
-            for (var i = ShardCount - 1; i >= 0; i--)
-            {
-                Locks[i].ExitWriteLock();
-            }
+            ExitAllWriteLocks();
         }
 
         // Emit single batch notification
@@ -472,17 +404,38 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     /// changes to the original collection.</returns>
     public IReadOnlyList<T> Snapshot()
     {
-        var total = Quads.Sum(q => q.Count);
-        var result = new T[total];
-
-        var offset = 0;
-        foreach (var quad in Quads)
+        var acquiredCount = 0;
+        try
         {
-            quad.CopyTo(result, offset);
-            offset += quad.Count;
-        }
+            for (; acquiredCount < ShardCount; acquiredCount++)
+            {
+                Locks[acquiredCount].EnterReadLock();
+            }
 
-        return result;
+            var total = 0;
+            for (var i = 0; i < ShardCount; i++)
+            {
+                total += Quads[i].Count;
+            }
+
+            var result = new T[total];
+            var offset = 0;
+            for (var i = 0; i < ShardCount; i++)
+            {
+                var quad = Quads[i];
+                quad.CopyTo(result, offset);
+                offset += quad.Count;
+            }
+
+            return result;
+        }
+        finally
+        {
+            for (var i = acquiredCount - 1; i >= 0; i--)
+            {
+                Locks[i].ExitReadLock();
+            }
+        }
     }
 
     /// <summary>Adds data for the AddRemoveCount operation.</summary>
@@ -516,7 +469,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                     break;
                 }
 
-            case 2:
+            case ThirdShardIndex:
                 {
                     counts = remove2 ??= [];
                     break;
@@ -561,6 +514,122 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         // Then shift right by 30 bits to get 2 bits (0-3) for 4 shards
         var hash = item?.GetHashCode() ?? 0;
         return (int)((uint)(hash * 0x9E3779B9) >> 30);
+    }
+
+    /// <summary>Rents one replacement buffer for each non-empty shard.</summary>
+    /// <param name="bucketCounts">The number of items assigned to each shard.</param>
+    /// <returns>The shard buffers.</returns>
+    private static T[][] RentReplacementBuckets(ReadOnlySpan<int> bucketCounts)
+    {
+        var bucketArrays = new T[ShardCount][];
+        for (var i = 0; i < ShardCount; i++)
+        {
+            bucketArrays[i] = bucketCounts[i] == 0 ? [] : ArrayPool<T>.Shared.Rent(bucketCounts[i]);
+        }
+
+        return bucketArrays;
+    }
+
+    /// <summary>Populates rented shard buffers using precomputed write offsets.</summary>
+    /// <param name="items">The replacement items.</param>
+    /// <param name="bucketArrays">The destination shard buffers.</param>
+    /// <param name="bucketIndexes">The next write index for each shard.</param>
+    private static void PopulateReplacementBuckets(T[] items, T[][] bucketArrays, Span<int> bucketIndexes)
+    {
+        for (var i = 0; i < items.Length; i++)
+        {
+            var item = items[i];
+            var shardIndex = GetShardIndex(item);
+            bucketArrays[shardIndex][bucketIndexes[shardIndex]++] = item;
+        }
+    }
+
+    /// <summary>Returns every rented replacement buffer to the shared pool.</summary>
+    /// <param name="bucketArrays">The shard buffers.</param>
+    /// <param name="bucketCounts">The active item count in each buffer.</param>
+    private static void ReturnReplacementBuckets(T[][] bucketArrays, ReadOnlySpan<int> bucketCounts)
+    {
+        for (var i = 0; i < ShardCount; i++)
+        {
+            if (bucketCounts[i] != 0)
+            {
+                ArrayPool<T>.Shared.Return(bucketArrays[i], clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
+            }
+        }
+    }
+
+    /// <summary>Clears every shard and secondary index while all shard locks are held.</summary>
+    private void ClearItemsAndIndices()
+    {
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Quads[i].Clear();
+        }
+
+        SetCount(0);
+        foreach (var index in Indices.Values)
+        {
+            index.Clear();
+        }
+    }
+
+    /// <summary>Adds replacement items from pre-grouped pooled shard buffers.</summary>
+    /// <param name="items">The replacement items.</param>
+    private void AddReplacementItems(T[] items)
+    {
+        if (items.Length == 0)
+        {
+            return;
+        }
+
+        Span<int> bucketCounts = stackalloc int[ShardCount];
+        Span<int> bucketIndexes = stackalloc int[ShardCount];
+        bucketCounts.Clear();
+        bucketIndexes.Clear();
+        for (var i = 0; i < items.Length; i++)
+        {
+            bucketCounts[GetShardIndex(items[i])]++;
+        }
+
+        var bucketArrays = RentReplacementBuckets(bucketCounts);
+        try
+        {
+            PopulateReplacementBuckets(items, bucketArrays, bucketIndexes);
+            AppendReplacementBuckets(bucketArrays, bucketCounts);
+        }
+        finally
+        {
+            ReturnReplacementBuckets(bucketArrays, bucketCounts);
+        }
+    }
+
+    /// <summary>Appends grouped replacement buffers to their destination shards.</summary>
+    /// <param name="bucketArrays">The populated shard buffers.</param>
+    /// <param name="bucketCounts">The active item count in each buffer.</param>
+    private void AppendReplacementBuckets(T[][] bucketArrays, ReadOnlySpan<int> bucketCounts)
+    {
+        var hasIndices = !Indices.IsEmpty;
+        for (var shardIndex = 0; shardIndex < ShardCount; shardIndex++)
+        {
+            var bucketCount = bucketCounts[shardIndex];
+            if (bucketCount == 0)
+            {
+                continue;
+            }
+
+            var bucket = bucketArrays[shardIndex].AsSpan(0, bucketCount);
+            Quads[shardIndex].AddRange(bucket);
+            AddToCount(bucketCount);
+            if (!hasIndices)
+            {
+                continue;
+            }
+
+            for (var i = 0; i < bucket.Length; i++)
+            {
+                NotifyIndicesAdded(bucket[i]);
+            }
+        }
     }
 
     /// <summary>Retrieves the element at the specified global index across all shards.</summary>
@@ -608,7 +677,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         }
 
         var rentedShardIndexes = (int[]?)null;
-        var shardIndexes = count <= 1024
+        var shardIndexes = count <= StackAllocationThreshold
             ? stackalloc int[count]
             : (rentedShardIndexes = ArrayPool<int>.Shared.Rent(count)).AsSpan(0, count);
 
@@ -624,41 +693,19 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                 shardCounts[shardIndex]++;
             }
 
-            for (var i = 0; i < ShardCount; i++)
-            {
-                Locks[i].EnterWriteLock();
-            }
+            EnterAllWriteLocks();
 
             try
             {
-                for (var i = 0; i < ShardCount; i++)
-                {
-                    if (shardCounts[i] > 0)
-                    {
-                        var quad = Quads[i];
-                        quad.EnsureCapacity(quad.Count + shardCounts[i]);
-                    }
-                }
-
+                EnsureShardCapacities(shardCounts);
                 var hasIndices = !Indices.IsEmpty;
-                for (var i = 0; i < count; i++)
-                {
-                    var item = itemsSpan[i];
-                    Quads[shardIndexes[i]].AddAssumeCapacity(item);
-                    if (hasIndices)
-                    {
-                        NotifyIndicesAdded(item);
-                    }
-                }
+                AddPreparedItems(itemsSpan, shardIndexes, hasIndices);
 
                 AddToCount(count);
             }
             finally
             {
-                for (var i = ShardCount - 1; i >= 0; i--)
-                {
-                    Locks[i].ExitWriteLock();
-                }
+                ExitAllWriteLocks();
             }
         }
         finally
@@ -687,7 +734,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         }
 
         var rentedShardIndexes = (int[]?)null;
-        var shardIndexes = count <= 1024
+        var shardIndexes = count <= StackAllocationThreshold
             ? stackalloc int[count]
             : (rentedShardIndexes = ArrayPool<int>.Shared.Rent(count)).AsSpan(0, count);
 
@@ -702,41 +749,19 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                 shardCounts[shardIndex]++;
             }
 
-            for (var i = 0; i < ShardCount; i++)
-            {
-                Locks[i].EnterWriteLock();
-            }
+            EnterAllWriteLocks();
 
             try
             {
-                for (var i = 0; i < ShardCount; i++)
-                {
-                    if (shardCounts[i] > 0)
-                    {
-                        var quad = Quads[i];
-                        quad.EnsureCapacity(quad.Count + shardCounts[i]);
-                    }
-                }
-
+                EnsureShardCapacities(shardCounts);
                 var hasIndices = !Indices.IsEmpty;
-                for (var i = 0; i < count; i++)
-                {
-                    var item = items[i];
-                    Quads[shardIndexes[i]].AddAssumeCapacity(item);
-                    if (hasIndices)
-                    {
-                        NotifyIndicesAdded(item);
-                    }
-                }
+                AddPreparedItems(items, shardIndexes, hasIndices);
 
                 AddToCount(count);
             }
             finally
             {
-                for (var i = ShardCount - 1; i >= 0; i--)
-                {
-                    Locks[i].ExitWriteLock();
-                }
+                ExitAllWriteLocks();
             }
         }
         finally
@@ -748,6 +773,80 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         }
 
         EmitBatchAddedFromList(items, count);
+    }
+
+    /// <summary>Ensures each shard can accept its prepared additions without resizing.</summary>
+    /// <param name="shardCounts">The number of additions prepared for each shard.</param>
+    private void EnsureShardCapacities(ReadOnlySpan<int> shardCounts)
+    {
+        for (var i = 0; i < ShardCount; i++)
+        {
+            if (shardCounts[i] == 0)
+            {
+                continue;
+            }
+
+            var quad = Quads[i];
+            quad.EnsureCapacity(quad.Count + shardCounts[i]);
+        }
+    }
+
+    /// <summary>Adds prepared array items directly to their shards.</summary>
+    /// <param name="items">The items to add.</param>
+    /// <param name="shardIndexes">The precomputed shard for each item.</param>
+    /// <param name="hasIndices">Whether secondary indices need updates.</param>
+    private void AddPreparedItems(ReadOnlySpan<T> items, ReadOnlySpan<int> shardIndexes, bool hasIndices)
+    {
+        for (var i = 0; i < items.Length; i++)
+        {
+            AddPreparedItem(items[i], shardIndexes[i], hasIndices);
+        }
+    }
+
+    /// <summary>Adds prepared list items directly to their shards.</summary>
+    /// <param name="items">The items to add.</param>
+    /// <param name="shardIndexes">The precomputed shard for each item.</param>
+    /// <param name="hasIndices">Whether secondary indices need updates.</param>
+    private void AddPreparedItems(IList<T> items, ReadOnlySpan<int> shardIndexes, bool hasIndices)
+    {
+        for (var i = 0; i < shardIndexes.Length; i++)
+        {
+            AddPreparedItem(items[i], shardIndexes[i], hasIndices);
+        }
+    }
+
+    /// <summary>Adds one item after its shard has been selected and locked.</summary>
+    /// <param name="item">The item to add.</param>
+    /// <param name="shardIndex">The precomputed shard index.</param>
+    /// <param name="hasIndices">Whether secondary indices need updates.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void AddPreparedItem(T item, int shardIndex, bool hasIndices)
+    {
+        Quads[shardIndex].AddAssumeCapacity(item);
+        if (!hasIndices)
+        {
+            return;
+        }
+
+        NotifyIndicesAdded(item);
+    }
+
+    /// <summary>Acquires every shard write lock in stable order.</summary>
+    private void EnterAllWriteLocks()
+    {
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Locks[i].EnterWriteLock();
+        }
+    }
+
+    /// <summary>Releases every shard write lock in reverse order.</summary>
+    private void ExitAllWriteLocks()
+    {
+        for (var i = ShardCount - 1; i >= 0; i--)
+        {
+            Locks[i].ExitWriteLock();
+        }
     }
 
     /// <summary>Removes the specified items from the collection, processing them in batches for efficiency.</summary>
@@ -823,8 +922,8 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
 
         var removed0 = RemoveFromShard(0, remove0, captureRemovedItems, hasIndices, ref totalRemoved);
         var removed1 = RemoveFromShard(1, remove1, captureRemovedItems, hasIndices, ref totalRemoved);
-        var removed2 = RemoveFromShard(2, remove2, captureRemovedItems, hasIndices, ref totalRemoved);
-        var removed3 = RemoveFromShard(3, remove3, captureRemovedItems, hasIndices, ref totalRemoved);
+        var removed2 = RemoveFromShard(ThirdShardIndex, remove2, captureRemovedItems, hasIndices, ref totalRemoved);
+        var removed3 = RemoveFromShard(FourthShardIndex, remove3, captureRemovedItems, hasIndices, ref totalRemoved);
 
         if (totalRemoved == 0)
         {

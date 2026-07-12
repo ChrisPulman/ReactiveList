@@ -17,6 +17,12 @@ namespace CP.Primitives.Collections;
 public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TKey, TValue>, TValue>, IQuaternaryDictionary<TKey, TValue>
     where TKey : notnull
 {
+    private const int InitialRemovalBufferSize = 64;
+
+    private const int CapacityGrowthFactor = 2;
+
+    private const int StackAllocationThreshold = 1024;
+
     /// <summary>Gets a collection containing all keys from the underlying quads.</summary>
     public ICollection<TKey> Keys
     {
@@ -400,59 +406,13 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         ThrowHelper.ThrowIfNull(predicate);
 
         var totalRemoved = 0;
-
-        // Use pooled arrays for keys to remove
-        var keysBuffer = ArrayPool<TKey>.Shared.Rent(64);
-        int keysCount;
+        var keysBuffer = ArrayPool<TKey>.Shared.Rent(InitialRemovalBufferSize);
 
         try
         {
             for (var i = 0; i < ShardCount; i++)
             {
-                Locks[i].EnterWriteLock();
-                try
-                {
-                    var dict = Quads[i];
-
-                    // First pass: identify keys to remove
-                    keysCount = 0;
-                    foreach (var kvp in dict)
-                    {
-                        if (predicate(kvp))
-                        {
-                            // Grow buffer if needed
-                            if (keysCount >= keysBuffer.Length)
-                            {
-                                var newBuffer = ArrayPool<TKey>.Shared.Rent(keysBuffer.Length * 2);
-                                keysBuffer.AsSpan(0, keysCount).CopyTo(newBuffer);
-                                ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
-                                keysBuffer = newBuffer;
-                            }
-
-                            keysBuffer[keysCount++] = kvp.Key;
-                        }
-                    }
-
-                    // Second pass: remove identified keys
-                    var hasIndices = !Indices.IsEmpty;
-                    for (var j = 0; j < keysCount; j++)
-                    {
-                        var key = keysBuffer[j];
-                        if (dict.Remove(key, out var val))
-                        {
-                            if (hasIndices)
-                            {
-                                NotifyIndicesRemoved(val);
-                            }
-
-                            totalRemoved++;
-                        }
-                    }
-                }
-                finally
-                {
-                    Locks[i].ExitWriteLock();
-                }
+                totalRemoved += RemoveManyFromShard(i, predicate, ref keysBuffer);
             }
 
             if (totalRemoved > 0)
@@ -565,6 +525,96 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         return (int)((uint)(hash * 0x9E3779B9) >> 30);
     }
 
+    /// <summary>Collects keys selected by a predicate into a reusable pooled buffer.</summary>
+    /// <param name="dictionary">The dictionary to scan.</param>
+    /// <param name="predicate">The predicate selecting entries to remove.</param>
+    /// <param name="keysBuffer">The reusable pooled key buffer.</param>
+    /// <returns>The number of collected keys.</returns>
+    private static int CollectMatchingKeys(
+        QuadDictionary<TKey, TValue> dictionary,
+        Func<KeyValuePair<TKey, TValue>, bool> predicate,
+        ref TKey[] keysBuffer)
+    {
+        var keysCount = 0;
+        foreach (var item in dictionary)
+        {
+            if (!predicate(item))
+            {
+                continue;
+            }
+
+            if (keysCount >= keysBuffer.Length)
+            {
+                GrowKeysBuffer(ref keysBuffer, keysCount);
+            }
+
+            keysBuffer[keysCount++] = item.Key;
+        }
+
+        return keysCount;
+    }
+
+    /// <summary>Grows a pooled key buffer while preserving its active contents.</summary>
+    /// <param name="keysBuffer">The buffer to grow.</param>
+    /// <param name="keysCount">The number of active elements to copy.</param>
+    private static void GrowKeysBuffer(ref TKey[] keysBuffer, int keysCount)
+    {
+        var newBuffer = ArrayPool<TKey>.Shared.Rent(keysBuffer.Length * CapacityGrowthFactor);
+        keysBuffer.AsSpan(0, keysCount).CopyTo(newBuffer);
+        ArrayPool<TKey>.Shared.Return(keysBuffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<TKey>());
+        keysBuffer = newBuffer;
+    }
+
+    /// <summary>Removes matching entries from one shard while its write lock is held.</summary>
+    /// <param name="shardIndex">The shard to process.</param>
+    /// <param name="predicate">The predicate selecting entries to remove.</param>
+    /// <param name="keysBuffer">The reusable pooled key buffer.</param>
+    /// <returns>The number of removed entries.</returns>
+    private int RemoveManyFromShard(
+        int shardIndex,
+        Func<KeyValuePair<TKey, TValue>, bool> predicate,
+        ref TKey[] keysBuffer)
+    {
+        Locks[shardIndex].EnterWriteLock();
+        try
+        {
+            var dictionary = Quads[shardIndex];
+            var keysCount = CollectMatchingKeys(dictionary, predicate, ref keysBuffer);
+            return RemoveCollectedKeys(dictionary, keysBuffer, keysCount);
+        }
+        finally
+        {
+            Locks[shardIndex].ExitWriteLock();
+        }
+    }
+
+    /// <summary>Removes keys previously collected for one shard.</summary>
+    /// <param name="dictionary">The dictionary to update.</param>
+    /// <param name="keysBuffer">The buffer containing keys.</param>
+    /// <param name="keysCount">The number of valid keys in the buffer.</param>
+    /// <returns>The number of entries removed.</returns>
+    private int RemoveCollectedKeys(QuadDictionary<TKey, TValue> dictionary, TKey[] keysBuffer, int keysCount)
+    {
+        var hasIndices = !Indices.IsEmpty;
+        var removed = 0;
+        for (var i = 0; i < keysCount; i++)
+        {
+            if (!dictionary.Remove(keysBuffer[i], out var value))
+            {
+                continue;
+            }
+
+            if (hasIndices)
+            {
+                NotifyIndicesRemoved(value);
+            }
+
+            removed++;
+        }
+
+        return removed;
+    }
+
     /// <summary>
     /// Adds the specified key/value pairs to the collection, distributing them across internal shards for optimized
     /// storage and concurrency.
@@ -583,7 +633,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
 
         var rentedShardIndexes = (int[]?)null;
-        var shardIndexes = count <= 1024
+        var shardIndexes = count <= StackAllocationThreshold
             ? stackalloc int[count]
             : (rentedShardIndexes = ArrayPool<int>.Shared.Rent(count)).AsSpan(0, count);
 
@@ -599,54 +649,17 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 shardCounts[shardIndex]++;
             }
 
-            for (var i = 0; i < ShardCount; i++)
-            {
-                Locks[i].EnterWriteLock();
-            }
+            EnterAllWriteLocks();
 
             try
             {
-                for (var i = 0; i < ShardCount; i++)
-                {
-                    if (shardCounts[i] > 0)
-                    {
-                        var dict = Quads[i];
-                        dict.EnsureCapacity(dict.Count + shardCounts[i]);
-                    }
-                }
-
+                EnsureShardCapacities(shardCounts);
                 var hasIndices = !Indices.IsEmpty;
-                var added = 0;
-                for (var i = 0; i < count; i++)
-                {
-                    var kvp = itemsSpan[i];
-                    var dict = Quads[shardIndexes[i]];
-                    ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out var exists);
-                    if (hasIndices && exists)
-                    {
-                        NotifyIndicesRemoved(valueRef!);
-                    }
-
-                    valueRef = kvp.Value;
-                    if (!exists)
-                    {
-                        added++;
-                    }
-
-                    if (hasIndices)
-                    {
-                        NotifyIndicesAdded(kvp.Value);
-                    }
-                }
-
-                AddToCount(added);
+                AddToCount(AddPreparedItems(itemsSpan, shardIndexes, hasIndices));
             }
             finally
             {
-                for (var i = ShardCount - 1; i >= 0; i--)
-                {
-                    Locks[i].ExitWriteLock();
-                }
+                ExitAllWriteLocks();
             }
         }
         finally
@@ -674,7 +687,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
 
         var rentedShardIndexes = (int[]?)null;
-        var shardIndexes = count <= 1024
+        var shardIndexes = count <= StackAllocationThreshold
             ? stackalloc int[count]
             : (rentedShardIndexes = ArrayPool<int>.Shared.Rent(count)).AsSpan(0, count);
 
@@ -689,54 +702,17 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 shardCounts[shardIndex]++;
             }
 
-            for (var i = 0; i < ShardCount; i++)
-            {
-                Locks[i].EnterWriteLock();
-            }
+            EnterAllWriteLocks();
 
             try
             {
-                for (var i = 0; i < ShardCount; i++)
-                {
-                    if (shardCounts[i] > 0)
-                    {
-                        var dict = Quads[i];
-                        dict.EnsureCapacity(dict.Count + shardCounts[i]);
-                    }
-                }
-
+                EnsureShardCapacities(shardCounts);
                 var hasIndices = !Indices.IsEmpty;
-                var added = 0;
-                for (var i = 0; i < count; i++)
-                {
-                    var kvp = items[i];
-                    var dict = Quads[shardIndexes[i]];
-                    ref var valueRef = ref dict.GetValueRefOrAddDefault(kvp.Key, out var exists);
-                    if (hasIndices && exists)
-                    {
-                        NotifyIndicesRemoved(valueRef!);
-                    }
-
-                    valueRef = kvp.Value;
-                    if (!exists)
-                    {
-                        added++;
-                    }
-
-                    if (hasIndices)
-                    {
-                        NotifyIndicesAdded(kvp.Value);
-                    }
-                }
-
-                AddToCount(added);
+                AddToCount(AddPreparedItems(items, shardIndexes, hasIndices));
             }
             finally
             {
-                for (var i = ShardCount - 1; i >= 0; i--)
-                {
-                    Locks[i].ExitWriteLock();
-                }
+                ExitAllWriteLocks();
             }
         }
         finally
@@ -748,6 +724,101 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         }
 
         EmitBatchAddedFromList(items, count);
+    }
+
+    /// <summary>Ensures each shard can accept its prepared additions without resizing.</summary>
+    /// <param name="shardCounts">The number of additions prepared for each shard.</param>
+    private void EnsureShardCapacities(ReadOnlySpan<int> shardCounts)
+    {
+        for (var i = 0; i < ShardCount; i++)
+        {
+            if (shardCounts[i] == 0)
+            {
+                continue;
+            }
+
+            var dictionary = Quads[i];
+            dictionary.EnsureCapacity(dictionary.Count + shardCounts[i]);
+        }
+    }
+
+    /// <summary>Adds prepared array items directly to their shards.</summary>
+    /// <param name="items">The items to add.</param>
+    /// <param name="shardIndexes">The precomputed shard for each item.</param>
+    /// <param name="hasIndices">Whether secondary indices need updates.</param>
+    /// <returns>The number of newly added keys.</returns>
+    private int AddPreparedItems(
+        ReadOnlySpan<KeyValuePair<TKey, TValue>> items,
+        ReadOnlySpan<int> shardIndexes,
+        bool hasIndices)
+    {
+        var added = 0;
+        for (var i = 0; i < items.Length; i++)
+        {
+            added += AddOrUpdatePreparedItem(items[i], shardIndexes[i], hasIndices);
+        }
+
+        return added;
+    }
+
+    /// <summary>Adds prepared list items directly to their shards.</summary>
+    /// <param name="items">The items to add.</param>
+    /// <param name="shardIndexes">The precomputed shard for each item.</param>
+    /// <param name="hasIndices">Whether secondary indices need updates.</param>
+    /// <returns>The number of newly added keys.</returns>
+    private int AddPreparedItems(
+        IList<KeyValuePair<TKey, TValue>> items,
+        ReadOnlySpan<int> shardIndexes,
+        bool hasIndices)
+    {
+        var added = 0;
+        for (var i = 0; i < shardIndexes.Length; i++)
+        {
+            added += AddOrUpdatePreparedItem(items[i], shardIndexes[i], hasIndices);
+        }
+
+        return added;
+    }
+
+    /// <summary>Adds or updates one item after its shard has been selected and locked.</summary>
+    /// <param name="item">The key/value pair to store.</param>
+    /// <param name="shardIndex">The precomputed shard index.</param>
+    /// <param name="hasIndices">Whether secondary indices need updates.</param>
+    /// <returns>One for a new key; otherwise, zero.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int AddOrUpdatePreparedItem(KeyValuePair<TKey, TValue> item, int shardIndex, bool hasIndices)
+    {
+        ref var value = ref Quads[shardIndex].GetValueRefOrAddDefault(item.Key, out var exists);
+        if (hasIndices && exists)
+        {
+            NotifyIndicesRemoved(value!);
+        }
+
+        value = item.Value;
+        if (hasIndices)
+        {
+            NotifyIndicesAdded(item.Value);
+        }
+
+        return exists ? 0 : 1;
+    }
+
+    /// <summary>Acquires every shard write lock in stable order.</summary>
+    private void EnterAllWriteLocks()
+    {
+        for (var i = 0; i < ShardCount; i++)
+        {
+            Locks[i].EnterWriteLock();
+        }
+    }
+
+    /// <summary>Releases every shard write lock in reverse order.</summary>
+    private void ExitAllWriteLocks()
+    {
+        for (var i = ShardCount - 1; i >= 0; i--)
+        {
+            Locks[i].ExitWriteLock();
+        }
     }
 
     /// <summary>Removes the specified keys from the underlying data store, updating all relevant shards and indices as necessary.</summary>

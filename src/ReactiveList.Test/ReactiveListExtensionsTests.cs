@@ -9,6 +9,7 @@ using CP.Primitives;
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
 using FluentAssertions;
+using ReactiveList.Test;
 using TUnit.Core;
 
 namespace ReactiveList.Tests;
@@ -25,7 +26,7 @@ public class ReactiveListExtensionsTests
         var addedItems = new List<int>();
 
         using var subscription = list.Connect()
-            .WhereChanges(c => c.Current > 5)
+            .WhereChanges(c => c.Current > TestData.TestValueFive)
             .Subscribe((Action<ChangeSet<int>>)(cs =>
             {
                 for (var i = 0; i < cs.Count; i++)
@@ -35,13 +36,13 @@ public class ReactiveListExtensionsTests
             }));
 
         // Act
-        list.Add(3);
-        list.Add(7);
-        list.Add(2);
-        list.Add(10);
+        list.Add(TestData.TestValueThree);
+        list.Add(TestData.TestValueSeven);
+        list.Add(TestData.TestValueTwo);
+        list.Add(TestData.TestValueTen);
 
         // Assert
-        addedItems.Should().BeEquivalentTo([7, 10]);
+        addedItems.Should().BeEquivalentTo([TestData.TestValueSeven, TestData.TestValueTen]);
     }
 
     /// <summary>Tests that WhereReason filters by specific change reason.</summary>
@@ -62,7 +63,7 @@ public class ReactiveListExtensionsTests
         list.Remove("one");
 
         // Assert - should see 2 adds, not the remove
-        addCount.Should().Be(2);
+        addCount.Should().Be(TestData.TestValueTwo);
     }
 
     /// <summary>Tests that OnAdd returns only added items.</summary>
@@ -75,15 +76,15 @@ public class ReactiveListExtensionsTests
 
         using var subscription = list.Connect()
             .OnAdd()
-            .Subscribe((Action<int>)(item => addedItems.Add(item)));
+            .Subscribe((Action<int>)addedItems.Add);
 
         // Act
         list.Add(1);
-        list.Add(2);
-        list.Add(3);
+        list.Add(TestData.TestValueTwo);
+        list.Add(TestData.TestValueThree);
 
         // Assert
-        addedItems.Should().BeEquivalentTo([1, 2, 3]);
+        addedItems.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
     }
 
     /// <summary>Tests that OnRemove returns only removed items.</summary>
@@ -96,11 +97,11 @@ public class ReactiveListExtensionsTests
 
         using var subscription = list.Connect()
             .OnRemove()
-            .Subscribe((Action<int>)(item => removedItems.Add(item)));
+            .Subscribe((Action<int>)removedItems.Add);
 
         // Act
         list.Add(1);
-        list.Add(2);
+        list.Add(TestData.TestValueTwo);
         list.Remove(1);
 
         // Assert
@@ -117,13 +118,13 @@ public class ReactiveListExtensionsTests
 
         // Use the overload that takes Func<Change<T>, TResult> to get individual transformed items
         using var subscription = list.Connect()
-            .SelectChanges((Change<int> c) => $"Item_{c.Current}")
+            .SelectChanges((c) => $"Item_{c.Current}")
             .Subscribe(transformedItems.Add);
 
         // Act
         list.Add(1);
-        list.Add(2);
-        list.Add(3);
+        list.Add(TestData.TestValueTwo);
+        list.Add(TestData.TestValueThree);
 
         // Assert
         transformedItems.Should().BeEquivalentTo(["Item_1", "Item_2", "Item_3"]);
@@ -137,17 +138,17 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive, TestData.TestValueSix, TestData.TestValueSeven, TestData.TestValueEight, TestData.TestValueNine, TestData.TestValueTen });
 
         // Act
-        using var view = list.CreateView(x => x > 5, Sequencer.Immediate, 0);
+        using var view = list.CreateView(x => x > TestData.TestValueFive, Sequencer.Immediate, 0);
 
         // Allow time for initial sync
-        await Task.Delay(50);
+        await Task.Delay(TestData.TestValueFifty);
 
         // Assert
-        view.Count.Should().Be(5);
-        view.Should().BeEquivalentTo([6, 7, 8, 9, 10]);
+        view.Count.Should().Be(TestData.TestValueFive);
+        view.Should().BeEquivalentTo([TestData.TestValueSix, TestData.TestValueSeven, TestData.TestValueEight, TestData.TestValueNine, TestData.TestValueTen]);
     }
 
     /// <summary>Tests that CreateView updates when source changes.</summary>
@@ -157,17 +158,17 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, 2, 3 });
+        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree });
 
         using var view = list.CreateView(x => x > 1, Sequencer.Immediate, 0);
-        await Task.Delay(50);
+        await Task.Delay(TestData.TestValueFifty);
 
         // Act
-        list.Add(5);
-        await Task.Delay(100);
+        list.Add(TestData.TestValueFive);
+        await Task.Delay(TestData.TestValueOneHundred);
 
         // Assert
-        view.Should().BeEquivalentTo([2, 3, 5]);
+        view.Should().BeEquivalentTo([TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFive]);
     }
 
     /// <summary>Tests that DynamicFilteredView updates when filter changes.</summary>
@@ -177,21 +178,21 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, 2, 3, 4, 5 });
+        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive });
 
         var filterSubject = new BehaviorSignal<Func<int, bool>>(_ => true);
 
         using var view = list.CreateView(filterSubject, Sequencer.Immediate, 0);
-        await Task.Delay(50);
+        await Task.Delay(TestData.TestValueFifty);
 
-        view.Count.Should().Be(5);
+        view.Count.Should().Be(TestData.TestValueFive);
 
         // Act - change filter
-        filterSubject.OnNext(x => x > 3);
-        await Task.Delay(100);
+        filterSubject.OnNext(x => x > TestData.TestValueThree);
+        await Task.Delay(TestData.TestValueOneHundred);
 
         // Assert
-        view.Should().BeEquivalentTo([4, 5]);
+        view.Should().BeEquivalentTo([TestData.TestValueFour, TestData.TestValueFive]);
     }
 
     /// <summary>Tests that SortBy creates a sorted view.</summary>
@@ -201,14 +202,14 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 5, 2, 8, 1, 9, 3 });
+        list.AddRange(new[] { TestData.TestValueFive, TestData.TestValueTwo, TestData.TestValueEight, 1, TestData.TestValueNine, TestData.TestValueThree });
 
         // Act - sort ascending
         using var view = list.SortBy(Comparer<int>.Default, Sequencer.Immediate, 0);
-        await Task.Delay(50);
+        await Task.Delay(TestData.TestValueFifty);
 
         // Assert
-        view.Should().BeEquivalentTo([1, 2, 3, 5, 8, 9], options => options.WithStrictOrdering());
+        view.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFive, TestData.TestValueEight, TestData.TestValueNine], options => options.WithStrictOrdering());
     }
 
     /// <summary>Tests that SortBy with key selector creates a sorted view.</summary>
@@ -221,11 +222,11 @@ public class ReactiveListExtensionsTests
         list.AddRange(new[] { "banana", "apple", "cherry" });
 
         // Act - sort by length
-        using var view = list.SortBy((string s) => s.Length, scheduler: Sequencer.Immediate, throttleMs: 0);
-        await Task.Delay(50);
+        using var view = list.SortBy((s) => s.Length, scheduler: Sequencer.Immediate, throttleMs: 0);
+        await Task.Delay(TestData.TestValueFifty);
 
         // Assert (apple=5, cherry=6, banana=6 - but banana comes before cherry alphabetically when lengths equal)
-        view.Count.Should().Be(3);
+        view.Count.Should().Be(TestData.TestValueThree);
         view[0].Should().Be("apple");
     }
 
@@ -236,18 +237,18 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, 2, 3, 4, 5, 6 });
+        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive, TestData.TestValueSix });
 
         // Act - group by even/odd
-        using var view = list.GroupBy((int x) => x % 2 == 0 ? "even" : "odd", Sequencer.Immediate, 0);
-        await Task.Delay(50);
+        using var view = list.GroupBy((x) => x % TestData.TestValueTwo == 0 ? "even" : "odd", Sequencer.Immediate, 0);
+        await Task.Delay(TestData.TestValueFifty);
 
         // Assert
-        view.Count.Should().Be(2);
+        view.Count.Should().Be(TestData.TestValueTwo);
         view.ContainsKey("odd").Should().BeTrue();
         view.ContainsKey("even").Should().BeTrue();
-        view["odd"].Should().BeEquivalentTo([1, 3, 5]);
-        view["even"].Should().BeEquivalentTo([2, 4, 6]);
+        view["odd"].Should().BeEquivalentTo([1, TestData.TestValueThree, TestData.TestValueFive]);
+        view["even"].Should().BeEquivalentTo([TestData.TestValueTwo, TestData.TestValueFour, TestData.TestValueSix]);
     }
 
     /// <summary>Tests that GroupBy updates when items are added.</summary>
@@ -257,17 +258,17 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, 2, 3 });
+        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree });
 
-        using var view = list.GroupBy((int x) => x % 2 == 0 ? "even" : "odd", Sequencer.Immediate, 0);
-        await Task.Delay(50);
+        using var view = list.GroupBy((x) => x % TestData.TestValueTwo == 0 ? "even" : "odd", Sequencer.Immediate, 0);
+        await Task.Delay(TestData.TestValueFifty);
 
         // Act
-        list.Add(4);
-        await Task.Delay(100);
+        list.Add(TestData.TestValueFour);
+        await Task.Delay(TestData.TestValueOneHundred);
 
         // Assert
-        view["even"].Should().BeEquivalentTo([2, 4]);
+        view["even"].Should().BeEquivalentTo([TestData.TestValueTwo, TestData.TestValueFour]);
     }
 
     /// <summary>Tests that AddRange with ReadOnlySpan works correctly.</summary>
@@ -276,14 +277,14 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        ReadOnlySpan<int> items = stackalloc int[] { 1, 2, 3, 4, 5 };
+        ReadOnlySpan<int> items = [1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive];
 
         // Act
         list.AddRange(items);
 
         // Assert
-        list.Count.Should().Be(5);
-        list.Should().BeEquivalentTo([1, 2, 3, 4, 5]);
+        list.Count.Should().Be(TestData.TestValueFive);
+        list.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
     }
 
     /// <summary>Tests that CopyTo with Span works correctly.</summary>
@@ -292,14 +293,14 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, 2, 3, 4, 5 });
+        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive });
         Span<int> destination = stackalloc int[5];
 
         // Act
         list.CopyTo(destination);
 
         // Assert
-        destination.ToArray().Should().BeEquivalentTo([1, 2, 3, 4, 5]);
+        destination.ToArray().Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
     }
 
     /// <summary>Tests that AsSpan returns correct data.</summary>
@@ -308,16 +309,16 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, 2, 3 });
+        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree });
 
         // Act
         var span = list.AsSpan();
 
         // Assert
-        span.Length.Should().Be(3);
+        span.Length.Should().Be(TestData.TestValueThree);
         span[0].Should().Be(1);
-        span[1].Should().Be(2);
-        span[2].Should().Be(3);
+        span[1].Should().Be(TestData.TestValueTwo);
+        span[TestData.TestValueTwo].Should().Be(TestData.TestValueThree);
     }
 
     /// <summary>Tests that AsMemory returns correct data.</summary>
@@ -326,16 +327,16 @@ public class ReactiveListExtensionsTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, 2, 3 });
+        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree });
 
         // Act
         var memory = list.AsMemory();
 
         // Assert
-        memory.Length.Should().Be(3);
+        memory.Length.Should().Be(TestData.TestValueThree);
         memory.Span[0].Should().Be(1);
-        memory.Span[1].Should().Be(2);
-        memory.Span[2].Should().Be(3);
+        memory.Span[1].Should().Be(TestData.TestValueTwo);
+        memory.Span[TestData.TestValueTwo].Should().Be(TestData.TestValueThree);
     }
 #endif
 }

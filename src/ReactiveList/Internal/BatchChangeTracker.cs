@@ -11,6 +11,10 @@ namespace CP.Primitives.Internal;
 /// <typeparam name="T">The type of items being tracked.</typeparam>
 internal struct BatchChangeTracker<T> : IDisposable
 {
+    private const int BufferGrowthFactor = 2;
+
+    private const int InitialBufferSize = 16;
+
     private T[]? _addedItems;
 
     private T[]? _removedItems;
@@ -33,7 +37,7 @@ internal struct BatchChangeTracker<T> : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void TrackAdded(T item)
     {
-        _addedItems ??= ArrayPool<T>.Shared.Rent(16);
+        _addedItems ??= ArrayPool<T>.Shared.Rent(InitialBufferSize);
 
         if (_addedCount >= _addedItems.Length)
         {
@@ -48,7 +52,7 @@ internal struct BatchChangeTracker<T> : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void TrackRemoved(T item)
     {
-        _removedItems ??= ArrayPool<T>.Shared.Rent(16);
+        _removedItems ??= ArrayPool<T>.Shared.Rent(InitialBufferSize);
 
         if (_removedCount >= _removedItems.Length)
         {
@@ -81,7 +85,7 @@ internal struct BatchChangeTracker<T> : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void GrowAdded()
     {
-        var newArray = ArrayPool<T>.Shared.Rent(_addedItems!.Length * 2);
+        var newArray = ArrayPool<T>.Shared.Rent(_addedItems!.Length * BufferGrowthFactor);
         _addedItems.AsSpan(0, _addedCount).CopyTo(newArray);
         ArrayPool<T>.Shared.Return(_addedItems, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _addedItems = newArray;
@@ -91,7 +95,7 @@ internal struct BatchChangeTracker<T> : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void GrowRemoved()
     {
-        var newArray = ArrayPool<T>.Shared.Rent(_removedItems!.Length * 2);
+        var newArray = ArrayPool<T>.Shared.Rent(_removedItems!.Length * BufferGrowthFactor);
         _removedItems.AsSpan(0, _removedCount).CopyTo(newArray);
         ArrayPool<T>.Shared.Return(_removedItems, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _removedItems = newArray;
