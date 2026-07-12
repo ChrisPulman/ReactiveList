@@ -1,37 +1,161 @@
-﻿<ccui:FluentNavigationWindow
+<Window
     x:Class="ReactiveListTestApp.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:ccui="https://github.com/reactivemarbles/CrissCross.ui"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="clr-namespace:ReactiveListTestApp"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    x:Name="mainWindow"
-    Title="ReactiveList Test App"
-    Width="900"
-    Height="600"
-    d:DataContext="{d:DesignInstance Type=local:MainWindowViewModel}"
-    x:TypeArguments="local:MainWindowViewModel"
+    Title="ReactiveList · Live Data Showcase"
+    Width="1500"
+    Height="900"
+    MinWidth="1180"
+    MinHeight="720"
+    WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
-    <ccui:FluentNavigationWindow.TopContent>
+    <Window.Resources>
+        <Style x:Key="CardBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+        </Style>
+        <Style x:Key="MetricValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="23" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style x:Key="MetricLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        </Style>
+    </Window.Resources>
 
-        <!--  Navigation Bar  -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal">
-            <Button
-                x:Name="NavBack"
-                Margin="5"
-                Padding="10,5"
-                Content="← Back" />
-            <Button
-                Margin="5"
-                Padding="10,5"
-                Command="{Binding NavigateToMainCommand}"
-                Content="Reactive List" />
-            <Button
-                Margin="5"
-                Padding="10,5"
-                Command="{Binding NavigateToAddressBookCommand}"
-                Content="Address Book" />
-        </StackPanel>
-    </ccui:FluentNavigationWindow.TopContent>
-</ccui:FluentNavigationWindow>
+    <Grid Margin="22">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="0,0,0,18">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock FontSize="28" FontWeight="SemiBold" Text="ReactiveList · Live Data Showcase" />
+                <TextBlock Margin="0,5,0,0" Foreground="{StaticResource MutedBrush}" Text="A real 1k–100k events/sec producer feeding bounded reactive views at a dispatcher-safe cadence" />
+            </StackPanel>
+            <Border Grid.Column="1" Padding="14,8" Background="#17343B" CornerRadius="18" AutomationProperties.LiveSetting="Polite">
+                <TextBlock x:Name="StatusTextBlock" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" />
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="28" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="260" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Button x:Name="StartPauseButton" Grid.Column="0" AutomationProperties.HelpText="Pause or resume the continuous producer" />
+            <Button x:Name="BurstButton" Grid.Column="1" Content="100 ms burst" AutomationProperties.HelpText="Generate one full-rate burst immediately" />
+            <Button x:Name="StepButton" Grid.Column="2" Content="Single frame" AutomationProperties.HelpText="Generate one frame while paused" />
+            <Button x:Name="ResetButton" Grid.Column="3" Content="Reset" AutomationProperties.HelpText="Clear all live showcase collections" />
+            <TextBlock Grid.Column="5" Margin="0,0,12,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Text="Target rate" />
+            <Slider x:Name="RateSlider" Grid.Column="6" Minimum="1000" Maximum="100000" TickFrequency="1000" IsSnapToTickEnabled="True" VerticalAlignment="Center" AutomationProperties.Name="Target events per second" />
+            <TextBlock x:Name="TargetRateText" Grid.Column="7" MinWidth="120" Margin="12,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
+        </Grid>
+
+        <UniformGrid Grid.Row="2" Rows="1" Columns="8" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardBorder}"><StackPanel><TextBlock x:Name="RateMetric" Style="{StaticResource MetricValue}" /><TextBlock Style="{StaticResource MetricLabel}" Text="RAW EVENTS / SEC" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}"><StackPanel><TextBlock x:Name="FrameMetric" Style="{StaticResource MetricValue}" /><TextBlock Style="{StaticResource MetricLabel}" Text="UI FRAMES / SEC" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}"><StackPanel><TextBlock x:Name="TotalMetric" Style="{StaticResource MetricValue}" /><TextBlock Style="{StaticResource MetricLabel}" Text="TOTAL EVENTS" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}"><StackPanel><TextBlock x:Name="GenerationMetric" Style="{StaticResource MetricValue}" /><TextBlock Style="{StaticResource MetricLabel}" Text="GENERATION MS" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}"><StackPanel><TextBlock x:Name="AllocationMetric" Style="{StaticResource MetricValue}" /><TextBlock Style="{StaticResource MetricLabel}" Text="ALLOCATED KB / FRAME" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}"><StackPanel><TextBlock x:Name="SourceMetric" Style="{StaticResource MetricValue}" /><TextBlock Style="{StaticResource MetricLabel}" Text="BOUNDED SOURCE" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}"><StackPanel><TextBlock x:Name="VisibleMetric" Style="{StaticResource MetricValue}" /><TextBlock Style="{StaticResource MetricLabel}" Text="VIEW BACKLOG" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}"><StackPanel><TextBlock x:Name="AlertMetric" Style="{StaticResource MetricValue}" /><TextBlock Style="{StaticResource MetricLabel}" Text="FRAME ALERTS" /></StackPanel></Border>
+        </UniformGrid>
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="Live tape">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <DataGrid x:Name="LiveTapeGrid">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Width="70" Binding="{Binding Sequence}" Header="SEQ" />
+                            <DataGridTextColumn Width="70" Binding="{Binding Symbol}" Header="SYMBOL" />
+                            <DataGridTextColumn Width="85" Binding="{Binding Venue}" Header="VENUE" />
+                            <DataGridTextColumn Width="110" Binding="{Binding Sector}" Header="SECTOR" />
+                            <DataGridTextColumn Width="90" Binding="{Binding Price, StringFormat=N2}" Header="PRICE" />
+                            <DataGridTextColumn Width="95" Binding="{Binding ChangePercent, StringFormat={}{0:+0.000;-0.000;0.000}%}" Header="CHANGE" />
+                            <DataGridTextColumn Width="100" Binding="{Binding Volume, StringFormat=N0}" Header="VOLUME" />
+                            <DataGridTextColumn Width="90" Binding="{Binding LatencyMilliseconds, StringFormat=N2}" Header="LATENCY" />
+                            <DataGridCheckBoxColumn Width="65" Binding="{Binding IsAlert}" Header="ALERT" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <TextBlock Margin="4,0,0,10" FontSize="16" FontWeight="SemiBold" Text="Alert-only filtered view" />
+                        <DataGrid x:Name="AlertsGrid" Grid.Row="1">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Width="*" Binding="{Binding Symbol}" Header="SYMBOL" />
+                                <DataGridTextColumn Width="*" Binding="{Binding Venue}" Header="VENUE" />
+                                <DataGridTextColumn Width="*" Binding="{Binding ChangePercent, StringFormat={}{0:+0.00;-0.00}%}" Header="CHANGE" />
+                                <DataGridTextColumn Width="*" Binding="{Binding LatencyMilliseconds, StringFormat=N2}" Header="MS" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock x:Name="LastOperationText" Grid.Row="2" Margin="4,10,0,0" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Views lab">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="260" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Text="Dynamic query" />
+                        <TextBox x:Name="SearchBox" Grid.Column="1" AutomationProperties.Name="Dynamic symbol, sector or venue search" />
+                        <CheckBox x:Name="AlertOnlyCheckBox" Grid.Column="2" Margin="18,0,0,0" VerticalAlignment="Center" Content="Alerts only" />
+                        <TextBlock Grid.Column="3" Margin="24,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Text="Filtered, sorted and grouped projections share one bounded ReactiveList source." />
+                    </Grid>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="0.8*" /></Grid.ColumnDefinitions>
+                        <DataGrid x:Name="SearchGrid"><DataGrid.Columns><DataGridTextColumn Width="*" Binding="{Binding Symbol}" Header="DYNAMIC RESULT" /><DataGridTextColumn Width="*" Binding="{Binding Sector}" Header="SECTOR" /><DataGridTextColumn Width="*" Binding="{Binding Price, StringFormat=N2}" Header="PRICE" /><DataGridCheckBoxColumn Width="70" Binding="{Binding IsAlert}" Header="ALERT" /></DataGrid.Columns></DataGrid>
+                        <DataGrid x:Name="LatencyGrid" Grid.Column="2"><DataGrid.Columns><DataGridTextColumn Width="*" Binding="{Binding Symbol}" Header="SORTED BY LATENCY" /><DataGridTextColumn Width="*" Binding="{Binding Venue}" Header="VENUE" /><DataGridTextColumn Width="*" Binding="{Binding LatencyMilliseconds, StringFormat=N3}" Header="MS" /></DataGrid.Columns></DataGrid>
+                        <ListBox x:Name="SectorGroupsList" Grid.Column="4" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}">
+                            <ListBox.ItemTemplate><DataTemplate><Border Margin="5" Padding="12" Background="{StaticResource PanelAltBrush}" CornerRadius="6"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Text="{Binding Key}" /><TextBlock Grid.Column="1" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Text="{Binding Count, StringFormat={}{0:N0} rows}" /></Grid></Border></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Indexed collections">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Margin="0,0,12,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Text="Dynamic secondary index venue" />
+                        <ComboBox x:Name="VenueComboBox" Width="150" AutomationProperties.Name="Secondary index venue" />
+                        <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Text="Both views change from one BehaviorSignal&lt;string[]&gt;." />
+                    </StackPanel>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <DataGrid x:Name="IndexedListGrid"><DataGrid.Columns><DataGridTextColumn Width="*" Binding="{Binding Symbol}" Header="QUATERNARY LIST" /><DataGridTextColumn Width="*" Binding="{Binding Venue}" Header="INDEX KEY" /><DataGridTextColumn Width="*" Binding="{Binding Price, StringFormat=N2}" Header="PRICE" /><DataGridTextColumn Width="*" Binding="{Binding Sequence}" Header="SEQ" /></DataGrid.Columns></DataGrid>
+                        <DataGrid x:Name="IndexedDictionaryGrid" Grid.Column="2"><DataGrid.Columns><DataGridTextColumn Width="90" Binding="{Binding Key}" Header="KEY" /><DataGridTextColumn Width="*" Binding="{Binding Value.Symbol}" Header="QUATERNARY DICTIONARY" /><DataGridTextColumn Width="*" Binding="{Binding Value.Venue}" Header="INDEX KEY" /><DataGridTextColumn Width="*" Binding="{Binding Value.Price, StringFormat=N2}" Header="LATEST" /></DataGrid.Columns></DataGrid>
+                    </Grid>
+                    <UniformGrid Grid.Row="2" Columns="3" Margin="0,10,0,0"><TextBlock x:Name="ReactiveVersionText" Foreground="{StaticResource MutedBrush}" /><TextBlock x:Name="QuaternaryListCountText" Foreground="{StaticResource MutedBrush}" /><TextBlock x:Name="QuaternaryDictionaryCountText" Foreground="{StaticResource MutedBrush}" /></UniformGrid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Matrix &amp; hot paths">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <DataGrid x:Name="MatrixGrid"><DataGrid.Columns><DataGridTextColumn Width="100" Binding="{Binding Lane}" Header="2D ROW" /><DataGridTextColumn Width="*" Binding="{Binding Values}" Header="10 LIVE CELLS" /><DataGridTextColumn Width="90" Binding="{Binding Average, StringFormat=N2}" Header="AVG" /><DataGridTextColumn Width="90" Binding="{Binding Minimum, StringFormat=N2}" Header="MIN" /><DataGridTextColumn Width="90" Binding="{Binding Maximum, StringFormat=N2}" Header="MAX" /></DataGrid.Columns></DataGrid>
+                    <StackPanel Grid.Column="2">
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,10"><StackPanel><TextBlock FontSize="17" FontWeight="SemiBold" Text="Reactive2DList&lt;double&gt;" /><TextBlock x:Name="MatrixCellCountText" Margin="0,7,0,0" Foreground="{StaticResource AccentBrush}" /><TextBlock Margin="0,6,0,0" Foreground="{StaticResource MutedBrush}" Text="SetItem updates four venue rows; Flatten and TotalCount remain available over all inner lists." TextWrapping="Wrap" /></StackPanel></Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,10"><StackPanel><TextBlock FontSize="17" FontWeight="SemiBold" Text="QuadList&lt;MarketTick&gt;" /><TextBlock x:Name="HotTickCountText" Margin="0,7,0,0" Foreground="{StaticResource AccentBrush}" /><TextBlock Margin="0,6,0,0" Foreground="{StaticResource MutedBrush}" Text="ArrayPool-backed scratch storage receives a ReadOnlySpan fast path every frame." TextWrapping="Wrap" /></StackPanel></Border>
+                        <Border Style="{StaticResource CardBorder}" Margin="0"><StackPanel><TextBlock FontSize="17" FontWeight="SemiBold" Text="QuadDictionary&lt;int, Snapshot&gt;" /><TextBlock x:Name="HotDictionaryCountText" Margin="0,7,0,0" Foreground="{StaticResource AccentBrush}" /><TextBlock Margin="0,6,0,0" Foreground="{StaticResource MutedBrush}" Text="Direct ref lookup maintains the latest value per instrument without reactive overhead." TextWrapping="Wrap" /></StackPanel></Border>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Stream inspector">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <DataGrid x:Name="StreamGrid"><DataGrid.Columns><DataGridTextColumn Width="70" Binding="{Binding Sequence}" Header="SEQ" /><DataGridTextColumn Width="100" Binding="{Binding Time}" Header="TIME" /><DataGridTextColumn Width="150" Binding="{Binding Source}" Header="SOURCE" /><DataGridTextColumn Width="130" Binding="{Binding Action}" Header="CACHE ACTION" /><DataGridTextColumn Width="70" Binding="{Binding Count}" Header="COUNT" /><DataGridTextColumn Width="*" Binding="{Binding Detail}" Header="DETAIL" /></DataGrid.Columns></DataGrid>
+                    <DataGrid x:Name="FeaturesGrid" Grid.Column="2"><DataGrid.Columns><DataGridTextColumn Width="180" Binding="{Binding Name}" Header="FEATURE" /><DataGridTextColumn Width="130" Binding="{Binding Category}" Header="CATEGORY" /><DataGridTextColumn Width="*" Binding="{Binding LiveUse}" Header="USED HERE" /></DataGrid.Columns></DataGrid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
