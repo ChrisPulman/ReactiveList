@@ -1,55 +1,38 @@
+using System;
+using CP.BuildTools;
+using Microsoft.Build.Construction;
 using Nuke.Common;
-using Nuke.Common.CI.GitHubActions;
 using Nuke.Common.Git;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
-using Nuke.Common.Tools.NerdbankGitVersioning;
 using Nuke.Common.Tools.DotNet;
+using Nuke.Common.Tools.MSBuild;
 using Serilog;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
-using Nuke.Common.Tools.PowerShell;
-using CP.BuildTools;
 
-////[GitHubActions(
-////    "BuildOnly",
-////    GitHubActionsImage.WindowsLatest,
-////    OnPushBranchesIgnore = new[] { "main" },
-////    FetchDepth = 0,
-////    InvokedTargets = new[] { nameof(Compile) })]
-////[GitHubActions(
-////    "BuildDeploy",
-////    GitHubActionsImage.WindowsLatest,
-////    OnPushBranches = new[] { "main" },
-////    FetchDepth = 0,
-////    ImportSecrets = new[] { nameof(NuGetApiKey) },
-////    InvokedTargets = new[] { nameof(Compile), nameof(Deploy) })]
+namespace ReactiveList.Building;
+
 sealed partial class Build : NukeBuild
 {
-    [GitRepository]
-    private readonly GitRepository Repository;
-
-    [Solution(GenerateProjects = true)]
-    private readonly Solution Solution;
-
-    [NerdbankGitVersioning]
-    private readonly NerdbankGitVersioning NerdbankVersioning;
-
-    [Parameter]
-    [Secret]
-    private readonly string NuGetApiKey;
-
-    [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
-    private readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
-
     public static int Main() => Execute<Build>(x => x.Compile);
 
-    private AbsolutePath PackagesDirectory => RootDirectory / "output";
+    private static AbsolutePath SolutionFile => RootDirectory / "src" / "ReactiveList.slnx";
 
-    private Target Print => _ => _
-        .Executes(() => Log.Information("NerdbankVersioning = {Value}", NerdbankVersioning.NuGetPackageVersion));
+    readonly Solution Solution = SolutionFile.ReadSolution();
+    [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
+    readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
-    private Target Clean => _ => _
+    static AbsolutePath PackagesDirectory => RootDirectory / "output";
+
+    Target Print => _ => _
+        .Executes(() =>
+        {
+            Log.Information("Configuration = {Configuration}", Configuration);
+            Log.Information("MinVerVersionOverride = {Value}", Environment.GetEnvironmentVariable("MinVerVersionOverride") ?? "<auto>");
+        });
+
+    Target Clean => _ => _
         .Before(Restore)
         .Executes(() =>
         {
@@ -61,64 +44,18 @@ sealed partial class Build : NukeBuild
             PackagesDirectory.CreateOrCleanDirectory();
         });
 
-    private Target Restore => _ => _
+    Target Restore => _ => _
         .DependsOn(Clean)
-        .Executes(() => DotNetRestore(s => s.SetProjectFile(Solution)));
-
-    private Target Compile => _ => _
-        .DependsOn(Restore, Print)
         .Executes(() =>
         {
-            var packableProjects = Solution.GetPackableProjects();
-
-            foreach (var project in packableProjects!)
-            {
-                Log.Information("Building {Project}", project.Name);
-            }
-
-            DotNetBuild(settings => settings
-                .SetConfiguration(Configuration)
-                .EnableNoRestore()
-                .CombineWith(packableProjects, (buildSettings, project) =>
-                    buildSettings.SetProjectFile(project.Path)));
+            DotNetWorkloadRestore(s => s.DisableSkipManifestUpdate().SetProject(Solution));
+            return DotNetRestore(s => s.SetProjectFile(Solution));
         });
 
-    private Target Pack => _ => _
-    .After(Compile)
-    .Produces(PackagesDirectory / "*.nupkg")
-    .Executes(() =>
-    {
-        if (Repository.IsOnMainOrMasterBranch())
-        {
-            var packableProjects = Solution.GetPackableProjects();
-
-            foreach (var project in packableProjects!)
-            {
-                Log.Information("Packing {Project}", project.Name);
-            }
-
-            DotNetPack(settings => settings
+    Target Compile => _ => _
+        .DependsOn(Restore, Print)
+        .Executes(() => DotNetBuild(s => s
+                .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
-                .SetVersion(NerdbankVersioning.NuGetPackageVersion)
-                .SetOutputDirectory(PackagesDirectory)
-                .CombineWith(packableProjects, (packSettings, project) =>
-                    packSettings.SetProject(project)));
-        }
-    });
-
-    private Target Deploy => _ => _
-    .DependsOn(Pack)
-    .Requires(() => NuGetApiKey)
-    .Executes(() =>
-    {
-        if (Repository.IsOnMainOrMasterBranch())
-        {
-            DotNetNuGetPush(settings => settings
-                        .SetSource(this.PublicNuGetSource())
-                        .SetSkipDuplicate(true)
-                        .SetApiKey(NuGetApiKey)
-                        .CombineWith(PackagesDirectory.GlobFiles("*.nupkg"), (s, v) => s.SetTargetPath(v)),
-                    degreeOfParallelism: 5, completeOnFailure: true);
-        }
-    });
+                .SetNoRestore(true)));
 }

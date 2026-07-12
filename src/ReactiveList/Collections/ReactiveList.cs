@@ -27,7 +27,13 @@ namespace CP.Primitives.Collections;
 public class ReactiveList<T> : IReactiveList<T>
     where T : notnull
 {
+    private const int BufferGrowthFactor = 2;
+
     private const string ItemArray = "Item[]";
+
+    private const int MinimumRemovalBufferSize = 16;
+
+    private const int RemovalBufferSizingDivisor = 4;
 
     private static readonly PropertyChangedEventArgs CountPropertyChangedEventArgs = new(nameof(Count));
 
@@ -269,7 +275,10 @@ public class ReactiveList<T> : IReactiveList<T>
 #if NET6_0_OR_GREATER
             CollectionsMarshal.AsSpan(_internalList).CopyTo(destination);
 #else
-            _internalList.ToArray().AsSpan().CopyTo(destination);
+            for (var i = 0; i < _internalList.Count; i++)
+            {
+                destination[i] = _internalList[i];
+            }
 #endif
         }
     }
@@ -343,15 +352,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public int Add(object? value)
     {
-        try
-        {
-            Add((T)value!);
-        }
-        catch (InvalidCastException)
-        {
-            throw;
-        }
-
+        Add((T)value!);
         return Count - 1;
     }
 
@@ -515,7 +516,7 @@ public class ReactiveList<T> : IReactiveList<T>
     {
         lock (_lock)
         {
-            return _internalList.ToList().GetEnumerator();
+            return ((IEnumerable<T>)_internalList.ToArray()).GetEnumerator();
         }
     }
 
@@ -553,14 +554,7 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <inheritdoc/>
     public void Insert(int index, object? value)
     {
-        try
-        {
-            Insert(index, (T)value!);
-        }
-        catch (InvalidCastException)
-        {
-            throw;
-        }
+        Insert(index, (T)value!);
     }
 
     /// <summary>Inserts the range.</summary>
@@ -682,9 +676,13 @@ public class ReactiveList<T> : IReactiveList<T>
 
         lock (_lock)
         {
-#if NET6_0_OR_GREATER
-            // Use pooled buffer for better memory efficiency
-            var removedBuffer = ArrayPool<T>.Shared.Rent(Math.Max(16, _internalList.Count / 4));
+            if (_internalList.Count == 0)
+            {
+                return 0;
+            }
+
+            var removedBuffer = ArrayPool<T>.Shared.Rent(
+                Math.Max(MinimumRemovalBufferSize, _internalList.Count / RemovalBufferSizingDivisor));
             var removedCount = 0;
 
             try
@@ -700,9 +698,11 @@ public class ReactiveList<T> : IReactiveList<T>
                         // Grow buffer if needed
                         if (removedCount >= removedBuffer.Length)
                         {
-                            var newBuffer = ArrayPool<T>.Shared.Rent(removedBuffer.Length * 2);
-                            removedBuffer.AsSpan(0, removedCount).CopyTo(newBuffer);
-                            ArrayPool<T>.Shared.Return(removedBuffer);
+                            var newBuffer = ArrayPool<T>.Shared.Rent(removedBuffer.Length * BufferGrowthFactor);
+                            Array.Copy(removedBuffer, newBuffer, removedCount);
+                            ArrayPool<T>.Shared.Return(
+                                removedBuffer,
+                                clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
                             removedBuffer = newBuffer;
                         }
 
@@ -715,41 +715,20 @@ public class ReactiveList<T> : IReactiveList<T>
                     _observableItems!.ReplaceAll(_internalList);
 
                     // Reverse in-place to maintain original order
-                    removedBuffer.AsSpan(0, removedCount).Reverse();
-                    NotifyRemovedRange(removedBuffer.AsSpan(0, removedCount).ToArray());
+                    Array.Reverse(removedBuffer, 0, removedCount);
+                    var removedItems = new T[removedCount];
+                    Array.Copy(removedBuffer, removedItems, removedCount);
+                    NotifyRemovedRange(removedItems);
                 }
 
                 return removedCount;
             }
             finally
             {
-                ArrayPool<T>.Shared.Return(removedBuffer, clearArray: true);
+                ArrayPool<T>.Shared.Return(
+                    removedBuffer,
+                    clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
             }
-#else
-            var removed = new List<T>();
-
-            // Iterate in reverse to avoid index shifting issues
-            for (var i = _internalList.Count - 1; i >= 0; i--)
-            {
-                var item = _internalList[i];
-                if (predicate(item))
-                {
-                    _internalList.RemoveAt(i);
-                    removed.Add(item);
-                }
-            }
-
-            if (removed.Count > 0)
-            {
-                _observableItems!.ReplaceAll(_internalList);
-
-                // Reverse to maintain original order in notification
-                removed.Reverse();
-                NotifyRemovedRange([.. removed]);
-            }
-
-            return removed.Count;
-#endif
         }
     }
 
@@ -833,29 +812,7 @@ public class ReactiveList<T> : IReactiveList<T>
 
             Interlocked.Increment(ref _version);
 
-            // For ReplaceAll, directly update tracking collections with expected semantics:
-            // - ItemsAdded = new items
-            // - ItemsRemoved = old items
-            // - ItemsChanged = old items (the items that were replaced)
-            UpdateTrackingCollection(_itemsAddedCollection!, itemArray);
-            UpdateTrackingCollection(_itemsRemovedCollection!, oldItems);
-            UpdateTrackingCollection(_itemsChangedCollection!, oldItems);
-            _currentItems!.OnNext(_internalList);
-
-            if (_streamPipeline?.HasObservers == true && oldItems.Length > 0)
-            {
-                _streamPipeline?.OnNext(new CacheNotify<T>(CacheAction.BatchRemoved, default, CreateBatch(oldItems)));
-            }
-
-            if (_streamPipeline?.HasObservers == true && itemArray.Length > 0)
-            {
-                _streamPipeline?.OnNext(new CacheNotify<T>(CacheAction.BatchAdded, default, CreateBatch(itemArray)));
-            }
-
-            if (oldItems.Length > 0 || itemArray.Length > 0)
-            {
-                RaiseCollectionReset();
-            }
+            TrackReplacement(oldItems, itemArray);
 
             OnPropertyChanged(nameof(Count));
             OnPropertyChanged(ItemArray);
@@ -903,15 +860,12 @@ public class ReactiveList<T> : IReactiveList<T>
     /// <param name="propertyName">Name of the property.</param>
     protected virtual void OnPropertyChanged(string propertyName)
     {
-        PropertyChangedEventArgs args;
-        if (propertyName == nameof(Count))
+        var args = propertyName switch
         {
-            args = CountPropertyChangedEventArgs;
-        }
-        else
-        {
-            args = propertyName == ItemArray ? ItemArrayPropertyChangedEventArgs : new(propertyName);
-        }
+            nameof(Count) => CountPropertyChangedEventArgs,
+            ItemArray => ItemArrayPropertyChangedEventArgs,
+            _ => new PropertyChangedEventArgs(propertyName)
+        };
 
         PropertyChanged?.Invoke(this, args);
     }
@@ -994,6 +948,44 @@ public class ReactiveList<T> : IReactiveList<T>
         }
 
         return notification.Item is not null ? [notification.Item] : [];
+    }
+
+    /// <summary>Updates change tracking and observers after replacing the complete list contents.</summary>
+    /// <param name="oldItems">The items that were replaced.</param>
+    /// <param name="newItems">The replacement items.</param>
+    private void TrackReplacement(T[] oldItems, T[] newItems)
+    {
+        // ReplaceAll semantics expose the new items as added and the old items as both removed and changed.
+        UpdateTrackingCollection(_itemsAddedCollection!, newItems);
+        UpdateTrackingCollection(_itemsRemovedCollection!, oldItems);
+        UpdateTrackingCollection(_itemsChangedCollection!, oldItems);
+        _currentItems!.OnNext(_internalList);
+
+        var hasObservers = _streamPipeline?.HasObservers == true;
+        EmitReplacementBatchIfObserved(CacheAction.BatchRemoved, oldItems, hasObservers);
+        EmitReplacementBatchIfObserved(CacheAction.BatchAdded, newItems, hasObservers);
+
+        if (oldItems.Length == 0 && newItems.Length == 0)
+        {
+            return;
+        }
+
+        RaiseCollectionReset();
+    }
+
+    /// <summary>Emits a replacement batch when the stream has observers and the batch contains items.</summary>
+    /// <param name="action">The batch action.</param>
+    /// <param name="items">The batch items.</param>
+    /// <param name="hasObservers">Whether the stream has observers.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void EmitReplacementBatchIfObserved(CacheAction action, T[] items, bool hasObservers)
+    {
+        if (!hasObservers || items.Length == 0)
+        {
+            return;
+        }
+
+        _streamPipeline!.OnNext(new CacheNotify<T>(action, default, CreateBatch(items)));
     }
 
     /// <summary>Sets data for the SetItem operation.</summary>

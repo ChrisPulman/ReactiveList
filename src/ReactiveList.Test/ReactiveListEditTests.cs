@@ -22,20 +22,20 @@ public class ReactiveListEditTests
         {
             list.Add("one");
             list.Add("two");
-            list.Add("three");
+            list.Add(TestData.ThreeText);
         });
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Should().Be("one");
         fixture[1].Should().Be("two");
-        fixture[2].Should().Be("three");
+        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow batch remove operations.</summary>
     [Test]
     public void Edit_ShouldAllowBatchRemoveOperations()
     {
-        ReactiveList<string> fixture = ["one", "two", "three", "four"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText, "four"];
 
         fixture.Edit(list =>
         {
@@ -43,9 +43,9 @@ public class ReactiveListEditTests
             list.Remove("four");
         });
 
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture[0].Should().Be("one");
-        fixture[1].Should().Be("three");
+        fixture[1].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow mixed operations.</summary>
@@ -56,14 +56,14 @@ public class ReactiveListEditTests
 
         fixture.Edit(list =>
         {
-            list.Add("three");
+            list.Add(TestData.ThreeText);
             list.Remove("one");
             list.Add("four");
         });
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture.Should().Contain("two");
-        fixture.Should().Contain("three");
+        fixture.Should().Contain(TestData.ThreeText);
         fixture.Should().Contain("four");
         fixture.Should().NotContain("one");
     }
@@ -72,7 +72,7 @@ public class ReactiveListEditTests
     [Test]
     public void Edit_ShouldAllowClearAndRepopulate()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Edit(list =>
         {
@@ -81,7 +81,7 @@ public class ReactiveListEditTests
             list.Add("beta");
         });
 
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture[0].Should().Be("alpha");
         fixture[1].Should().Be("beta");
     }
@@ -124,7 +124,7 @@ public class ReactiveListEditTests
         {
             list.Add("one");
             list.Add("two");
-            list.Add("three");
+            list.Add(TestData.ThreeText);
         });
 
         countChanges.Should().Be(1);
@@ -135,27 +135,27 @@ public class ReactiveListEditTests
     [Test]
     public void Edit_ShouldAllowInsertAtIndex()
     {
-        ReactiveList<string> fixture = ["one", "three"];
+        ReactiveList<string> fixture = ["one", TestData.ThreeText];
 
         fixture.Edit(list => list.Insert(1, "two"));
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Should().Be("one");
         fixture[1].Should().Be("two");
-        fixture[2].Should().Be("three");
+        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow remove at index.</summary>
     [Test]
     public void Edit_ShouldAllowRemoveAtIndex()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Edit(list => list.RemoveAt(1));
 
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture[0].Should().Be("one");
-        fixture[1].Should().Be("three");
+        fixture[1].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow add range.</summary>
@@ -164,20 +164,20 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one"];
 
-        fixture.Edit(list => list.AddRange(["two", "three", "four"]));
+        fixture.Edit(list => list.AddRange(["two", TestData.ThreeText, "four"]));
 
-        fixture.Count.Should().Be(4);
+        fixture.Count.Should().Be(TestData.TestValueFour);
         fixture[0].Should().Be("one");
         fixture[1].Should().Be("two");
-        fixture[2].Should().Be("three");
-        fixture[3].Should().Be("four");
+        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        fixture[TestData.TestValueThree].Should().Be("four");
     }
 
     /// <summary>Edit should allow replace operation.</summary>
     [Test]
     public void Edit_ShouldAllowReplaceOperation()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Edit(list =>
         {
@@ -186,10 +186,10 @@ public class ReactiveListEditTests
             list.Insert(index, "TWO");
         });
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Should().Be("one");
         fixture[1].Should().Be("TWO");
-        fixture[2].Should().Be("three");
+        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should work with complex types.</summary>
@@ -200,11 +200,11 @@ public class ReactiveListEditTests
 
         fixture.Edit(list =>
         {
-            list.Add(new TestData("Alice", 25));
-            list.Add(new TestData("Bob", 30));
+            list.Add(new TestData("Alice", TestData.TestValueTwentyFive));
+            list.Add(new TestData("Bob", TestData.TestValueThirty));
         });
 
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture[0].Name.Should().Be("Alice");
         fixture[1].Name.Should().Be("Bob");
     }
@@ -217,7 +217,7 @@ public class ReactiveListEditTests
 
         fixture.Edit(_ => { });
 
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture[0].Should().Be("one");
         fixture[1].Should().Be("two");
     }
@@ -226,14 +226,14 @@ public class ReactiveListEditTests
     [Test]
     public void Edit_ShouldAllowMoveOperation()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        fixture.Edit(list => list.Move(0, 2));
+        fixture.Edit(list => list.Move(0, TestData.TestValueTwo));
 
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
         fixture[0].Should().Be("two");
-        fixture[1].Should().Be("three");
-        fixture[2].Should().Be("one");
+        fixture[1].Should().Be(TestData.ThreeText);
+        fixture[TestData.TestValueTwo].Should().Be("one");
     }
 
     /// <summary>Edit should allow multiple operations in sequence.</summary>
@@ -244,17 +244,17 @@ public class ReactiveListEditTests
 
         fixture.Edit(list =>
         {
-            for (var i = 1; i <= 5; i++)
+            for (var i = 1; i <= TestData.TestValueFive; i++)
             {
                 list.Add(i);
             }
 
-            list.RemoveAt(2); // Remove 3
+            list.RemoveAt(TestData.TestValueTwo); // Remove 3
             list.Insert(0, 0); // Add 0 at beginning
-            list.Move(4, 1); // Move 5 to position 1
+            list.Move(TestData.TestValueFour, 1); // Move 5 to position 1
         });
 
-        fixture.Count.Should().Be(5);
-        fixture.Should().ContainInOrder(0, 5, 1, 2, 4);
+        fixture.Count.Should().Be(TestData.TestValueFive);
+        fixture.Should().ContainInOrder(0, TestData.TestValueFive, 1, TestData.TestValueTwo, TestData.TestValueFour);
     }
 }

@@ -195,21 +195,7 @@ where TKey : notnull
 
                 case CacheAction.Updated:
                     {
-                        if (notification.Item is not null)
-                        {
-                            var wasInView = _filteredItems.Contains(notification.Item);
-                            var shouldBeInView = ItemMatchesCurrentKeys(notification.Item);
-
-                            if (wasInView && !shouldBeInView)
-                            {
-                                _filteredItems.Remove(notification.Item);
-                            }
-                            else if (!wasInView && shouldBeInView)
-                            {
-                                _filteredItems.Add(notification.Item);
-                            }
-                        }
-
+                        UpdateItem(notification);
                         break;
                     }
 
@@ -219,15 +205,62 @@ where TKey : notnull
                         break;
                     }
 
-                case CacheAction.BatchOperation or CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.Refreshed:
+                case CacheAction.Moved or
+                     CacheAction.Refreshed or
+                     CacheAction.BatchOperation or
+                     CacheAction.BatchAdded or
+                     CacheAction.BatchRemoved:
                     {
                         RebuildView();
+                        break;
+                    }
+
+                default:
+                    {
+                        // Ignore invalid enum values to preserve the view's current state.
                         break;
                     }
             }
         }
 
         OnPropertyChanged(nameof(Count));
+    }
+
+    /// <summary>Updates an item and its membership in the current secondary-index view.</summary>
+    /// <param name="notification">The update notification to apply.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpdateItem(CacheNotify<T> notification)
+    {
+        var current = notification.Item;
+        if (current is null)
+        {
+            return;
+        }
+
+        var previous = notification.Previous;
+        var existingIndex = previous is null
+            ? _filteredItems.IndexOf(current)
+            : _filteredItems.IndexOf(previous);
+        var shouldBeInView = ItemMatchesCurrentKeys(current);
+
+        if (existingIndex < 0)
+        {
+            if (!shouldBeInView)
+            {
+                return;
+            }
+
+            _filteredItems.Add(current);
+            return;
+        }
+
+        if (!shouldBeInView)
+        {
+            _filteredItems.RemoveAt(existingIndex);
+            return;
+        }
+
+        _filteredItems[existingIndex] = current;
     }
 
     /// <summary>Rebuilds the view from the current source state.</summary>
@@ -253,8 +286,18 @@ where TKey : notnull
     /// <summary>Performs the ItemMatchesCurrentKeys operation.</summary>
     /// <param name="item">The item value.</param>
     /// <returns><see langword="true"/> when the item matches any current key; otherwise, <see langword="false"/>.</returns>
-    private bool ItemMatchesCurrentKeys(T item) =>
-        _currentKeys.Any(key => _source.ItemMatchesSecondaryIndex(_indexName, item, key));
+    private bool ItemMatchesCurrentKeys(T item)
+    {
+        foreach (var key in _currentKeys)
+        {
+            if (_source.ItemMatchesSecondaryIndex(_indexName, item, key))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Handles property change notifications.</summary>
     /// <param name="propertyName">The propertyName value.</param>

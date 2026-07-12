@@ -167,7 +167,7 @@ public static class CacheNotifyExtensions
         {
             ThrowHelper.ThrowIfNull(source);
 
-            return source.Throttle(throttleTime);
+            return throttleTime == TimeSpan.Zero ? source : source.Throttle(throttleTime);
         }
 
         /// <summary>Observes notifications on the specified scheduler.</summary>

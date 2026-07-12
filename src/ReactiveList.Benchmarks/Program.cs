@@ -8,7 +8,9 @@ using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
 
 // Configure for in-process benchmarking with proper thread pool settings.
-ThreadPool.SetMinThreads(4, 4);
+const int MinimumThreadCount = 4;
+
+ThreadPool.SetMinThreads(MinimumThreadCount, MinimumThreadCount);
 
 var config = ManualConfig.Create(DefaultConfig.Instance);
 

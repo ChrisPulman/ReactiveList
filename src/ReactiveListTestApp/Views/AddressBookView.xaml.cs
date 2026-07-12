@@ -12,6 +12,8 @@ namespace ReactiveListTestApp.Views;
 /// <summary>Interaction logic for AddressBookView.xaml.</summary>
 public partial class AddressBookView : UserControl, IViewFor<AddressBookViewModel>
 {
+    private const int BulkImportCount = 100;
+
     /// <summary>Initializes a new instance of the <see cref="AddressBookView"/> class.</summary>
     public AddressBookView()
     {
@@ -23,7 +25,7 @@ public partial class AddressBookView : UserControl, IViewFor<AddressBookViewMode
 
         this.WhenActivated(d =>
         {
-            d(this.BindCommand(ViewModel, vm => vm.BulkImportCommand, v => v.BulkImportButton, Observable.Return(100)));
+            d(this.BindCommand(ViewModel, vm => vm.BulkImportCommand, v => v.BulkImportButton, Observable.Return(BulkImportCount)));
             d(this.BindCommand(ViewModel, vm => vm.BulkRemoveInactiveCommand, v => v.BulkRemoveButton));
             d(this.Bind(ViewModel, vm => vm.SearchQuery, v => v.SearchTextBox.Text));
             d(this.OneWayBind(ViewModel, vm => vm.AllContacts, v => v.AllContactsListBox.ItemsSource));

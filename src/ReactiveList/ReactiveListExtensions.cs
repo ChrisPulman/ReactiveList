@@ -117,16 +117,12 @@ public static class ReactiveListExtensions
                     or CacheAction.Moved
                     or CacheAction.Refreshed;
 
-                if (isSingleItemAction && notification.Item is not null)
-                {
-                    return predicate(notification.Item);
-                }
-
-                // For batch operations or cleared, pass through
-                return notification.Action is CacheAction.Cleared or
-                       CacheAction.BatchOperation or
-                       CacheAction.BatchAdded or
-                       CacheAction.BatchRemoved;
+                return isSingleItemAction && notification.Item is not null
+                    ? predicate(notification.Item)
+                    : notification.Action is CacheAction.Cleared or
+                      CacheAction.BatchOperation or
+                      CacheAction.BatchAdded or
+                      CacheAction.BatchRemoved;
             });
     }
 

@@ -24,6 +24,16 @@ namespace ReactiveListTestApp;
 /// and should be disposed when no longer needed to release resources.</remarks>
 public class AddressBookViewModel : RxObject
 {
+    private const string CityIndex = "ByCity";
+
+    private const string EngineeringDepartment = "Engineering";
+
+    private const int DepartmentAlternation = 2;
+
+    private const int FavoriteInterval = 10;
+
+    private const int NewYorkInterval = 5;
+
     private readonly QuaternaryList<Contact> _contactList = [];
 
     private readonly QuaternaryDictionary<Guid, Contact> _contactMap = [];
@@ -87,9 +97,9 @@ public class AddressBookViewModel : RxObject
                 $"User{i}",
                 $"Smith{i}",
                 $"user{i}@company.com",
-                i % 2 == 0 ? "Engineering" : "HR",
-                i % 10 == 0, // 10% are favorites
-                new Address("123 Main", i % 5 == 0 ? "New York" : "London", "10001", "USA"))).ToList();
+                i % DepartmentAlternation == 0 ? EngineeringDepartment : "HR",
+                i % FavoriteInterval == 0, // 10% are favorites
+                new Address("123 Main", i % NewYorkInterval == 0 ? "New York" : "London", "10001", "USA"))).ToList();
 
         // High-Speed Parallel Add
         _contactList.AddRange(newContacts);
@@ -121,7 +131,7 @@ public class AddressBookViewModel : RxObject
     public void UpdateCityName(string oldCity, string newCity)
     {
         // 1. Find targets using Index (Fast)
-        var targets = _contactList.GetItemsBySecondaryIndex("ByCity", oldCity).ToArray();
+        var targets = _contactList.GetItemsBySecondaryIndex(CityIndex, oldCity).ToArray();
 
         // 2. Modify and Update
         // Since Records are immutable, we replace the object
@@ -158,12 +168,7 @@ public class AddressBookViewModel : RxObject
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return true;
-        }
-
-        return c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+        return string.IsNullOrWhiteSpace(query) ? true : c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -184,7 +189,7 @@ public class AddressBookViewModel : RxObject
     private void InitializeIndices()
     {
         // Add High-Speed Lookup Indices (O(1) access)
-        _contactList.AddIndex("ByCity", c => c.HomeAddress.City);
+        _contactList.AddIndex(CityIndex, c => c.HomeAddress.City);
         _contactList.AddIndex("ByDepartment", c => c.Department);
 
         // Map Dictionary for ID-based updates
@@ -212,7 +217,7 @@ public class AddressBookViewModel : RxObject
 
         // 3. SECONDARY KEY SUBSET (City == "New York")
         // Using CreateViewBySecondaryIndex for efficient secondary key filtering
-        _contactList.CreateViewBySecondaryIndex("ByCity", "New York", viewSequencer, throttleMs: 200)
+        _contactList.CreateViewBySecondaryIndex(CityIndex, "New York", viewSequencer, throttleMs: 200)
                     .ToProperty(x => NewYorkContacts = x)
                     .DisposeWith(Disposables);
 

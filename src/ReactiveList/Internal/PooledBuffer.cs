@@ -9,21 +9,13 @@ namespace CP.Primitives.Internal;
 #endif
 /// <summary>Represents a rented array buffer with tracking of the used length.</summary>
 /// <typeparam name="T">The type of item stored in the buffer.</typeparam>
-internal sealed class PooledBuffer<T> : IDisposable
+/// <param name="buffer">The rented array used as the underlying buffer.</param>
+/// <param name="length">The number of valid elements in <paramref name="buffer"/>.</param>
+internal sealed class PooledBuffer<T>(T[] buffer, int length) : IDisposable
 {
-    private readonly int _length;
+    private readonly int _length = length;
 
-    private T[] _buffer;
-
-    /// <summary>Initializes a new instance of the <see cref="PooledBuffer{T}"/> class with the provided buffer and length.</summary>
-    /// <param name="buffer">The array to be used as the underlying buffer. Cannot be null.</param>
-    /// <param name="length">The number of elements in the buffer that are considered valid. Must be non-negative and less than or equal to
-    /// the length of the buffer.</param>
-    public PooledBuffer(T[] buffer, int length)
-    {
-        _buffer = buffer;
-        _length = length;
-    }
+    private T[]? _buffer = buffer;
 
     /// <summary>Gets a read-only span over the valid elements in the buffer.</summary>
     public ReadOnlySpan<T> Span => _buffer.AsSpan(0, _length);
@@ -37,7 +29,7 @@ internal sealed class PooledBuffer<T> : IDisposable
     {
         var arr = ArrayPool<T>.Shared.Rent(source.Count);
         source.CopyTo(arr);
-        return new PooledBuffer<T>(arr, source.Count);
+        return new(arr, source.Count);
     }
 
     /// <summary>Releases all resources used by the current instance of the object.</summary>
@@ -51,6 +43,6 @@ internal sealed class PooledBuffer<T> : IDisposable
         }
 
         ArrayPool<T>.Shared.Return(_buffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
-        _buffer = null!;
+        _buffer = null;
     }
 }

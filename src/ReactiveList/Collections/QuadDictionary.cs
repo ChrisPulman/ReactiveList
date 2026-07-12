@@ -29,6 +29,9 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
 
     private const double LoadFactor = 0.72;
 
+    /// <summary>Capacity multiplier used when growing pooled storage.</summary>
+    private const int CapacityGrowthFactor = 2;
+
     /// <summary>Base value for encoding the freelist.</summary>
     private const int FreeListSentinel = -3;
 
@@ -114,7 +117,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                     continue; // Skip free entries (Next < -1 means in freelist)
                 }
 
-                yield return entry.GetValue()!;
+                yield return entry.GetValue();
             }
         }
     }
@@ -224,7 +227,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             ref var entry = ref _entries[index];
             if (entry.GetHashCodeValue() == hashCode && _comparer.Equals(entry.GetKey(), key))
             {
-                value = entry.GetValue()!;
+                value = entry.GetValue();
                 return true;
             }
 
@@ -264,7 +267,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             ref var entry = ref _entries[index];
             if (entry.GetHashCodeValue() == hashCode && _comparer.Equals(entry.GetKey(), key))
             {
-                value = entry.GetValue()!;
+                value = entry.GetValue();
 
                 // Remove from bucket chain
                 if (lastIndex < 0)
@@ -377,7 +380,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                 continue; // Skip free entries (Next < -1 means in freelist)
             }
 
-            list.Add(entry.GetValue()!);
+            list.Add(entry.GetValue());
         }
     }
 
@@ -395,7 +398,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                 continue; // Skip free entries (Next < -1 means in freelist)
             }
 
-            list.Add(new KeyValuePair<TKey, TValue>(entry.GetKey(), entry.GetValue()!));
+            list.Add(new KeyValuePair<TKey, TValue>(entry.GetKey(), entry.GetValue()));
         }
     }
 
@@ -464,7 +467,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// <remarks>The new capacity is rounded up to the next power of two to optimize memory usage and
     /// performance. This method is intended for internal use and should not be called directly by consumers of the
     /// class.</remarks>
-    private void Resize() => ResizeTo((int)BitOperationsCompat.RoundUpToPowerOf2((uint)_entries.Length * 2));
+    private void Resize() => ResizeTo((int)BitOperationsCompat.RoundUpToPowerOf2((uint)_entries.Length * CapacityGrowthFactor));
 
     /// <summary>Resizes the internal storage arrays to accommodate the specified number of entries.</summary>
     /// <remarks>This method reinitializes the internal buckets and entries arrays to the specified size and
@@ -563,7 +566,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                     continue;
                 }
 
-                _current = new(entry.GetKey(), entry.GetValue()!);
+                _current = new(entry.GetKey(), entry.GetValue());
                 return true;
             }
 
@@ -596,12 +599,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         public override readonly bool Equals(object? obj) => obj is Enumerator other && Equals(other);
 
         /// <inheritdoc/>
-        public override readonly int GetHashCode()
-        {
-            var hash = (_dictionary?.GetHashCode() ?? 0) * 397;
-            hash ^= _index;
-            return (hash * 397) ^ EqualityComparer<KeyValuePair<TKey, TValue>>.Default.GetHashCode(_current);
-        }
+        public override readonly int GetHashCode() => _dictionary?.GetHashCode() ?? 0;
     }
 
     /// <summary>Provides an enumerator for iterating through the elements of a QuadDictionary.</summary>
@@ -649,7 +647,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                     continue;
                 }
 
-                _current = new(entry.GetKey(), entry.GetValue()!);
+                _current = new(entry.GetKey(), entry.GetValue());
                 return true;
             }
 
@@ -690,14 +688,14 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
 
         private TKey _key;
 
-        private TValue? _value;
+        private TValue _value;
 
         private int _next;
 
         /// <summary>Gets a mutable reference to the stored value.</summary>
         /// <param name="entry">The entry whose value is referenced.</param>
         /// <returns>A mutable reference to the stored value.</returns>
-        internal static ref TValue? ValueRef(ref Entry entry) => ref entry._value;
+        internal static ref TValue? ValueRef(ref Entry entry) => ref Unsafe.As<TValue, TValue?>(ref entry._value);
 
         /// <summary>Initializes the entry with stored hash, key, value, and chain link data.</summary>
         /// <param name="hashCode">The stored key hash code.</param>
@@ -708,7 +706,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         {
             _hashCode = hashCode;
             _key = key;
-            _value = value;
+            _value = Unsafe.As<TValue?, TValue>(ref value);
             _next = next;
         }
 
@@ -726,11 +724,11 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
 
         /// <summary>Gets the stored value.</summary>
         /// <returns>The stored value.</returns>
-        internal readonly TValue? GetValue() => _value;
+        internal readonly TValue GetValue() => _value;
 
         /// <summary>Sets the stored value.</summary>
         /// <param name="value">The new value.</param>
-        internal void SetValue(TValue? value) => _value = value;
+        internal void SetValue(TValue? value) => _value = Unsafe.As<TValue?, TValue>(ref value);
 
         /// <summary>Gets the next entry index in the bucket chain.</summary>
         /// <returns>The next entry index.</returns>

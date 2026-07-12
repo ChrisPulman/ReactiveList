@@ -204,6 +204,6 @@ public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollect
             return;
         }
 
-        throw new ObjectDisposedException(nameof(PooledEditableListWrapper<T>), "This wrapper has been returned to the pool and cannot be used.");
+        throw new ObjectDisposedException(nameof(PooledEditableListWrapper<>), "This wrapper has been returned to the pool and cannot be used.");
     }
 }

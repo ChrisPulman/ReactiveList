@@ -4,7 +4,9 @@
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
+#if NETFRAMEWORK
 using System.Linq;
+#endif
 using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
@@ -14,19 +16,43 @@ namespace ReactiveList.Test;
 /// <summary>Tests for CacheAction enum.</summary>
 public class CacheActionTests
 {
+    /// <summary>The updated action value.</summary>
+    private const int UpdatedActionValue = 2;
+
+    /// <summary>The moved action value.</summary>
+    private const int MovedActionValue = 3;
+
+    /// <summary>The refreshed action value.</summary>
+    private const int RefreshedActionValue = 4;
+
+    /// <summary>The cleared action value.</summary>
+    private const int ClearedActionValue = 5;
+
+    /// <summary>The batch operation action value.</summary>
+    private const int BatchOperationActionValue = 6;
+
+    /// <summary>The batch added action value.</summary>
+    private const int BatchAddedActionValue = 7;
+
+    /// <summary>The batch removed action value.</summary>
+    private const int BatchRemovedActionValue = 8;
+
+    /// <summary>The defined action count.</summary>
+    private const int DefinedActionCount = 9;
+
     /// <summary>CacheAction should have correct values.</summary>
     [Test]
     public void CacheAction_ShouldHaveCorrectValues()
     {
         ((int)CacheAction.Added).Should().Be(0);
         ((int)CacheAction.Removed).Should().Be(1);
-        ((int)CacheAction.Updated).Should().Be(2);
-        ((int)CacheAction.Moved).Should().Be(3);
-        ((int)CacheAction.Refreshed).Should().Be(4);
-        ((int)CacheAction.Cleared).Should().Be(5);
-        ((int)CacheAction.BatchOperation).Should().Be(6);
-        ((int)CacheAction.BatchAdded).Should().Be(7);
-        ((int)CacheAction.BatchRemoved).Should().Be(8);
+        ((int)CacheAction.Updated).Should().Be(UpdatedActionValue);
+        ((int)CacheAction.Moved).Should().Be(MovedActionValue);
+        ((int)CacheAction.Refreshed).Should().Be(RefreshedActionValue);
+        ((int)CacheAction.Cleared).Should().Be(ClearedActionValue);
+        ((int)CacheAction.BatchOperation).Should().Be(BatchOperationActionValue);
+        ((int)CacheAction.BatchAdded).Should().Be(BatchAddedActionValue);
+        ((int)CacheAction.BatchRemoved).Should().Be(BatchRemovedActionValue);
     }
 
     /// <summary>All CacheAction values should be defined.</summary>
@@ -40,7 +66,7 @@ public class CacheActionTests
             Enum.GetValues(typeof(CacheAction)).Cast<CacheAction>().ToArray();
 #endif
 
-        values.Should().HaveCount(9);
+        values.Should().HaveCount(DefinedActionCount);
         values.Should().Contain(CacheAction.Added);
         values.Should().Contain(CacheAction.Removed);
         values.Should().Contain(CacheAction.Updated);

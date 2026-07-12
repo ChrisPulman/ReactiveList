@@ -5,7 +5,6 @@
 using System.Linq;
 using CP.Primitives;
 using CP.Primitives.Collections;
-using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
 
@@ -38,7 +37,7 @@ public class ReactiveListVersionTests
         var initialVersion = list.Version;
 
         // Act
-        list.AddRange([1, 2, 3]);
+        list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
         // Assert
         list.Version.Should().Be(initialVersion + 1);
@@ -49,11 +48,11 @@ public class ReactiveListVersionTests
     public void Version_IncrementsOnRemove()
     {
         // Arrange
-        using var list = new ReactiveList<int>([1, 2, 3]);
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var initialVersion = list.Version;
 
         // Act
-        list.Remove(2);
+        list.Remove(TestData.TestValueTwo);
 
         // Assert
         list.Version.Should().Be(initialVersion + 1);
@@ -64,7 +63,7 @@ public class ReactiveListVersionTests
     public void Version_IncrementsOnClear()
     {
         // Arrange
-        using var list = new ReactiveList<int>([1, 2, 3]);
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var initialVersion = list.Version;
 
         // Act
@@ -79,11 +78,11 @@ public class ReactiveListVersionTests
     public void Version_IncrementsOnUpdate()
     {
         // Arrange
-        using var list = new ReactiveList<int>([1, 2, 3]);
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var initialVersion = list.Version;
 
         // Act
-        list.Update(2, 20);
+        list.Update(TestData.TestValueTwo, TestData.TestValueTwenty);
 
         // Assert
         list.Version.Should().Be(initialVersion + 1);
@@ -94,11 +93,11 @@ public class ReactiveListVersionTests
     public void Version_IncrementsOnMove()
     {
         // Arrange
-        using var list = new ReactiveList<int>([1, 2, 3]);
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var initialVersion = list.Version;
 
         // Act
-        list.Move(0, 2);
+        list.Move(0, TestData.TestValueTwo);
 
         // Assert
         list.Version.Should().Be(initialVersion + 1);
@@ -111,7 +110,7 @@ public class ReactiveListVersionTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(Enumerable.Range(1, 100).ToArray());
+        list.AddRange(Enumerable.Range(1, TestData.TestValueOneHundred).ToArray());
         var countBefore = list.Count;
 
         // Act
@@ -119,7 +118,7 @@ public class ReactiveListVersionTests
 
         // Assert
         list.Count.Should().Be(0);
-        countBefore.Should().Be(100);
+        countBefore.Should().Be(TestData.TestValueOneHundred);
     }
 
     /// <summary>Tests that ClearWithoutDeallocation emits change notification.</summary>
@@ -127,7 +126,7 @@ public class ReactiveListVersionTests
     public void ClearWithoutDeallocation_EmitsChangeNotification()
     {
         // Arrange
-        using var list = new ReactiveList<int>([1, 2, 3]);
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var changeReceived = false;
         using var subscription = list.Connect().Subscribe(
             _ => changeReceived = true,
@@ -146,7 +145,7 @@ public class ReactiveListVersionTests
     public void ClearWithoutDeallocation_WithNotifyFalse_DoesNotEmit()
     {
         // Arrange
-        using var list = new ReactiveList<int>([1, 2, 3]);
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var changeCount = 0;
         using var subscription = list.Connect().Subscribe(
             _ => changeCount++,
@@ -167,7 +166,7 @@ public class ReactiveListVersionTests
     public void ClearWithoutDeallocation_IncrementsVersion()
     {
         // Arrange
-        using var list = new ReactiveList<int>([1, 2, 3]);
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var initialVersion = list.Version;
 
         // Act

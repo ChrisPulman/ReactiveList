@@ -16,6 +16,10 @@ namespace ReactiveList.Benchmarks;
 [MemoryDiagnoser]
 public class DynamicDataParityBenchmarks
 {
+    private const int ParityDivisor = 2;
+
+    private const int TransformMultiplier = 2;
+
     private int[] _data = [];
 
     /// <summary>Gets or sets the item count.</summary>
@@ -58,8 +62,8 @@ public class DynamicDataParityBenchmarks
         var total = 0;
         var pipeline = CP.Primitives.ReactiveListExtensions.SortBy<int, int>(
             list.Connect()
-                .WhereChanges(static change => change.Current % 2 == 0)
-                .SelectChanges(static (int item) => item * 2),
+                .WhereChanges(static change => change.Current % ParityDivisor == 0)
+                .SelectChanges(static item => item * TransformMultiplier),
             static item => item);
         using var subscription = pipeline.SubscribeObserver(changes => total += changes.Count);
 
@@ -74,8 +78,8 @@ public class DynamicDataParityBenchmarks
     {
         using var list = new SourceList<int>();
         using var subscription = list.Connect()
-            .Filter(static item => item % 2 == 0)
-            .Transform(static item => item * 2)
+            .Filter(static item => item % ParityDivisor == 0)
+            .Transform(static item => item * TransformMultiplier)
             .Sort(SortExpressionComparer<int>.Ascending(static item => item))
             .Bind(out ReadOnlyObservableCollection<int> bound)
             .SubscribeObserver(_ => { });

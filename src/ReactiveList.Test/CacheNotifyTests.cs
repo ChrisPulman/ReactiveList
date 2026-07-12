@@ -13,6 +13,15 @@ namespace ReactiveList.Test;
 /// <summary>Tests for CacheNotify record.</summary>
 public class CacheNotifyTests
 {
+    /// <summary>The batch capacity.</summary>
+    private const int BatchCapacity = 10;
+
+    /// <summary>The batch item count.</summary>
+    private const int BatchItemCount = 2;
+
+    /// <summary>The notification item value.</summary>
+    private const int NotificationItemValue = 42;
+
     /// <summary>Constructor should initialize Action and Item.</summary>
     [Test]
     public void Constructor_WithActionAndItem_ShouldInitialize()
@@ -28,10 +37,10 @@ public class CacheNotifyTests
     [Test]
     public void Constructor_WithBatch_ShouldInitialize()
     {
-        var array = ArrayPool<int>.Shared.Rent(10);
+        var array = ArrayPool<int>.Shared.Rent(BatchCapacity);
         array[0] = 1;
-        array[1] = 2;
-        var batch = new PooledBatch<int>(array, 2);
+        array[1] = BatchItemCount;
+        var batch = new PooledBatch<int>(array, BatchItemCount);
 
         var notify = new CacheNotify<int>(CacheAction.BatchOperation, default, batch);
 
@@ -88,20 +97,20 @@ public class CacheNotifyTests
     [Test]
     public void CacheNotify_AddedAction_ShouldHaveCorrectState()
     {
-        var notify = new CacheNotify<int>(CacheAction.Added, 42);
+        var notify = new CacheNotify<int>(CacheAction.Added, NotificationItemValue);
 
         notify.Action.Should().Be(CacheAction.Added);
-        notify.Item.Should().Be(42);
+        notify.Item.Should().Be(NotificationItemValue);
     }
 
     /// <summary>CacheNotify for Removed action.</summary>
     [Test]
     public void CacheNotify_RemovedAction_ShouldHaveCorrectState()
     {
-        var notify = new CacheNotify<int>(CacheAction.Removed, 42);
+        var notify = new CacheNotify<int>(CacheAction.Removed, NotificationItemValue);
 
         notify.Action.Should().Be(CacheAction.Removed);
-        notify.Item.Should().Be(42);
+        notify.Item.Should().Be(NotificationItemValue);
     }
 
     /// <summary>CacheNotify for Updated action.</summary>
@@ -128,16 +137,16 @@ public class CacheNotifyTests
     [Test]
     public void CacheNotify_BatchOperationAction_ShouldHaveCorrectState()
     {
-        var array = ArrayPool<string>.Shared.Rent(10);
+        var array = ArrayPool<string>.Shared.Rent(BatchCapacity);
         array[0] = "item1";
         array[1] = "item2";
-        var batch = new PooledBatch<string>(array, 2);
+        var batch = new PooledBatch<string>(array, BatchItemCount);
 
         var notify = new CacheNotify<string>(CacheAction.BatchOperation, null, batch);
 
         notify.Action.Should().Be(CacheAction.BatchOperation);
         notify.Batch.Should().NotBeNull();
-        notify.Batch!.Count.Should().Be(2);
+        notify.Batch!.Count.Should().Be(BatchItemCount);
 
         batch.Dispose();
     }
@@ -146,12 +155,12 @@ public class CacheNotifyTests
     [Test]
     public void CacheNotify_WithExpression_ShouldWork()
     {
-        var notify1 = new CacheNotify<int>(CacheAction.Added, 10);
+        var notify1 = new CacheNotify<int>(CacheAction.Added, BatchCapacity);
 
         var notify2 = notify1 with { Action = CacheAction.Removed };
 
         notify2.Action.Should().Be(CacheAction.Removed);
-        notify2.Item.Should().Be(10);
+        notify2.Item.Should().Be(BatchCapacity);
     }
 
     /// <summary>GetHashCode should be consistent.</summary>

@@ -215,11 +215,7 @@ where T : notnull
         {
             case CacheAction.Added:
                 {
-                    if (n.Item is not null && _currentFilter(n.Item))
-                    {
-                        _target.Add(n.Item);
-                    }
-
+                    AddItem(n.Item);
                     break;
                 }
 
@@ -233,34 +229,9 @@ where T : notnull
                     break;
                 }
 
-            case CacheAction.BatchOperation or CacheAction.BatchAdded:
+            case CacheAction.Updated or CacheAction.Moved or CacheAction.Refreshed:
                 {
-                    if (n.Batch is not null)
-                    {
-                        for (var i = 0; i < n.Batch.Count; i++)
-                        {
-                            var item = n.Batch.Items[i];
-                            if (_currentFilter(item))
-                            {
-                                _target.Add(item);
-                            }
-                        }
-                    }
-
-                    break;
-                }
-
-            case CacheAction.BatchRemoved:
-                {
-                    if (n.Batch is not null)
-                    {
-                        for (var i = 0; i < n.Batch.Count; i++)
-                        {
-                            var item = n.Batch.Items[i];
-                            _target.Remove(item);
-                        }
-                    }
-
+                    RebuildView();
                     break;
                 }
 
@@ -269,6 +240,67 @@ where T : notnull
                     _target.Clear();
                     break;
                 }
+
+            case CacheAction.BatchAdded:
+                {
+                    AddBatch(n.Batch);
+                    break;
+                }
+
+            case CacheAction.BatchRemoved:
+                {
+                    RemoveBatch(n.Batch);
+                    break;
+                }
+
+            default:
+                {
+                    // Ignore invalid enum values to preserve the view's current state.
+                    break;
+                }
+        }
+    }
+
+    /// <summary>Adds an item when it satisfies the current filter.</summary>
+    /// <param name="item">The item to consider.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void AddItem(T? item)
+    {
+        if (item is null || !_currentFilter(item))
+        {
+            return;
+        }
+
+        _target.Add(item);
+    }
+
+    /// <summary>Adds every matching item in a batch.</summary>
+    /// <param name="batch">The batch to add.</param>
+    private void AddBatch(PooledBatch<T>? batch)
+    {
+        if (batch is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < batch.Count; i++)
+        {
+            AddItem(batch.Items[i]);
+        }
+    }
+
+    /// <summary>Removes every item in a batch.</summary>
+    /// <param name="batch">The batch to remove.</param>
+    private void RemoveBatch(PooledBatch<T>? batch)
+    {
+        if (batch is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < batch.Count; i++)
+        {
+            _target.Remove(batch.Items[i]);
         }
     }
 
@@ -282,9 +314,12 @@ where T : notnull
     private void RebuildView()
     {
         _target.Clear();
-        foreach (var item in _source.Where(item => _currentFilter(item)))
+        foreach (var item in _source)
         {
-            _target.Add(item);
+            if (_currentFilter(item))
+            {
+                _target.Add(item);
+            }
         }
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
@@ -306,13 +341,35 @@ where T : notnull
             .ObserveOn(_scheduler)
             .Subscribe(batch =>
             {
-                foreach (var notify in batch)
+                var requiresRebuild = false;
+                for (var i = 0; i < batch.Count; i++)
                 {
-                    ApplyChange(notify);
-                    notify.Batch?.Dispose();
+                    var action = batch[i].Action;
+                    if (action is CacheAction.Updated or CacheAction.Moved or CacheAction.Refreshed or CacheAction.BatchOperation)
+                    {
+                        requiresRebuild = true;
+                        break;
+                    }
                 }
 
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
+                if (requiresRebuild)
+                {
+                    RebuildView();
+                }
+                else
+                {
+                    for (var i = 0; i < batch.Count; i++)
+                    {
+                        ApplyChange(batch[i]);
+                    }
+
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
+                }
+
+                for (var i = 0; i < batch.Count; i++)
+                {
+                    batch[i].Batch?.Dispose();
+                }
             });
     }
 }

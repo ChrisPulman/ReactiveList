@@ -18,14 +18,14 @@ public class ReactiveListRemoveTests
     [Test]
     public void Remove_ShouldRemoveExistingItem_String()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         var result = fixture.Remove("two");
 
         result.Should().BeTrue();
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture.Should().Contain("one");
-        fixture.Should().Contain("three");
+        fixture.Should().Contain(TestData.ThreeText);
         fixture.Should().NotContain("two");
     }
 
@@ -35,10 +35,10 @@ public class ReactiveListRemoveTests
     {
         ReactiveList<string> fixture = ["one", "two"];
 
-        var result = fixture.Remove("three");
+        var result = fixture.Remove(TestData.ThreeText);
 
         result.Should().BeFalse();
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
     }
 
     /// <summary>Remove should raise property changed for string type.</summary>
@@ -50,12 +50,12 @@ public class ReactiveListRemoveTests
         var itemArrayChanges = 0;
         fixture.PropertyChanged += (sender, args) =>
         {
-            if (args.PropertyName == "Count")
+            if (args.PropertyName == TestData.CountPropertyName)
             {
                 countChanges++;
             }
 
-            if (args.PropertyName != "Item[]")
+            if (args.PropertyName != TestData.IndexerPropertyName)
             {
                 return;
             }
@@ -73,44 +73,44 @@ public class ReactiveListRemoveTests
     [Test]
     public void Remove_ShouldRemoveExistingItem_Int()
     {
-        ReactiveList<int> fixture = [1, 2, 3];
+        ReactiveList<int> fixture = [1, TestData.TestValueTwo, TestData.TestValueThree];
 
-        var result = fixture.Remove(2);
+        var result = fixture.Remove(TestData.TestValueTwo);
 
         result.Should().BeTrue();
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture.Should().Contain(1);
-        fixture.Should().Contain(3);
-        fixture.Should().NotContain(2);
+        fixture.Should().Contain(TestData.TestValueThree);
+        fixture.Should().NotContain(TestData.TestValueTwo);
     }
 
     /// <summary>Remove should return false for non-existing item for int type.</summary>
     [Test]
     public void Remove_ShouldReturnFalseForNonExistingItem_Int()
     {
-        ReactiveList<int> fixture = [1, 2];
+        ReactiveList<int> fixture = [1, TestData.TestValueTwo];
 
-        var result = fixture.Remove(3);
+        var result = fixture.Remove(TestData.TestValueThree);
 
         result.Should().BeFalse();
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
     }
 
     /// <summary>Remove should raise property changed for int type.</summary>
     [Test]
     public void Remove_ShouldRaisePropertyChanged_Int()
     {
-        ReactiveList<int> fixture = [1, 2];
+        ReactiveList<int> fixture = [1, TestData.TestValueTwo];
         var countChanges = 0;
         var itemArrayChanges = 0;
         fixture.PropertyChanged += (sender, args) =>
         {
-            if (args.PropertyName == "Count")
+            if (args.PropertyName == TestData.CountPropertyName)
             {
                 countChanges++;
             }
 
-            if (args.PropertyName != "Item[]")
+            if (args.PropertyName != TestData.IndexerPropertyName)
             {
                 return;
             }
@@ -118,7 +118,7 @@ public class ReactiveListRemoveTests
             itemArrayChanges++;
         };
 
-        fixture.Remove(2);
+        fixture.Remove(TestData.TestValueTwo);
 
         countChanges.Should().Be(1);
         itemArrayChanges.Should().Be(1);
@@ -128,14 +128,14 @@ public class ReactiveListRemoveTests
     [Test]
     public void Remove_ShouldRemoveExistingItem_TestData()
     {
-        ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30), new("Charlie", 35)];
+        ReactiveList<TestData> fixture = [new(TestData.AliceName, TestData.TestValueTwentyFive), new("Bob", TestData.TestValueThirty), new(TestData.CharlieName, TestData.TestValueThirtyFive)];
         var itemToRemove = fixture[1];
         var result = fixture.Remove(itemToRemove);
 
         result.Should().BeTrue();
-        fixture.Count.Should().Be(2);
-        fixture.Should().Contain(d => d.Name == "Alice");
-        fixture.Should().Contain(d => d.Name == "Charlie");
+        fixture.Count.Should().Be(TestData.TestValueTwo);
+        fixture.Should().Contain(d => d.Name == TestData.AliceName);
+        fixture.Should().Contain(d => d.Name == TestData.CharlieName);
         fixture.Should().NotContain(d => d.Name == "Bob");
     }
 
@@ -143,29 +143,29 @@ public class ReactiveListRemoveTests
     [Test]
     public void Remove_ShouldReturnFalseForNonExistingItem_TestData()
     {
-        ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30)];
+        ReactiveList<TestData> fixture = [new(TestData.AliceName, TestData.TestValueTwentyFive), new("Bob", TestData.TestValueThirty)];
 
-        var result = fixture.Remove(new TestData("Charlie", 35));
+        var result = fixture.Remove(new TestData(TestData.CharlieName, TestData.TestValueThirtyFive));
 
         result.Should().BeFalse();
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
     }
 
     /// <summary>Remove should raise property changed for TestData type.</summary>
     [Test]
     public void Remove_ShouldRaisePropertyChanged_TestData()
     {
-        ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30)];
+        ReactiveList<TestData> fixture = [new(TestData.AliceName, TestData.TestValueTwentyFive), new("Bob", TestData.TestValueThirty)];
         var countChanges = 0;
         var itemArrayChanges = 0;
         fixture.PropertyChanged += (sender, args) =>
         {
-            if (args.PropertyName == "Count")
+            if (args.PropertyName == TestData.CountPropertyName)
             {
                 countChanges++;
             }
 
-            if (args.PropertyName != "Item[]")
+            if (args.PropertyName != TestData.IndexerPropertyName)
             {
                 return;
             }
@@ -184,13 +184,13 @@ public class ReactiveListRemoveTests
     [Test]
     public void RemoveAt_ShouldRemoveItemAtIndex_String()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.RemoveAt(1);
 
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture[0].Should().Be("one");
-        fixture[1].Should().Be("three");
+        fixture[1].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>RemoveAt should throw for invalid index for string type.</summary>
@@ -199,7 +199,7 @@ public class ReactiveListRemoveTests
     {
         ReactiveList<string> fixture = ["one", "two"];
 
-        var action = () => fixture.RemoveAt(5);
+        var action = () => fixture.RemoveAt(TestData.TestValueFive);
 
         action.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -213,12 +213,12 @@ public class ReactiveListRemoveTests
         var itemArrayChanges = 0;
         fixture.PropertyChanged += (sender, args) =>
         {
-            if (args.PropertyName == "Count")
+            if (args.PropertyName == TestData.CountPropertyName)
             {
                 countChanges++;
             }
 
-            if (args.PropertyName != "Item[]")
+            if (args.PropertyName != TestData.IndexerPropertyName)
             {
                 return;
             }
@@ -236,22 +236,22 @@ public class ReactiveListRemoveTests
     [Test]
     public void RemoveAt_ShouldRemoveItemAtIndex_Int()
     {
-        ReactiveList<int> fixture = [1, 2, 3];
+        ReactiveList<int> fixture = [1, TestData.TestValueTwo, TestData.TestValueThree];
 
         fixture.RemoveAt(1);
 
-        fixture.Count.Should().Be(2);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture[0].Should().Be(1);
-        fixture[1].Should().Be(3);
+        fixture[1].Should().Be(TestData.TestValueThree);
     }
 
     /// <summary>RemoveAt should throw for invalid index for int type.</summary>
     [Test]
     public void RemoveAt_ShouldThrowForInvalidIndex_Int()
     {
-        ReactiveList<int> fixture = [1, 2];
+        ReactiveList<int> fixture = [1, TestData.TestValueTwo];
 
-        var action = () => fixture.RemoveAt(5);
+        var action = () => fixture.RemoveAt(TestData.TestValueFive);
 
         action.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -260,17 +260,17 @@ public class ReactiveListRemoveTests
     [Test]
     public void RemoveAt_ShouldRaisePropertyChanged_Int()
     {
-        ReactiveList<int> fixture = [1, 2];
+        ReactiveList<int> fixture = [1, TestData.TestValueTwo];
         var countChanges = 0;
         var itemArrayChanges = 0;
         fixture.PropertyChanged += (sender, args) =>
         {
-            if (args.PropertyName == "Count")
+            if (args.PropertyName == TestData.CountPropertyName)
             {
                 countChanges++;
             }
 
-            if (args.PropertyName != "Item[]")
+            if (args.PropertyName != TestData.IndexerPropertyName)
             {
                 return;
             }
@@ -288,22 +288,22 @@ public class ReactiveListRemoveTests
     [Test]
     public void RemoveAt_ShouldRemoveItemAtIndex_TestData()
     {
-        ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30), new("Charlie", 35)];
+        ReactiveList<TestData> fixture = [new(TestData.AliceName, TestData.TestValueTwentyFive), new("Bob", TestData.TestValueThirty), new(TestData.CharlieName, TestData.TestValueThirtyFive)];
 
         fixture.RemoveAt(1);
 
-        fixture.Count.Should().Be(2);
-        fixture[0].Name.Should().Be("Alice");
-        fixture[1].Name.Should().Be("Charlie");
+        fixture.Count.Should().Be(TestData.TestValueTwo);
+        fixture[0].Name.Should().Be(TestData.AliceName);
+        fixture[1].Name.Should().Be(TestData.CharlieName);
     }
 
     /// <summary>RemoveAt should throw for invalid index for TestData type.</summary>
     [Test]
     public void RemoveAt_ShouldThrowForInvalidIndex_TestData()
     {
-        ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30)];
+        ReactiveList<TestData> fixture = [new(TestData.AliceName, TestData.TestValueTwentyFive), new("Bob", TestData.TestValueThirty)];
 
-        var action = () => fixture.RemoveAt(5);
+        var action = () => fixture.RemoveAt(TestData.TestValueFive);
 
         action.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -312,17 +312,17 @@ public class ReactiveListRemoveTests
     [Test]
     public void RemoveAt_ShouldRaisePropertyChanged_TestData()
     {
-        ReactiveList<TestData> fixture = [new("Alice", 25), new("Bob", 30)];
+        ReactiveList<TestData> fixture = [new(TestData.AliceName, TestData.TestValueTwentyFive), new("Bob", TestData.TestValueThirty)];
         var countChanges = 0;
         var itemArrayChanges = 0;
         fixture.PropertyChanged += (sender, args) =>
         {
-            if (args.PropertyName == "Count")
+            if (args.PropertyName == TestData.CountPropertyName)
             {
                 countChanges++;
             }
 
-            if (args.PropertyName != "Item[]")
+            if (args.PropertyName != TestData.IndexerPropertyName)
             {
                 return;
             }
@@ -344,8 +344,8 @@ public class ReactiveListRemoveTests
 
         var removed = fixture.RemoveMany(s => s.StartsWith("a"));
 
-        removed.Should().Be(3);
-        fixture.Count.Should().Be(2);
+        removed.Should().Be(TestData.TestValueThree);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
         fixture.Should().Contain("banana");
         fixture.Should().Contain("cherry");
         fixture.Should().NotContain("apple");
@@ -357,12 +357,12 @@ public class ReactiveListRemoveTests
     [Test]
     public void RemoveMany_ShouldReturnZeroWhenNoMatch()
     {
-        ReactiveList<string> fixture = ["one", "two", "three"];
+        ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         var removed = fixture.RemoveMany(s => s.StartsWith("z"));
 
         removed.Should().Be(0);
-        fixture.Count.Should().Be(3);
+        fixture.Count.Should().Be(TestData.TestValueThree);
     }
 
     /// <summary>RemoveMany should throw ArgumentNullException for null predicate.</summary>
@@ -380,11 +380,11 @@ public class ReactiveListRemoveTests
     [Test]
     public void RemoveMany_ShouldRaisePropertyChanged()
     {
-        ReactiveList<int> fixture = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        ReactiveList<int> fixture = [1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive, TestData.TestValueSix, TestData.TestValueSeven, TestData.TestValueEight, TestData.TestValueNine, TestData.TestValueTen];
         var countChanges = 0;
         fixture.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName != "Count")
+            if (args.PropertyName != TestData.CountPropertyName)
             {
                 return;
             }
@@ -392,27 +392,27 @@ public class ReactiveListRemoveTests
             countChanges++;
         };
 
-        var removed = fixture.RemoveMany(x => x % 2 == 0);
+        var removed = fixture.RemoveMany(x => x % TestData.TestValueTwo == 0);
 
-        removed.Should().Be(5);
+        removed.Should().Be(TestData.TestValueFive);
         countChanges.Should().Be(1);
-        fixture.Should().BeEquivalentTo([1, 3, 5, 7, 9]);
+        fixture.Should().BeEquivalentTo([1, TestData.TestValueThree, TestData.TestValueFive, TestData.TestValueSeven, TestData.TestValueNine]);
     }
 
     /// <summary>RemoveMany should emit change notification via Connect.</summary>
     [Test]
     public void RemoveMany_ShouldEmitChangeNotification()
     {
-        using var fixture = new ReactiveList<int>([1, 2, 3, 4, 5]);
+        using var fixture = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
         var receivedChanges = new System.Collections.Generic.List<ChangeSet<int>>();
         using var subscription = fixture.Connect().Subscribe(receivedChanges.Add);
         receivedChanges.Clear();
 
-        var removed = fixture.RemoveMany(x => x > 3);
+        var removed = fixture.RemoveMany(x => x > TestData.TestValueThree);
 
-        removed.Should().Be(2);
+        removed.Should().Be(TestData.TestValueTwo);
         receivedChanges.Should().HaveCount(1);
-        receivedChanges[0].Removes.Should().Be(2);
+        receivedChanges[0].Removes.Should().Be(TestData.TestValueTwo);
     }
 
     /// <summary>RemoveMany should work with complex types.</summary>
@@ -421,17 +421,17 @@ public class ReactiveListRemoveTests
     {
         ReactiveList<TestData> fixture =
         [
-            new("Alice", 25),
-            new("Bob", 30),
-            new("Charlie", 35),
-            new("Diana", 40)
+            new(TestData.AliceName, TestData.TestValueTwentyFive),
+            new("Bob", TestData.TestValueThirty),
+            new(TestData.CharlieName, TestData.TestValueThirtyFive),
+            new("Diana", TestData.TestValueForty)
         ];
 
-        var removed = fixture.RemoveMany(p => p.Age >= 35);
+        var removed = fixture.RemoveMany(p => p.Age >= TestData.TestValueThirtyFive);
 
-        removed.Should().Be(2);
-        fixture.Count.Should().Be(2);
-        fixture.Should().Contain(p => p.Name == "Alice");
+        removed.Should().Be(TestData.TestValueTwo);
+        fixture.Count.Should().Be(TestData.TestValueTwo);
+        fixture.Should().Contain(p => p.Name == TestData.AliceName);
         fixture.Should().Contain(p => p.Name == "Bob");
     }
 }

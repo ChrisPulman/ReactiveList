@@ -14,6 +14,20 @@ namespace ReactiveList.Test;
 /// <summary>Contains unit tests for the QuaternaryDictionary extension methods in QuaternaryExtensions.</summary>
 public class QuaternaryDictionaryExtensionsTests
 {
+    private const int SecondEntryKey = 2;
+
+    private const int ThirdEntryKey = 3;
+
+    private const int FourthEntryKey = 4;
+
+    private const int ViewUpdateDelayMilliseconds = 200;
+
+    private const string AliceName = "Alice";
+
+    private const string CityIndexName = "ByCity";
+
+    private const string ThreeText = "three";
+
     /// <summary>Verifies that CreateView returns a view with all items when no filter is applied.</summary>
     [Test]
     public void CreateView_WithoutFilter_ShouldContainAllItems()
@@ -21,13 +35,13 @@ public class QuaternaryDictionaryExtensionsTests
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three")
+            new KeyValuePair<int, string>(SecondEntryKey, "two"),
+            new KeyValuePair<int, string>(ThirdEntryKey, ThreeText)
         ]);
 
         using var view = dict.CreateView(Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(3, view.Items.Count);
+        Assert.Equal(ThirdEntryKey, view.Items.Count);
     }
 
     /// <summary>Verifies that CreateView with filter returns only matching items.</summary>
@@ -37,13 +51,13 @@ public class QuaternaryDictionaryExtensionsTests
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three")
+            new KeyValuePair<int, string>(SecondEntryKey, "two"),
+            new KeyValuePair<int, string>(ThirdEntryKey, ThreeText)
         ]);
 
         using var view = dict.CreateView(kvp => kvp.Value.Length == 3, Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(2, view.Items.Count);
+        Assert.Equal(SecondEntryKey, view.Items.Count);
         Assert.Contains(view.Items, kvp => kvp.Value == "one");
         Assert.Contains(view.Items, kvp => kvp.Value == "two");
     }
@@ -53,16 +67,16 @@ public class QuaternaryDictionaryExtensionsTests
     public void CreateViewBySecondaryIndex_ShouldFilterByKey()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex("ByCity", p => p.City);
+        dict.AddValueIndex(CityIndexName, p => p.City);
         dict.AddRange([
-            new KeyValuePair<int, TestPerson>(1, new TestPerson("Alice", "NYC")),
-            new KeyValuePair<int, TestPerson>(2, new TestPerson("Bob", "LA")),
-            new KeyValuePair<int, TestPerson>(3, new TestPerson("Charlie", "NYC"))
+            new KeyValuePair<int, TestPerson>(1, new TestPerson(AliceName, "NYC")),
+            new KeyValuePair<int, TestPerson>(SecondEntryKey, new TestPerson("Bob", "LA")),
+            new KeyValuePair<int, TestPerson>(ThirdEntryKey, new TestPerson("Charlie", "NYC"))
         ]);
 
-        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", Sequencer.Default, throttleMs: 10);
+        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>(CityIndexName, "NYC", Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(2, view.Items.Count);
+        Assert.Equal(SecondEntryKey, view.Items.Count);
         Assert.All(view.Items, kvp => Assert.Equal("NYC", kvp.Value.City));
     }
 
@@ -71,17 +85,17 @@ public class QuaternaryDictionaryExtensionsTests
     public void CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex("ByCity", p => p.City);
+        dict.AddValueIndex(CityIndexName, p => p.City);
         dict.AddRange([
-            new KeyValuePair<int, TestPerson>(1, new TestPerson("Alice", "NYC")),
-            new KeyValuePair<int, TestPerson>(2, new TestPerson("Bob", "LA")),
-            new KeyValuePair<int, TestPerson>(3, new TestPerson("Charlie", "Chicago")),
-            new KeyValuePair<int, TestPerson>(4, new TestPerson("Diana", "NYC"))
+            new KeyValuePair<int, TestPerson>(1, new TestPerson(AliceName, "NYC")),
+            new KeyValuePair<int, TestPerson>(SecondEntryKey, new TestPerson("Bob", "LA")),
+            new KeyValuePair<int, TestPerson>(ThirdEntryKey, new TestPerson("Charlie", "Chicago")),
+            new KeyValuePair<int, TestPerson>(FourthEntryKey, new TestPerson("Diana", "NYC"))
         ]);
 
-        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", ["NYC", "LA"], Sequencer.Default, throttleMs: 10);
+        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>(CityIndexName, ["NYC", "LA"], Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(3, view.Items.Count);
+        Assert.Equal(ThirdEntryKey, view.Items.Count);
     }
 
     /// <summary>Verifies that ToProperty sets the property correctly.</summary>
@@ -91,8 +105,8 @@ public class QuaternaryDictionaryExtensionsTests
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three")
+            new KeyValuePair<int, string>(SecondEntryKey, "two"),
+            new KeyValuePair<int, string>(ThirdEntryKey, ThreeText)
         ]);
 
         System.Collections.ObjectModel.ReadOnlyObservableCollection<KeyValuePair<int, string>>? result = null;
@@ -100,7 +114,7 @@ public class QuaternaryDictionaryExtensionsTests
             .ToProperty(x => result = x);
 
         Assert.NotNull(result);
-        Assert.Equal(3, result!.Count);
+        Assert.Equal(ThirdEntryKey, result!.Count);
     }
 
     /// <summary>Verifies that ReactiveView updates when items are added to the source dictionary.</summary>
@@ -114,7 +128,7 @@ public class QuaternaryDictionaryExtensionsTests
         dict.Add(1, "one");
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
         Assert.Single(view.Items);
         Assert.Contains(view.Items, kvp => kvp.Key == 1 && kvp.Value == "one");
@@ -128,22 +142,22 @@ public class QuaternaryDictionaryExtensionsTests
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
             new KeyValuePair<int, string>(1, "one"),
-            new KeyValuePair<int, string>(2, "two"),
-            new KeyValuePair<int, string>(3, "three")
+            new KeyValuePair<int, string>(SecondEntryKey, "two"),
+            new KeyValuePair<int, string>(ThirdEntryKey, ThreeText)
         ]);
 
         using var view = dict.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
-        Assert.Equal(3, view.Items.Count);
+        Assert.Equal(ThirdEntryKey, view.Items.Count);
 
-        dict.Remove(2);
+        dict.Remove(SecondEntryKey);
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(2, view.Items.Count);
-        Assert.DoesNotContain(view.Items, kvp => kvp.Key == 2);
+        Assert.Equal(SecondEntryKey, view.Items.Count);
+        Assert.DoesNotContain(view.Items, kvp => kvp.Key == SecondEntryKey);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex updates when new matching items are added.</summary>
@@ -152,19 +166,19 @@ public class QuaternaryDictionaryExtensionsTests
     public async Task CreateViewBySecondaryIndex_ShouldUpdateOnAdd()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex("ByCity", p => p.City);
-        dict.Add(1, new TestPerson("Alice", "NYC"));
+        dict.AddValueIndex(CityIndexName, p => p.City);
+        dict.Add(1, new TestPerson(AliceName, "NYC"));
 
-        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", Sequencer.Default, throttleMs: 50);
+        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>(CityIndexName, "NYC", Sequencer.Default, throttleMs: 50);
 
         Assert.Single(view.Items);
 
-        dict.Add(2, new TestPerson("Bob", "NYC"));
+        dict.Add(SecondEntryKey, new TestPerson("Bob", "NYC"));
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(2, view.Items.Count);
+        Assert.Equal(SecondEntryKey, view.Items.Count);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex doesn't include non-matching items when added.</summary>
@@ -173,17 +187,17 @@ public class QuaternaryDictionaryExtensionsTests
     public async Task CreateViewBySecondaryIndex_ShouldNotIncludeNonMatchingItems()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex("ByCity", p => p.City);
-        dict.Add(1, new TestPerson("Alice", "NYC"));
+        dict.AddValueIndex(CityIndexName, p => p.City);
+        dict.Add(1, new TestPerson(AliceName, "NYC"));
 
-        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>("ByCity", "NYC", Sequencer.Default, throttleMs: 50);
+        using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>(CityIndexName, "NYC", Sequencer.Default, throttleMs: 50);
 
         Assert.Single(view.Items);
 
-        dict.Add(2, new TestPerson("Bob", "LA"));
+        dict.Add(SecondEntryKey, new TestPerson("Bob", "LA"));
 
         // Wait for throttle + processing
-        await Task.Delay(200);
+        await Task.Delay(ViewUpdateDelayMilliseconds);
 
         // Should still be only 1 item (Alice from NYC)
         Assert.Single(view.Items);

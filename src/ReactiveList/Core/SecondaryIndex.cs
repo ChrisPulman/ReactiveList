@@ -14,6 +14,8 @@ namespace CP.Primitives.Core;
 public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T>
     where TKey : notnull
 {
+    private const int ShardCount = 4;
+
     private readonly ConcurrentDictionary<TKey, HashSet<T>>[] _shards =
     [
         new ConcurrentDictionary<TKey, HashSet<T>>(),
@@ -105,7 +107,7 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
     /// <summary>Removes all items from the collection.</summary>
     public void Clear()
     {
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < ShardCount; i++)
         {
             _shards[i].Clear();
         }
@@ -131,5 +133,5 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
     /// <returns>An integer representing the zero-based index of the shard to which the key is assigned. The value ranges from 0
     /// to 3.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetShardIndex(TKey item) => (item.GetHashCode() & 0x7FFFFFFF) % 4;
+    private static int GetShardIndex(TKey item) => item.GetHashCode() & (ShardCount - 1);
 }

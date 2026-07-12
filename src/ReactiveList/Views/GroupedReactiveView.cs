@@ -195,35 +195,7 @@ where TKey : notnull
 
             case ChangeReason.Update:
                 {
-                    if (change.Previous is not null)
-                    {
-                        var oldKey = _keySelector(change.Previous);
-                        var newKey = _keySelector(change.Current);
-
-                        if (EqualityComparer<TKey>.Default.Equals(oldKey, newKey))
-                        {
-                            // Same group - just update in place
-                            if (_groups.TryGetValue(oldKey, out var group))
-                            {
-                                var index = group.IndexOf(change.Previous);
-                                if (index >= 0)
-                                {
-                                    group[index] = change.Current;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // Different groups - remove from old, add to new
-                            RemoveFromGroup(change.Previous);
-                            AddToGroup(change.Current);
-                        }
-                    }
-                    else
-                    {
-                        AddToGroup(change.Current);
-                    }
-
+                    UpdateGroup(change);
                     break;
                 }
 
@@ -240,7 +212,48 @@ where TKey : notnull
                     RebuildView();
                     break;
                 }
+
+            default:
+                {
+                    // Ignore invalid enum values to preserve the view's current state.
+                    break;
+                }
         }
+    }
+
+    /// <summary>Updates an item in its existing group or moves it to its new group.</summary>
+    /// <param name="change">The update change to apply.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpdateGroup(Change<T> change)
+    {
+        var previous = change.Previous;
+        if (previous is null)
+        {
+            AddToGroup(change.Current);
+            return;
+        }
+
+        var oldKey = _keySelector(previous);
+        var newKey = _keySelector(change.Current);
+        if (!EqualityComparer<TKey>.Default.Equals(oldKey, newKey))
+        {
+            RemoveFromGroup(previous);
+            AddToGroup(change.Current);
+            return;
+        }
+
+        if (!_groups.TryGetValue(oldKey, out var group))
+        {
+            return;
+        }
+
+        var index = group.IndexOf(previous);
+        if (index < 0)
+        {
+            return;
+        }
+
+        group[index] = change.Current;
     }
 
     /// <summary>Adds data for the AddToGroup operation.</summary>
@@ -277,7 +290,18 @@ where TKey : notnull
         }
 
         _groups.Remove(key);
-        var reactiveGroup = _groupCollection.FirstOrDefault(g => EqualityComparer<TKey>.Default.Equals(g.Key, key));
+        ReactiveGroup<TKey, T>? reactiveGroup = null;
+        var comparer = EqualityComparer<TKey>.Default;
+        for (var i = 0; i < _groupCollection.Count; i++)
+        {
+            var candidate = _groupCollection[i];
+            if (comparer.Equals(candidate.Key, key))
+            {
+                reactiveGroup = candidate;
+                break;
+            }
+        }
+
         if (reactiveGroup is null)
         {
             return;

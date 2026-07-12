@@ -16,6 +16,48 @@ namespace ReactiveList.Test;
 /// <summary>Tests for dynamic search functionality with reactive views.</summary>
 public class DynamicSearchTests
 {
+    /// <summary>The search throttle milliseconds.</summary>
+    private const int SearchThrottleMilliseconds = 10;
+
+    /// <summary>The expected filtered match count.</summary>
+    private const int ExpectedFilteredMatchCount = 2;
+
+    /// <summary>The expected complete result count.</summary>
+    private const int ExpectedCompleteResultCount = 3;
+
+    /// <summary>The primary first name.</summary>
+    private const string PrimaryFirstName = "User0";
+
+    /// <summary>The primary last name.</summary>
+    private const string PrimaryLastName = "Smith0";
+
+    /// <summary>The primary email.</summary>
+    private const string PrimaryEmail = "user0@company.com";
+
+    /// <summary>The secondary first name.</summary>
+    private const string SecondaryFirstName = "User1";
+
+    /// <summary>The secondary last name.</summary>
+    private const string SecondaryLastName = "Smith1";
+
+    /// <summary>The secondary email.</summary>
+    private const string SecondaryEmail = "user1@company.com";
+
+    /// <summary>The tertiary first name.</summary>
+    private const string TertiaryFirstName = "User2";
+
+    /// <summary>The tertiary last name.</summary>
+    private const string TertiaryLastName = "Jones";
+
+    /// <summary>The tertiary email.</summary>
+    private const string TertiaryEmail = "user2@company.com";
+
+    /// <summary>The extended last name.</summary>
+    private const string ExtendedLastName = "Smith10";
+
+    /// <summary>The extended email.</summary>
+    private const string ExtendedEmail = "user10@company.com";
+
     /// <summary>Search should return matching items when query matches LastName.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
@@ -25,10 +67,11 @@ public class DynamicSearchTests
         var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
+        var processedQuery = CreateCompletion<string>();
 
         // Setup search pipeline that rebuilds when search text changes
         searchText
-            .Throttle(TimeSpan.FromMilliseconds(10))
+            .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
@@ -40,25 +83,27 @@ public class DynamicSearchTests
                         searchResults.Add(contact);
                     }
                 }
+
+                processedQuery.TrySetResult(query);
             });
 
         // Add test contacts
         contacts.AddRange(
         [
-            new TestContact("User0", "Smith0", "user0@company.com"),
-            new TestContact("User1", "Smith1", "user1@company.com"),
-            new TestContact("User2", "Jones", "user2@company.com"),
-            new TestContact("User10", "Smith10", "user10@company.com"),
+            new TestContact(PrimaryFirstName, PrimaryLastName, PrimaryEmail),
+            new TestContact(SecondaryFirstName, SecondaryLastName, SecondaryEmail),
+            new TestContact(TertiaryFirstName, TertiaryLastName, TertiaryEmail),
+            new TestContact("User10", ExtendedLastName, ExtendedEmail),
         ]);
 
-        // Act - search for "Smith1"
-        searchText.OnNext("Smith1");
-        await Task.Delay(50);
+        // Act - search for SecondaryLastName
+        searchText.OnNext(SecondaryLastName);
+        await processedQuery.Task;
 
         // Assert - should find Smith1 and Smith10
-        searchResults.Should().HaveCount(2);
-        searchResults.Select(c => c.LastName).Should().Contain("Smith1");
-        searchResults.Select(c => c.LastName).Should().Contain("Smith10");
+        searchResults.Should().HaveCount(ExpectedFilteredMatchCount);
+        searchResults.Select(c => c.LastName).Should().Contain(SecondaryLastName);
+        searchResults.Select(c => c.LastName).Should().Contain(ExtendedLastName);
     }
 
     /// <summary>Search should return matching items when query matches Email.</summary>
@@ -70,9 +115,10 @@ public class DynamicSearchTests
         var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
+        var processedQuery = CreateCompletion<string>();
 
         searchText
-            .Throttle(TimeSpan.FromMilliseconds(10))
+            .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
@@ -84,24 +130,26 @@ public class DynamicSearchTests
                         searchResults.Add(contact);
                     }
                 }
+
+                processedQuery.TrySetResult(query);
             });
 
         contacts.AddRange(
         [
-            new TestContact("User0", "Smith0", "user0@company.com"),
-            new TestContact("User1", "Smith1", "user1@company.com"),
-            new TestContact("User2", "Jones", "user2@company.com"),
-            new TestContact("User10", "Smith10", "user10@company.com"),
+            new TestContact(PrimaryFirstName, PrimaryLastName, PrimaryEmail),
+            new TestContact(SecondaryFirstName, SecondaryLastName, SecondaryEmail),
+            new TestContact(TertiaryFirstName, TertiaryLastName, TertiaryEmail),
+            new TestContact("User10", ExtendedLastName, ExtendedEmail),
         ]);
 
         // Act - search for "user1"
         searchText.OnNext("user1");
-        await Task.Delay(50);
+        await processedQuery.Task;
 
         // Assert - should find user1@company.com and user10@company.com
-        searchResults.Should().HaveCount(2);
-        searchResults.Select(c => c.Email).Should().Contain("user1@company.com");
-        searchResults.Select(c => c.Email).Should().Contain("user10@company.com");
+        searchResults.Should().HaveCount(ExpectedFilteredMatchCount);
+        searchResults.Select(c => c.Email).Should().Contain(SecondaryEmail);
+        searchResults.Select(c => c.Email).Should().Contain(ExtendedEmail);
     }
 
     /// <summary>Empty search query should return all items.</summary>
@@ -113,9 +161,10 @@ public class DynamicSearchTests
         var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
+        var processedQuery = CreateCompletion<string>();
 
         searchText
-            .Throttle(TimeSpan.FromMilliseconds(10))
+            .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
@@ -127,21 +176,23 @@ public class DynamicSearchTests
                         searchResults.Add(contact);
                     }
                 }
+
+                processedQuery.TrySetResult(query);
             });
 
         contacts.AddRange(
         [
-            new TestContact("User0", "Smith0", "user0@company.com"),
-            new TestContact("User1", "Smith1", "user1@company.com"),
-            new TestContact("User2", "Jones", "user2@company.com"),
+            new TestContact(PrimaryFirstName, PrimaryLastName, PrimaryEmail),
+            new TestContact(SecondaryFirstName, SecondaryLastName, SecondaryEmail),
+            new TestContact(TertiaryFirstName, TertiaryLastName, TertiaryEmail),
         ]);
 
         // Act - empty search
         searchText.OnNext(string.Empty);
-        await Task.Delay(50);
+        await processedQuery.Task;
 
         // Assert - should return all
-        searchResults.Should().HaveCount(3);
+        searchResults.Should().HaveCount(ExpectedCompleteResultCount);
     }
 
     /// <summary>Search should be case insensitive.</summary>
@@ -153,9 +204,10 @@ public class DynamicSearchTests
         var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
+        var processedQuery = CreateCompletion<string>();
 
         searchText
-            .Throttle(TimeSpan.FromMilliseconds(10))
+            .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
@@ -167,23 +219,26 @@ public class DynamicSearchTests
                         searchResults.Add(contact);
                     }
                 }
+
+                processedQuery.TrySetResult(query);
             });
 
         contacts.AddRange(
         [
-            new TestContact("User0", "Smith0", "user0@company.com"),
+            new TestContact(PrimaryFirstName, PrimaryLastName, PrimaryEmail),
         ]);
 
         // Act - search with different cases
         searchText.OnNext("SMITH0");
-        await Task.Delay(50);
+        await processedQuery.Task;
 
         // Assert
         searchResults.Should().HaveCount(1);
 
         // Act - lowercase
+        processedQuery = CreateCompletion<string>();
         searchText.OnNext("smith0");
-        await Task.Delay(50);
+        await processedQuery.Task;
 
         // Assert
         searchResults.Should().HaveCount(1);
@@ -198,10 +253,11 @@ public class DynamicSearchTests
         var searchText = new BehaviorSignal<string>("user1");
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
+        var processedContactChange = CreateCompletion<bool>();
 
         // Subscribe to search text changes
         searchText
-            .Throttle(TimeSpan.FromMilliseconds(10))
+            .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
@@ -217,7 +273,7 @@ public class DynamicSearchTests
 
         // Subscribe to contact changes
         contacts.Stream
-            .Throttle(TimeSpan.FromMilliseconds(10))
+            .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(_ =>
             {
@@ -230,21 +286,24 @@ public class DynamicSearchTests
                         searchResults.Add(contact);
                     }
                 }
+
+                processedContactChange.TrySetResult(true);
             });
 
-        contacts.Add(new TestContact("User0", "Smith0", "user0@company.com"));
-        await Task.Delay(50);
+        contacts.Add(new TestContact(PrimaryFirstName, PrimaryLastName, PrimaryEmail));
+        await processedContactChange.Task;
 
         // Assert - no matches yet
         searchResults.Should().HaveCount(0);
 
         // Act - add matching contact
-        contacts.Add(new TestContact("User1", "Smith1", "user1@company.com"));
-        await Task.Delay(50);
+        processedContactChange = CreateCompletion<bool>();
+        contacts.Add(new TestContact(SecondaryFirstName, SecondaryLastName, SecondaryEmail));
+        await processedContactChange.Task;
 
         // Assert - should now have match
         searchResults.Should().HaveCount(1);
-        searchResults.First().Email.Should().Be("user1@company.com");
+        searchResults.First().Email.Should().Be(SecondaryEmail);
     }
 
     /// <summary>Non-matching query should return empty results.</summary>
@@ -256,9 +315,10 @@ public class DynamicSearchTests
         var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
+        var processedQuery = CreateCompletion<string>();
 
         searchText
-            .Throttle(TimeSpan.FromMilliseconds(10))
+            .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
             {
@@ -270,17 +330,19 @@ public class DynamicSearchTests
                         searchResults.Add(contact);
                     }
                 }
+
+                processedQuery.TrySetResult(query);
             });
 
         contacts.AddRange(
         [
-            new TestContact("User0", "Smith0", "user0@company.com"),
-            new TestContact("User1", "Smith1", "user1@company.com"),
+            new TestContact(PrimaryFirstName, PrimaryLastName, PrimaryEmail),
+            new TestContact(SecondaryFirstName, SecondaryLastName, SecondaryEmail),
         ]);
 
         // Act - search for non-existent
         searchText.OnNext("NonExistent");
-        await Task.Delay(50);
+        await processedQuery.Task;
 
         // Assert
         searchResults.Should().BeEmpty();
@@ -297,14 +359,15 @@ public class DynamicSearchTests
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return true;
-        }
-
-        return c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+        return string.IsNullOrWhiteSpace(query) ? true : c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>Creates an asynchronously completing pipeline signal.</summary>
+    /// <typeparam name="T">The signal value type.</typeparam>
+    /// <returns>A new completion source.</returns>
+    private static TaskCompletionSource<T> CreateCompletion<T>() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>Provides TestContact.</summary>
     /// <param name="FirstName">The FirstName value.</param>

@@ -198,26 +198,7 @@ where T : notnull
 
             case ChangeReason.Update:
                 {
-                    var wasIncluded = change.Previous is not null && _filteredItems.Contains(change.Previous);
-                    var shouldInclude = _currentFilter(change.Current);
-
-                    if (wasIncluded && !shouldInclude)
-                    {
-                        _filteredItems.Remove(change.Previous!);
-                    }
-                    else if (!wasIncluded && shouldInclude)
-                    {
-                        _filteredItems.Add(change.Current);
-                    }
-                    else if (wasIncluded && shouldInclude)
-                    {
-                        var idx = _filteredItems.IndexOf(change.Previous!);
-                        if (idx >= 0)
-                        {
-                            _filteredItems[idx] = change.Current;
-                        }
-                    }
-
+                    UpdateItem(change);
                     break;
                 }
 
@@ -233,7 +214,42 @@ where T : notnull
                     RebuildView();
                     break;
                 }
+
+            default:
+                {
+                    // Ignore invalid enum values to preserve the view's current state.
+                    break;
+                }
         }
+    }
+
+    /// <summary>Updates an item while preserving its filtered position when possible.</summary>
+    /// <param name="change">The update change to apply.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpdateItem(Change<T> change)
+    {
+        var previous = change.Previous;
+        var existingIndex = previous is null ? -1 : _filteredItems.IndexOf(previous);
+        var shouldInclude = _currentFilter(change.Current);
+
+        if (existingIndex < 0)
+        {
+            if (!shouldInclude)
+            {
+                return;
+            }
+
+            _filteredItems.Add(change.Current);
+            return;
+        }
+
+        if (!shouldInclude)
+        {
+            _filteredItems.RemoveAt(existingIndex);
+            return;
+        }
+
+        _filteredItems[existingIndex] = change.Current;
     }
 
     /// <summary>Rebuilds the view from the current source state.</summary>

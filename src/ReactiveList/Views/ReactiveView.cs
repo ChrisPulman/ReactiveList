@@ -175,11 +175,7 @@ where T : notnull
         {
             case CacheAction.Added:
                 {
-                    if (n.Item is not null && filter(n.Item))
-                    {
-                        _target.Add(n.Item);
-                    }
-
+                    AddItem(n.Item, filter);
                     break;
                 }
 
@@ -193,34 +189,21 @@ where T : notnull
                     break;
                 }
 
-            case CacheAction.BatchOperation or CacheAction.BatchAdded:
+            case CacheAction.Updated:
                 {
-                    if (n.Batch is not null)
-                    {
-                        for (var i = 0; i < n.Batch.Count; i++)
-                        {
-                            var item = n.Batch.Items[i];
-                            if (filter(item))
-                            {
-                                _target.Add(item);
-                            }
-                        }
-                    }
-
+                    UpdateItem(n, filter);
                     break;
                 }
 
-            case CacheAction.BatchRemoved:
+            case CacheAction.Moved:
                 {
-                    if (n.Batch is not null)
-                    {
-                        for (var i = 0; i < n.Batch.Count; i++)
-                        {
-                            var item = n.Batch.Items[i];
-                            _target.Remove(item);
-                        }
-                    }
+                    // Source-relative positions cannot be mapped reliably when preceding items are filtered out.
+                    break;
+                }
 
+            case CacheAction.Refreshed:
+                {
+                    RefreshItem(n.Item, filter);
                     break;
                 }
 
@@ -229,6 +212,144 @@ where T : notnull
                     _target.Clear();
                     break;
                 }
+
+            case CacheAction.BatchOperation or CacheAction.BatchAdded:
+                {
+                    AddBatch(n.Batch, filter);
+                    break;
+                }
+
+            case CacheAction.BatchRemoved:
+                {
+                    RemoveBatch(n.Batch);
+                    break;
+                }
+
+            default:
+                {
+                    // Ignore invalid enum values to preserve the view's current state.
+                    break;
+                }
+        }
+    }
+
+    /// <summary>Adds an item when it satisfies the view filter.</summary>
+    /// <param name="item">The item to consider.</param>
+    /// <param name="filter">The view filter.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void AddItem(T? item, Func<T, bool> filter)
+    {
+        if (item is null || !filter(item))
+        {
+            return;
+        }
+
+        _target.Add(item);
+    }
+
+    /// <summary>Updates an item and its membership in the filtered view.</summary>
+    /// <param name="notification">The update notification.</param>
+    /// <param name="filter">The view filter.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpdateItem(CacheNotify<T> notification, Func<T, bool> filter)
+    {
+        var previous = notification.Previous;
+        var current = notification.Item;
+        var existingIndex = -1;
+        if (previous is not null)
+        {
+            existingIndex = _target.IndexOf(previous);
+        }
+        else if (current is not null)
+        {
+            existingIndex = _target.IndexOf(current);
+        }
+
+        if (current is null || !filter(current))
+        {
+            if (existingIndex >= 0)
+            {
+                _target.RemoveAt(existingIndex);
+            }
+
+            return;
+        }
+
+        if (existingIndex < 0)
+        {
+            // Without a previous value there is no reliable way to identify and remove the item being replaced.
+            // Preserve the current view rather than appending a potentially duplicate or stale replacement.
+            if (previous is not null)
+            {
+                _target.Add(current);
+            }
+
+            return;
+        }
+
+        _target[existingIndex] = current;
+    }
+
+    /// <summary>Re-evaluates one item against the view filter.</summary>
+    /// <param name="item">The refreshed item.</param>
+    /// <param name="filter">The view filter.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void RefreshItem(T? item, Func<T, bool> filter)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        var existingIndex = _target.IndexOf(item);
+        var shouldInclude = filter(item);
+        if (existingIndex < 0)
+        {
+            if (!shouldInclude)
+            {
+                return;
+            }
+
+            _target.Add(item);
+            return;
+        }
+
+        if (shouldInclude)
+        {
+            return;
+        }
+
+        _target.RemoveAt(existingIndex);
+    }
+
+    /// <summary>Adds every matching item in a batch.</summary>
+    /// <param name="batch">The batch to add.</param>
+    /// <param name="filter">The view filter.</param>
+    private void AddBatch(PooledBatch<T>? batch, Func<T, bool> filter)
+    {
+        if (batch is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < batch.Count; i++)
+        {
+            AddItem(batch.Items[i], filter);
+        }
+    }
+
+    /// <summary>Removes every item in a batch.</summary>
+    /// <param name="batch">The batch to remove.</param>
+    private void RemoveBatch(PooledBatch<T>? batch)
+    {
+        if (batch is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < batch.Count; i++)
+        {
+            _target.Remove(batch.Items[i]);
         }
     }
 }

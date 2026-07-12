@@ -29,11 +29,7 @@ where TKey : notnull
 
     private readonly MultipleDisposable _disposables = new();
 
-#if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
-#else
-    private readonly object _lock = new();
-#endif
 
     private HashSet<object> _currentKeys = [];
 
@@ -126,7 +122,16 @@ where TKey : notnull
         TimeSpan throttle)
         where TIndexKey : notnull
     {
-        var typedKeys = keysObservable.Select(static keys => keys.Select(static key => (object)key).ToArray());
+        var typedKeys = keysObservable.Select(static keys =>
+        {
+            var boxedKeys = new object[keys.Length];
+            for (var i = 0; i < keys.Length; i++)
+            {
+                boxedKeys[i] = keys[i];
+            }
+
+            return boxedKeys;
+        });
         return new DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue>(
             source,
             indexName,
@@ -216,64 +221,19 @@ where TKey : notnull
             {
                 case CacheAction.Added:
                     {
-                        if (notification.Item.Value is not null && ValueMatchesCurrentKeys(notification.Item.Value))
-                        {
-                            _filteredItems.Add(notification.Item);
-                        }
-
+                        AddItem(notification.Item);
                         break;
                     }
 
                 case CacheAction.Removed:
                     {
-                        if (notification.Item.Key is not null)
-                        {
-                            // Find and remove the item with matching key
-                            for (var i = _filteredItems.Count - 1; i >= 0; i--)
-                            {
-                                if (EqualityComparer<TKey>.Default.Equals(_filteredItems[i].Key, notification.Item.Key))
-                                {
-                                    _filteredItems.RemoveAt(i);
-                                    break;
-                                }
-                            }
-                        }
-
+                        RemoveItem(notification.Item.Key);
                         break;
                     }
 
                 case CacheAction.Updated:
                     {
-                        if (notification.Item.Value is not null)
-                        {
-                            var existingIndex = -1;
-                            for (var i = 0; i < _filteredItems.Count; i++)
-                            {
-                                if (EqualityComparer<TKey>.Default.Equals(_filteredItems[i].Key, notification.Item.Key))
-                                {
-                                    existingIndex = i;
-                                    break;
-                                }
-                            }
-
-                            var wasInView = existingIndex >= 0;
-                            var shouldBeInView = ValueMatchesCurrentKeys(notification.Item.Value);
-
-                            if (wasInView && !shouldBeInView)
-                            {
-                                _filteredItems.RemoveAt(existingIndex);
-                            }
-                            else if (!wasInView && shouldBeInView)
-                            {
-                                _filteredItems.Add(notification.Item);
-                            }
-                            else if (wasInView && shouldBeInView)
-                            {
-                                // Update the existing item
-                                _filteredItems[existingIndex] = notification.Item;
-                            }
-                        }
-
+                        UpdateItem(notification.Item);
                         break;
                     }
 
@@ -283,15 +243,102 @@ where TKey : notnull
                         break;
                     }
 
-                case CacheAction.BatchOperation or CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.Refreshed:
+                case CacheAction.Moved or
+                     CacheAction.Refreshed or
+                     CacheAction.BatchOperation or
+                     CacheAction.BatchAdded or
+                     CacheAction.BatchRemoved:
                     {
                         RebuildView();
+                        break;
+                    }
+
+                default:
+                    {
+                        // Ignore invalid enum values to preserve the view's current state.
                         break;
                     }
             }
         }
 
         OnPropertyChanged(nameof(Count));
+    }
+
+    /// <summary>Adds an item when its value matches one of the current secondary-index keys.</summary>
+    /// <param name="item">The item to consider.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void AddItem(KeyValuePair<TKey, TValue> item)
+    {
+        if (item.Value is null || !ValueMatchesCurrentKeys(item.Value))
+        {
+            return;
+        }
+
+        _filteredItems.Add(item);
+    }
+
+    /// <summary>Removes the item with the specified primary key.</summary>
+    /// <param name="key">The primary key to remove.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void RemoveItem(TKey key)
+    {
+        var existingIndex = FindItemIndex(key);
+        if (existingIndex < 0)
+        {
+            return;
+        }
+
+        _filteredItems.RemoveAt(existingIndex);
+    }
+
+    /// <summary>Updates an item's value and membership in the current secondary-index view.</summary>
+    /// <param name="item">The current item.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpdateItem(KeyValuePair<TKey, TValue> item)
+    {
+        if (item.Value is null)
+        {
+            return;
+        }
+
+        var existingIndex = FindItemIndex(item.Key);
+        var shouldBeInView = ValueMatchesCurrentKeys(item.Value);
+        if (existingIndex < 0)
+        {
+            if (!shouldBeInView)
+            {
+                return;
+            }
+
+            _filteredItems.Add(item);
+            return;
+        }
+
+        if (!shouldBeInView)
+        {
+            _filteredItems.RemoveAt(existingIndex);
+            return;
+        }
+
+        _filteredItems[existingIndex] = item;
+    }
+
+    /// <summary>Finds the view index for a primary key.</summary>
+    /// <param name="key">The primary key to find.</param>
+    /// <returns>The matching view index, or -1 when the key is absent.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int FindItemIndex(TKey key)
+    {
+        var comparer = EqualityComparer<TKey>.Default;
+        for (var i = 0; i < _filteredItems.Count; i++)
+        {
+            if (comparer.Equals(_filteredItems[i].Key, key))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Rebuilds the view from the current source state.</summary>
@@ -320,8 +367,18 @@ where TKey : notnull
     /// <summary>Performs the ValueMatchesCurrentKeys operation.</summary>
     /// <param name="value">The value to test.</param>
     /// <returns><see langword="true"/> when the value matches any current key; otherwise, <see langword="false"/>.</returns>
-    private bool ValueMatchesCurrentKeys(TValue value) =>
-        _currentKeys.Any(key => _valueMatchesIndex(_source, _indexName, value, key));
+    private bool ValueMatchesCurrentKeys(TValue value)
+    {
+        foreach (var key in _currentKeys)
+        {
+            if (_valueMatchesIndex(_source, _indexName, value, key))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Handles property change notifications.</summary>
     /// <param name="propertyName">The propertyName value.</param>

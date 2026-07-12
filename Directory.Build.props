@@ -5,20 +5,18 @@
     <Description>Reactive List</Description>
     <Copyright>Copyright © https://github.com/ChrisPulman $([System.DateTime]::Now.ToString(yyyy))</Copyright>
     <IsTestProject>$(MSBuildProjectName.Contains('Tests'))</IsTestProject>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <LangVersion>preview</LangVersion>
     <Configuration>$(TargetFramework)</Configuration>
     <Company>ChrisPulman</Company>
-    <NoWarn>CS1591;IDE0190;IDE1006;CA1510</NoWarn>
     <Nullable>enable</Nullable>
     <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Compatability with Net 8 / 9 / 10 and netstandard2.0</PackageReleaseNotes>
+    <PackageReleaseNotes>Compatibility with .NET 8, .NET 9, .NET 10, .NET 11, and .NET Framework 4.6.2, 4.7.2, 4.8, and 4.8.1.</PackageReleaseNotes>
     <PackageTags>list;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
-    <PackageProjectUrl>https://github.com/ChrisPulman/MQTTnet.Rx</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/ChrisPulman/MQTTnet.Rx</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ChrisPulman/ReactiveList</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ChrisPulman/ReactiveList</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!--https://devblogs.microsoft.com/dotnet/producing-packages-with-source-link/-->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -37,13 +35,41 @@
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0'))">
+    <Features>$(Features);runtime-async=on</Features>
+  </PropertyGroup>
+
+  <!-- AOT Compatibility Settings for non-test, non-WPF projects on modern .NET -->
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('WPF')) != 'true' and '$(IsTestProject)' != 'true' and $([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
+    <!-- Mark this library as AOT-compatible -->
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <!-- Enable trim analyzers to verify library is trim-safe -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+
+    <!-- Treat trimming warnings as errors during build -->
+    <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- MinVer (versioning) — replaces Nerdbank.GitVersioning. Floor at 5.1
+       so untagged builds produce 5.1.x-alpha.0.<height> until a v5.1.x
+       (or later) tag is reachable. -->
+  <PropertyGroup>
+    <MinVerAutoIncrement>minor</MinVerAutoIncrement>
+    <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerMinimumMajorMinor>5.1</MinVerMinimumMajorMinor>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(IsTestProject)' != 'true'">
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.300" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
-    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.9.0" />
-    <PackageReference Include="TUnit" Version="1.58.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+    <PackageReference Include="TUnit" />
   </ItemGroup>
 
   <!-- Alias Lock to the dedicated System.Threading.Lock on .NET 9+ (faster EnterScope fast path),
@@ -54,16 +80,16 @@
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net9.0'))">
     <Using Include="System.Object" Alias="Lock"/>
   </ItemGroup>
-  
+
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)images\logo.png" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="LICENSE" />
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
-  
+
   <ItemGroup>
-    <!--<Compile Update="**\*.cs" DependentUpon="I%(Filename).cs" />-->
-    <PackageReference Include="StyleSharp.Analyzers" Version="3.19.0" PrivateAssets="All" />
-    <PackageReference Include="Roslynator.Analyzers" Version="4.15.0" PrivateAssets="All" />
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+    <PackageReference Include="StyleSharp.Analyzers" PrivateAssets="All" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="All" />
   </ItemGroup>
 </Project>

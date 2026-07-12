@@ -12,6 +12,24 @@ namespace ReactiveList.Benchmarks;
 [MemoryDiagnoser]
 public class QuaternaryDictionaryBenchmarks
 {
+    private const int HalfCountDivisor = 2;
+
+    private const int IndexedProbeValue = 4;
+
+    private const int MinimumLargeDatasetCount = 500;
+
+    private const int ModuloFourDivisor = 4;
+
+    private const int ModuloThreeDivisor = 3;
+
+    private const int ModuloTwoDivisor = 2;
+
+    private const int ModuloFiveDivisor = 5;
+
+    private const int PeriodicRemovalDivisor = 10;
+
+    private const int ValueMultiplier = 2;
+
     private KeyValuePair<int, int>[] _kvps = [];
 
     private Item[] _items = [];
@@ -70,7 +88,7 @@ public class QuaternaryDictionaryBenchmarks
     public int Dictionary_Remove()
     {
         var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
-        for (var i = 0; i < Count / 2; i++)
+        for (var i = 0; i < Count / HalfCountDivisor; i++)
         {
             dict.Remove(i);
         }
@@ -85,7 +103,7 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var dict = new QuaternaryDictionary<int, int>();
         dict.AddRange(_kvps);
-        for (var i = 0; i < Count / 2; i++)
+        for (var i = 0; i < Count / HalfCountDivisor; i++)
         {
             dict.Remove(i);
         }
@@ -100,7 +118,7 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
         cache.AddOrUpdate(_items);
-        cache.RemoveKeys(Enumerable.Range(0, Count / 2));
+        cache.RemoveKeys(Enumerable.Range(0, Count / HalfCountDivisor));
         return cache.Count;
     }
 
@@ -111,7 +129,7 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var dict = new QuaternaryDictionary<int, int>();
         dict.AddRange(_kvps);
-        dict.RemoveKeys(Enumerable.Range(0, Count / 2));
+        dict.RemoveKeys(Enumerable.Range(0, Count / HalfCountDivisor));
         return dict.Count;
     }
 
@@ -222,7 +240,7 @@ public class QuaternaryDictionaryBenchmarks
             innerDict.Clear();
             for (var i = 0; i < Count; i++)
             {
-                innerDict.Add(i, i * 2);
+                innerDict.Add(i, i * ValueMultiplier);
             }
         });
         return dict.Count;
@@ -240,7 +258,7 @@ public class QuaternaryDictionaryBenchmarks
             innerCache.Clear();
             for (var i = 0; i < Count; i++)
             {
-                innerCache.AddOrUpdate(new Item(i, i * 2));
+                innerCache.AddOrUpdate(new Item(i, i * ValueMultiplier));
             }
         });
         return cache.Count;
@@ -253,7 +271,7 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var dict = new QuaternaryDictionary<int, int>();
         dict.AddRange(_kvps);
-        dict.RemoveMany(kvp => kvp.Key % 2 == 0);
+        dict.RemoveMany(static kvp => kvp.Key % ModuloTwoDivisor == 0);
         return dict.Count;
     }
 
@@ -265,7 +283,7 @@ public class QuaternaryDictionaryBenchmarks
         using var dict = new QuaternaryDictionary<int, int>();
         var initialVersion = dict.Version;
         dict.AddRange(_kvps);
-        dict.RemoveMany(kvp => kvp.Key % 2 == 0);
+        dict.RemoveMany(static kvp => kvp.Key % ModuloTwoDivisor == 0);
         dict.Clear();
         return dict.Version - initialVersion;
     }
@@ -276,7 +294,7 @@ public class QuaternaryDictionaryBenchmarks
     public int QuaternaryDictionary_ValueIndex()
     {
         using var dict = new QuaternaryDictionary<int, int>();
-        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddValueIndex("Mod2", static value => value % ModuloTwoDivisor);
         dict.AddRange(_kvps);
         return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
     }
@@ -289,7 +307,7 @@ public class QuaternaryDictionaryBenchmarks
         using var dict = new QuaternaryDictionary<int, int>();
 
         // Large dataset to trigger parallel processing (threshold is 256)
-        var largeKvps = Enumerable.Range(0, Math.Max(Count, 500))
+        var largeKvps = Enumerable.Range(0, Math.Max(Count, MinimumLargeDatasetCount))
             .Select(i => new KeyValuePair<int, int>(i, i))
             .ToArray();
         dict.AddRange(largeKvps);
@@ -339,9 +357,9 @@ public class QuaternaryDictionaryBenchmarks
         }
 
         // Update existing
-        for (var i = 0; i < Count / 2; i++)
+        for (var i = 0; i < Count / HalfCountDivisor; i++)
         {
-            dict.AddOrUpdate(i, i * 2);
+            dict.AddOrUpdate(i, i * ValueMultiplier);
         }
 
         return dict.Count;
@@ -524,7 +542,7 @@ public class QuaternaryDictionaryBenchmarks
         dict.AddRange(_kvps);
         var events = 0;
         using var sub = dict.Stream.SubscribeObserver(_ => events++);
-        dict.RemoveKeys(Enumerable.Range(0, Count / 2));
+        dict.RemoveKeys(Enumerable.Range(0, Count / HalfCountDivisor));
         return events;
     }
 
@@ -537,7 +555,7 @@ public class QuaternaryDictionaryBenchmarks
         cache.AddOrUpdate(_items);
         var events = 0;
         using var sub = cache.Connect().SubscribeObserver(_ => events++);
-        cache.RemoveKeys(Enumerable.Range(0, Count / 2));
+        cache.RemoveKeys(Enumerable.Range(0, Count / HalfCountDivisor));
         return events;
     }
 
@@ -548,7 +566,7 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var dict = new QuaternaryDictionary<int, int>();
         dict.AddRange(_kvps);
-        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddValueIndex("Mod2", static value => value % ModuloTwoDivisor);
         return dict.Count;
     }
 
@@ -558,7 +576,7 @@ public class QuaternaryDictionaryBenchmarks
     public int QuaternaryDictionary_QueryValueIndex()
     {
         using var dict = new QuaternaryDictionary<int, int>();
-        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddValueIndex("Mod2", static value => value % ModuloTwoDivisor);
         dict.AddRange(_kvps);
         return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
     }
@@ -569,9 +587,9 @@ public class QuaternaryDictionaryBenchmarks
     public bool QuaternaryDictionary_ValueMatchesSecondaryIndex()
     {
         using var dict = new QuaternaryDictionary<int, int>();
-        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddValueIndex("Mod2", static value => value % ModuloTwoDivisor);
         dict.AddRange(_kvps);
-        return dict.ValueMatchesSecondaryIndex("Mod2", 4, 0);
+        return dict.ValueMatchesSecondaryIndex("Mod2", IndexedProbeValue, 0);
     }
 
     /// <summary>Provides QuaternaryDictionary_MultipleValueIndices.</summary>
@@ -580,9 +598,9 @@ public class QuaternaryDictionaryBenchmarks
     public int QuaternaryDictionary_MultipleValueIndices()
     {
         using var dict = new QuaternaryDictionary<int, int>();
-        dict.AddValueIndex("Mod2", v => v % 2);
-        dict.AddValueIndex("Mod3", v => v % 3);
-        dict.AddValueIndex("Mod5", v => v % 5);
+        dict.AddValueIndex("Mod2", static value => value % ModuloTwoDivisor);
+        dict.AddValueIndex("Mod3", static value => value % ModuloThreeDivisor);
+        dict.AddValueIndex("Mod5", static value => value % ModuloFiveDivisor);
         dict.AddRange(_kvps);
         return dict.GetValuesBySecondaryIndex("Mod2", 0).Count() +
                dict.GetValuesBySecondaryIndex("Mod3", 0).Count() +
@@ -595,9 +613,9 @@ public class QuaternaryDictionaryBenchmarks
     public int QuaternaryDictionary_IndexWithAddRemove()
     {
         using var dict = new QuaternaryDictionary<int, int>();
-        dict.AddValueIndex("Mod2", v => v % 2);
+        dict.AddValueIndex("Mod2", static value => value % ModuloTwoDivisor);
         dict.AddRange(_kvps);
-        dict.RemoveMany(kvp => kvp.Key % 4 == 0);
+        dict.RemoveMany(static kvp => kvp.Key % ModuloFourDivisor == 0);
         return dict.GetValuesBySecondaryIndex("Mod2", 0).Count();
     }
 
@@ -639,7 +657,7 @@ public class QuaternaryDictionaryBenchmarks
         dict.AddRange(_kvps);
         dict.AddOrUpdate(Count, Count);
         dict.Remove(0);
-        dict.RemoveMany(kvp => kvp.Key % 10 == 0);
+        dict.RemoveMany(static kvp => kvp.Key % PeriodicRemovalDivisor == 0);
         return dict.Count;
     }
 
@@ -652,7 +670,7 @@ public class QuaternaryDictionaryBenchmarks
         cache.AddOrUpdate(_items);
         cache.AddOrUpdate(new Item(Count, Count));
         cache.Remove(0);
-        cache.RemoveKeys(cache.Keys.Where(k => k % 10 == 0));
+        cache.RemoveKeys(cache.Keys.Where(static key => key % PeriodicRemovalDivisor == 0));
         return cache.Count;
     }
 
@@ -664,7 +682,7 @@ public class QuaternaryDictionaryBenchmarks
         var dict = _kvps.ToDictionary(k => k.Key, k => k.Value);
         dict[Count] = Count;
         dict.Remove(0);
-        foreach (var key in dict.Keys.Where(k => k % 10 == 0).ToList())
+        foreach (var key in dict.Keys.Where(static key => key % PeriodicRemovalDivisor == 0).ToList())
         {
             dict.Remove(key);
         }
@@ -754,9 +772,9 @@ public class QuaternaryDictionaryBenchmarks
         }
 
         // Update existing
-        for (var i = 0; i < Count / 2; i++)
+        for (var i = 0; i < Count / HalfCountDivisor; i++)
         {
-            dict[i] = i * 2;
+            dict[i] = i * ValueMultiplier;
         }
 
         return dict.Count;
@@ -774,9 +792,9 @@ public class QuaternaryDictionaryBenchmarks
         }
 
         // Update existing
-        for (var i = 0; i < Count / 2; i++)
+        for (var i = 0; i < Count / HalfCountDivisor; i++)
         {
-            cache.AddOrUpdate(new Item(i, i * 2));
+            cache.AddOrUpdate(new Item(i, i * ValueMultiplier));
         }
 
         return cache.Count;
@@ -789,7 +807,7 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
         cache.AddOrUpdate(_items);
-        cache.RemoveKeys(Enumerable.Range(0, Count / 2));
+        cache.RemoveKeys(Enumerable.Range(0, Count / HalfCountDivisor));
         return cache.Count;
     }
 
@@ -800,12 +818,12 @@ public class QuaternaryDictionaryBenchmarks
     {
         using var cache = new SourceCache<Item, int>(x => x.Id);
         cache.AddOrUpdate(_items);
-        cache.RemoveKeys(cache.Keys.Where(k => k % 2 == 0));
+        cache.RemoveKeys(cache.Keys.Where(static key => key % ModuloTwoDivisor == 0));
         return cache.Count;
     }
 
     /// <summary>Provides Item.</summary>
     /// <param name="Id">The Id value.</param>
-    /// <param name="Value">The Value value.</param>
+    /// <param name="Value">The Value.</param>
     private sealed record Item(int Id, int Value);
 }
