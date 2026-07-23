@@ -15,7 +15,7 @@
     <PackageVersion Include="Nuke.Common" Version="10.1.0" />
     <PackageVersion Include="ReactiveUI.Primitives" Version="6.0.0" />
     <PackageVersion Include="ReactiveUI.Primitives.Reactive" Version="6.0.0" />
-    <PackageVersion Include="ReactiveUI.Primitives.Wpf" Version="6.0.0" />
+    <PackageVersion Include="ReactiveUI.Primitives.Wpf" Version="7.0.0" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
     <PackageVersion Include="StyleSharp.Analyzers" Version="3.23.1" />
     <PackageVersion Include="System.Buffers" Version="4.6.1" />
