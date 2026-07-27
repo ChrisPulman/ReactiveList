@@ -10,6 +10,24 @@ namespace System.Diagnostics.CodeAnalysis;
 internal sealed class MaybeNullWhenAttribute(bool returnValue) : Attribute
 {
     /// <summary>Gets a value indicating whether the attribute condition applies on true returns.</summary>
-    public bool ReturnValue { get; } = returnValue;
+    internal bool ReturnValue { get; } = returnValue;
+}
+#elif REACTIVELIST_REACTIVE
+namespace CP.Reactive.Internal;
+
+/// <summary>Marks the runtime-provided nullable-annotation compatibility path.</summary>
+file enum MaybeNullWhenAttribute
+{
+    /// <summary>Indicates that the target runtime provides the attribute.</summary>
+    RuntimeProvided,
+}
+#else
+namespace CP.Primitives.Internal;
+
+/// <summary>Marks the runtime-provided nullable-annotation compatibility path.</summary>
+file enum MaybeNullWhenAttribute
+{
+    /// <summary>Indicates that the target runtime provides the attribute.</summary>
+    RuntimeProvided,
 }
 #endif

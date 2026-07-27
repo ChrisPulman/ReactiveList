@@ -17,15 +17,19 @@ namespace CP.Primitives.Collections;
 /// </remarks>
 /// <typeparam name="T">The type of elements in the list.</typeparam>
 [SkipLocalsInit]
-public sealed class QuadList<T> : IDisposable, IQuad<T>
+public sealed class QuadList<T> : IQuad<T>
     where T : notnull
 {
+    /// <summary>Minimum pooled array capacity.</summary>
     private const int MinimumSize = 16;
 
+    /// <summary>Multiplier applied when the pooled array grows.</summary>
     private const int CapacityGrowthFactor = 2;
 
+    /// <summary>The pooled array containing the list items.</summary>
     private T[] _items;
 
+    /// <summary>The number of items currently stored.</summary>
     private int _count;
 
     /// <summary>Initializes a new instance of the <see cref="QuadList{T}"/> class.</summary>
@@ -202,7 +206,10 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     IEnumerator<T> IEnumerable<T>.GetEnumerator() => new QuadListEnumerator(this);
 
     /// <inheritdoc/>
-    IEnumerator IEnumerable.GetEnumerator() => new QuadListEnumerator(this);
+    IEnumerator<T> IQuad<T>.GetEnumerator() => ((IEnumerable<T>)this).GetEnumerator();
+
+    /// <inheritdoc/>
+    IEnumerator IEnumerable.GetEnumerator() => ((IQuad<T>)this).GetEnumerator();
 
     /// <summary>Returns the internal array to the pool and releases resources.</summary>
     public void Dispose()
@@ -219,7 +226,11 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     /// <summary>Adds data for the AddAssumeCapacity operation.</summary>
     /// <param name="item">The item value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void AddAssumeCapacity(T item) => _items[_count++] = item;
+    internal void AddAssumeCapacity(T item)
+    {
+        _items[_count] = item;
+        _count++;
+    }
 
     /// <summary>Removes data for the RemoveMatching operation.</summary>
     /// <param name="removeCounts">The removeCounts value.</param>
@@ -239,7 +250,7 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
             {
                 if (remaining == 1)
                 {
-                    removeCounts.Remove(item);
+                    _ = removeCounts.Remove(item);
                 }
                 else
                 {
@@ -311,8 +322,10 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     /// <summary>Enumerates the elements of a <see cref="QuadList{T}"/>.</summary>
     public struct Enumerator : IEquatable<Enumerator>
     {
+        /// <summary>The list being enumerated.</summary>
         private readonly QuadList<T> _list;
 
+        /// <summary>The current position in the list.</summary>
         private int _index;
 
         /// <summary>Initializes a new instance of the <see cref="Enumerator"/> struct.</summary>
@@ -370,8 +383,10 @@ public sealed class QuadList<T> : IDisposable, IQuad<T>
     /// <summary>Wrapper to implement IEnumerator for foreach support.</summary>
     private struct QuadListEnumerator : IEnumerator<T>
     {
+        /// <summary>The list being enumerated.</summary>
         private readonly QuadList<T> _list;
 
+        /// <summary>The current position in the list.</summary>
         private int _index;
 
         /// <summary>Initializes a new instance of the <see cref="QuadListEnumerator"/> struct.</summary>

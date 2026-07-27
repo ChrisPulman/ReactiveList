@@ -21,10 +21,16 @@ namespace CP.Primitives.Views;
 public class ReactiveView<T> : INotifyPropertyChanged, IReactiveView<ReactiveView<T>, T>
 where T : notnull
 {
-    private readonly ObservableCollection<T> _target = [];
+    /// <summary>Synchronizes changes to the facade's notification relay.</summary>
+    private readonly Lock _eventGate = new();
 
-    private readonly IDisposable? _sub;
+    /// <summary>The composed state that owns the collection and source subscription.</summary>
+    private readonly State _state;
 
+    /// <summary>Relays state notifications while preserving this facade as the event sender.</summary>
+    private NotificationRelay<PropertyChangedEventArgs>? _propertyChangedRelay;
+
+    /// <summary>Indicates whether this view has been disposed.</summary>
     private bool _disposedValue;
 
     /// <summary>
@@ -49,55 +55,53 @@ where T : notnull
     public ReactiveView(IObservable<CacheNotify<T>> stream, IEnumerable<T> snapshot, Func<T, bool> filter, TimeSpan throttle, ISequencer sheduler)
 #endif
     {
-        Items = new(_target);
+        ThrowHelper.ThrowIfNull(stream);
+        ThrowHelper.ThrowIfNull(filter);
 
-        if (stream is null)
-        {
-            throw new ArgumentNullException(nameof(stream));
-        }
-
-        if (filter is null)
-        {
-            throw new ArgumentNullException(nameof(filter));
-        }
-
-        if (snapshot is not null)
-        {
-            // 1. Load Initial State (Snapshot)
-            foreach (var item in snapshot)
-            {
-                if (filter(item))
-                {
-                    _target.Add(item);
-                }
-            }
-        }
-
-        // 2. Subscribe to Stream with Throttling
-        _sub = stream
-            .Buffer(throttle) // Batch changes by time
-            .Keep(b => b.Count > 0)
-            .ObserveOn(sheduler) // Jump to UI Thread
-            .Subscribe(batch =>
-            {
-                foreach (var notify in batch)
-                {
-                    ApplyChange(notify, filter);
-
-                    // Critical: Return array to pool
-                    notify.Batch?.Dispose();
-                }
-
-                // Signal UI to refresh
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
-            });
+        _state = new(snapshot, filter);
+        Items = _state.Items;
+        _state.Activate(stream, throttle, sheduler);
     }
 
     /// <summary>Occurs when a property value changes.</summary>
     /// <remarks>This event is typically raised by classes that implement the <see
     /// cref="INotifyPropertyChanged"/> interface to notify clients, such as data-binding frameworks, that a property
     /// value has changed.</remarks>
-    public event PropertyChangedEventHandler? PropertyChanged;
+    public event PropertyChangedEventHandler? PropertyChanged
+    {
+        add
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            lock (_eventGate)
+            {
+                _propertyChangedRelay ??= new(this);
+                if (_propertyChangedRelay.Add(value.Invoke))
+                {
+                    _state.PropertyChanged += _propertyChangedRelay.OnEvent;
+                }
+            }
+        }
+
+        remove
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            lock (_eventGate)
+            {
+                if (_propertyChangedRelay?.Remove(value.Invoke) == true)
+                {
+                    _state.PropertyChanged -= _propertyChangedRelay.OnEvent;
+                }
+            }
+        }
+    }
 
     /// <summary>Gets a read-only, observable collection of items of type T.</summary>
     /// <remarks>The collection reflects changes to the underlying data source and notifies observers of any
@@ -112,10 +116,7 @@ where T : notnull
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertySetter"/> is null.</exception>
     public ReactiveView<T> ToProperty(Action<ReadOnlyObservableCollection<T>> propertySetter)
     {
-        if (propertySetter is null)
-        {
-            throw new ArgumentNullException(nameof(propertySetter));
-        }
+        ThrowHelper.ThrowIfNull(propertySetter);
 
         propertySetter(Items);
         return this;
@@ -157,199 +158,263 @@ where T : notnull
 
         if (disposing)
         {
-            _sub?.Dispose();
+            _state.Dispose();
         }
 
         _disposedValue = true;
     }
 
-    /// <summary>Applies the specified cache notification to the target collection, optionally filtering items to be added.</summary>
-    /// <remarks>Depending on the action specified in the notification, this method may add, remove, or clear
-    /// items in the target collection. When adding items, only those for which the filter returns <see
-    /// langword="true"/> are included.</remarks>
-    /// <param name="n">The cache notification describing the action to apply and the item or batch of items affected. Cannot be null.</param>
-    /// <param name="filter">A predicate used to determine whether an item should be added to the target collection. Cannot be null.</param>
-    private void ApplyChange(CacheNotify<T> n, Func<T, bool> filter)
+    /// <summary>Owns the mutable data and active subscription used by the facade.</summary>
+    private sealed class State
     {
-        switch (n.Action)
-        {
-            case CacheAction.Added:
-                {
-                    AddItem(n.Item, filter);
-                    break;
-                }
+        /// <summary>The predicate applied to snapshot items and source notifications.</summary>
+        private readonly Func<T, bool> _filter;
 
-            case CacheAction.Removed:
+        /// <summary>The mutable collection backing the public read-only view.</summary>
+        private readonly ObservableCollection<T> _target = [];
+
+        /// <summary>The subscription that feeds source notifications into this state.</summary>
+        private IDisposable? _subscription;
+
+        /// <summary>Initializes a new instance of the <see cref="State"/> class from a snapshot.</summary>
+        /// <param name="snapshot">The initial items to filter into the view.</param>
+        /// <param name="filter">The predicate that controls view membership.</param>
+        internal State(IEnumerable<T> snapshot, Func<T, bool> filter)
+        {
+            _filter = filter;
+            Items = new(_target);
+
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            foreach (var item in snapshot)
+            {
+                if (filter(item))
                 {
-                    if (n.Item is not null)
+                    _target.Add(item);
+                }
+            }
+        }
+
+        /// <summary>Occurs after a source batch changes the view items.</summary>
+        internal event EventHandler<PropertyChangedEventArgs>? PropertyChanged;
+
+        /// <summary>Gets the read-only collection exposed by the facade.</summary>
+        internal ReadOnlyObservableCollection<T> Items { get; }
+
+        /// <summary>Subscribes this fully initialized state to the source stream.</summary>
+        /// <param name="stream">The source notification stream.</param>
+        /// <param name="throttle">The interval over which notifications are buffered.</param>
+        /// <param name="scheduler">The scheduler on which buffered notifications are observed.</param>
+#if NET8_0_OR_GREATER
+        internal void Activate(IObservable<CacheNotify<T>> stream, in TimeSpan throttle, ISequencer scheduler) =>
+#else
+        internal void Activate(IObservable<CacheNotify<T>> stream, TimeSpan throttle, ISequencer scheduler) =>
+#endif
+            _subscription = stream
+                .Buffer(throttle)
+                .Keep(static batch => batch.Count > 0)
+                .ObserveOn(scheduler)
+                .Subscribe(HandleBatch);
+
+        /// <summary>Disposes the active source subscription.</summary>
+        internal void Dispose() => _subscription?.Dispose();
+
+        /// <summary>Processes a buffered source batch and returns any pooled payloads.</summary>
+        /// <param name="batch">The buffered notifications to process.</param>
+        private void HandleBatch(IList<CacheNotify<T>> batch)
+        {
+            foreach (var notification in batch)
+            {
+                ApplyChange(notification);
+                notification.Batch?.Dispose();
+            }
+
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Items)));
+        }
+
+        /// <summary>Applies one cache notification to the target collection.</summary>
+        /// <param name="notification">The notification describing the change to apply.</param>
+        private void ApplyChange(CacheNotify<T> notification)
+        {
+            switch (notification.Action)
+            {
+                case CacheAction.Added:
                     {
-                        _target.Remove(n.Item);
+                        AddItem(notification.Item);
+                        break;
                     }
 
-                    break;
-                }
+                case CacheAction.Removed:
+                    {
+                        if (notification.Item is not null)
+                        {
+                            _ = _target.Remove(notification.Item);
+                        }
 
-            case CacheAction.Updated:
-                {
-                    UpdateItem(n, filter);
-                    break;
-                }
+                        break;
+                    }
 
-            case CacheAction.Moved:
-                {
-                    // Source-relative positions cannot be mapped reliably when preceding items are filtered out.
-                    break;
-                }
+                case CacheAction.Updated:
+                    {
+                        UpdateItem(notification);
+                        break;
+                    }
 
-            case CacheAction.Refreshed:
-                {
-                    RefreshItem(n.Item, filter);
-                    break;
-                }
+                case CacheAction.Moved:
+                    {
+                        // Source-relative positions cannot be mapped reliably when preceding items are filtered out.
+                        break;
+                    }
 
-            case CacheAction.Cleared:
-                {
-                    _target.Clear();
-                    break;
-                }
+                case CacheAction.Refreshed:
+                    {
+                        RefreshItem(notification.Item);
+                        break;
+                    }
 
-            case CacheAction.BatchOperation or CacheAction.BatchAdded:
-                {
-                    AddBatch(n.Batch, filter);
-                    break;
-                }
+                case CacheAction.Cleared:
+                    {
+                        _target.Clear();
+                        break;
+                    }
 
-            case CacheAction.BatchRemoved:
-                {
-                    RemoveBatch(n.Batch);
-                    break;
-                }
+                case CacheAction.BatchOperation or CacheAction.BatchAdded:
+                    {
+                        AddBatch(notification.Batch);
+                        break;
+                    }
 
-            default:
-                {
-                    // Ignore invalid enum values to preserve the view's current state.
-                    break;
-                }
-        }
-    }
+                case CacheAction.BatchRemoved:
+                    {
+                        RemoveBatch(notification.Batch);
+                        break;
+                    }
 
-    /// <summary>Adds an item when it satisfies the view filter.</summary>
-    /// <param name="item">The item to consider.</param>
-    /// <param name="filter">The view filter.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void AddItem(T? item, Func<T, bool> filter)
-    {
-        if (item is null || !filter(item))
-        {
-            return;
-        }
-
-        _target.Add(item);
-    }
-
-    /// <summary>Updates an item and its membership in the filtered view.</summary>
-    /// <param name="notification">The update notification.</param>
-    /// <param name="filter">The view filter.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void UpdateItem(CacheNotify<T> notification, Func<T, bool> filter)
-    {
-        var previous = notification.Previous;
-        var current = notification.Item;
-        var existingIndex = -1;
-        if (previous is not null)
-        {
-            existingIndex = _target.IndexOf(previous);
-        }
-        else if (current is not null)
-        {
-            existingIndex = _target.IndexOf(current);
-        }
-
-        if (current is null || !filter(current))
-        {
-            if (existingIndex >= 0)
-            {
-                _target.RemoveAt(existingIndex);
+                default:
+                    {
+                        // Ignore invalid enum values to preserve the view's current state.
+                        break;
+                    }
             }
-
-            return;
         }
 
-        if (existingIndex < 0)
+        /// <summary>Adds an item when it satisfies the view filter.</summary>
+        /// <param name="item">The item to consider.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AddItem(T? item)
         {
-            // Without a previous value there is no reliable way to identify and remove the item being replaced.
-            // Preserve the current view rather than appending a potentially duplicate or stale replacement.
-            if (previous is not null)
-            {
-                _target.Add(current);
-            }
-
-            return;
-        }
-
-        _target[existingIndex] = current;
-    }
-
-    /// <summary>Re-evaluates one item against the view filter.</summary>
-    /// <param name="item">The refreshed item.</param>
-    /// <param name="filter">The view filter.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void RefreshItem(T? item, Func<T, bool> filter)
-    {
-        if (item is null)
-        {
-            return;
-        }
-
-        var existingIndex = _target.IndexOf(item);
-        var shouldInclude = filter(item);
-        if (existingIndex < 0)
-        {
-            if (!shouldInclude)
+            if (item is null || !_filter(item))
             {
                 return;
             }
 
             _target.Add(item);
-            return;
         }
 
-        if (shouldInclude)
+        /// <summary>Updates an item and its membership in the filtered view.</summary>
+        /// <param name="notification">The update notification.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void UpdateItem(CacheNotify<T> notification)
         {
-            return;
+            var previous = notification.Previous;
+            var current = notification.Item;
+            var existingIndex = -1;
+            if (previous is not null)
+            {
+                existingIndex = _target.IndexOf(previous);
+            }
+            else if (current is not null)
+            {
+                existingIndex = _target.IndexOf(current);
+            }
+
+            if (current is null || !_filter(current))
+            {
+                if (existingIndex >= 0)
+                {
+                    _target.RemoveAt(existingIndex);
+                }
+
+                return;
+            }
+
+            if (existingIndex < 0)
+            {
+                // Without a previous value there is no reliable way to identify and remove the item being replaced.
+                // Preserve the current view rather than appending a potentially duplicate or stale replacement.
+                if (previous is not null)
+                {
+                    _target.Add(current);
+                }
+
+                return;
+            }
+
+            _target[existingIndex] = current;
         }
 
-        _target.RemoveAt(existingIndex);
-    }
-
-    /// <summary>Adds every matching item in a batch.</summary>
-    /// <param name="batch">The batch to add.</param>
-    /// <param name="filter">The view filter.</param>
-    private void AddBatch(PooledBatch<T>? batch, Func<T, bool> filter)
-    {
-        if (batch is null)
+        /// <summary>Re-evaluates one item against the view filter.</summary>
+        /// <param name="item">The refreshed item.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void RefreshItem(T? item)
         {
-            return;
+            if (item is null)
+            {
+                return;
+            }
+
+            var existingIndex = _target.IndexOf(item);
+            var shouldInclude = _filter(item);
+            if (existingIndex < 0)
+            {
+                if (!shouldInclude)
+                {
+                    return;
+                }
+
+                _target.Add(item);
+                return;
+            }
+
+            if (shouldInclude)
+            {
+                return;
+            }
+
+            _target.RemoveAt(existingIndex);
         }
 
-        for (var i = 0; i < batch.Count; i++)
+        /// <summary>Adds every matching item in a batch.</summary>
+        /// <param name="batch">The batch to add.</param>
+        private void AddBatch(PooledBatch<T>? batch)
         {
-            AddItem(batch.Items[i], filter);
-        }
-    }
+            if (batch is null)
+            {
+                return;
+            }
 
-    /// <summary>Removes every item in a batch.</summary>
-    /// <param name="batch">The batch to remove.</param>
-    private void RemoveBatch(PooledBatch<T>? batch)
-    {
-        if (batch is null)
-        {
-            return;
+            for (var i = 0; i < batch.Count; i++)
+            {
+                AddItem(batch.Items[i]);
+            }
         }
 
-        for (var i = 0; i < batch.Count; i++)
+        /// <summary>Removes every item in a batch.</summary>
+        /// <param name="batch">The batch to remove.</param>
+        private void RemoveBatch(PooledBatch<T>? batch)
         {
-            _target.Remove(batch.Items[i]);
+            if (batch is null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < batch.Count; i++)
+            {
+                _ = _target.Remove(batch.Items[i]);
+            }
         }
     }
 }

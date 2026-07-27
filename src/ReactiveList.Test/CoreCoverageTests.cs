@@ -8,7 +8,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.Linq;
 using System.Threading.Tasks;
 using CP.Primitives;
 using CP.Primitives.Core;
@@ -84,6 +83,7 @@ public class CoreCoverageTests
     /// <summary>The numbers group key.</summary>
     private const string NumbersGroupKey = "numbers";
 
+    /// <summary>The values emitted by observable factory coverage tests.</summary>
     private static readonly int[] ObservableFactoryValues = [1, 2];
 
     /// <summary>Cache notification stream extensions should filter, project, and count notifications.</summary>
@@ -104,6 +104,11 @@ public class CoreCoverageTests
         var transformed = new List<string>();
         var filtered = new List<string>();
         var counts = new List<(CacheAction Action, int Count)>();
+#if NETFRAMEWORK
+        Func<string, bool> containsLowercaseO = static item => item.IndexOf('o') >= 0;
+#else
+        Func<string, bool> containsLowercaseO = static item => item.Contains('o');
+#endif
 
         using var whereActionSubscription = subject.WhereAction(CacheAction.Added).Subscribe(whereAction.Add);
         using var whereAddedSubscription = subject.WhereAdded().Subscribe(whereAdded.Add);
@@ -115,36 +120,36 @@ public class CoreCoverageTests
         using var updatedSubscription = subject.OnItemUpdated().Subscribe(updatedItems.Add);
         using var movedSubscription = subject.OnItemMoved().Subscribe(movedItems.Add);
         using var clearedSubscription = subject.OnCleared().Subscribe(cleared.Add);
-        using var transformedSubscription = subject.TransformItems(item => item.ToUpperInvariant()).Subscribe(transformed.Add);
-        using var filteredSubscription = subject.FilterItems(item => item.Contains("o")).Subscribe(filtered.Add);
+        using var transformedSubscription = subject.TransformItems(static item => item.ToUpperInvariant()).Subscribe(transformed.Add);
+        using var filteredSubscription = subject.FilterItems(containsLowercaseO).Subscribe(filtered.Add);
         using var countSubscription = subject.CountByAction().Subscribe(counts.Add);
 
         var addedBatch = CreateStringBatch("two", "four");
         var removedBatch = CreateStringBatch(RemovedBatchFirstItem, "ten");
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, "one", CurrentIndex: 0));
-        subject.OnNext(new CacheNotify<string>(CacheAction.BatchAdded, default, addedBatch, CurrentIndex: 1));
-        subject.OnNext(new CacheNotify<string>(CacheAction.Removed, "six", CurrentIndex: 2));
-        subject.OnNext(new CacheNotify<string>(CacheAction.BatchRemoved, default, removedBatch));
-        subject.OnNext(new CacheNotify<string>(CacheAction.Updated, UpdatedTextItem, CurrentIndex: 3, Previous: "eleven"));
-        subject.OnNext(new CacheNotify<string>(CacheAction.Moved, MovedTextItem, CurrentIndex: 4, PreviousIndex: 2));
-        subject.OnNext(new CacheNotify<string>(CacheAction.Cleared, default));
-        subject.OnNext(new CacheNotify<string>(CacheAction.BatchOperation, default));
+        subject.OnNext(new(CacheAction.Added, "one", CurrentIndex: 0));
+        subject.OnNext(new(CacheAction.BatchAdded, default, addedBatch, CurrentIndex: 1));
+        subject.OnNext(new(CacheAction.Removed, "six", CurrentIndex: 2));
+        subject.OnNext(new(CacheAction.BatchRemoved, default, removedBatch));
+        subject.OnNext(new(CacheAction.Updated, UpdatedTextItem, CurrentIndex: 3, Previous: "eleven"));
+        subject.OnNext(new(CacheAction.Moved, MovedTextItem, CurrentIndex: 4, PreviousIndex: 2));
+        subject.OnNext(new(CacheAction.Cleared, default));
+        subject.OnNext(new(CacheAction.BatchOperation, default));
 
-        whereAction.Should().ContainSingle()
+        _ = whereAction.Should().ContainSingle()
             .Which.Item.Should().Be("one");
-        whereAdded.Select(notification => notification.Action).Should().Equal(CacheAction.Added, CacheAction.BatchAdded);
-        whereRemoved.Select(notification => notification.Action).Should().Equal(CacheAction.Removed, CacheAction.BatchRemoved);
-        selectedItems.Should().Equal("one", "six", UpdatedTextItem, MovedTextItem);
-        allItems.Should().Equal("one", "two", "four", "six", RemovedBatchFirstItem, "ten", UpdatedTextItem, MovedTextItem);
-        addedItems.Should().Equal("one", "two", "four");
-        removedItems.Should().Equal("six", RemovedBatchFirstItem, "ten");
-        updatedItems.Should().Equal(UpdatedTextItem);
-        movedItems.Should().Equal((MovedTextItem, CoverageValueTwo, CoverageValueFour));
-        cleared.Should().ContainSingle();
-        transformed.Should().Equal("ONE", "TWO", "FOUR", "SIX", "EIGHT", "TEN", "TWELVE", "FOURTEEN");
-        filtered.Should().Equal("one", "two", "four", MovedTextItem);
-        counts.Select(item => item.Count).Should().Equal(1, CoverageValueTwo, 1, CoverageValueTwo, 1, 1, 0, 0);
+        _ = Project(whereAdded, static notification => notification.Action).Should().Equal(CacheAction.Added, CacheAction.BatchAdded);
+        _ = Project(whereRemoved, static notification => notification.Action).Should().Equal(CacheAction.Removed, CacheAction.BatchRemoved);
+        _ = selectedItems.Should().Equal("one", "six", UpdatedTextItem, MovedTextItem);
+        _ = allItems.Should().Equal("one", "two", "four", "six", RemovedBatchFirstItem, "ten", UpdatedTextItem, MovedTextItem);
+        _ = addedItems.Should().Equal("one", "two", "four");
+        _ = removedItems.Should().Equal("six", RemovedBatchFirstItem, "ten");
+        _ = updatedItems.Should().Equal(UpdatedTextItem);
+        _ = movedItems.Should().Equal((MovedTextItem, CoverageValueTwo, CoverageValueFour));
+        _ = cleared.Should().ContainSingle();
+        _ = transformed.Should().Equal("ONE", "TWO", "FOUR", "SIX", "EIGHT", "TEN", "TWELVE", "FOURTEEN");
+        _ = filtered.Should().Equal("one", "two", "four", MovedTextItem);
+        _ = Project(counts, static item => item.Count).Should().Equal(1, CoverageValueTwo, 1, CoverageValueTwo, 1, 1, 0, 0);
 
         addedBatch.Dispose();
         removedBatch.Dispose();
@@ -155,26 +160,22 @@ public class CoreCoverageTests
     public void CacheNotifyExtensions_ShouldBufferThrottleObserveAndDisposeBatches()
     {
         var notification = new CacheNotify<int>(CacheAction.Added, 1);
-        var buffered = ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
-                .BufferNotifications(TimeSpan.FromMilliseconds(1)))
-            .ToList();
-        var emptyBuffered = ObservableMixins.ToEnumerable(Array.Empty<CacheNotify<int>>().ToObservable()
-                .BufferNotifications(TimeSpan.FromMilliseconds(1)))
-            .ToList();
-        var throttled = ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
-                .ThrottleNotifications(TimeSpan.Zero))
-            .ToList();
-        var observed = ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
-                .ObserveOnScheduler(Sequencer.Immediate))
-            .ToList();
+        var buffered = Collect(ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
+            .BufferNotifications(TimeSpan.FromMilliseconds(1))));
+        var emptyBuffered = Collect(ObservableMixins.ToEnumerable(Array.Empty<CacheNotify<int>>().ToObservable()
+            .BufferNotifications(TimeSpan.FromMilliseconds(1))));
+        var throttled = Collect(ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
+            .ThrottleNotifications(TimeSpan.Zero)));
+        var observed = Collect(ObservableMixins.ToEnumerable(new[] { notification }.ToObservable()
+            .ObserveOnScheduler(Sequencer.Immediate)));
 
-        buffered.Should().ContainSingle()
+        _ = buffered.Should().ContainSingle()
             .Which.Should().ContainSingle()
             .Which.Should().BeSameAs(notification);
-        emptyBuffered.Should().BeEmpty();
-        throttled.Should().ContainSingle()
+        _ = emptyBuffered.Should().BeEmpty();
+        _ = throttled.Should().ContainSingle()
             .Which.Should().BeSameAs(notification);
-        observed.Should().ContainSingle()
+        _ = observed.Should().ContainSingle()
             .Which.Should().BeSameAs(notification);
 
         using var subject = new Signal<CacheNotify<int>>();
@@ -182,11 +183,11 @@ public class CoreCoverageTests
         using var subscription = subject.AutoDisposeBatches().Subscribe(autoDisposed.Add);
         var batch = CreateBatch(CoverageValueFortyTwo);
 
-        subject.OnNext(new CacheNotify<int>(CacheAction.BatchAdded, default, batch));
+        subject.OnNext(new(CacheAction.BatchAdded, default, batch));
         Action disposeAgain = batch.Dispose;
 
-        autoDisposed.Should().ContainSingle();
-        disposeAgain.Should().NotThrow();
+        _ = autoDisposed.Should().ContainSingle();
+        _ = disposeAgain.Should().NotThrow();
     }
 
     /// <summary>CacheNotifyExtensions should validate null arguments.</summary>
@@ -207,8 +208,8 @@ public class CoreCoverageTests
             () => source.BufferNotifications(TimeSpan.FromMilliseconds(1)),
             () => source.ThrottleNotifications(TimeSpan.FromMilliseconds(1)),
             () => source.ObserveOnScheduler(Sequencer.Immediate),
-            () => source.TransformItems(item => item),
-            () => source.FilterItems(item => true),
+            () => source.TransformItems(static item => item),
+            () => source.FilterItems(static item => true),
             () => source.AutoDisposeBatches(),
             () => source.CountByAction(),
             () => source.ToChangeSets()
@@ -216,7 +217,7 @@ public class CoreCoverageTests
 
         foreach (var action in sourceActions)
         {
-            action.Should().Throw<ArgumentNullException>()
+            _ = action.Should().Throw<ArgumentNullException>()
                 .WithParameterName(SourceParameterName);
         }
 
@@ -224,11 +225,11 @@ public class CoreCoverageTests
         Action transformNullSelector = () => valid.TransformItems<int, int>(null!);
         Action filterNullPredicate = () => valid.FilterItems(null!);
 
-        observeNullScheduler.Should().Throw<ArgumentNullException>()
+        _ = observeNullScheduler.Should().Throw<ArgumentNullException>()
             .WithParameterName("scheduler");
-        transformNullSelector.Should().Throw<ArgumentNullException>()
+        _ = transformNullSelector.Should().Throw<ArgumentNullException>()
             .WithParameterName("selector");
-        filterNullPredicate.Should().Throw<ArgumentNullException>()
+        _ = filterNullPredicate.Should().Throw<ArgumentNullException>()
             .WithParameterName("predicate");
     }
 
@@ -238,24 +239,24 @@ public class CoreCoverageTests
     {
         CacheNotify<int> nullNotification = null!;
 
-        nullNotification.ToChange().Should().BeNull();
-        new CacheNotify<int>(CacheAction.Added, 1, CurrentIndex: 2).ToChange().Should().Be(
+        _ = nullNotification.ToChange().Should().BeNull();
+        _ = new CacheNotify<int>(CacheAction.Added, 1, CurrentIndex: 2).ToChange().Should().Be(
             Change<int>.CreateAdd(1, CoverageValueTwo));
-        new CacheNotify<int>(CacheAction.Removed, CoverageValueThree, CurrentIndex: 4).ToChange().Should().Be(
+        _ = new CacheNotify<int>(CacheAction.Removed, CoverageValueThree, CurrentIndex: 4).ToChange().Should().Be(
             Change<int>.CreateRemove(CoverageValueThree, CoverageValueFour));
-        new CacheNotify<int>(CacheAction.Updated, CoverageValueFive, CurrentIndex: 6, Previous: 4).ToChange().Should().Be(
+        _ = new CacheNotify<int>(CacheAction.Updated, CoverageValueFive, CurrentIndex: 6, Previous: 4).ToChange().Should().Be(
             Change<int>.CreateUpdate(CoverageValueFive, CoverageValueFour, CoverageValueSix));
-        new CacheNotify<int>(CacheAction.Moved, CoverageValueSeven, CurrentIndex: 8, PreviousIndex: 9).ToChange().Should().Be(
+        _ = new CacheNotify<int>(CacheAction.Moved, CoverageValueSeven, CurrentIndex: 8, PreviousIndex: 9).ToChange().Should().Be(
             Change<int>.CreateMove(CoverageValueSeven, CoverageValueEight, CoverageValueNine));
-        new CacheNotify<int>(CacheAction.Refreshed, CoverageValueTen, CurrentIndex: 11).ToChange().Should().Be(
+        _ = new CacheNotify<int>(CacheAction.Refreshed, CoverageValueTen, CurrentIndex: 11).ToChange().Should().Be(
             Change<int>.CreateRefresh(CoverageValueTen, CoverageValueEleven));
 
         var clearChange = new CacheNotify<int>(CacheAction.Cleared, default).ToChange();
-        clearChange.Should().NotBeNull();
-        clearChange!.Value.Reason.Should().Be(ChangeReason.Clear);
+        _ = clearChange.Should().NotBeNull();
+        _ = clearChange!.Value.Reason.Should().Be(ChangeReason.Clear);
 
-        new CacheNotify<int>(CacheAction.BatchAdded, default).ToChange().Should().BeNull();
-        new CacheNotify<string>(CacheAction.Added, default).ToChange().Should().BeNull();
+        _ = new CacheNotify<int>(CacheAction.BatchAdded, default).ToChange().Should().BeNull();
+        _ = new CacheNotify<string>(CacheAction.Added, default).ToChange().Should().BeNull();
     }
 
     /// <summary>ToChangeSets should expand batches, singles, and filter empty changes.</summary>
@@ -280,20 +281,19 @@ public class CoreCoverageTests
             new CacheNotify<int>(CacheAction.BatchRemoved, default)
         };
 
-        var changeSets = ObservableMixins.ToEnumerable(notifications.ToObservable()
-                .ToChangeSets())
-            .ToList();
+        var changeSets = Collect(ObservableMixins.ToEnumerable(notifications.ToObservable()
+            .ToChangeSets()));
 
-        changeSets.Should().HaveCount(CoverageValueFive);
-        changeSets[0].Should().HaveCount(CoverageValueTwo);
-        changeSets[0].Select(change => change.Reason).Should().AllBeEquivalentTo(ChangeReason.Add);
-        changeSets[0][0].CurrentIndex.Should().Be(CoverageValueTen);
-        changeSets[1].Select(change => change.Reason).Should().AllBeEquivalentTo(ChangeReason.Remove);
-        changeSets[CoverageValueTwo].Should().ContainSingle()
+        _ = changeSets.Should().HaveCount(CoverageValueFive);
+        _ = changeSets[0].Should().HaveCount(CoverageValueTwo);
+        _ = Project(changeSets[0], static change => change.Reason).Should().AllBeEquivalentTo(ChangeReason.Add);
+        _ = changeSets[0][0].CurrentIndex.Should().Be(CoverageValueTen);
+        _ = Project(changeSets[1], static change => change.Reason).Should().AllBeEquivalentTo(ChangeReason.Remove);
+        _ = changeSets[CoverageValueTwo].Should().ContainSingle()
             .Which.Reason.Should().Be(ChangeReason.Remove);
-        changeSets[CoverageValueThree].Should().ContainSingle()
+        _ = changeSets[CoverageValueThree].Should().ContainSingle()
             .Which.Reason.Should().Be(ChangeReason.Refresh);
-        changeSets[CoverageValueFour].Should().ContainSingle()
+        _ = changeSets[CoverageValueFour].Should().ContainSingle()
             .Which.Should().Be(Change<int>.CreateAdd(CoverageValueSeven, CoverageValueTwenty));
 
         foreach (var changeSet in changeSets)
@@ -325,44 +325,44 @@ public class CoreCoverageTests
         using var comparison = new ChangeSet<int>([.. changes]);
         var defaultSet = default(ChangeSet<int>);
 
-        set.Count.Should().Be(CoverageValueFour);
-        set.Adds.Should().Be(1);
-        set.Removes.Should().Be(1);
-        set.Updates.Should().Be(1);
-        set.Moves.Should().Be(1);
-        set[0].Should().Be(changes[0]);
-        single.Should().ContainSingle()
+        _ = set.Count.Should().Be(CoverageValueFour);
+        _ = set.Adds.Should().Be(1);
+        _ = set.Removes.Should().Be(1);
+        _ = set.Updates.Should().Be(1);
+        _ = set.Moves.Should().Be(1);
+        _ = set[0].Should().Be(changes[0]);
+        _ = single.Should().ContainSingle()
             .Which.Should().Be(Change<int>.CreateRefresh(CoverageValueFive, CoverageValueFour));
-        defaultSet.Adds.Should().Be(0);
+        _ = defaultSet.Adds.Should().Be(0);
         defaultSet.Dispose();
-        set.Equals(set).Should().BeTrue();
-        set.Equals(comparison).Should().BeFalse();
-        set.GetHashCode().Should().NotBe(0);
+        _ = set.Equals(set).Should().BeTrue();
+        _ = set.Equals(comparison).Should().BeFalse();
+        _ = set.GetHashCode().Should().NotBe(0);
 
-        ((IEnumerable<Change<int>>)set).Select(change => change.Current).Should().Equal(1, CoverageValueTwo, CoverageValueThree, CoverageValueFour);
+        _ = Project((IEnumerable<Change<int>>)set, static change => change.Current).Should().Equal(1, CoverageValueTwo, CoverageValueThree, CoverageValueFour);
 
         var enumerator = ((IEnumerable)set).GetEnumerator();
-        enumerator.MoveNext().Should().BeTrue();
-        enumerator.Current.Should().Be(changes[0]);
+        _ = enumerator.MoveNext().Should().BeTrue();
+        _ = enumerator.Current.Should().Be(changes[0]);
         enumerator.Reset();
-        enumerator.MoveNext().Should().BeTrue();
-        enumerator.Current.Should().Be(changes[0]);
+        _ = enumerator.MoveNext().Should().BeTrue();
+        _ = enumerator.Current.Should().Be(changes[0]);
 
         Action getNegative = () => _ = set[-1];
         Action getPastEnd = () => _ = set[set.Count];
-        Action createNull = () => _ = new ChangeSet<int>(null!);
+        Action createNull = static () => _ = new ChangeSet<int>(null!);
 
-        getNegative.Should().Throw<ArgumentOutOfRangeException>()
+        _ = getNegative.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("index");
-        getPastEnd.Should().Throw<ArgumentOutOfRangeException>()
+        _ = getPastEnd.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("index");
-        createNull.Should().Throw<ArgumentNullException>()
+        _ = createNull.Should().Throw<ArgumentNullException>()
             .WithParameterName("changes");
 
         using var spanSet = new ChangeSet<int>(changes.AsSpan());
-        spanSet.AsSpan().ToArray().Should().Equal(changes);
+        _ = spanSet.AsSpan().ToArray().Should().Equal(changes);
 
-        ChangeSet<int>.Empty.AsSpan().IsEmpty.Should().BeTrue();
+        _ = ChangeSet<int>.Empty.AsSpan().IsEmpty.Should().BeTrue();
     }
 
     /// <summary>Disposing one struct copy should not invalidate another copy.</summary>
@@ -374,7 +374,7 @@ public class CoreCoverageTests
 
         changeSet.Dispose();
 
-        copy.Should().ContainSingle()
+        _ = copy.Should().ContainSingle()
             .Which.Current.Should().Be(UpdatedTextItem);
         copy.Dispose();
     }
@@ -393,69 +393,69 @@ public class CoreCoverageTests
     [Test]
     public void PooledEditableListWrapper_ShouldSynchronizeOperationsAndValidateMoves()
     {
-        EditableListWrapperPool.Clear<string>();
+        EditableListWrapperPool<string>.Clear();
         var list = new List<string> { "one", "two" };
         var observable = new ObservableCollection<string>(list);
         using var wrapper = new PooledEditableListWrapper<string>(list, observable);
 
-        wrapper.IsReadOnly.Should().BeFalse();
-        wrapper[1].Should().Be("two");
+        _ = wrapper.IsReadOnly.Should().BeFalse();
+        _ = wrapper[1].Should().Be("two");
         wrapper[1] = "deux";
         wrapper.AddRange([ThirdTextItem, "four"]);
         wrapper.Insert(1, InsertedTextItem);
         wrapper.Move(0, CoverageValueTwo);
         wrapper.Move(CoverageValueTwo, CoverageValueTwo);
 
-        list.Should().Equal(InsertedTextItem, "deux", "one", ThirdTextItem, "four");
-        observable.Should().Equal(list);
-        wrapper.Contains(ThirdTextItem).Should().BeTrue();
-        wrapper.IndexOf(ThirdTextItem).Should().Be(CoverageValueThree);
+        _ = list.Should().Equal(InsertedTextItem, "deux", "one", ThirdTextItem, "four");
+        _ = observable.Should().Equal(list);
+        _ = wrapper.Contains(ThirdTextItem).Should().BeTrue();
+        _ = wrapper.IndexOf(ThirdTextItem).Should().Be(CoverageValueThree);
 
         var copied = new string[wrapper.Count];
         wrapper.CopyTo(copied, 0);
-        copied.Should().Equal(list);
-        wrapper.ToArray().Should().Equal(list);
-        ((IEnumerable)wrapper).Cast<string>().Should().Equal(list);
+        _ = copied.Should().Equal(list);
+        _ = Collect(wrapper).Should().Equal(list);
+        _ = CollectNonGeneric<string>(wrapper).Should().Equal(list);
         var wrapperEnumerator = ((IEnumerable)wrapper).GetEnumerator();
-        wrapperEnumerator.MoveNext().Should().BeTrue();
-        wrapperEnumerator.Current.Should().Be(InsertedTextItem);
+        _ = wrapperEnumerator.MoveNext().Should().BeTrue();
+        _ = wrapperEnumerator.Current.Should().Be(InsertedTextItem);
 
-        wrapper.Remove("missing").Should().BeFalse();
-        wrapper.Remove("deux").Should().BeTrue();
+        _ = wrapper.Remove("missing").Should().BeFalse();
+        _ = wrapper.Remove("deux").Should().BeTrue();
         wrapper.RemoveAt(0);
         wrapper.Clear();
 
-        list.Should().BeEmpty();
-        observable.Should().BeEmpty();
+        _ = list.Should().BeEmpty();
+        _ = observable.Should().BeEmpty();
 
         wrapper.Initialize(["a", "b"], null);
-        wrapper.Count.Should().Be(CoverageValueTwo);
+        _ = wrapper.Count.Should().Be(CoverageValueTwo);
 
         Action badOldIndex = () => wrapper.Move(-1, 0);
         Action badNewIndex = () => wrapper.Move(0, CoverageValueTwo);
 
-        badOldIndex.Should().Throw<ArgumentOutOfRangeException>()
+        _ = badOldIndex.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("oldIndex");
-        badNewIndex.Should().Throw<ArgumentOutOfRangeException>()
+        _ = badNewIndex.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("newIndex");
 
-        EditableListWrapperPool.Clear<string>();
+        EditableListWrapperPool<string>.Clear();
     }
 
     /// <summary>Returned pooled wrappers should reject future access and dispose idempotently.</summary>
     [Test]
     public void PooledEditableListWrapper_WhenReturned_ShouldRejectAccessAndDisposeIdempotently()
     {
-        EditableListWrapperPool.Clear<int>();
+        EditableListWrapperPool<int>.Clear();
         var wrapper = new PooledEditableListWrapper<int>([]);
 
         ((IResettable)wrapper).Reset();
         wrapper.Dispose();
 
-        wrapper.Count.Should().Be(0);
+        _ = wrapper.Count.Should().Be(0);
         Action useReturned = () => wrapper.Add(1);
 
-        useReturned.Should().Throw<ObjectDisposedException>();
+        _ = useReturned.Should().Throw<ObjectDisposedException>();
     }
 
     /// <summary>ReactiveGroup should expose grouping data and forward collection change events.</summary>
@@ -465,37 +465,72 @@ public class CoreCoverageTests
         var source = new ObservableCollection<string>(["one"]);
         var group = new ReactiveGroup<string, string>("letters", source);
         var events = new List<NotifyCollectionChangedEventArgs>();
-        group.CollectionChanged += (sender, args) => events.Add(args);
+        var collectionSenders = new List<object?>();
+        var propertySenders = new List<object?>();
+        var properties = new List<string?>();
+        NotifyCollectionChangedEventHandler collectionHandler = (sender, args) =>
+        {
+            collectionSenders.Add(sender);
+            events.Add(args);
+        };
+        System.ComponentModel.PropertyChangedEventHandler propertyHandler = (sender, args) =>
+        {
+            propertySenders.Add(sender);
+            properties.Add(args.PropertyName);
+        };
+        group.CollectionChanged += collectionHandler;
+        group.CollectionChanged += collectionHandler;
+        group.PropertyChanged += propertyHandler;
+        group.PropertyChanged += propertyHandler;
 
         source.Add("two");
 
-        group.Key.Should().Be("letters");
-        group.Count.Should().Be(CoverageValueTwo);
-        group.Items.Should().Equal("one", "two");
-        group.Should().Equal("one", "two");
-        ((IEnumerable)group).Cast<string>().Should().Equal("one", "two");
+        _ = group.Key.Should().Be("letters");
+        _ = group.Count.Should().Be(CoverageValueTwo);
+        _ = group.Items.Should().Equal("one", "two");
+        _ = group.Should().Equal("one", "two");
+        _ = CollectNonGeneric<string>(group).Should().Equal("one", "two");
         var groupEnumerator = ((IEnumerable)group).GetEnumerator();
-        groupEnumerator.MoveNext().Should().BeTrue();
-        groupEnumerator.Current.Should().Be("one");
-        events.Should().ContainSingle()
-            .Which.Action.Should().Be(NotifyCollectionChangedAction.Add);
+        _ = groupEnumerator.MoveNext().Should().BeTrue();
+        _ = groupEnumerator.Current.Should().Be("one");
+        _ = events.Should().HaveCount(CoverageValueTwo);
+        _ = Project(events, static args => args.Action).Should().Equal(
+            NotifyCollectionChangedAction.Add,
+            NotifyCollectionChangedAction.Add);
+        _ = Project(collectionSenders, sender => ReferenceEquals(sender, group)).Should().Equal(true, true);
+        _ = properties.Should().Equal(nameof(group.Count), nameof(group.Count), "Item[]", "Item[]");
+        _ = Project(propertySenders, sender => ReferenceEquals(sender, group)).Should().Equal(true, true, true, true);
+
+        group.CollectionChanged -= collectionHandler;
+        group.PropertyChanged -= propertyHandler;
+        source.Add("three");
+
+        _ = events.Should().HaveCount(CoverageValueThree);
+        _ = properties.Should().HaveCount(CoverageValueSix);
+
+        group.CollectionChanged -= collectionHandler;
+        group.PropertyChanged -= propertyHandler;
+        source.Add("four");
+
+        _ = events.Should().HaveCount(CoverageValueThree);
+        _ = properties.Should().HaveCount(CoverageValueSix);
 
         var silentSource = new ObservableCollection<int>();
         _ = new ReactiveGroup<string, int>(NumbersGroupKey, silentSource);
         Action addWithoutSubscriber = () => silentSource.Add(1);
 
-        addWithoutSubscriber.Should().NotThrow();
+        _ = addWithoutSubscriber.Should().NotThrow();
     }
 
     /// <summary>SecondaryIndex should reject keys of the wrong type in MatchesKey.</summary>
     [Test]
     public void SecondaryIndex_MatchesKey_ShouldRejectWrongKeyType()
     {
-        var index = new SecondaryIndex<Person, string>(person => person.Department);
+        var index = new SecondaryIndex<Person, string>(static person => person.Department);
         var person = new Person(1, "Ada", "Engineering");
 
-        index.MatchesKey(person, "Engineering").Should().BeTrue();
-        index.MatchesKey(person, CoverageValueOneHundredTwentyThree).Should().BeFalse();
+        _ = index.MatchesKey(person, "Engineering").Should().BeTrue();
+        _ = index.MatchesKey(person, CoverageValueOneHundredTwentyThree).Should().BeFalse();
     }
 
     /// <summary>Internal grouping should expose its non-generic enumerator.</summary>
@@ -505,10 +540,10 @@ public class CoreCoverageTests
         var grouping = new ChangeGrouping<string, int>(NumbersGroupKey, [1, CoverageValueTwo]);
         var enumerator = ((IEnumerable)grouping).GetEnumerator();
 
-        grouping.Key.Should().Be(NumbersGroupKey);
-        enumerator.MoveNext().Should().BeTrue();
-        enumerator.Current.Should().Be(1);
-        ((IEnumerable)grouping).Cast<int>().Should().Equal(1, CoverageValueTwo);
+        _ = grouping.Key.Should().Be(NumbersGroupKey);
+        _ = enumerator.MoveNext().Should().BeTrue();
+        _ = enumerator.Current.Should().Be(1);
+        _ = CollectNonGeneric<int>(grouping).Should().Equal(1, CoverageValueTwo);
     }
 
     /// <summary>Internal observable factories should surface factory errors and event handler variants.</summary>
@@ -521,14 +556,14 @@ public class CoreCoverageTests
             .Defer<int>(() => throw factoryError)
             .Subscribe(deferredObserver);
 
-        deferredObserver.Error.Should().BeSameAs(factoryError);
+        _ = deferredObserver.Error.Should().BeSameAs(factoryError);
 
         var successValues = new List<int>();
         using var successSubscription = Observable
             .Defer(ObservableFactoryValues.ToObservable)
             .Subscribe(successValues.Add);
 
-        successValues.Should().Equal(1, CoverageValueTwo);
+        _ = successValues.Should().Equal(1, CoverageValueTwo);
 
         var eventSource = new EventSource();
         var events = new List<EventPattern<EventArgs>>();
@@ -539,18 +574,19 @@ public class CoreCoverageTests
             .Subscribe(events.Add);
 
         eventSource.Raise();
-        events.Should().ContainSingle();
+        _ = events.Should().ContainSingle();
 
-        Action unsupported = () => Observable
-            .FromEventPattern<Action, EventArgs>(_ => { }, _ => { })
+        Action unsupported = static () => Observable
+            .FromEventPattern<Action, EventArgs>(static _ => { }, static _ => { })
             .Subscribe(new RecordingObserver<EventPattern<EventArgs>>());
 
-        unsupported.Should().Throw<NotSupportedException>();
+        _ = unsupported.Should().Throw<NotSupportedException>();
     }
 
     /// <summary>Internal observable operators should cover error and completion branches.</summary>
+    /// <returns>A task that completes when the asynchronous assertions finish.</returns>
     [Test]
-    public void ObservableMixins_ShouldCoverErrorAndCompletionBranches()
+    public async Task ObservableMixins_ShouldCoverErrorAndCompletionBranches()
     {
         var toEnumerableError = new InvalidOperationException("enumerable");
         var throwing = Signal.Create<int>(observer =>
@@ -559,8 +595,8 @@ public class CoreCoverageTests
             return ReactiveUI.Primitives.Disposables.Scope.Empty;
         });
 
-        Action enumerate = () => _ = ObservableMixins.ToEnumerable(throwing).ToList();
-        enumerate.Should().Throw<InvalidOperationException>();
+        Action enumerate = () => _ = Collect(ObservableMixins.ToEnumerable(throwing));
+        _ = enumerate.Should().Throw<InvalidOperationException>();
 
         using var bufferSource = new Signal<int>();
         var buffered = new RecordingObserver<IList<int>>();
@@ -569,8 +605,8 @@ public class CoreCoverageTests
         bufferSource.OnNext(1);
         bufferSource.OnCompleted();
 
-        buffered.Values.SelectMany(static item => item).Should().Contain(1);
-        buffered.Completed.Should().BeTrue();
+        _ = Flatten(buffered.Values).Should().Contain(1);
+        _ = buffered.Completed.Should().BeTrue();
 
         using var bufferErrorSource = new Signal<int>();
         var bufferErrorObserver = new RecordingObserver<IList<int>>();
@@ -578,84 +614,10 @@ public class CoreCoverageTests
         using var bufferErrorSubscription = bufferErrorSource.Buffer(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(bufferErrorObserver);
 
         bufferErrorSource.OnError(bufferError);
-        bufferErrorObserver.Error.Should().BeSameAs(bufferError);
+        _ = bufferErrorObserver.Error.Should().BeSameAs(bufferError);
 
-        using var throttleSource = new Signal<int>();
-        var throttled = new RecordingObserver<int>();
-        using var throttleSubscription = throttleSource.Throttle(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(throttled);
-
-        throttleSource.OnNext(CoverageValueFortyTwo);
-        throttleSource.OnCompleted();
-
-        throttled.Values.Should().Contain(CoverageValueFortyTwo);
-        throttled.Completed.Should().BeTrue();
-
-        using var throttleErrorSource = new Signal<int>();
-        var throttleErrorObserver = new RecordingObserver<int>();
-        var throttleError = new InvalidOperationException("throttle");
-        using var throttleErrorSubscription = throttleErrorSource.Throttle(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(throttleErrorObserver);
-
-        throttleErrorSource.OnError(throttleError);
-        throttleErrorObserver.Error.Should().BeSameAs(throttleError);
-
-        var manualBufferSequencer = new ManualSequencer();
-        var completedBufferObserver = new RecordingObserver<IList<int>>();
-        var completedThenValue = Signal.Create<int>(observer =>
-        {
-            observer.OnNext(CoverageValueSeven);
-            observer.OnCompleted();
-            observer.OnNext(CoverageValueEight);
-            return ReactiveUI.Primitives.Disposables.Scope.Empty;
-        });
-
-        using var completedBufferSubscription = completedThenValue
-            .Buffer(TimeSpan.FromMilliseconds(1), manualBufferSequencer)
-            .Subscribe(completedBufferObserver);
-
-        completedBufferObserver.Values.Should().ContainSingle()
-            .Which.Should().Equal(CoverageValueSeven);
-        completedBufferObserver.Completed.Should().BeTrue();
-        manualBufferSequencer.RunAll();
-
-        using var emptyFlushSource = new Signal<int>();
-        var duplicateBufferSequencer = new DuplicateSequencer();
-        var emptyFlushObserver = new RecordingObserver<IList<int>>();
-        using var emptyFlushSubscription = emptyFlushSource
-            .Buffer(TimeSpan.FromMilliseconds(1), duplicateBufferSequencer)
-            .Subscribe(emptyFlushObserver);
-
-        emptyFlushSource.OnNext(CoverageValueEleven);
-        duplicateBufferSequencer.RunAll();
-
-        emptyFlushObserver.Values.Should().ContainSingle()
-            .Which.Should().Equal(CoverageValueEleven);
-
-        var manualThrottleSequencer = new ManualSequencer();
-        var completedThrottleObserver = new RecordingObserver<int>();
-
-        using var completedThrottleSubscription = completedThenValue
-            .Throttle(TimeSpan.FromMilliseconds(1), manualThrottleSequencer)
-            .Subscribe(completedThrottleObserver);
-
-        manualThrottleSequencer.RunAll();
-        completedThrottleObserver.Values.Should().BeEmpty();
-        completedThrottleObserver.Completed.Should().BeTrue();
-
-        using var postStopBufferSubscription = new ScriptedObservable<int>(observer =>
-            {
-                observer.OnCompleted();
-                observer.OnNext(CoverageValueNine);
-            })
-            .Buffer(TimeSpan.FromMilliseconds(1), new ManualSequencer())
-            .Subscribe(new RecordingObserver<IList<int>>());
-
-        using var postStopThrottleSubscription = new ScriptedObservable<int>(observer =>
-            {
-                observer.OnCompleted();
-                observer.OnNext(CoverageValueNine);
-            })
-            .Throttle(TimeSpan.FromMilliseconds(1), new ManualSequencer())
-            .Subscribe(new RecordingObserver<int>());
+        VerifyBufferCompletionBranches();
+        await VerifyThrottleBranches();
     }
 
     /// <summary>ReactiveList extension guards and default dynamic filters should be covered.</summary>
@@ -665,46 +627,46 @@ public class CoreCoverageTests
         IObservable<ChangeSet<int>> nullChangeSets = null!;
         Action nullGroupSource = () => nullChangeSets.GroupByChanges(static item => item);
         Action nullGroupingSource = () => nullChangeSets.GroupingByChanges(static item => item);
-        Action nullRefreshSource = () => ReactiveListExtensions.AutoRefresh<NotifyItem>(null!, propertyName: null);
+        Action nullRefreshSource = static () => ReactiveListExtensions.AutoRefresh<NotifyItem>(null!, propertyName: null);
         var notifyItem = new NotifyItem(1);
         notifyItem.Raise(nameof(NotifyItem.Value));
-        notifyItem.Value.Should().Be(1);
+        _ = notifyItem.Value.Should().Be(1);
 
-        nullGroupSource.Should().Throw<ArgumentNullException>().WithParameterName(SourceParameterName);
-        nullGroupingSource.Should().Throw<ArgumentNullException>().WithParameterName(SourceParameterName);
-        nullRefreshSource.Should().Throw<ArgumentNullException>().WithParameterName(SourceParameterName);
+        _ = nullGroupSource.Should().Throw<ArgumentNullException>().WithParameterName(SourceParameterName);
+        _ = nullGroupingSource.Should().Throw<ArgumentNullException>().WithParameterName(SourceParameterName);
+        _ = nullRefreshSource.Should().Throw<ArgumentNullException>().WithParameterName(SourceParameterName);
 
         using var changeSets = new Signal<ChangeSet<int>>();
         Action nullGroupSelector = () => changeSets.GroupByChanges<int, int>(null!);
         Action nullGroupingSelector = () => changeSets.GroupingByChanges<int, int>(null!);
 
-        nullGroupSelector.Should().Throw<ArgumentNullException>().WithParameterName("keySelector");
-        nullGroupingSelector.Should().Throw<ArgumentNullException>().WithParameterName("keySelector");
+        _ = nullGroupSelector.Should().Throw<ArgumentNullException>().WithParameterName("keySelector");
+        _ = nullGroupingSelector.Should().Throw<ArgumentNullException>().WithParameterName("keySelector");
 
         using var stream = new Signal<CacheNotify<int>>();
         using var filters = new Signal<Func<int, bool>>();
         var received = new List<CacheNotify<int>>();
         using var subscription = stream.FilterDynamic(filters).Subscribe(received.Add);
 
-        stream.OnNext(new CacheNotify<int>(CacheAction.Added, CoverageValueTen));
-        stream.OnNext(new CacheNotify<int>(CacheAction.Removed, CoverageValueTwenty));
+        stream.OnNext(new(CacheAction.Added, CoverageValueTen));
+        stream.OnNext(new(CacheAction.Removed, CoverageValueTwenty));
 
-        received.Select(static item => item.Item).Should().Equal(CoverageValueTen, CoverageValueTwenty);
+        _ = received.ConvertAll(static item => item.Item).Should().Equal(CoverageValueTen, CoverageValueTwenty);
 
         using var pairStream = new Signal<CacheNotify<KeyValuePair<int, string>>>();
         using var pairFilters = new Signal<Func<KeyValuePair<int, string>, bool>>();
         var pairReceived = new List<CacheNotify<KeyValuePair<int, string>>>();
         using var pairSubscription = pairStream.FilterDynamic(pairFilters).Subscribe(pairReceived.Add);
 
-        pairStream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.Added, new KeyValuePair<int, string>(1, "one")));
-        pairStream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.Removed, new KeyValuePair<int, string>(CoverageValueTwo, "two")));
+        pairStream.OnNext(new(CacheAction.Added, new(1, "one")));
+        pairStream.OnNext(new(CacheAction.Removed, new(CoverageValueTwo, "two")));
 
-        pairReceived.Select(static item => item.Item.Key).Should().Equal(1, CoverageValueTwo);
+        _ = pairReceived.ConvertAll(static item => item.Item.Key).Should().Equal(1, CoverageValueTwo);
 
         using var noMatchBatch = CreateBatch(1, CoverageValueTwo);
         var noMatchNotification = new CacheNotify<int>(CacheAction.BatchAdded, default, noMatchBatch);
-        ReactiveListExtensions.FilterBatchByPredicate(noMatchNotification, static item => item > CoverageValueTen).Should().BeNull();
-        ReactiveListExtensions.FilterBatch(noMatchNotification, [CoverageValueNinetyNine]).Should().BeNull();
+        _ = ReactiveListExtensions.FilterBatchByPredicate(noMatchNotification, static item => item > CoverageValueTen).Should().BeNull();
+        _ = ReactiveListExtensions.FilterBatch(noMatchNotification, [CoverageValueNinetyNine]).Should().BeNull();
     }
 
     /// <summary>GroupBy should propagate upstream errors to active groups and to the outer subscriber.</summary>
@@ -721,8 +683,8 @@ public class CoreCoverageTests
             .Subscribe(
                 group =>
                 {
-                    group.Key.Should().Be(1);
-                    group.Subscribe(_ => { }, groupErrors.Add, () => { });
+                    _ = group.Key.Should().Be(1);
+                    _ = group.Subscribe(static _ => { }, groupErrors.Add, static () => { });
                 },
                 outerObserver.OnError,
                 outerObserver.OnCompleted);
@@ -731,9 +693,9 @@ public class CoreCoverageTests
         source.OnNext(changes);
         source.OnError(upstreamError);
 
-        groupErrors.Should().ContainSingle()
+        _ = groupErrors.Should().ContainSingle()
             .Which.Should().BeSameAs(upstreamError);
-        outerObserver.Error.Should().BeSameAs(upstreamError);
+        _ = outerObserver.Error.Should().BeSameAs(upstreamError);
     }
 
     /// <summary>SelectChanges should return the shared empty changeset when the input contains no changes.</summary>
@@ -741,13 +703,12 @@ public class CoreCoverageTests
     public void SelectChanges_ShouldReturnEmptyChangeSetForEmptyInput()
     {
         var source = new[] { ChangeSet<int>.Empty }.ToObservable();
-        var results = ObservableMixins.ToEnumerable(
-                ReactiveListExtensions.SelectChanges(
-                    source,
-                    (Func<int, string>)(static value => value.ToString())))
-            .ToList();
+        var results = Collect(ObservableMixins.ToEnumerable(
+            ReactiveListExtensions.SelectChanges(
+                source,
+                (Func<int, string>)(static value => value.ToString()))));
 
-        results.Should().ContainSingle()
+        _ = results.Should().ContainSingle()
             .Which.Count.Should().Be(0);
     }
 
@@ -769,7 +730,7 @@ public class CoreCoverageTests
     {
         var array = ArrayPool<int>.Shared.Rent(Math.Max(1, values.Length));
         Array.Copy(values, array, values.Length);
-        return new PooledBatch<int>(array, values.Length);
+        return new(array, values.Length);
     }
 
     /// <summary>Provides CreateStringBatch.</summary>
@@ -779,7 +740,165 @@ public class CoreCoverageTests
     {
         var array = ArrayPool<string>.Shared.Rent(Math.Max(1, values.Length));
         Array.Copy(values, array, values.Length);
-        return new PooledBatch<string>(array, values.Length);
+        return new(array, values.Length);
+    }
+
+    /// <summary>Materializes a sequence through explicit iteration.</summary>
+    /// <typeparam name="T">The sequence item type.</typeparam>
+    /// <param name="source">The sequence to materialize.</param>
+    /// <returns>The materialized items.</returns>
+    private static List<T> Collect<T>(IEnumerable<T> source) => new(source);
+
+    /// <summary>Materializes a non-generic sequence through explicit iteration.</summary>
+    /// <typeparam name="T">The expected sequence item type.</typeparam>
+    /// <param name="source">The sequence to materialize.</param>
+    /// <returns>The materialized items.</returns>
+    private static List<T> CollectNonGeneric<T>(IEnumerable source)
+    {
+        var result = new List<T>();
+        foreach (var item in source)
+        {
+            result.Add((T)item);
+        }
+
+        return result;
+    }
+
+    /// <summary>Projects a sequence through explicit iteration.</summary>
+    /// <typeparam name="TSource">The source item type.</typeparam>
+    /// <typeparam name="TResult">The result item type.</typeparam>
+    /// <param name="source">The source sequence.</param>
+    /// <param name="selector">The projection applied to each item.</param>
+    /// <returns>The projected items.</returns>
+    private static List<TResult> Project<TSource, TResult>(IEnumerable<TSource> source, Func<TSource, TResult> selector)
+    {
+        var result = new List<TResult>();
+        foreach (var item in source)
+        {
+            result.Add(selector(item));
+        }
+
+        return result;
+    }
+
+    /// <summary>Flattens nested sequences through explicit iteration.</summary>
+    /// <typeparam name="T">The nested item type.</typeparam>
+    /// <param name="source">The nested sequences.</param>
+    /// <returns>The flattened items.</returns>
+    private static List<T> Flatten<T>(IEnumerable<IEnumerable<T>> source)
+    {
+        var result = new List<T>();
+        foreach (var sequence in source)
+        {
+            result.AddRange(sequence);
+        }
+
+        return result;
+    }
+
+    /// <summary>Exercises the completion, delayed flush, and post-stop buffer branches.</summary>
+    private static void VerifyBufferCompletionBranches()
+    {
+        var manualBufferSequencer = new ManualSequencer();
+        var completedBufferObserver = new RecordingObserver<IList<int>>();
+        var completedThenValue = Signal.Create<int>(static observer =>
+        {
+            observer.OnNext(CoverageValueSeven);
+            observer.OnCompleted();
+            observer.OnNext(CoverageValueEight);
+            return ReactiveUI.Primitives.Disposables.Scope.Empty;
+        });
+
+        using var completedBufferSubscription = completedThenValue
+            .Buffer(TimeSpan.FromMilliseconds(1), manualBufferSequencer)
+            .Subscribe(completedBufferObserver);
+
+        _ = completedBufferObserver.Values.Should().ContainSingle()
+            .Which.Should().Equal(CoverageValueSeven);
+        _ = completedBufferObserver.Completed.Should().BeTrue();
+        manualBufferSequencer.RunAll();
+
+        using var emptyFlushSource = new Signal<int>();
+        var duplicateBufferSequencer = new DuplicateSequencer();
+        var emptyFlushObserver = new RecordingObserver<IList<int>>();
+        using var emptyFlushSubscription = emptyFlushSource
+            .Buffer(TimeSpan.FromMilliseconds(1), duplicateBufferSequencer)
+            .Subscribe(emptyFlushObserver);
+
+        emptyFlushSource.OnNext(CoverageValueEleven);
+        duplicateBufferSequencer.RunAll();
+
+        _ = emptyFlushObserver.Values.Should().ContainSingle()
+            .Which.Should().Equal(CoverageValueEleven);
+
+        using var postStopBufferSubscription = new ScriptedObservable<int>(static observer =>
+            {
+                observer.OnCompleted();
+                observer.OnNext(CoverageValueNine);
+            })
+            .Buffer(TimeSpan.FromMilliseconds(1), new ManualSequencer())
+            .Subscribe(new RecordingObserver<IList<int>>());
+    }
+
+    /// <summary>Exercises the regular, error, completion, and post-stop throttle branches.</summary>
+    /// <returns>A task that completes when the asynchronous assertions finish.</returns>
+    private static async Task VerifyThrottleBranches()
+    {
+        using var throttleSource = new Signal<int>();
+        var throttled = new RecordingObserver<int>();
+        using var throttleSubscription = throttleSource.Throttle(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(throttled);
+
+        throttleSource.OnNext(CoverageValueFortyTwo);
+        throttleSource.OnCompleted();
+
+        _ = throttled.Values.Should().Contain(CoverageValueFortyTwo);
+        _ = throttled.Completed.Should().BeTrue();
+
+        using var throttleErrorSource = new Signal<int>();
+        var throttleErrorObserver = new RecordingObserver<int>();
+        var throttleError = new InvalidOperationException("throttle");
+        using var throttleErrorSubscription = throttleErrorSource.Throttle(TimeSpan.FromMilliseconds(1), Sequencer.Immediate).Subscribe(throttleErrorObserver);
+
+        throttleErrorSource.OnError(throttleError);
+        _ = throttleErrorObserver.Error.Should().BeSameAs(throttleError);
+
+        await VerifyThrottleCompletionBranches();
+    }
+
+    /// <summary>Exercises the completion flush and post-stop throttle branches.</summary>
+    /// <returns>A task that completes when the asynchronous assertions finish.</returns>
+    private static async Task VerifyThrottleCompletionBranches()
+    {
+        var completedThenValue = Signal.Create<int>(static observer =>
+        {
+            observer.OnNext(CoverageValueSeven);
+            observer.OnCompleted();
+            observer.OnNext(CoverageValueEight);
+            return ReactiveUI.Primitives.Disposables.Scope.Empty;
+        });
+        var manualThrottleSequencer = new ManualSequencer();
+        var completedThrottleObserver = new RecordingObserver<int>();
+
+        using var completedThrottleSubscription = completedThenValue
+            .Throttle(TimeSpan.FromMilliseconds(1), manualThrottleSequencer)
+            .Subscribe(completedThrottleObserver);
+
+        await TUnit.Assertions.Assert.That(completedThrottleObserver.Values.Count).IsEqualTo(1);
+        await TUnit.Assertions.Assert.That(completedThrottleObserver.Values[0]).IsEqualTo(CoverageValueSeven);
+        await TUnit.Assertions.Assert.That(completedThrottleObserver.Completed).IsTrue();
+
+        manualThrottleSequencer.RunAll();
+
+        await TUnit.Assertions.Assert.That(completedThrottleObserver.Values.Count).IsEqualTo(1);
+        await TUnit.Assertions.Assert.That(completedThrottleObserver.Values[0]).IsEqualTo(CoverageValueSeven);
+
+        using var postStopThrottleSubscription = new ScriptedObservable<int>(static observer =>
+            {
+                observer.OnCompleted();
+                observer.OnNext(CoverageValueNine);
+            })
+            .Throttle(TimeSpan.FromMilliseconds(1), new ManualSequencer())
+            .Subscribe(new RecordingObserver<int>());
     }
 
     /// <summary>Represents a value type that contains a managed reference.</summary>
@@ -789,6 +908,7 @@ public class CoreCoverageTests
     /// <summary>Provides EventSource.</summary>
     private sealed class EventSource
     {
+        /// <summary>Raised when the event source is triggered.</summary>
         public event EventHandler<EventArgs>? Raised;
 
         /// <summary>Provides Raise.</summary>
@@ -838,13 +958,14 @@ public class CoreCoverageTests
     /// <summary>Provides ManualSequencer.</summary>
     private sealed class ManualSequencer : ISequencer
     {
+        /// <summary>The scheduled work items awaiting execution.</summary>
         private readonly Queue<IWorkItem> _workItems = new();
 
         /// <summary>Gets Now.</summary>
-        public DateTimeOffset Now => DateTimeOffset.UtcNow;
+        public DateTimeOffset Now => Sequencer.Immediate.Now;
 
         /// <summary>Gets Timestamp.</summary>
-        public long Timestamp => DateTimeOffset.UtcNow.Ticks;
+        public long Timestamp => Sequencer.Immediate.Timestamp;
 
         /// <summary>Provides Schedule.</summary>
         /// <param name="item">The item value.</param>
@@ -868,13 +989,14 @@ public class CoreCoverageTests
     /// <summary>Provides DuplicateSequencer.</summary>
     private sealed class DuplicateSequencer : ISequencer
     {
+        /// <summary>The scheduled work items awaiting execution.</summary>
         private readonly Queue<IWorkItem> _workItems = new();
 
         /// <summary>Gets Now.</summary>
-        public DateTimeOffset Now => DateTimeOffset.UtcNow;
+        public DateTimeOffset Now => Sequencer.Immediate.Now;
 
         /// <summary>Gets Timestamp.</summary>
-        public long Timestamp => DateTimeOffset.UtcNow.Ticks;
+        public long Timestamp => Sequencer.Immediate.Timestamp;
 
         /// <summary>Provides Schedule.</summary>
         /// <param name="item">The item value.</param>
@@ -909,6 +1031,7 @@ public class CoreCoverageTests
     /// <param name="Value">The Value.</param>
     private sealed record NotifyItem(int Value) : System.ComponentModel.INotifyPropertyChanged
     {
+        /// <summary>Raised when a property value changes.</summary>
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>Provides Raise.</summary>

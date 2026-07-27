@@ -1,10 +1,9 @@
 // Copyright (c) 2023-2026 Chris Pulman and Contributors. All rights reserved.
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
-#if NET48
+
 using System;
 using System.IO;
-using System.Linq;
 using System.Runtime.Serialization;
 using CP.Primitives.Collections;
 using FluentAssertions;
@@ -25,10 +24,10 @@ public class ReactiveListSerializationTests
 
         var deserialized = RoundTrip(list);
 
-        deserialized.Count.Should().Be(TestValueThree);
-        deserialized[0].Should().Be("one");
-        deserialized[1].Should().Be("two");
-        deserialized[TestValueTwo].Should().Be("three");
+        _ = deserialized.Count.Should().Be(TestValueThree);
+        _ = deserialized[0].Should().Be("one");
+        _ = deserialized[1].Should().Be("two");
+        _ = deserialized[TestValueTwo].Should().Be("three");
     }
 
     /// <summary>Deserialized ReactiveList should work normally.</summary>
@@ -42,17 +41,17 @@ public class ReactiveListSerializationTests
 
         // Test that we can add items
         deserialized.Add(TestValueFour);
-        deserialized.Count.Should().Be(TestValueFour);
+        _ = deserialized.Count.Should().Be(TestValueFour);
 
         // Test that Items property works
-        deserialized.Items.Should().BeEquivalentTo([1, TestValueTwo, TestValueThree, TestValueFour]);
+        _ = deserialized.Items.Should().BeEquivalentTo([1, TestValueTwo, TestValueThree, TestValueFour]);
 
         // Test that observables work
         var addedItems = Array.Empty<int>();
-        deserialized.Added.Subscribe(items => addedItems = items.ToArray());
+        using var subscription = deserialized.Added.Subscribe(items => addedItems = [.. items]);
 
         deserialized.Add(TestValueFive);
-        addedItems.Should().BeEquivalentTo([TestValueFive]);
+        _ = addedItems.Should().BeEquivalentTo([TestValueFive]);
     }
 
     /// <summary>Deserialized ReactiveList should support remove operations.</summary>
@@ -64,9 +63,9 @@ public class ReactiveListSerializationTests
 
         var deserialized = RoundTrip(list);
 
-        deserialized.Remove("b");
-        deserialized.Count.Should().Be(TestValueTwo);
-        deserialized.Items.Should().BeEquivalentTo(["a", "c"]);
+        _ = deserialized.Remove("b");
+        _ = deserialized.Count.Should().Be(TestValueTwo);
+        _ = deserialized.Items.Should().BeEquivalentTo(["a", "c"]);
     }
 
     /// <summary>Deserialized ReactiveList should support clear operations.</summary>
@@ -79,8 +78,8 @@ public class ReactiveListSerializationTests
         var deserialized = RoundTrip(list);
 
         deserialized.Clear();
-        deserialized.Count.Should().Be(0);
-        deserialized.Items.Should().BeEmpty();
+        _ = deserialized.Count.Should().Be(0);
+        _ = deserialized.Items.Should().BeEmpty();
     }
 
     /// <summary>Empty ReactiveList should be serializable.</summary>
@@ -91,27 +90,23 @@ public class ReactiveListSerializationTests
 
         var deserialized = RoundTrip(list);
 
-        deserialized.Count.Should().Be(0);
-        deserialized.Items.Should().BeEmpty();
+        _ = deserialized.Count.Should().Be(0);
+        _ = deserialized.Items.Should().BeEmpty();
     }
 
     /// <summary>ReactiveList with complex types should be serializable.</summary>
     [Test]
     public void ReactiveListWithComplexTypes_ShouldBeSerializable()
     {
-        var list = new ReactiveList<TestData>
-        {
-            new("Alice", TestValueThirty),
-            new("Bob", TestValueTwentyFive)
-        };
+        var list = new ReactiveList<TestData> { new("Alice", TestValueThirty), new("Bob", TestValueTwentyFive) };
 
         var deserialized = RoundTrip(list);
 
-        deserialized.Count.Should().Be(TestValueTwo);
-        deserialized[0].Name.Should().Be("Alice");
-        deserialized[0].Age.Should().Be(TestValueThirty);
-        deserialized[1].Name.Should().Be("Bob");
-        deserialized[1].Age.Should().Be(TestValueTwentyFive);
+        _ = deserialized.Count.Should().Be(TestValueTwo);
+        _ = deserialized[0].Name.Should().Be("Alice");
+        _ = deserialized[0].Age.Should().Be(TestValueThirty);
+        _ = deserialized[1].Name.Should().Be("Bob");
+        _ = deserialized[1].Age.Should().Be(TestValueTwentyFive);
     }
 
     /// <summary>Round-trips a value through the .NET Framework serializer.</summary>
@@ -134,4 +129,3 @@ public class ReactiveListSerializationTests
         throw new InvalidOperationException($"Expected a deserialized {typeof(T).FullName} instance.");
     }
 }
-#endif

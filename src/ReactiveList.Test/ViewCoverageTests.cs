@@ -8,8 +8,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using CP.Primitives.Collections;
@@ -25,13 +23,32 @@ namespace ReactiveList.Tests;
 /// <summary>Coverage tests for reactive view implementations.</summary>
 public class ViewCoverageTests
 {
+    /// <summary>Initial values used by filtered-view transition tests.</summary>
+    private static readonly int[] FilteredInitialItems =
+    [
+        TestConstants.TestValueTwo,
+        TestConstants.TestValueThree,
+        TestConstants.TestValueFour
+    ];
+
+    /// <summary>Initial values used by sorted-view transition tests.</summary>
+    private static readonly int[] SortedInitialItems = [TestConstants.TestValueThree, 1];
+
+    /// <summary>Initial values used by dynamic filtered-view transition tests.</summary>
+    private static readonly int[] DynamicFilteredInitialItems =
+    [
+        1,
+        TestConstants.TestValueTwo,
+        TestConstants.TestValueThree
+    ];
+
     /// <summary>Filtered views should track update transitions and refreshes.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
     public async Task FilteredReactiveView_UpdateTransitions_ShouldAddRemoveReplaceAndRefresh()
     {
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { TestConstants.TestValueTwo, TestConstants.TestValueThree, TestConstants.TestValueFour });
+        list.AddRange(FilteredInitialItems);
 
         using var view = new FilteredReactiveView<int>(
             list,
@@ -39,40 +56,45 @@ public class ViewCoverageTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        view.Items.Should().Equal(TestConstants.TestValueTwo, TestConstants.TestValueFour);
-        view[0].Should().Be(TestConstants.TestValueTwo);
-        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        _ = view.Items.Should().Equal(TestConstants.TestValueTwo, TestConstants.TestValueFour);
+        _ = view[0].Should().Be(TestConstants.TestValueTwo);
+        _ = ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
         var filteredProperties = new List<string?>();
-        view.PropertyChanged += (_, args) => filteredProperties.Add(args.PropertyName);
+        object? filteredPropertySender = null;
+        view.PropertyChanged += (sender, args) =>
+        {
+            filteredPropertySender = sender;
+            filteredProperties.Add(args.PropertyName);
+        };
 
         list.Update(TestConstants.TestValueTwo, TestConstants.TestValueFive);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueFour);
+        _ = view.Items.Should().Equal(TestConstants.TestValueFour);
 
         list.Update(TestConstants.TestValueThree, TestConstants.TestValueSix);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
+        _ = view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
 
         list.Update(TestConstants.TestValueFour, TestConstants.TestValueEight);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueEight, TestConstants.TestValueSix);
+        _ = view.Items.Should().Equal(TestConstants.TestValueEight, TestConstants.TestValueSix);
 
         list.Move(TestConstants.TestValueTwo, 0);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueEight, TestConstants.TestValueSix);
+        _ = view.Items.Should().Equal(TestConstants.TestValueEight, TestConstants.TestValueSix);
 
         view.Refresh();
-        view.ToArray().Should().Equal(TestConstants.TestValueEight, TestConstants.TestValueSix);
+        _ = view.Items.Should().Equal(TestConstants.TestValueEight, TestConstants.TestValueSix);
 
-        list.Remove(TestConstants.TestValueSix);
+        _ = list.Remove(TestConstants.TestValueSix);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueEight);
+        _ = view.Items.Should().Equal(TestConstants.TestValueEight);
 
         list.Clear();
         await WaitForPipeline();
-        InvokePrivate(view, TestConstants.SourceChangedMethodName, new ChangeSet<int>(new Change<int>(ChangeReason.Clear, default)));
-        view.Items.Should().BeEmpty();
-        filteredProperties.Should().Contain(nameof(view.Count));
+        _ = view.Items.Should().BeEmpty();
+        _ = filteredProperties.Should().Contain(nameof(view.Count));
+        _ = filteredPropertySender.Should().BeSameAs(view);
     }
 
     /// <summary>Sorted views should maintain comparer order through source changes.</summary>
@@ -81,7 +103,7 @@ public class ViewCoverageTests
     public async Task SortedReactiveView_Changes_ShouldKeepItemsSorted()
     {
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { TestConstants.TestValueThree, 1 });
+        list.AddRange(SortedInitialItems);
 
         using var view = new SortedReactiveView<int>(
             list,
@@ -89,35 +111,52 @@ public class ViewCoverageTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        view.Items.Should().Equal(1, TestConstants.TestValueThree);
-        view[1].Should().Be(TestConstants.TestValueThree);
-        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        _ = view.Items.Should().Equal(1, TestConstants.TestValueThree);
+        _ = view[1].Should().Be(TestConstants.TestValueThree);
+        _ = ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        var sortedCollectionNotifications = 0;
+        object? sortedCollectionSender = null;
+        NotifyCollectionChangedEventHandler sortedCollectionHandler = (sender, _) =>
+        {
+            sortedCollectionSender = sender;
+            sortedCollectionNotifications++;
+        };
+        view.CollectionChanged += sortedCollectionHandler;
+        view.CollectionChanged += sortedCollectionHandler;
+        view.CollectionChanged -= sortedCollectionHandler;
 
         list.Add(TestConstants.TestValueTwo);
         await WaitForPipeline();
-        view.Items.Should().Equal(1, TestConstants.TestValueTwo, TestConstants.TestValueThree);
+        _ = view.Items.Should().Equal(1, TestConstants.TestValueTwo, TestConstants.TestValueThree);
+        _ = sortedCollectionNotifications.Should().Be(1);
+        _ = sortedCollectionSender.Should().BeSameAs(view);
+        view.CollectionChanged -= sortedCollectionHandler;
 
         list.Add(TestConstants.TestValueTwo);
         await WaitForPipeline();
-        view.Items.Should().Equal(1, TestConstants.TestValueTwo, TestConstants.TestValueTwo, TestConstants.TestValueThree);
+        _ = view.Items.Should().Equal(1, TestConstants.TestValueTwo, TestConstants.TestValueTwo, TestConstants.TestValueThree);
+        _ = sortedCollectionNotifications.Should().Be(1);
 
         list.Update(TestConstants.TestValueThree, 0);
         await WaitForPipeline();
-        view.Items.Should().Equal(0, 1, TestConstants.TestValueTwo, TestConstants.TestValueTwo);
+        _ = view.Items.Should().Equal(0, 1, TestConstants.TestValueTwo, TestConstants.TestValueTwo);
 
         list.Move(0, TestConstants.TestValueTwo);
         await WaitForPipeline();
-        view.Items.Should().Equal(0, 1, TestConstants.TestValueTwo, TestConstants.TestValueTwo);
+        _ = view.Items.Should().Equal(0, 1, TestConstants.TestValueTwo, TestConstants.TestValueTwo);
 
-        list.Remove(1);
+        _ = list.Remove(1);
         await WaitForPipeline();
-        view.Items.Should().Equal(0, TestConstants.TestValueTwo, TestConstants.TestValueTwo);
+        _ = view.Items.Should().Equal(0, TestConstants.TestValueTwo, TestConstants.TestValueTwo);
 
-        InvokePrivate(view, TestConstants.SourceChangedMethodName, new ChangeSet<int>(new Change<int>(ChangeReason.Clear, default)));
-        view.Items.Should().BeEmpty();
+        list.Clear();
+        await WaitForPipeline();
+        _ = view.Items.Should().BeEmpty();
 
+        list.AddRange([0, TestConstants.TestValueTwo, TestConstants.TestValueTwo]);
+        await WaitForPipeline();
         view.Refresh();
-        view.Items.Should().Equal(0, TestConstants.TestValueTwo, TestConstants.TestValueTwo);
+        _ = view.Items.Should().Equal(0, TestConstants.TestValueTwo, TestConstants.TestValueTwo);
     }
 
     /// <summary>Grouped views should expose dictionary members and update group membership.</summary>
@@ -135,59 +174,62 @@ public class ViewCoverageTests
             static item => item.Region,
             Sequencer.Immediate,
             TimeSpan.Zero);
+        object? groupedCollectionSender = null;
+        object? groupedPropertySender = null;
+        view.CollectionChanged += (sender, _) => groupedCollectionSender = sender;
+        view.PropertyChanged += (sender, _) => groupedPropertySender = sender;
 
-        view.Keys.Should().BeEquivalentTo([TestConstants.NorthRegion, TestConstants.SouthRegion]);
-        view.Values.SelectMany(static group => group).Should().BeEquivalentTo([north, south]);
-        view[TestConstants.NorthRegion].Should().ContainSingle().Which.Should().Be(north);
-        view.TryGetValue(TestConstants.NorthRegion, out var northGroup).Should().BeTrue();
-        northGroup.Should().ContainSingle().Which.Should().Be(north);
-        view.TryGetValue(TestConstants.MissingKey, out var missing).Should().BeFalse();
-        missing.Should().BeEmpty();
-        ((IEnumerable)view).Cast<KeyValuePair<string, IReadOnlyList<ViewItem>>>()
-            .Should().HaveCount(TestConstants.TestValueTwo);
-        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        _ = view.Keys.Should().BeEquivalentTo([TestConstants.NorthRegion, TestConstants.SouthRegion]);
+        _ = FlattenGroups(view.Values).Should().BeEquivalentTo([north, south]);
+        _ = view[TestConstants.NorthRegion].Should().ContainSingle().Which.Should().Be(north);
+        _ = view.TryGetValue(TestConstants.NorthRegion, out var northGroup).Should().BeTrue();
+        _ = northGroup.Should().ContainSingle().Which.Should().Be(north);
+        _ = view.TryGetValue(TestConstants.MissingKey, out var missing).Should().BeFalse();
+        _ = missing.Should().BeEmpty();
+        _ = CountEntries((IEnumerable)view).Should().Be(TestConstants.TestValueTwo);
+        _ = ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
         view.Refresh();
 
         var changedScore = north with { Score = TestConstants.TestValueTen };
         list.Update(north, changedScore);
         await WaitForPipeline();
-        view[TestConstants.NorthRegion].Should().ContainSingle().Which.Should().Be(changedScore);
+        _ = view[TestConstants.NorthRegion].Should().ContainSingle().Which.Should().Be(changedScore);
 
         var movedRegion = changedScore with { Region = TestConstants.SouthRegion };
         list.Update(changedScore, movedRegion);
         await WaitForPipeline();
-        view.ContainsKey(TestConstants.NorthRegion).Should().BeFalse();
-        view[TestConstants.SouthRegion].Should().BeEquivalentTo([south, movedRegion]);
+        _ = view.ContainsKey(TestConstants.NorthRegion).Should().BeFalse();
+        _ = view[TestConstants.SouthRegion].Should().BeEquivalentTo([south, movedRegion]);
 
-        list.Remove(south);
+        _ = list.Remove(south);
         await WaitForPipeline();
-        view[TestConstants.SouthRegion].Should().ContainSingle().Which.Should().Be(movedRegion);
+        _ = view[TestConstants.SouthRegion].Should().ContainSingle().Which.Should().Be(movedRegion);
 
-        list.Remove(movedRegion);
+        _ = list.Remove(movedRegion);
         await WaitForPipeline();
-        view.Should().BeEmpty();
+        _ = view.Should().BeEmpty();
 
         list.Add(north);
         await WaitForPipeline();
         list.Clear();
         await WaitForPipeline();
-        view.Should().BeEmpty();
+        _ = view.Should().BeEmpty();
 
         var west = new ViewItem(TestConstants.TestValueThree, "west");
-        InvokePrivate(view, TestConstants.SourceChangedMethodName, new ChangeSet<ViewItem>(new Change<ViewItem>(ChangeReason.Update, west)));
-        view.ContainsKey("west").Should().BeTrue();
+        list.Add(west);
+        await WaitForPipeline();
+        _ = view.ContainsKey("west").Should().BeTrue();
 
-        InvokePrivate(view, TestConstants.SourceChangedMethodName, new ChangeSet<ViewItem>(new Change<ViewItem>(ChangeReason.Clear, default!)));
-        view.Should().BeEmpty();
+        list.Clear();
+        await WaitForPipeline();
+        _ = view.Should().BeEmpty();
 
         list.Add(north);
         await WaitForPipeline();
-        InvokePrivate(view, TestConstants.SourceChangedMethodName, new ChangeSet<ViewItem>(Change<ViewItem>.CreateRefresh(north)));
-        view.ContainsKey(TestConstants.NorthRegion).Should().BeTrue();
-
-        InvokePrivate(view, "RemoveFromGroup", new ViewItem(TestConstants.TestValueFourHundredFour, TestConstants.MissingKey));
-        ((IList)GetPrivateField(view, "_groupCollection")).Clear();
-        InvokePrivate(view, "RemoveFromGroup", north);
+        view.Refresh();
+        _ = view.ContainsKey(TestConstants.NorthRegion).Should().BeTrue();
+        _ = groupedCollectionSender.Should().BeSameAs(view);
+        _ = groupedPropertySender.Should().BeSameAs(view);
     }
 
     /// <summary>Dynamic filtered views should rebuild on filter changes and track source changes.</summary>
@@ -196,7 +238,7 @@ public class ViewCoverageTests
     public async Task DynamicFilteredReactiveView_FilterAndSourceChanges_ShouldRebuildAndTrackTransitions()
     {
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, TestConstants.TestValueTwo, TestConstants.TestValueThree });
+        list.AddRange(DynamicFilteredInitialItems);
         using var filters = new BehaviorSignal<Func<int, bool>>(static item => item >= TestConstants.TestValueTwo);
 
         using var view = new DynamicFilteredReactiveView<int>(
@@ -206,52 +248,51 @@ public class ViewCoverageTests
             TimeSpan.Zero);
 
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueTwo, TestConstants.TestValueThree);
-        view[0].Should().Be(TestConstants.TestValueTwo);
-        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        _ = view.Items.Should().Equal(TestConstants.TestValueTwo, TestConstants.TestValueThree);
+        _ = view[0].Should().Be(TestConstants.TestValueTwo);
+        _ = ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
         var dynamicFilteredProperties = new List<string?>();
         view.PropertyChanged += (_, args) => dynamicFilteredProperties.Add(args.PropertyName);
 
         filters.OnNext(null!);
         await WaitForPipeline();
-        view.Items.Should().Equal(1, TestConstants.TestValueTwo, TestConstants.TestValueThree);
+        _ = view.Items.Should().Equal(1, TestConstants.TestValueTwo, TestConstants.TestValueThree);
 
         filters.OnNext(static item => item % TestConstants.TestValueTwo == 0);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueTwo);
+        _ = view.Items.Should().Equal(TestConstants.TestValueTwo);
 
         list.Add(TestConstants.TestValueFour);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueTwo, TestConstants.TestValueFour);
+        _ = view.Items.Should().Equal(TestConstants.TestValueTwo, TestConstants.TestValueFour);
 
         list.Update(TestConstants.TestValueTwo, TestConstants.TestValueFive);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueFour);
+        _ = view.Items.Should().Equal(TestConstants.TestValueFour);
 
         list.Update(1, TestConstants.TestValueSix);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
+        _ = view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
 
         view.Refresh();
-        view.Items.Should().Equal(TestConstants.TestValueSix, TestConstants.TestValueFour);
+        _ = view.Items.Should().Equal(TestConstants.TestValueSix, TestConstants.TestValueFour);
 
         list.Update(TestConstants.TestValueFour, TestConstants.TestValueEight);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueSix, TestConstants.TestValueEight);
+        _ = view.Items.Should().Equal(TestConstants.TestValueSix, TestConstants.TestValueEight);
 
-        list.Remove(TestConstants.TestValueSix);
+        _ = list.Remove(TestConstants.TestValueSix);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueEight);
+        _ = view.Items.Should().Equal(TestConstants.TestValueEight);
 
         list.Move(TestConstants.TestValueTwo, 0);
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueEight);
+        _ = view.Items.Should().Equal(TestConstants.TestValueEight);
 
         list.Clear();
         await WaitForPipeline();
-        InvokePrivate(view, TestConstants.SourceChangedMethodName, new ChangeSet<int>(new Change<int>(ChangeReason.Clear, default)));
-        view.Items.Should().BeEmpty();
-        dynamicFilteredProperties.Should().Contain(nameof(view.Count));
+        _ = view.Items.Should().BeEmpty();
+        _ = dynamicFilteredProperties.Should().Contain(nameof(view.Count));
     }
 
     /// <summary>Dynamic reactive views should apply single and batch stream actions.</summary>
@@ -270,44 +311,42 @@ public class ViewCoverageTests
         var dynamicProperties = new List<string?>();
         view.PropertyChanged += (_, args) => dynamicProperties.Add(args.PropertyName);
 
-        view.Items.Should().Equal(TestConstants.TestValueTwo);
+        _ = view.Items.Should().Equal(TestConstants.TestValueTwo);
 
         source.AddItem(TestConstants.TestValueFour);
-        source.Emit(new CacheNotify<int>(CacheAction.Added, TestConstants.TestValueFour));
+        source.Emit(new(CacheAction.Added, TestConstants.TestValueFour));
         source.AddItem(TestConstants.TestValueFive);
-        source.Emit(new CacheNotify<int>(CacheAction.Added, TestConstants.TestValueFive));
+        source.Emit(new(CacheAction.Added, TestConstants.TestValueFive));
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueTwo, TestConstants.TestValueFour);
+        _ = view.Items.Should().Equal(TestConstants.TestValueTwo, TestConstants.TestValueFour);
 
         source.RemoveItem(TestConstants.TestValueTwo);
-        source.Emit(new CacheNotify<int>(CacheAction.Removed, TestConstants.TestValueTwo));
+        source.Emit(new(CacheAction.Removed, TestConstants.TestValueTwo));
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueFour);
+        _ = view.Items.Should().Equal(TestConstants.TestValueFour);
 
         source.AddItems([TestConstants.TestValueSix, TestConstants.TestValueSeven]);
-        source.Emit(new CacheNotify<int>(CacheAction.BatchAdded, default, CreateBatch(TestConstants.TestValueSix, TestConstants.TestValueSeven)));
+        source.Emit(new(CacheAction.BatchAdded, default, CreateBatch(TestConstants.TestValueSix, TestConstants.TestValueSeven)));
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
+        _ = view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
 
         source.RemoveItems([TestConstants.TestValueFour, TestConstants.TestValueSix]);
-        source.Emit(new CacheNotify<int>(CacheAction.BatchRemoved, default, CreateBatch(TestConstants.TestValueFour, TestConstants.TestValueSix)));
+        source.Emit(new(CacheAction.BatchRemoved, default, CreateBatch(TestConstants.TestValueFour, TestConstants.TestValueSix)));
         await WaitForPipeline();
-        view.Items.Should().BeEmpty();
+        _ = view.Items.Should().BeEmpty();
 
         source.ClearItems();
-        source.Emit(new CacheNotify<int>(CacheAction.Cleared, default));
+        source.Emit(new(CacheAction.Cleared, default));
         await WaitForPipeline();
-        view.Items.Should().BeEmpty();
+        _ = view.Items.Should().BeEmpty();
 
         filters.OnNext(static _ => true);
         await WaitForPipeline();
         source.AddItem(TestConstants.TestValueNine);
-        source.Emit(new CacheNotify<int>(CacheAction.Added, TestConstants.TestValueNine));
+        source.Emit(new(CacheAction.Added, TestConstants.TestValueNine));
         await WaitForPipeline();
-        view.Items.Should().Equal(TestConstants.TestValueNine);
-        dynamicProperties.Should().Contain(nameof(view.Items));
-        view.Dispose();
-        view.Dispose();
+        _ = view.Items.Should().Equal(TestConstants.TestValueNine);
+        _ = dynamicProperties.Should().Contain(nameof(view.Items));
     }
 
     /// <summary>Complex changes buffered with later additions should rebuild exactly once from the final source state.</summary>
@@ -330,30 +369,30 @@ public class ViewCoverageTests
                 return;
             }
 
-            applied.TrySetResult(true);
+            _ = applied.TrySetResult(true);
         };
 
         source.RemoveItem(TestConstants.TestValueTwo);
         source.AddItem(TestConstants.TestValueFour);
-        source.Emit(new CacheNotify<int>(
+        source.Emit(new(
             CacheAction.Updated,
             TestConstants.TestValueFour,
             Previous: TestConstants.TestValueTwo));
         source.AddItem(TestConstants.TestValueSix);
-        source.Emit(new CacheNotify<int>(CacheAction.Added, TestConstants.TestValueSix));
+        source.Emit(new(CacheAction.Added, TestConstants.TestValueSix));
 
         await applied.Task;
 
-        view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
+        _ = view.Items.Should().Equal(TestConstants.TestValueFour, TestConstants.TestValueSix);
 
         applied = new(TaskCreationOptions.RunContinuationsAsynchronously);
         source.ClearItems();
         source.AddItem(TestConstants.TestValueEight);
-        source.Emit(new CacheNotify<int>(CacheAction.BatchOperation, default));
+        source.Emit(new(CacheAction.BatchOperation, default));
 
         await applied.Task;
 
-        view.Items.Should().Equal(TestConstants.TestValueEight);
+        _ = view.Items.Should().Equal(TestConstants.TestValueEight);
     }
 
     /// <summary>Dynamic reactive views should use the default include-all filter when null filters are emitted.</summary>
@@ -370,13 +409,13 @@ public class ViewCoverageTests
             TimeSpan.Zero,
             Sequencer.Immediate);
 
-        view.Items.Should().Equal(1);
+        _ = view.Items.Should().Equal(1);
 
         source.AddItem(TestConstants.TestValueTwo);
         filters.OnNext(null!);
         await WaitForPipeline();
 
-        view.Items.Should().Equal(1, TestConstants.TestValueTwo);
+        _ = view.Items.Should().Equal(1, TestConstants.TestValueTwo);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -389,50 +428,50 @@ public class ViewCoverageTests
         using var dictionary = new QuaternaryDictionary<int, ViewItem>();
         var north = new ViewItem(1, TestConstants.NorthRegion);
         dictionary.Add(1, north);
-        dictionary.Add(TestConstants.TestValueTwo, new ViewItem(TestConstants.TestValueTwo, TestConstants.SouthRegion));
+        dictionary.Add(TestConstants.TestValueTwo, new(TestConstants.TestValueTwo, TestConstants.SouthRegion));
         dictionary.AddValueIndex(TestConstants.RegionPropertyName, static item => item.Region);
 
-        using var view = SecondaryIndexReactiveView<int, ViewItem>.Create<string>(
+        using var view = SecondaryIndexReactiveView<int, ViewItem>.Create(
             dictionary,
             TestConstants.RegionPropertyName,
             TestConstants.NorthRegion,
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        view.Items.Should().ContainSingle().Which.Should().Be(north);
-        view.Count.Should().Be(1);
-        view[0].Should().Be(north);
-        view.ToProperty(out var outCollection).Should().BeSameAs(view);
-        outCollection.Should().BeSameAs(view.Items);
-        view.ToProperty(collection => collection.Should().BeSameAs(view.Items)).Should().BeSameAs(view);
+        _ = view.Items.Should().ContainSingle().Which.Should().Be(north);
+        _ = view.Count.Should().Be(1);
+        _ = view[0].Should().Be(north);
+        _ = view.ToProperty(out var outCollection).Should().BeSameAs(view);
+        _ = outCollection.Should().BeSameAs(view.Items);
+        _ = view.ToProperty(collection => collection.Should().BeSameAs(view.Items)).Should().BeSameAs(view);
         view.Refresh();
-        view.GetEnumerator().MoveNext().Should().BeTrue();
-        ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
+        _ = view.GetEnumerator().MoveNext().Should().BeTrue();
+        _ = ((IEnumerable)view).GetEnumerator().MoveNext().Should().BeTrue();
         var secondaryProperties = new List<string?>();
         view.PropertyChanged += (_, args) => secondaryProperties.Add(args.PropertyName);
 
-        InvokePrivate(view, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<int, ViewItem>>(CacheAction.Refreshed, default));
-        view.Items.Should().ContainSingle().Which.Should().Be(north);
+        view.Refresh();
+        _ = view.Items.Should().ContainSingle().Which.Should().Be(north);
 
         dictionary.AddOrUpdate(1, north with { Region = TestConstants.SouthRegion });
         await WaitForPipeline();
-        view.Items.Should().BeEmpty();
+        _ = view.Items.Should().BeEmpty();
 
         var newNorth = new ViewItem(TestConstants.TestValueThree, TestConstants.NorthRegion);
         dictionary.AddOrUpdate(TestConstants.TestValueThree, newNorth);
         await WaitForPipeline();
-        view.Items.Should().ContainSingle().Which.Should().Be(newNorth);
+        _ = view.Items.Should().ContainSingle().Which.Should().Be(newNorth);
 
-        dictionary.Remove(TestConstants.TestValueThree);
+        _ = dictionary.Remove(TestConstants.TestValueThree);
         await WaitForPipeline();
-        view.Items.Should().BeEmpty();
+        _ = view.Items.Should().BeEmpty();
 
-        dictionary.AddOrUpdate(TestConstants.TestValueFour, new ViewItem(TestConstants.TestValueFour, TestConstants.NorthRegion));
+        dictionary.AddOrUpdate(TestConstants.TestValueFour, new(TestConstants.TestValueFour, TestConstants.NorthRegion));
         await WaitForPipeline();
         dictionary.Clear();
         await WaitForPipeline();
-        view.Items.Should().BeEmpty();
-        secondaryProperties.Should().Contain(nameof(view.Count));
+        _ = view.Items.Should().BeEmpty();
+        _ = secondaryProperties.Should().Contain(nameof(view.Count));
     }
 
     /// <summary>Dynamic secondary-index views should track key changes and dictionary updates.</summary>
@@ -455,99 +494,30 @@ public class ViewCoverageTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        listView.Items.Should().ContainSingle().Which.Should().Be(north);
-        listView.Count.Should().Be(1);
-        listView[0].Should().Be(north);
-        listView.ToProperty(out var listOutCollection).Should().BeSameAs(listView);
-        listOutCollection.Should().BeSameAs(listView.Items);
-        listView.ToProperty(collection => collection.Should().BeSameAs(listView.Items)).Should().BeSameAs(listView);
-        listView.Refresh();
-        listView.GetEnumerator().MoveNext().Should().BeTrue();
-        ((IEnumerable)listView).GetEnumerator().MoveNext().Should().BeTrue();
         var listViewProperties = new List<string?>();
         listView.PropertyChanged += (_, args) => listViewProperties.Add(args.PropertyName);
-
-        list.Remove(north);
-        await WaitForPipeline();
-        listView.Items.Should().BeEmpty();
-
-        list.Add(north);
-        await WaitForPipeline();
-        listView.Items.Should().ContainSingle().Which.Should().Be(north);
-
-        listKeys.OnNext([TestConstants.SouthRegion]);
-        await WaitForPipeline();
-        listView.Items.Should().ContainSingle().Which.Should().Be(south);
-
-        var secondSouth = new ViewItem(TestConstants.TestValueThree, TestConstants.SouthRegion);
-        list.Add(secondSouth);
-        await WaitForPipeline();
-        listView.Items.Should().BeEquivalentTo([south, secondSouth]);
-
-        list.ReplaceAll([north]);
-        await WaitForPipeline();
-        listView.Items.Should().BeEmpty();
-        listViewProperties.Should().Contain(nameof(listView.Count));
+        await VerifyDynamicSecondaryListView(list, listView, listKeys, north, south, listViewProperties);
 
         using var dictionary = new QuaternaryDictionary<int, ViewItem> { { 1, north } };
         dictionary.Add(TestConstants.TestValueTwo, south);
         dictionary.AddValueIndex(TestConstants.RegionPropertyName, static item => item.Region);
         using var dictionaryKeys = new BehaviorSignal<string[]>([TestConstants.NorthRegion]);
 
-        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, ViewItem>.Create<string>(
+        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, ViewItem>.Create(
             dictionary,
             TestConstants.RegionPropertyName,
             dictionaryKeys,
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        dictionaryView.Items.Should().ContainSingle().Which.Should().Be(new KeyValuePair<int, ViewItem>(1, north));
-        dictionaryView.Count.Should().Be(1);
-        dictionaryView[0].Key.Should().Be(1);
-        dictionaryView.ToProperty(out var dictionaryOutCollection).Should().BeSameAs(dictionaryView);
-        dictionaryOutCollection.Should().BeSameAs(dictionaryView.Items);
-        dictionaryView.ToProperty(collection => collection.Should().BeSameAs(dictionaryView.Items)).Should().BeSameAs(dictionaryView);
-        dictionaryView.Refresh();
-        dictionaryView.GetEnumerator().MoveNext().Should().BeTrue();
-        ((IEnumerable)dictionaryView).GetEnumerator().MoveNext().Should().BeTrue();
         var dictionaryViewProperties = new List<string?>();
         dictionaryView.PropertyChanged += (_, args) => dictionaryViewProperties.Add(args.PropertyName);
-
-        dictionary.AddOrUpdate(1, north with { Region = TestConstants.SouthRegion });
-        await WaitForPipeline();
-        dictionaryView.Items.Should().BeEmpty();
-
-        dictionary.AddOrUpdate(TestConstants.TestValueFour, new ViewItem(TestConstants.TestValueFour, TestConstants.NorthRegion));
-        await WaitForPipeline();
-        dictionaryView.Items.Select(static item => item.Key).Should().Contain(TestConstants.TestValueFour);
-
-        dictionary.AddOrUpdate(TestConstants.TestValueFour, new ViewItem(TestConstants.TestValueFour, TestConstants.NorthRegion, Score: 10));
-        await WaitForPipeline();
-        dictionaryView.Items.Single(static item => item.Key == TestConstants.TestValueFour).Value.Score.Should().Be(TestConstants.TestValueTen);
-
-        dictionaryKeys.OnNext([TestConstants.SouthRegion]);
-        await WaitForPipeline();
-        dictionaryView.Items.Select(static item => item.Key).Should().BeEquivalentTo([1, TestConstants.TestValueTwo]);
-
-        dictionary.AddOrUpdate(TestConstants.TestValueFive, new ViewItem(TestConstants.TestValueFive, TestConstants.NorthRegion));
-        await WaitForPipeline();
-        dictionary.AddOrUpdate(TestConstants.TestValueFive, new ViewItem(TestConstants.TestValueFive, TestConstants.SouthRegion));
-        await WaitForPipeline();
-        dictionaryView.Items.Select(static item => item.Key).Should().Contain(TestConstants.TestValueFive);
-
-        var thirdSouth = new ViewItem(TestConstants.TestValueThree, TestConstants.SouthRegion);
-        dictionary.AddOrUpdate(TestConstants.TestValueThree, thirdSouth);
-        await WaitForPipeline();
-        dictionaryView.Items.Select(static item => item.Key).Should().Contain(TestConstants.TestValueThree);
-
-        dictionary.Remove(1);
-        await WaitForPipeline();
-        dictionaryView.Items.Select(static item => item.Key).Should().NotContain(1);
-
-        dictionary.Clear();
-        await WaitForPipeline();
-        dictionaryView.Items.Should().BeEmpty();
-        dictionaryViewProperties.Should().Contain(nameof(dictionaryView.Count));
+        await VerifyDynamicSecondaryDictionaryView(
+            dictionary,
+            dictionaryView,
+            dictionaryKeys,
+            north,
+            dictionaryViewProperties);
     }
 
     /// <summary>Dynamic view constructors should ignore initial probe errors and keep default state.</summary>
@@ -561,16 +531,16 @@ public class ViewCoverageTests
             TimeSpan.Zero,
             Sequencer.Immediate);
 
-        dynamicView.Items.Should().Equal(1);
+        _ = dynamicView.Items.Should().Equal(1);
         using var twoValueDynamicView = new DynamicReactiveView<int>(
             source,
             new TwoValueObservable<Func<int, bool>>(static item => item == 1, static _ => false),
             TimeSpan.Zero,
             Sequencer.Immediate);
 
-        twoValueDynamicView.Items.Should().BeEmpty();
+        _ = twoValueDynamicView.Items.Should().BeEmpty();
 
-        using var list = new QuaternaryList<MutableViewItem> { new(1, TestConstants.NorthRegion) };
+        using var list = new QuaternaryList<MutableViewItem> { new(TestConstants.NorthRegion) };
         list.AddIndex(TestConstants.RegionPropertyName, static item => item.Region);
         using var listView = new DynamicSecondaryIndexReactiveView<MutableViewItem, string>(
             list,
@@ -579,7 +549,7 @@ public class ViewCoverageTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        listView.Items.Should().BeEmpty();
+        _ = listView.Items.Should().BeEmpty();
         using var twoValueListView = new DynamicSecondaryIndexReactiveView<MutableViewItem, string>(
             list,
             TestConstants.RegionPropertyName,
@@ -587,35 +557,36 @@ public class ViewCoverageTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        twoValueListView.Items.Should().BeEmpty();
+        _ = twoValueListView.Items.Should().BeEmpty();
 
-        using var dictionary = new QuaternaryDictionary<int, MutableViewItem> { { 1, new MutableViewItem(1, TestConstants.NorthRegion) } };
+        using var dictionary = new QuaternaryDictionary<int, MutableViewItem> { { 1, new MutableViewItem(TestConstants.NorthRegion) } };
         dictionary.AddValueIndex(TestConstants.RegionPropertyName, static item => item.Region);
-        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create<string>(
+        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create(
             dictionary,
             TestConstants.RegionPropertyName,
             new FirstSubscriptionErrorObservable<string[]>(),
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        dictionaryView.Items.Should().BeEmpty();
-        using var twoValueDictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create<string>(
+        _ = dictionaryView.Items.Should().BeEmpty();
+        using var twoValueDictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create(
             dictionary,
             TestConstants.RegionPropertyName,
             new TwoValueObservable<string[]>([TestConstants.NorthRegion], [TestConstants.SouthRegion]),
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        twoValueDictionaryView.Items.Should().BeEmpty();
+        _ = twoValueDictionaryView.Items.Should().BeEmpty();
     }
 
     /// <summary>Dynamic secondary-index views should handle mutable update transitions directly.</summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public void DynamicSecondaryIndexViews_MutableUpdates_ShouldAddRemoveClearAndRebuild()
+    public async Task DynamicSecondaryIndexViews_MutableUpdates_ShouldAddRemoveClearAndRebuild()
     {
         using var list = new QuaternaryList<MutableViewItem>();
-        var listNorth = new MutableViewItem(1, TestConstants.NorthRegion);
-        var listSouth = new MutableViewItem(TestConstants.TestValueTwo, TestConstants.SouthRegion);
+        var listNorth = new MutableViewItem(TestConstants.NorthRegion);
+        var listSouth = new MutableViewItem(TestConstants.SouthRegion);
         list.Add(listNorth);
         list.Add(listSouth);
         list.AddIndex(TestConstants.RegionPropertyName, static item => item.Region);
@@ -627,128 +598,289 @@ public class ViewCoverageTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        listView.Items.Should().ContainSingle().Which.Should().BeSameAs(listNorth);
-
-        listNorth.Region = TestConstants.SouthRegion;
-        InvokePrivate(listView, TestConstants.SourceChangedMethodName, new CacheNotify<MutableViewItem>(CacheAction.Updated, listNorth));
-        listView.Items.Should().BeEmpty();
-
-        listSouth.Region = TestConstants.NorthRegion;
-        InvokePrivate(listView, TestConstants.SourceChangedMethodName, new CacheNotify<MutableViewItem>(CacheAction.Updated, listSouth));
-        listView.Items.Should().ContainSingle().Which.Should().BeSameAs(listSouth);
-
-        InvokePrivate(listView, TestConstants.SourceChangedMethodName, new CacheNotify<MutableViewItem>(CacheAction.Removed, listSouth));
-        listView.Items.Should().BeEmpty();
-
-        InvokePrivate(listView, TestConstants.SourceChangedMethodName, new CacheNotify<MutableViewItem>(CacheAction.BatchOperation, default));
-        listView.Items.Count.Should().Be(1);
-
-        InvokePrivate(listView, TestConstants.SourceChangedMethodName, new CacheNotify<MutableViewItem>(CacheAction.Cleared, default));
-        listView.Items.Should().BeEmpty();
+        _ = listView.Items.Should().ContainSingle().Which.Should().BeSameAs(listNorth);
+        await VerifyMutableSecondaryListView(list, listView, listNorth, listSouth);
 
         using var dictionary = new QuaternaryDictionary<int, MutableViewItem>();
-        var dictionaryNorth = new MutableViewItem(1, TestConstants.NorthRegion);
-        var dictionarySouth = new MutableViewItem(TestConstants.TestValueTwo, TestConstants.SouthRegion);
+        var dictionaryNorth = new MutableViewItem(TestConstants.NorthRegion);
+        var dictionarySouth = new MutableViewItem(TestConstants.SouthRegion);
         dictionary.Add(1, dictionaryNorth);
         dictionary.Add(TestConstants.TestValueTwo, dictionarySouth);
         dictionary.AddValueIndex(TestConstants.RegionPropertyName, static item => item.Region);
         using var dictionaryKeys = new BehaviorSignal<string[]>([TestConstants.NorthRegion]);
-        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create<string>(
+        using var dictionaryView = DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem>.Create(
             dictionary,
             TestConstants.RegionPropertyName,
             dictionaryKeys,
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        dictionaryView.Items.Should().ContainSingle()
+        _ = dictionaryView.Items.Should().ContainSingle()
             .Which.Value.Should().BeSameAs(dictionaryNorth);
+        await VerifyMutableSecondaryDictionaryView(
+            dictionary,
+            dictionaryView,
+            dictionaryNorth,
+            dictionarySouth);
+    }
 
+    /// <summary>Verifies public dictionary operations flow through a dynamic secondary-index view.</summary>
+    /// <param name="dictionary">The source dictionary.</param>
+    /// <param name="dictionaryView">The view under test.</param>
+    /// <param name="dictionaryKeys">The selected secondary-index keys.</param>
+    /// <param name="north">The initial matching item.</param>
+    /// <param name="dictionaryViewProperties">The property notifications captured from the view.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous verification.</returns>
+    private static async Task VerifyDynamicSecondaryDictionaryView(
+        QuaternaryDictionary<int, ViewItem> dictionary,
+        DynamicSecondaryIndexDictionaryReactiveView<int, ViewItem> dictionaryView,
+        BehaviorSignal<string[]> dictionaryKeys,
+        ViewItem north,
+        List<string?> dictionaryViewProperties)
+    {
+        _ = dictionaryView.Items.Should().ContainSingle().Which.Should().Be(new KeyValuePair<int, ViewItem>(1, north));
+        _ = dictionaryView.Count.Should().Be(1);
+        _ = dictionaryView[0].Key.Should().Be(1);
+        _ = dictionaryView.ToProperty(out var dictionaryOutCollection).Should().BeSameAs(dictionaryView);
+        _ = dictionaryOutCollection.Should().BeSameAs(dictionaryView.Items);
+        _ = dictionaryView.ToProperty(collection => collection.Should().BeSameAs(dictionaryView.Items)).Should().BeSameAs(dictionaryView);
+        dictionaryView.Refresh();
+        _ = dictionaryView.GetEnumerator().MoveNext().Should().BeTrue();
+        _ = ((IEnumerable)dictionaryView).GetEnumerator().MoveNext().Should().BeTrue();
+        dictionary.AddOrUpdate(1, north with { Region = TestConstants.SouthRegion });
+        await WaitForPipeline();
+        _ = dictionaryView.Items.Should().BeEmpty();
+
+        dictionary.AddOrUpdate(TestConstants.TestValueFour, new(TestConstants.TestValueFour, TestConstants.NorthRegion));
+        await WaitForPipeline();
+        _ = GetKeys(dictionaryView.Items).Should().Contain(TestConstants.TestValueFour);
+
+        dictionary.AddOrUpdate(TestConstants.TestValueFour, new(TestConstants.TestValueFour, TestConstants.NorthRegion, Score: 10));
+        await WaitForPipeline();
+        _ = FindByKey(dictionaryView.Items, TestConstants.TestValueFour).Value.Score.Should().Be(TestConstants.TestValueTen);
+
+        dictionaryKeys.OnNext([TestConstants.SouthRegion]);
+        await WaitForPipeline();
+        _ = GetKeys(dictionaryView.Items).Should().BeEquivalentTo([1, TestConstants.TestValueTwo]);
+
+        dictionary.AddOrUpdate(TestConstants.TestValueFive, new(TestConstants.TestValueFive, TestConstants.NorthRegion));
+        await WaitForPipeline();
+        dictionary.AddOrUpdate(TestConstants.TestValueFive, new(TestConstants.TestValueFive, TestConstants.SouthRegion));
+        await WaitForPipeline();
+        _ = GetKeys(dictionaryView.Items).Should().Contain(TestConstants.TestValueFive);
+
+        var thirdSouth = new ViewItem(TestConstants.TestValueThree, TestConstants.SouthRegion);
+        dictionary.AddOrUpdate(TestConstants.TestValueThree, thirdSouth);
+        await WaitForPipeline();
+        _ = GetKeys(dictionaryView.Items).Should().Contain(TestConstants.TestValueThree);
+
+        _ = dictionary.Remove(1);
+        await WaitForPipeline();
+        _ = GetKeys(dictionaryView.Items).Should().NotContain(1);
+
+        dictionary.Clear();
+        await WaitForPipeline();
+        _ = dictionaryView.Items.Should().BeEmpty();
+        _ = dictionaryViewProperties.Should().Contain(nameof(dictionaryView.Count));
+    }
+
+    /// <summary>Verifies public list operations flow through a dynamic secondary-index view.</summary>
+    /// <param name="list">The source list.</param>
+    /// <param name="listView">The view under test.</param>
+    /// <param name="listKeys">The selected secondary-index keys.</param>
+    /// <param name="north">The initially matching item.</param>
+    /// <param name="south">The item selected after the key changes.</param>
+    /// <param name="listViewProperties">The property notifications captured from the view.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous verification.</returns>
+    private static async Task VerifyDynamicSecondaryListView(
+        QuaternaryList<ViewItem> list,
+        DynamicSecondaryIndexReactiveView<ViewItem, string> listView,
+        BehaviorSignal<string[]> listKeys,
+        ViewItem north,
+        ViewItem south,
+        List<string?> listViewProperties)
+    {
+        _ = listView.Items.Should().ContainSingle().Which.Should().Be(north);
+        _ = listView.Count.Should().Be(1);
+        _ = listView[0].Should().Be(north);
+        _ = listView.ToProperty(out var listOutCollection).Should().BeSameAs(listView);
+        _ = listOutCollection.Should().BeSameAs(listView.Items);
+        _ = listView.ToProperty(collection => collection.Should().BeSameAs(listView.Items)).Should().BeSameAs(listView);
+        listView.Refresh();
+        _ = listView.GetEnumerator().MoveNext().Should().BeTrue();
+        _ = ((IEnumerable)listView).GetEnumerator().MoveNext().Should().BeTrue();
+        _ = list.Remove(north);
+        await WaitForPipeline();
+        _ = listView.Items.Should().BeEmpty();
+        list.Add(north);
+        await WaitForPipeline();
+        _ = listView.Items.Should().ContainSingle().Which.Should().Be(north);
+        listKeys.OnNext([TestConstants.SouthRegion]);
+        await WaitForPipeline();
+        _ = listView.Items.Should().ContainSingle().Which.Should().Be(south);
+        var secondSouth = new ViewItem(TestConstants.TestValueThree, TestConstants.SouthRegion);
+        list.Add(secondSouth);
+        await WaitForPipeline();
+        _ = listView.Items.Should().BeEquivalentTo([south, secondSouth]);
+        list.ReplaceAll([north]);
+        await WaitForPipeline();
+        _ = listView.Items.Should().BeEmpty();
+        _ = listViewProperties.Should().Contain(nameof(listView.Count));
+    }
+
+    /// <summary>Verifies mutable dictionary items through public update, remove, add, and clear operations.</summary>
+    /// <param name="dictionary">The source dictionary.</param>
+    /// <param name="dictionaryView">The dynamic view under test.</param>
+    /// <param name="dictionaryNorth">The initially matching item.</param>
+    /// <param name="dictionarySouth">The item mutated into the selected index.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous verification.</returns>
+    private static async Task VerifyMutableSecondaryDictionaryView(
+        QuaternaryDictionary<int, MutableViewItem> dictionary,
+        DynamicSecondaryIndexDictionaryReactiveView<int, MutableViewItem> dictionaryView,
+        MutableViewItem dictionaryNorth,
+        MutableViewItem dictionarySouth)
+    {
         dictionaryNorth.Region = TestConstants.SouthRegion;
-        InvokePrivate(dictionaryView, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<int, MutableViewItem>>(
-            CacheAction.Updated,
-            new KeyValuePair<int, MutableViewItem>(1, dictionaryNorth)));
-        dictionaryView.Items.Should().BeEmpty();
+        dictionary.AddOrUpdate(1, dictionaryNorth);
+        await WaitForPipeline();
+        _ = dictionaryView.Items.Should().BeEmpty();
 
         dictionarySouth.Region = TestConstants.NorthRegion;
-        InvokePrivate(dictionaryView, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<int, MutableViewItem>>(
-            CacheAction.Updated,
-            new KeyValuePair<int, MutableViewItem>(TestConstants.TestValueTwo, dictionarySouth)));
-        dictionaryView.Items.Should().ContainSingle()
+        dictionary.AddOrUpdate(TestConstants.TestValueTwo, dictionarySouth);
+        await WaitForPipeline();
+        _ = dictionaryView.Items.Should().ContainSingle()
             .Which.Value.Should().BeSameAs(dictionarySouth);
 
         dictionarySouth.Score = TestConstants.TestValueTen;
-        InvokePrivate(dictionaryView, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<int, MutableViewItem>>(
-            CacheAction.Updated,
-            new KeyValuePair<int, MutableViewItem>(TestConstants.TestValueTwo, dictionarySouth)));
-        dictionaryView.Items.Single().Value.Score.Should().Be(TestConstants.TestValueTen);
+        dictionary.AddOrUpdate(TestConstants.TestValueTwo, dictionarySouth);
+        await WaitForPipeline();
+        _ = dictionaryView.Items[0].Value.Score.Should().Be(TestConstants.TestValueTen);
 
-        InvokePrivate(dictionaryView, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<int, MutableViewItem>>(
-            CacheAction.Removed,
-            new KeyValuePair<int, MutableViewItem>(TestConstants.TestValueTwo, dictionarySouth)));
-        dictionaryView.Items.Should().BeEmpty();
+        _ = dictionary.Remove(TestConstants.TestValueTwo);
+        await WaitForPipeline();
+        _ = dictionaryView.Items.Should().BeEmpty();
 
-        InvokePrivate(dictionaryView, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<int, MutableViewItem>>(
-            CacheAction.Refreshed,
-            default));
-        dictionaryView.Items.Count.Should().Be(1);
+        dictionary.AddOrUpdate(TestConstants.TestValueTwo, dictionarySouth);
+        await WaitForPipeline();
+        await TUnit.Assertions.Assert.That(dictionaryView.Items.Count).IsEqualTo(1);
 
-        InvokePrivate(dictionaryView, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<int, MutableViewItem>>(
-            CacheAction.Cleared,
-            default));
-        dictionaryView.Items.Should().BeEmpty();
+        dictionary.Clear();
+        await WaitForPipeline();
+        _ = dictionaryView.Items.Should().BeEmpty();
 
-        using var nullableKeyDictionary = new QuaternaryDictionary<string, MutableViewItem>
-        {
-            { "north-1", new MutableViewItem(TestConstants.TestValueThree, TestConstants.NorthRegion) },
-        };
+        using var nullableKeyDictionary = new QuaternaryDictionary<string, MutableViewItem> { { "north-1", new MutableViewItem(TestConstants.NorthRegion) }, };
         nullableKeyDictionary.AddValueIndex(TestConstants.RegionPropertyName, static item => item.Region);
         using var nullableKeyKeys = new BehaviorSignal<string[]>([TestConstants.NorthRegion]);
-        using var nullableKeyView = DynamicSecondaryIndexDictionaryReactiveView<string, MutableViewItem>.Create<string>(
+        using var nullableKeyView = DynamicSecondaryIndexDictionaryReactiveView<string, MutableViewItem>.Create(
             nullableKeyDictionary,
             TestConstants.RegionPropertyName,
             nullableKeyKeys,
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        InvokePrivate(nullableKeyView, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<string, MutableViewItem>>(
-            CacheAction.Removed,
-            new KeyValuePair<string, MutableViewItem>(null!, new MutableViewItem(TestConstants.TestValueFour, TestConstants.NorthRegion))));
-        nullableKeyView.Items.Count.Should().Be(1);
+        await TUnit.Assertions.Assert.That(nullableKeyDictionary.Remove(TestConstants.MissingKey)).IsFalse();
+        await TUnit.Assertions.Assert.That(nullableKeyView.Items.Count).IsEqualTo(1);
+    }
 
-        InvokePrivate(nullableKeyView, TestConstants.SourceChangedMethodName, new CacheNotify<KeyValuePair<string, MutableViewItem>>(
-            CacheAction.Removed,
-            new KeyValuePair<string, MutableViewItem>(TestConstants.MissingKey, new MutableViewItem(TestConstants.TestValueFive, TestConstants.NorthRegion))));
-        nullableKeyView.Items.Count.Should().Be(1);
+    /// <summary>Verifies mutable list items through public rebuild, remove, add, and clear operations.</summary>
+    /// <param name="list">The source list.</param>
+    /// <param name="listView">The dynamic view under test.</param>
+    /// <param name="listNorth">The initially matching item.</param>
+    /// <param name="listSouth">The item mutated into the selected index.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous verification.</returns>
+    private static async Task VerifyMutableSecondaryListView(
+        QuaternaryList<MutableViewItem> list,
+        DynamicSecondaryIndexReactiveView<MutableViewItem, string> listView,
+        MutableViewItem listNorth,
+        MutableViewItem listSouth)
+    {
+        listNorth.Region = TestConstants.SouthRegion;
+        list.ReplaceAll([listNorth, listSouth]);
+        await WaitForPipeline();
+        _ = listView.Items.Should().BeEmpty();
+
+        listSouth.Region = TestConstants.NorthRegion;
+        list.ReplaceAll([listNorth, listSouth]);
+        await WaitForPipeline();
+        _ = listView.Items.Should().ContainSingle().Which.Should().BeSameAs(listSouth);
+
+        _ = list.Remove(listSouth);
+        await WaitForPipeline();
+        _ = listView.Items.Should().BeEmpty();
+
+        list.Add(listSouth);
+        await WaitForPipeline();
+        await TUnit.Assertions.Assert.That(listView.Items.Count).IsEqualTo(1);
+
+        list.Clear();
+        await WaitForPipeline();
+        _ = listView.Items.Should().BeEmpty();
     }
 #endif
 
     /// <summary>Provides WaitForPipeline.</summary>
     /// <returns>The result.</returns>
-    private static async Task WaitForPipeline() => await Task.Delay(TestConstants.TestValueThirty);
+    private static Task WaitForPipeline() => Task.Delay(TestConstants.TestValueThirty);
 
-    /// <summary>Provides InvokePrivate.</summary>
-    /// <param name="target">The target value.</param>
-    /// <param name="methodName">The methodName value.</param>
-    /// <param name="args">The args value.</param>
-    /// <returns>The result.</returns>
-    private static object? InvokePrivate(object target, string methodName, params object?[] args)
+    /// <summary>Counts entries exposed through a non-generic collection surface.</summary>
+    /// <param name="items">The entries to count.</param>
+    /// <returns>The number of exposed entries.</returns>
+    private static int CountEntries(IEnumerable items)
     {
-        var targetType = target.GetType();
-        var method = targetType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new MissingMethodException(targetType.FullName, methodName);
-        return method.Invoke(target, args);
+        var count = 0;
+        foreach (var _ in items)
+        {
+            count++;
+        }
+
+        return count;
     }
 
-    /// <summary>Provides GetPrivateField.</summary>
-    /// <param name="target">The target value.</param>
-    /// <param name="fieldName">The fieldName value.</param>
-    /// <returns>The result.</returns>
-    private static object GetPrivateField(object target, string fieldName)
+    /// <summary>Finds a dictionary-view entry by its key.</summary>
+    /// <param name="items">The current dictionary-view entries.</param>
+    /// <param name="key">The key to locate.</param>
+    /// <returns>The matching entry.</returns>
+    private static KeyValuePair<int, ViewItem> FindByKey(
+        IEnumerable<KeyValuePair<int, ViewItem>> items,
+        int key)
     {
-        var targetType = target.GetType();
-        var field = targetType.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new MissingFieldException(targetType.FullName, fieldName);
-        return field.GetValue(target) ?? throw new InvalidOperationException($"Field '{fieldName}' returned null.");
+        foreach (var item in items)
+        {
+            if (item.Key == key)
+            {
+                return item;
+            }
+        }
+
+        throw new KeyNotFoundException($"No view item exists for key '{key}'.");
+    }
+
+    /// <summary>Flattens grouped items without relying on a LINQ iterator.</summary>
+    /// <param name="groups">The groups to flatten.</param>
+    /// <returns>All items in group enumeration order.</returns>
+    private static List<ViewItem> FlattenGroups(IEnumerable<IReadOnlyList<ViewItem>> groups)
+    {
+        var items = new List<ViewItem>();
+        foreach (var group in groups)
+        {
+            items.AddRange(group);
+        }
+
+        return items;
+    }
+
+    /// <summary>Gets dictionary-view keys without allocating a LINQ iterator.</summary>
+    /// <param name="items">The current dictionary-view entries.</param>
+    /// <returns>The current entry keys.</returns>
+    private static List<int> GetKeys(IEnumerable<KeyValuePair<int, ViewItem>> items)
+    {
+        var keys = new List<int>();
+        foreach (var item in items)
+        {
+            keys.Add(item.Key);
+        }
+
+        return keys;
     }
 
     /// <summary>Provides CreateBatch.</summary>
@@ -759,17 +891,13 @@ public class ViewCoverageTests
     {
         var array = ArrayPool<T>.Shared.Rent(items.Length);
         Array.Copy(items, array, items.Length);
-        return new PooledBatch<T>(array, items.Length);
+        return new(array, items.Length);
     }
 
     /// <summary>Provides MutableViewItem.</summary>
-    /// <param name="id">The id value.</param>
     /// <param name="region">The region value.</param>
-    private sealed class MutableViewItem(int id, string region)
+    private sealed class MutableViewItem(string region)
     {
-        /// <summary>Gets Id.</summary>
-        public int Id { get; } = id;
-
         /// <summary>Gets or sets Region.</summary>
         public string Region { get; set; } = region;
 
@@ -781,6 +909,7 @@ public class ViewCoverageTests
     /// <typeparam name="T">The T type.</typeparam>
     private sealed class FirstSubscriptionErrorObservable<T> : IObservable<T>
     {
+        /// <summary>The number of subscriptions received by this observable.</summary>
         private int _subscriptions;
 
         /// <summary>Provides Subscribe.</summary>
@@ -819,14 +948,17 @@ public class ViewCoverageTests
     private sealed class ReactiveSourceHarness<T> : IReactiveSource<T>
         where T : notnull
     {
+        /// <summary>The mutable source items exposed by this harness.</summary>
         private readonly List<T> _items;
 
+        /// <summary>The source notification stream.</summary>
         private readonly Signal<CacheNotify<T>> _stream = new();
 
         /// <summary>Initializes a new instance of the ReactiveSourceHarness class.</summary>
         /// <param name="items">The items value.</param>
         public ReactiveSourceHarness(IEnumerable<T> items) => _items = new(items);
 
+        /// <summary>Occurs when the harness collection changes.</summary>
         public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
         /// <summary>Gets Count.</summary>
@@ -850,6 +982,7 @@ public class ViewCoverageTests
         {
             _items.Add(item);
             Version++;
+            RaiseReset();
         }
 
         /// <summary>Provides AddItems.</summary>
@@ -858,6 +991,7 @@ public class ViewCoverageTests
         {
             _items.AddRange(items);
             Version++;
+            RaiseReset();
         }
 
         /// <summary>Provides ClearItems.</summary>
@@ -865,6 +999,7 @@ public class ViewCoverageTests
         {
             _items.Clear();
             Version++;
+            RaiseReset();
         }
 
         /// <summary>Provides Dispose.</summary>
@@ -891,8 +1026,9 @@ public class ViewCoverageTests
         /// <param name="item">The item value.</param>
         public void RemoveItem(T item)
         {
-            _items.Remove(item);
+            _ = _items.Remove(item);
             Version++;
+            RaiseReset();
         }
 
         /// <summary>Provides RemoveItems.</summary>
@@ -901,10 +1037,11 @@ public class ViewCoverageTests
         {
             foreach (var item in items)
             {
-                _items.Remove(item);
+                _ = _items.Remove(item);
             }
 
             Version++;
+            RaiseReset();
         }
 
         /// <summary>Provides ToArray.</summary>
@@ -913,8 +1050,8 @@ public class ViewCoverageTests
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        /// <summary>Provides RaiseReset.</summary>
-        public void RaiseReset() =>
+        /// <summary>Raises a reset notification after the harness mutates.</summary>
+        private void RaiseReset() =>
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 

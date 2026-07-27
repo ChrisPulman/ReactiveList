@@ -4,4 +4,5 @@
 
 using TUnit.Core;
 
+// The tests share process-wide resources and therefore run serially.
 [assembly: NotInParallel]

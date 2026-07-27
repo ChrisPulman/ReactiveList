@@ -26,14 +26,14 @@ public class ViewToPropertyTests
         using var view = new ReactiveView<string>(
             subject,
             ["test"],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
     }
 
     /// <summary>ReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -45,13 +45,13 @@ public class ViewToPropertyTests
         using var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<string>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -64,14 +64,14 @@ public class ViewToPropertyTests
         using var view = new ReactiveView<string>(
             subject,
             ["test"],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Items);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -80,7 +80,7 @@ public class ViewToPropertyTests
     public void DynamicReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
         using var list = new QuaternaryList<string> { "test" };
-        var filterSubject = new BehaviorSignal<Func<string, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<string, bool>>(static _ => true);
         ReadOnlyObservableCollection<string>? capturedItems = null;
 
         using var view = new DynamicReactiveView<string>(
@@ -91,8 +91,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
     }
 
     /// <summary>DynamicReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -100,7 +100,7 @@ public class ViewToPropertyTests
     public void DynamicReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
         using var list = new QuaternaryList<string>();
-        var filterSubject = new BehaviorSignal<Func<string, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<string, bool>>(static _ => true);
 
         using var view = new DynamicReactiveView<string>(
             list,
@@ -110,7 +110,7 @@ public class ViewToPropertyTests
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<string>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -119,7 +119,7 @@ public class ViewToPropertyTests
     public void DynamicReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
         using var list = new QuaternaryList<string> { "test" };
-        var filterSubject = new BehaviorSignal<Func<string, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<string, bool>>(static _ => true);
 
         using var view = new DynamicReactiveView<string>(
             list,
@@ -129,8 +129,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Items);
     }
 #endif
 
@@ -151,9 +151,9 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
-        capturedItems.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], options => options.WithStrictOrdering());
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
+        _ = capturedItems.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], static options => options.WithStrictOrdering());
     }
 
     /// <summary>SortedReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -170,7 +170,7 @@ public class ViewToPropertyTests
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<int>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -190,9 +190,9 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Items);
-        collection.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], options => options.WithStrictOrdering());
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Items);
+        _ = collection.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], static options => options.WithStrictOrdering());
     }
 
     /// <summary>FilteredReactiveView ToProperty with action setter should set property and return same instance.</summary>
@@ -205,15 +205,15 @@ public class ViewToPropertyTests
 
         using var view = new FilteredReactiveView<int>(
             list,
-            x => x > TestData.TestValueTwo,
+            static x => x > TestData.TestValueTwo,
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
-        capturedItems.Should().BeEquivalentTo([TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
+        _ = capturedItems.Should().BeEquivalentTo([TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
     }
 
     /// <summary>FilteredReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -224,13 +224,13 @@ public class ViewToPropertyTests
 
         using var view = new FilteredReactiveView<int>(
             list,
-            _ => true,
+            static _ => true,
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<int>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -243,15 +243,15 @@ public class ViewToPropertyTests
 
         using var view = new FilteredReactiveView<int>(
             list,
-            x => x > TestData.TestValueTwo,
+            static x => x > TestData.TestValueTwo,
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Items);
-        collection.Should().BeEquivalentTo([TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Items);
+        _ = collection.Should().BeEquivalentTo([TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
     }
 
     /// <summary>GroupedReactiveView ToProperty with action setter should set property and return same instance.</summary>
@@ -264,15 +264,15 @@ public class ViewToPropertyTests
 
         using var view = new GroupedReactiveView<string, char>(
             list,
-            s => s[0],
+            static s => s[0],
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
         var result = view.ToProperty(groups => capturedGroups = groups);
 
-        result.Should().BeSameAs(view);
-        capturedGroups.Should().BeSameAs(view.Groups);
-        capturedGroups.Should().HaveCount(TestData.TestValueTwo);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedGroups.Should().BeSameAs(view.Groups);
+        _ = capturedGroups.Should().HaveCount(TestData.TestValueTwo);
     }
 
     /// <summary>GroupedReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -283,13 +283,13 @@ public class ViewToPropertyTests
 
         using var view = new GroupedReactiveView<string, char>(
             list,
-            s => s[0],
+            static s => s[0],
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<ReactiveGroup<char, string>>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -302,15 +302,15 @@ public class ViewToPropertyTests
 
         using var view = new GroupedReactiveView<string, char>(
             list,
-            s => s[0],
+            static s => s[0],
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Groups);
-        collection.Should().HaveCount(TestData.TestValueTwo);
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Groups);
+        _ = collection.Should().HaveCount(TestData.TestValueTwo);
     }
 
     /// <summary>GroupedReactiveView Items property should be same as Groups property.</summary>
@@ -321,11 +321,11 @@ public class ViewToPropertyTests
 
         using var view = new GroupedReactiveView<string, char>(
             list,
-            s => s[0],
+            static s => s[0],
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
-        view.Items.Should().BeSameAs(view.Groups);
+        _ = view.Items.Should().BeSameAs(view.Groups);
     }
 
     /// <summary>DynamicFilteredReactiveView ToProperty with action setter should set property and return same instance.</summary>
@@ -334,7 +334,7 @@ public class ViewToPropertyTests
     {
         using var list = new ReactiveList<int>();
         list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
-        var filterSubject = new BehaviorSignal<Func<int, bool>>(x => x > TestData.TestValueTwo);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(static x => x > TestData.TestValueTwo);
         ReadOnlyObservableCollection<int>? capturedItems = null;
 
         using var view = new DynamicFilteredReactiveView<int>(
@@ -345,8 +345,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
     }
 
     /// <summary>DynamicFilteredReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -354,7 +354,7 @@ public class ViewToPropertyTests
     public void DynamicFilteredReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSignal<Func<int, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(static _ => true);
 
         using var view = new DynamicFilteredReactiveView<int>(
             list,
@@ -364,7 +364,7 @@ public class ViewToPropertyTests
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<int>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -374,7 +374,7 @@ public class ViewToPropertyTests
     {
         using var list = new ReactiveList<int>();
         list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
-        var filterSubject = new BehaviorSignal<Func<int, bool>>(x => x > TestData.TestValueTwo);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(static x => x > TestData.TestValueTwo);
 
         using var view = new DynamicFilteredReactiveView<int>(
             list,
@@ -384,8 +384,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Items);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -394,13 +394,13 @@ public class ViewToPropertyTests
     public void SecondaryIndexReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex<string>(TestData.CategoryPropertyName, p => p.Category);
+        dict.AddValueIndex(TestData.CategoryPropertyName, static p => p.Category);
         dict[1] = new(TestData.AliceName, "A");
         dict[TestData.TestValueTwo] = new("Bob", "B");
         dict[TestData.TestValueThree] = new("Charlie", "A");
         ReadOnlyObservableCollection<TestPerson>? capturedItems = null;
 
-        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create<string>(
+        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create(
             dict,
             TestData.CategoryPropertyName,
             "A",
@@ -409,9 +409,9 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
-        capturedItems.Should().HaveCount(TestData.TestValueTwo);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
+        _ = capturedItems.Should().HaveCount(TestData.TestValueTwo);
     }
 
     /// <summary>SecondaryIndexReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -419,9 +419,9 @@ public class ViewToPropertyTests
     public void SecondaryIndexReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex<string>(TestData.CategoryPropertyName, p => p.Category);
+        dict.AddValueIndex(TestData.CategoryPropertyName, static p => p.Category);
 
-        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create<string>(
+        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create(
             dict,
             TestData.CategoryPropertyName,
             "A",
@@ -430,7 +430,7 @@ public class ViewToPropertyTests
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<TestPerson>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -439,11 +439,11 @@ public class ViewToPropertyTests
     public void SecondaryIndexReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex<string>(TestData.CategoryPropertyName, p => p.Category);
+        dict.AddValueIndex(TestData.CategoryPropertyName, static p => p.Category);
         dict[1] = new(TestData.AliceName, "A");
         dict[TestData.TestValueTwo] = new("Bob", "B");
 
-        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create<string>(
+        using var view = SecondaryIndexReactiveView<int, TestPerson>.Create(
             dict,
             TestData.CategoryPropertyName,
             "A",
@@ -452,8 +452,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Items);
     }
 
     /// <summary>DynamicSecondaryIndexReactiveView ToProperty with action setter should set property and return same instance.</summary>
@@ -461,9 +461,9 @@ public class ViewToPropertyTests
     public void DynamicSecondaryIndexReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex<string>(TestData.CategoryPropertyName, p => p.Category);
-        list.Add(new TestPerson(TestData.AliceName, "A"));
-        list.Add(new TestPerson("Bob", "B"));
+        list.AddIndex(TestData.CategoryPropertyName, static p => p.Category);
+        list.Add(new(TestData.AliceName, "A"));
+        list.Add(new("Bob", "B"));
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
         ReadOnlyObservableCollection<TestPerson>? capturedItems = null;
 
@@ -476,8 +476,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
     }
 
     /// <summary>DynamicSecondaryIndexReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -485,7 +485,7 @@ public class ViewToPropertyTests
     public void DynamicSecondaryIndexReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex<string>(TestData.CategoryPropertyName, p => p.Category);
+        list.AddIndex(TestData.CategoryPropertyName, static p => p.Category);
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
         using var view = new DynamicSecondaryIndexReactiveView<TestPerson, string>(
@@ -497,7 +497,7 @@ public class ViewToPropertyTests
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<TestPerson>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -506,8 +506,8 @@ public class ViewToPropertyTests
     public void DynamicSecondaryIndexReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex<string>(TestData.CategoryPropertyName, p => p.Category);
-        list.Add(new TestPerson(TestData.AliceName, "A"));
+        list.AddIndex(TestData.CategoryPropertyName, static p => p.Category);
+        list.Add(new(TestData.AliceName, "A"));
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
         using var view = new DynamicSecondaryIndexReactiveView<TestPerson, string>(
@@ -519,8 +519,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Items);
     }
 
     /// <summary>DynamicSecondaryIndexDictionaryReactiveView ToProperty with action setter should set property and return same instance.</summary>
@@ -528,13 +528,13 @@ public class ViewToPropertyTests
     public void DynamicSecondaryIndexDictionaryReactiveView_ToPropertyAction_ShouldSetPropertyAndReturnSameInstance()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex<string>(TestData.CategoryPropertyName, p => p.Category);
+        dict.AddValueIndex(TestData.CategoryPropertyName, static p => p.Category);
         dict[1] = new(TestData.AliceName, "A");
         dict[TestData.TestValueTwo] = new("Bob", "B");
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
         ReadOnlyObservableCollection<KeyValuePair<int, TestPerson>>? capturedItems = null;
 
-        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create<string>(
+        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create(
             dict,
             TestData.CategoryPropertyName,
             keysSubject,
@@ -543,8 +543,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
     }
 
     /// <summary>DynamicSecondaryIndexDictionaryReactiveView ToProperty with action setter should throw when setter is null.</summary>
@@ -552,10 +552,10 @@ public class ViewToPropertyTests
     public void DynamicSecondaryIndexDictionaryReactiveView_ToPropertyAction_WithNullSetter_ShouldThrow()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex<string>(TestData.CategoryPropertyName, p => p.Category);
+        dict.AddValueIndex(TestData.CategoryPropertyName, static p => p.Category);
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
-        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create<string>(
+        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create(
             dict,
             TestData.CategoryPropertyName,
             keysSubject,
@@ -564,7 +564,7 @@ public class ViewToPropertyTests
 
         var act = () => view.ToProperty((Action<ReadOnlyObservableCollection<KeyValuePair<int, TestPerson>>>)null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.PropertySetterFieldName);
     }
 
@@ -575,11 +575,11 @@ public class ViewToPropertyTests
     public void DynamicSecondaryIndexDictionaryReactiveView_ToPropertyOut_ShouldSetCollectionAndReturnSameInstance()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
-        dict.AddValueIndex<string>(TestData.CategoryPropertyName, p => p.Category);
+        dict.AddValueIndex(TestData.CategoryPropertyName, static p => p.Category);
         dict[1] = new(TestData.AliceName, "A");
         var keysSubject = new BehaviorSignal<string[]>(["A"]);
 
-        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create<string>(
+        using var view = DynamicSecondaryIndexDictionaryReactiveView<int, TestPerson>.Create(
             dict,
             TestData.CategoryPropertyName,
             keysSubject,
@@ -588,8 +588,8 @@ public class ViewToPropertyTests
 
         var result = view.ToProperty(out var collection);
 
-        result.Should().BeSameAs(view);
-        collection.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = collection.Should().BeSameAs(view.Items);
     }
 #endif
 
@@ -602,11 +602,11 @@ public class ViewToPropertyTests
         using var reactiveView = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        reactiveView.Should().BeAssignableTo<IReactiveView<ReactiveView<string>, string>>();
+        _ = reactiveView.Should().BeAssignableTo<IReactiveView<ReactiveView<string>, string>>();
     }
 
     /// <summary>SortedReactiveView should implement IReactiveView interface.</summary>
@@ -621,7 +621,7 @@ public class ViewToPropertyTests
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
-        view.Should().BeAssignableTo<IReactiveView<SortedReactiveView<int>, int>>();
+        _ = view.Should().BeAssignableTo<IReactiveView<SortedReactiveView<int>, int>>();
     }
 
     /// <summary>FilteredReactiveView should implement IReactiveView interface.</summary>
@@ -632,11 +632,11 @@ public class ViewToPropertyTests
 
         using var view = new FilteredReactiveView<int>(
             list,
-            _ => true,
+            static _ => true,
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
-        view.Should().BeAssignableTo<IReactiveView<FilteredReactiveView<int>, int>>();
+        _ = view.Should().BeAssignableTo<IReactiveView<FilteredReactiveView<int>, int>>();
     }
 
     /// <summary>GroupedReactiveView should implement IReactiveView interface.</summary>
@@ -647,11 +647,11 @@ public class ViewToPropertyTests
 
         using var view = new GroupedReactiveView<string, char>(
             list,
-            s => s[0],
+            static s => s[0],
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
-        view.Should().BeAssignableTo<IReactiveView<GroupedReactiveView<string, char>, ReactiveGroup<char, string>>>();
+        _ = view.Should().BeAssignableTo<IReactiveView<GroupedReactiveView<string, char>, ReactiveGroup<char, string>>>();
     }
 
     /// <summary>DynamicFilteredReactiveView should implement IReactiveView interface.</summary>
@@ -659,7 +659,7 @@ public class ViewToPropertyTests
     public void DynamicFilteredReactiveView_ShouldImplementIReactiveViewInterface()
     {
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSignal<Func<int, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<int, bool>>(static _ => true);
 
         using var view = new DynamicFilteredReactiveView<int>(
             list,
@@ -667,7 +667,7 @@ public class ViewToPropertyTests
             Sequencer.Immediate,
             TimeSpan.FromMilliseconds(TestData.TestValueTen));
 
-        view.Should().BeAssignableTo<IReactiveView<DynamicFilteredReactiveView<int>, int>>();
+        _ = view.Should().BeAssignableTo<IReactiveView<DynamicFilteredReactiveView<int>, int>>();
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -676,7 +676,7 @@ public class ViewToPropertyTests
     public void DynamicReactiveView_ShouldImplementIReactiveViewInterface()
     {
         using var list = new QuaternaryList<string>();
-        var filterSubject = new BehaviorSignal<Func<string, bool>>(_ => true);
+        var filterSubject = new BehaviorSignal<Func<string, bool>>(static _ => true);
 
         using var view = new DynamicReactiveView<string>(
             list,
@@ -684,7 +684,7 @@ public class ViewToPropertyTests
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        view.Should().BeAssignableTo<IReactiveView<DynamicReactiveView<string>, string>>();
+        _ = view.Should().BeAssignableTo<IReactiveView<DynamicReactiveView<string>, string>>();
     }
 
     /// <summary>Test helper record for testing person types.</summary>

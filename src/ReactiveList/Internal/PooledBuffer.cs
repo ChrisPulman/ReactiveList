@@ -13,24 +13,14 @@ namespace CP.Primitives.Internal;
 /// <param name="length">The number of valid elements in <paramref name="buffer"/>.</param>
 internal sealed class PooledBuffer<T>(T[] buffer, int length) : IDisposable
 {
+    /// <summary>The number of valid elements in the rented buffer.</summary>
     private readonly int _length = length;
 
+    /// <summary>The rented buffer, or <see langword="null"/> after disposal.</summary>
     private T[]? _buffer = buffer;
 
     /// <summary>Gets a read-only span over the valid elements in the buffer.</summary>
-    public ReadOnlySpan<T> Span => _buffer.AsSpan(0, _length);
-
-    /// <summary>Creates a new pooled buffer containing the elements of the specified list.</summary>
-    /// <remarks>The returned buffer uses a pooled array for storage. The caller is responsible for disposing
-    /// the buffer when it is no longer needed to return the underlying array to the pool.</remarks>
-    /// <param name="source">The list whose elements are copied into the new pooled buffer. Cannot be null.</param>
-    /// <returns>A new <see cref="PooledBuffer{T}"/> containing the elements of <paramref name="source"/>.</returns>
-    public static PooledBuffer<T> FromList(List<T> source)
-    {
-        var arr = ArrayPool<T>.Shared.Rent(source.Count);
-        source.CopyTo(arr);
-        return new(arr, source.Count);
-    }
+    internal ReadOnlySpan<T> Span => _buffer.AsSpan(0, _length);
 
     /// <summary>Releases all resources used by the current instance of the object.</summary>
     /// <remarks>Call this method when you are finished using the object to return any pooled resources and
@@ -44,5 +34,17 @@ internal sealed class PooledBuffer<T>(T[] buffer, int length) : IDisposable
 
         ArrayPool<T>.Shared.Return(_buffer, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<T>());
         _buffer = null;
+    }
+
+    /// <summary>Creates a new pooled buffer containing the elements of the specified list.</summary>
+    /// <remarks>The returned buffer uses a pooled array for storage. The caller is responsible for disposing
+    /// the buffer when it is no longer needed to return the underlying array to the pool.</remarks>
+    /// <param name="source">The list whose elements are copied into the new pooled buffer. Cannot be null.</param>
+    /// <returns>A new <see cref="PooledBuffer{T}"/> containing the elements of <paramref name="source"/>.</returns>
+    internal static PooledBuffer<T> FromList(List<T> source)
+    {
+        var arr = ArrayPool<T>.Shared.Rent(source.Count);
+        source.CopyTo(arr);
+        return new(arr, source.Count);
     }
 }

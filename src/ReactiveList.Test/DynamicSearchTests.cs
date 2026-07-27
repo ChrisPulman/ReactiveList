@@ -5,10 +5,8 @@
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Threading.Tasks;
 using CP.Primitives.Collections;
-using FluentAssertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -67,13 +65,13 @@ public class DynamicSearchTests
     public async Task SearchByLastName_WhenQueryMatchesShouldReturnMatchingItemsAsync()
     {
         // Arrange
-        var searchText = new BehaviorSignal<string>(string.Empty);
+        using var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
         var processedQuery = CreateCompletion<string>();
 
         // Setup search pipeline that rebuilds when search text changes
-        searchText
+        using var subscription = searchText
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -87,7 +85,12 @@ public class DynamicSearchTests
                     }
                 }
 
-                processedQuery.TrySetResult(query);
+                if (!string.Equals(query, SecondaryLastName, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _ = processedQuery.TrySetResult(query);
             });
 
         // Add test contacts
@@ -104,9 +107,9 @@ public class DynamicSearchTests
         await processedQuery.Task;
 
         // Assert - should find Smith1 and Smith10
-        searchResults.Should().HaveCount(ExpectedFilteredMatchCount);
-        searchResults.Select(c => c.LastName).Should().Contain(SecondaryLastName);
-        searchResults.Select(c => c.LastName).Should().Contain(ExtendedLastName);
+        await TUnit.Assertions.Assert.That(searchResults.Count).IsEqualTo(ExpectedFilteredMatchCount);
+        await TUnit.Assertions.Assert.That(ContainsLastName(searchResults, SecondaryLastName)).IsTrue();
+        await TUnit.Assertions.Assert.That(ContainsLastName(searchResults, ExtendedLastName)).IsTrue();
     }
 
     /// <summary>Search should return matching items when query matches Email.</summary>
@@ -115,12 +118,12 @@ public class DynamicSearchTests
     public async Task SearchByEmail_WhenQueryMatchesShouldReturnMatchingItemsAsync()
     {
         // Arrange
-        var searchText = new BehaviorSignal<string>(string.Empty);
+        using var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
         var processedQuery = CreateCompletion<string>();
 
-        searchText
+        using var subscription = searchText
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -134,7 +137,7 @@ public class DynamicSearchTests
                     }
                 }
 
-                processedQuery.TrySetResult(query);
+                _ = processedQuery.TrySetResult(query);
             });
 
         contacts.AddRange(
@@ -150,9 +153,9 @@ public class DynamicSearchTests
         await processedQuery.Task;
 
         // Assert - should find user1@company.com and user10@company.com
-        searchResults.Should().HaveCount(ExpectedFilteredMatchCount);
-        searchResults.Select(c => c.Email).Should().Contain(SecondaryEmail);
-        searchResults.Select(c => c.Email).Should().Contain(ExtendedEmail);
+        await TUnit.Assertions.Assert.That(searchResults.Count).IsEqualTo(ExpectedFilteredMatchCount);
+        await TUnit.Assertions.Assert.That(ContainsEmail(searchResults, SecondaryEmail)).IsTrue();
+        await TUnit.Assertions.Assert.That(ContainsEmail(searchResults, ExtendedEmail)).IsTrue();
     }
 
     /// <summary>Empty search query should return all items.</summary>
@@ -161,12 +164,12 @@ public class DynamicSearchTests
     public async Task EmptyQuery_ShouldReturnAllItemsAsync()
     {
         // Arrange
-        var searchText = new BehaviorSignal<string>(string.Empty);
+        using var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
         var processedQuery = CreateCompletion<string>();
 
-        searchText
+        using var subscription = searchText
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -180,7 +183,7 @@ public class DynamicSearchTests
                     }
                 }
 
-                processedQuery.TrySetResult(query);
+                _ = processedQuery.TrySetResult(query);
             });
 
         contacts.AddRange(
@@ -195,7 +198,7 @@ public class DynamicSearchTests
         await processedQuery.Task;
 
         // Assert - should return all
-        searchResults.Should().HaveCount(ExpectedCompleteResultCount);
+        await TUnit.Assertions.Assert.That(searchResults.Count).IsEqualTo(ExpectedCompleteResultCount);
     }
 
     /// <summary>Search should be case insensitive.</summary>
@@ -204,12 +207,12 @@ public class DynamicSearchTests
     public async Task Search_ShouldBeCaseInsensitiveAsync()
     {
         // Arrange
-        var searchText = new BehaviorSignal<string>(string.Empty);
+        using var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
         var processedQuery = CreateCompletion<string>();
 
-        searchText
+        using var subscription = searchText
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -223,7 +226,7 @@ public class DynamicSearchTests
                     }
                 }
 
-                processedQuery.TrySetResult(query);
+                _ = processedQuery.TrySetResult(query);
             });
 
         contacts.AddRange(
@@ -236,7 +239,7 @@ public class DynamicSearchTests
         await processedQuery.Task;
 
         // Assert
-        searchResults.Should().HaveCount(1);
+        await TUnit.Assertions.Assert.That(searchResults.Count).IsEqualTo(1);
 
         // Act - lowercase
         processedQuery = CreateCompletion<string>();
@@ -244,7 +247,7 @@ public class DynamicSearchTests
         await processedQuery.Task;
 
         // Assert
-        searchResults.Should().HaveCount(1);
+        await TUnit.Assertions.Assert.That(searchResults.Count).IsEqualTo(1);
     }
 
     /// <summary>Search results should update when contacts are added after search.</summary>
@@ -253,13 +256,13 @@ public class DynamicSearchTests
     public async Task SearchResults_ShouldUpdateWhenContactsAddedAsync()
     {
         // Arrange
-        var searchText = new BehaviorSignal<string>("user1");
+        using var searchText = new BehaviorSignal<string>("user1");
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
         var processedContactChange = CreateCompletion<bool>();
 
         // Subscribe to search text changes
-        searchText
+        using var searchSubscription = searchText
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -275,10 +278,10 @@ public class DynamicSearchTests
             });
 
         // Subscribe to contact changes
-        contacts.Stream
+        using var contactSubscription = contacts.Stream
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
-            .Subscribe(_ =>
+            .Subscribe(notification =>
             {
                 var query = searchText.Value;
                 searchResults.Clear();
@@ -290,23 +293,23 @@ public class DynamicSearchTests
                     }
                 }
 
-                processedContactChange.TrySetResult(true);
+                _ = processedContactChange.TrySetResult(true);
             });
 
-        contacts.Add(new TestContact(PrimaryFirstName, PrimaryLastName, PrimaryEmail));
+        contacts.Add(new(PrimaryFirstName, PrimaryLastName, PrimaryEmail));
         await processedContactChange.Task;
 
         // Assert - no matches yet
-        searchResults.Should().HaveCount(0);
+        await TUnit.Assertions.Assert.That(searchResults.Count).IsEqualTo(0);
 
         // Act - add matching contact
         processedContactChange = CreateCompletion<bool>();
-        contacts.Add(new TestContact(SecondaryFirstName, SecondaryLastName, SecondaryEmail));
+        contacts.Add(new(SecondaryFirstName, SecondaryLastName, SecondaryEmail));
         await processedContactChange.Task;
 
         // Assert - should now have match
-        searchResults.Should().HaveCount(1);
-        searchResults.First().Email.Should().Be(SecondaryEmail);
+        await TUnit.Assertions.Assert.That(searchResults.Count).IsEqualTo(1);
+        await TUnit.Assertions.Assert.That(searchResults[0].Email).IsEqualTo(SecondaryEmail);
     }
 
     /// <summary>Non-matching query should return empty results.</summary>
@@ -315,12 +318,12 @@ public class DynamicSearchTests
     public async Task NonMatchingQuery_ShouldReturnEmptyResultsAsync()
     {
         // Arrange
-        var searchText = new BehaviorSignal<string>(string.Empty);
+        using var searchText = new BehaviorSignal<string>(string.Empty);
         var contacts = new QuaternaryList<TestContact>();
         var searchResults = new ObservableCollection<TestContact>();
         var processedQuery = CreateCompletion<string>();
 
-        searchText
+        using var subscription = searchText
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -339,7 +342,7 @@ public class DynamicSearchTests
                     return;
                 }
 
-                processedQuery.TrySetResult(query);
+                _ = processedQuery.TrySetResult(query);
             });
 
         contacts.AddRange(
@@ -367,8 +370,42 @@ public class DynamicSearchTests
             return false;
         }
 
-        return string.IsNullOrWhiteSpace(query) ? true : c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-               c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
+        return string.IsNullOrWhiteSpace(query) ? true : c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase)
+               || c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Determines whether the collection contains a contact with the requested last name.</summary>
+    /// <param name="contacts">The contacts to inspect.</param>
+    /// <param name="lastName">The last name to find.</param>
+    /// <returns><see langword="true"/> when a matching contact exists; otherwise, <see langword="false"/>.</returns>
+    private static bool ContainsLastName(ObservableCollection<TestContact> contacts, string lastName)
+    {
+        foreach (var contact in contacts)
+        {
+            if (string.Equals(contact.LastName, lastName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Determines whether the collection contains a contact with the requested email address.</summary>
+    /// <param name="contacts">The contacts to inspect.</param>
+    /// <param name="email">The email address to find.</param>
+    /// <returns><see langword="true"/> when a matching contact exists; otherwise, <see langword="false"/>.</returns>
+    private static bool ContainsEmail(ObservableCollection<TestContact> contacts, string email)
+    {
+        foreach (var contact in contacts)
+        {
+            if (string.Equals(contact.Email, email, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Creates an asynchronously completing pipeline signal.</summary>

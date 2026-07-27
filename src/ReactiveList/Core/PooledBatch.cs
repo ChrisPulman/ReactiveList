@@ -18,6 +18,7 @@ namespace CP.Primitives.Core;
 /// <param name="ReturnToPool">A value indicating whether <paramref name="Items"/> should be returned to <see cref="ArrayPool{T}"/> when disposed.</param>
 public sealed record PooledBatch<T>(T[] Items, int Count, bool ReturnToPool = true) : IDisposable
 {
+    /// <summary>Tracks whether the pooled array has already been returned.</summary>
     private int _isDisposed;
 
     /// <summary>Releases all resources used by the current instance.</summary>

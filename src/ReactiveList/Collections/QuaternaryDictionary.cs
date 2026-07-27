@@ -17,10 +17,16 @@ namespace CP.Primitives.Collections;
 public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TKey, TValue>, TValue>, IQuaternaryDictionary<TKey, TValue>
     where TKey : notnull
 {
+    /// <summary>The default view throttle interval in milliseconds.</summary>
+    private const int DefaultThrottleMs = 50;
+
+    /// <summary>Initial capacity used for buffers that collect removed keys.</summary>
     private const int InitialRemovalBufferSize = 64;
 
+    /// <summary>Multiplier applied when a removal buffer grows.</summary>
     private const int CapacityGrowthFactor = 2;
 
+    /// <summary>Largest buffer allocated on the stack.</summary>
     private const int StackAllocationThreshold = 1024;
 
     /// <summary>Gets a collection containing all keys from the underlying quads.</summary>
@@ -107,6 +113,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
 
         throw new ArgumentException("Key exists");
     }
+
+    /// <summary>Adds the specified key/value pair to the collection.</summary>
+    /// <param name="item">The key/value pair to add.</param>
+    public void Add(KeyValuePair<TKey, TValue> item) => Add(item.Key, item.Value);
 
     /// <summary>Attempts to add the specified key and value to the cache if the key does not already exist.</summary>
     /// <param name="key">The key to add.</param>
@@ -231,6 +241,11 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         return removed;
     }
 
+    /// <summary>Removes the specified key/value pair from the collection.</summary>
+    /// <param name="item">The key/value pair to remove.</param>
+    /// <returns>true if removed; otherwise, false.</returns>
+    public bool Remove(KeyValuePair<TKey, TValue> item) => Contains(item) && Remove(item.Key);
+
     /// <summary>Attempts to retrieve the value associated with the specified key.</summary>
     /// <param name="key">The key whose value to retrieve.</param>
     /// <param name="value">When this method returns, contains the value if found.</param>
@@ -309,10 +324,21 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="key">The key value to search for within the specified index.</param>
     /// <returns>An enumerable collection of values that match the specified key.</returns>
     public IEnumerable<TValue> GetValuesBySecondaryIndex<TIndexKey>(string indexName, TIndexKey key)
-        where TIndexKey : notnull
-    {
-        return Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<TValue, TIndexKey> typedIdx ? typedIdx.Lookup(key) : [];
-    }
+        where TIndexKey : notnull =>
+        Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<TValue, TIndexKey> typedIdx ? typedIdx.Lookup(key) : [];
+
+    /// <summary>Creates a reactive view filtered by a secondary index key.</summary>
+    /// <typeparam name="TIndexKey">The type of the key used in the secondary index.</typeparam>
+    /// <param name="indexName">The name of the secondary index to filter by.</param>
+    /// <param name="key">The key value to filter on.</param>
+    /// <param name="scheduler">The scheduler for dispatching updates.</param>
+    /// <returns>A reactive view containing values matching the secondary index key.</returns>
+    public SecondaryIndexReactiveView<TKey, TValue> CreateViewBySecondaryIndex<TIndexKey>(
+        string indexName,
+        TIndexKey key,
+        ISequencer scheduler)
+        where TIndexKey : notnull =>
+        CreateViewBySecondaryIndex(indexName, key, scheduler, DefaultThrottleMs);
 
     /// <summary>Creates a reactive view filtered by a secondary index key.</summary>
     /// <typeparam name="TIndexKey">The type of the key used in the secondary index.</typeparam>
@@ -325,10 +351,9 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         string indexName,
         TIndexKey key,
         ISequencer scheduler,
-        int throttleMs = 50)
-        where TIndexKey : notnull
-    {
-        return !Indices.TryGetValue(indexName, out var idx) || idx is not SecondaryIndex<TValue, TIndexKey>
+        int throttleMs)
+        where TIndexKey : notnull =>
+        !Indices.TryGetValue(indexName, out var idx) || idx is not SecondaryIndex<TValue, TIndexKey>
             ? throw new InvalidOperationException($"Secondary index '{indexName}' does not exist or has incompatible type.")
             : SecondaryIndexReactiveView<TKey, TValue>.Create(
             this,
@@ -336,7 +361,6 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             key,
             scheduler,
             TimeSpan.FromMilliseconds(throttleMs));
-    }
 
     /// <summary>Determines whether the specified value matches the given key in the specified secondary index.</summary>
     /// <typeparam name="TIndexKey">The type of the key used in the secondary index.</typeparam>
@@ -345,14 +369,8 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <param name="key">The key value to match against.</param>
     /// <returns><see langword="true"/> if the value's indexed property matches the specified key; otherwise, <see langword="false"/>.</returns>
     public bool ValueMatchesSecondaryIndex<TIndexKey>(string indexName, TValue value, TIndexKey key)
-        where TIndexKey : notnull
-    {
-        return Indices.TryGetValue(indexName, out var idx) && idx.MatchesKey(value, key);
-    }
-
-    /// <summary>Adds the specified key/value pair to the collection.</summary>
-    /// <param name="item">The key/value pair to add.</param>
-    public void Add(KeyValuePair<TKey, TValue> item) => Add(item.Key, item.Value);
+        where TIndexKey : notnull =>
+        Indices.TryGetValue(indexName, out var idx) && idx.MatchesKey(value, key);
 
     /// <summary>Determines whether the dictionary contains the specified key and value pair.</summary>
     /// <param name="item">The key/value pair to locate.</param>
@@ -360,19 +378,11 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Contains(KeyValuePair<TKey, TValue> item) => TryGetValue(item.Key, out var v) && EqualityComparer<TValue>.Default.Equals(v, item.Value);
 
-    /// <summary>Removes the specified key/value pair from the collection.</summary>
-    /// <param name="item">The key/value pair to remove.</param>
-    /// <returns>true if removed; otherwise, false.</returns>
-    public bool Remove(KeyValuePair<TKey, TValue> item) => Contains(item) && Remove(item.Key);
-
     /// <summary>Looks up the value associated with the specified key.</summary>
     /// <param name="key">The key to look up.</param>
     /// <returns>A tuple containing a boolean indicating if the key was found and the value if present.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public (bool HasValue, TValue? Value) Lookup(TKey key)
-    {
-        return TryGetValue(key, out var value) ? (true, value) : (false, default);
-    }
+    public (bool HasValue, TValue? Value) Lookup(TKey key) => TryGetValue(key, out var value) ? (true, value) : (false, default);
 
     /// <summary>Removes all entries with keys in the specified collection from the dictionary.</summary>
     /// <param name="keys">The collection of keys to remove.</param>
@@ -474,7 +484,8 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             {
                 foreach (var kvp in Quads[i])
                 {
-                    array[arrayIndex++] = kvp;
+                    array[arrayIndex] = kvp;
+                    arrayIndex++;
                 }
             }
             finally
@@ -548,7 +559,8 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 GrowKeysBuffer(ref keysBuffer, keysCount);
             }
 
-            keysBuffer[keysCount++] = item.Key;
+            keysBuffer[keysCount] = item.Key;
+            keysCount++;
         }
 
         return keysCount;
@@ -666,7 +678,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         {
             if (rentedShardIndexes is not null)
             {
-                ArrayPool<int>.Shared.Return(rentedShardIndexes, clearArray: false);
+                ArrayPool<int>.Shared.Return(rentedShardIndexes);
             }
         }
 
@@ -719,7 +731,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
         {
             if (rentedShardIndexes is not null)
             {
-                ArrayPool<int>.Shared.Return(rentedShardIndexes, clearArray: false);
+                ArrayPool<int>.Shared.Return(rentedShardIndexes);
             }
         }
 
@@ -947,6 +959,7 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
     /// <summary>Internal wrapper for Edit operations that bypasses locking and notifications.</summary>
     private sealed class QuaternaryDictEditWrapper : IDictionary<TKey, TValue>
     {
+        /// <summary>The dictionary whose shards are edited.</summary>
         private readonly QuaternaryDictionary<TKey, TValue> _parent;
 
         /// <summary>Initializes a new instance of the <see cref="QuaternaryDictEditWrapper"/> class.</summary>
@@ -1044,6 +1057,10 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             _parent.NotifyIndicesAdded(value);
         }
 
+        /// <summary>Adds the specified key/value pair to the collection.</summary>
+        /// <param name="item">The key/value pair to add to the collection. The key must not already exist in the collection.</param>
+        public void Add(KeyValuePair<TKey, TValue> item) => Add(item.Key, item.Value);
+
         /// <summary>Determines whether the dictionary contains an element with the specified key.</summary>
         /// <param name="key">The key to locate in the dictionary. Cannot be null.</param>
         /// <returns><see langword="true"/> if the dictionary contains an element with the specified key; otherwise, <see
@@ -1069,6 +1086,12 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             return true;
         }
 
+        /// <summary>Removes the first occurrence of the specified key/value pair from the collection.</summary>
+        /// <param name="item">The key/value pair to remove from the collection. The pair is removed only if both the key and value match
+        /// an entry in the collection.</param>
+        /// <returns>true if the key/value pair was found and removed; otherwise, false.</returns>
+        public bool Remove(KeyValuePair<TKey, TValue> item) => Contains(item) && Remove(item.Key);
+
         /// <summary>Attempts to retrieve the value associated with the specified key.</summary>
         /// <param name="key">The key whose value to retrieve.</param>
         /// <param name="value">When this method returns, contains the value associated with the specified key, if the key is found;
@@ -1086,10 +1109,6 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             return found;
         }
 
-        /// <summary>Adds the specified key/value pair to the collection.</summary>
-        /// <param name="item">The key/value pair to add to the collection. The key must not already exist in the collection.</param>
-        public void Add(KeyValuePair<TKey, TValue> item) => Add(item.Key, item.Value);
-
         /// <summary>Removes all items from the collection, resetting it to an empty state.</summary>
         /// <remarks>This method clears all data from the collection, including any associated indices.
         /// After calling this method, the collection will contain no items and all indices will be empty. This
@@ -1106,9 +1125,9 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
                 return;
             }
 
-            foreach (var idx in _parent.Indices.Values)
+            foreach (var pair in _parent.Indices)
             {
-                idx.Clear();
+                pair.Value.Clear();
             }
         }
 
@@ -1134,16 +1153,11 @@ public class QuaternaryDictionary<TKey, TValue> : QuaternaryBase<KeyValuePair<TK
             {
                 foreach (var kvp in _parent.Quads[i])
                 {
-                    array[arrayIndex++] = kvp;
+                    array[arrayIndex] = kvp;
+                    arrayIndex++;
                 }
             }
         }
-
-        /// <summary>Removes the first occurrence of the specified key/value pair from the collection.</summary>
-        /// <param name="item">The key/value pair to remove from the collection. The pair is removed only if both the key and value match
-        /// an entry in the collection.</param>
-        /// <returns>true if the key/value pair was found and removed; otherwise, false.</returns>
-        public bool Remove(KeyValuePair<TKey, TValue> item) => Contains(item) && Remove(item.Key);
 
         /// <summary>Returns an enumerator that iterates through the collection of key/value pairs in the dictionary.</summary>
         /// <returns>An enumerator for the collection of key/value pairs contained in the dictionary.</returns>

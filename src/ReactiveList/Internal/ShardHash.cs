@@ -10,6 +10,7 @@ namespace CP.Primitives.Internal;
 /// <summary>Provides optimized hash code calculation for sharding.</summary>
 internal static class ShardHash
 {
+    /// <summary>The number of bits in a 32-bit hash code.</summary>
     private const int HashBitCount = 32;
 
     /// <summary>Computes a shard index using optimized bit manipulation.</summary>
@@ -18,7 +19,7 @@ internal static class ShardHash
     /// <param name="shardCount">The number of shards (must be power of 2).</param>
     /// <returns>The shard index.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int GetShardIndex<T>(T key, int shardCount)
+    internal static int GetShardIndex<T>(T key, int shardCount)
     {
         // Use unsigned shift to ensure positive result
         // Multiply by golden ratio to improve distribution
@@ -31,7 +32,7 @@ internal static class ShardHash
     /// <param name="key">The key to hash.</param>
     /// <returns>The shard index (0-3).</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int GetShardIndex4<T>(T key)
+    internal static int GetShardIndex4<T>(T key)
     {
         // Optimized for 4 shards (2 bits needed)
         var hash = key?.GetHashCode() ?? 0;

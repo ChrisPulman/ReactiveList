@@ -28,9 +28,9 @@ public class CacheNotifyTests
     {
         var notify = new CacheNotify<string>(CacheAction.Added, "test");
 
-        notify.Action.Should().Be(CacheAction.Added);
-        notify.Item.Should().Be("test");
-        notify.Batch.Should().BeNull();
+        _ = notify.Action.Should().Be(CacheAction.Added);
+        _ = notify.Item.Should().Be("test");
+        _ = notify.Batch.Should().BeNull();
     }
 
     /// <summary>Constructor should initialize with batch.</summary>
@@ -44,9 +44,9 @@ public class CacheNotifyTests
 
         var notify = new CacheNotify<int>(CacheAction.BatchOperation, default, batch);
 
-        notify.Action.Should().Be(CacheAction.BatchOperation);
-        notify.Item.Should().Be(default(int));
-        notify.Batch.Should().BeSameAs(batch);
+        _ = notify.Action.Should().Be(CacheAction.BatchOperation);
+        _ = notify.Item.Should().Be(default(int));
+        _ = notify.Batch.Should().BeSameAs(batch);
 
         batch.Dispose();
     }
@@ -57,8 +57,8 @@ public class CacheNotifyTests
     {
         var notify = new CacheNotify<string>(CacheAction.Cleared, null);
 
-        notify.Action.Should().Be(CacheAction.Cleared);
-        notify.Item.Should().BeNull();
+        _ = notify.Action.Should().Be(CacheAction.Cleared);
+        _ = notify.Item.Should().BeNull();
     }
 
     /// <summary>Record equality should work correctly.</summary>
@@ -68,8 +68,8 @@ public class CacheNotifyTests
         var notify1 = new CacheNotify<string>(CacheAction.Added, "test");
         var notify2 = new CacheNotify<string>(CacheAction.Added, "test");
 
-        notify1.Should().Be(notify2);
-        (notify1 == notify2).Should().BeTrue();
+        _ = notify1.Should().Be(notify2);
+        _ = (notify1 == notify2).Should().BeTrue();
     }
 
     /// <summary>Record inequality for different actions.</summary>
@@ -79,8 +79,8 @@ public class CacheNotifyTests
         var notify1 = new CacheNotify<string>(CacheAction.Added, "test");
         var notify2 = new CacheNotify<string>(CacheAction.Removed, "test");
 
-        notify1.Should().NotBe(notify2);
-        (notify1 != notify2).Should().BeTrue();
+        _ = notify1.Should().NotBe(notify2);
+        _ = (notify1 != notify2).Should().BeTrue();
     }
 
     /// <summary>Record inequality for different items.</summary>
@@ -90,7 +90,7 @@ public class CacheNotifyTests
         var notify1 = new CacheNotify<string>(CacheAction.Added, "test1");
         var notify2 = new CacheNotify<string>(CacheAction.Added, "test2");
 
-        notify1.Should().NotBe(notify2);
+        _ = notify1.Should().NotBe(notify2);
     }
 
     /// <summary>CacheNotify for Added action.</summary>
@@ -99,8 +99,8 @@ public class CacheNotifyTests
     {
         var notify = new CacheNotify<int>(CacheAction.Added, NotificationItemValue);
 
-        notify.Action.Should().Be(CacheAction.Added);
-        notify.Item.Should().Be(NotificationItemValue);
+        _ = notify.Action.Should().Be(CacheAction.Added);
+        _ = notify.Item.Should().Be(NotificationItemValue);
     }
 
     /// <summary>CacheNotify for Removed action.</summary>
@@ -109,8 +109,8 @@ public class CacheNotifyTests
     {
         var notify = new CacheNotify<int>(CacheAction.Removed, NotificationItemValue);
 
-        notify.Action.Should().Be(CacheAction.Removed);
-        notify.Item.Should().Be(NotificationItemValue);
+        _ = notify.Action.Should().Be(CacheAction.Removed);
+        _ = notify.Item.Should().Be(NotificationItemValue);
     }
 
     /// <summary>CacheNotify for Updated action.</summary>
@@ -119,19 +119,13 @@ public class CacheNotifyTests
     {
         var notify = new CacheNotify<string>(CacheAction.Updated, "updated");
 
-        notify.Action.Should().Be(CacheAction.Updated);
-        notify.Item.Should().Be("updated");
+        _ = notify.Action.Should().Be(CacheAction.Updated);
+        _ = notify.Item.Should().Be("updated");
     }
 
     /// <summary>CacheNotify for Cleared action.</summary>
     [Test]
-    public void CacheNotify_ClearedAction_ShouldHaveCorrectState()
-    {
-        var notify = new CacheNotify<string>(CacheAction.Cleared, null);
-
-        notify.Action.Should().Be(CacheAction.Cleared);
-        notify.Item.Should().BeNull();
-    }
+    public void CacheNotify_ClearedAction_ShouldHaveCorrectState() => Constructor_WithNullItem_ShouldBeValid();
 
     /// <summary>CacheNotify for BatchOperation action.</summary>
     [Test]
@@ -144,9 +138,9 @@ public class CacheNotifyTests
 
         var notify = new CacheNotify<string>(CacheAction.BatchOperation, null, batch);
 
-        notify.Action.Should().Be(CacheAction.BatchOperation);
-        notify.Batch.Should().NotBeNull();
-        notify.Batch!.Count.Should().Be(BatchItemCount);
+        _ = notify.Action.Should().Be(CacheAction.BatchOperation);
+        _ = notify.Batch.Should().NotBeNull();
+        _ = notify.Batch!.Count.Should().Be(BatchItemCount);
 
         batch.Dispose();
     }
@@ -159,8 +153,8 @@ public class CacheNotifyTests
 
         var notify2 = notify1 with { Action = CacheAction.Removed };
 
-        notify2.Action.Should().Be(CacheAction.Removed);
-        notify2.Item.Should().Be(BatchCapacity);
+        _ = notify2.Action.Should().Be(CacheAction.Removed);
+        _ = notify2.Item.Should().Be(BatchCapacity);
     }
 
     /// <summary>GetHashCode should be consistent.</summary>
@@ -172,7 +166,7 @@ public class CacheNotifyTests
         var hash1 = notify.GetHashCode();
         var hash2 = notify.GetHashCode();
 
-        hash1.Should().Be(hash2);
+        _ = hash1.Should().Be(hash2);
     }
 
     /// <summary>ToString should return meaningful representation.</summary>
@@ -183,9 +177,9 @@ public class CacheNotifyTests
 
         var result = notify.ToString();
 
-        result.Should().Contain("CacheNotify");
-        result.Should().Contain("Added");
-        result.Should().Contain("test");
+        _ = result.Should().Contain("CacheNotify");
+        _ = result.Should().Contain("Added");
+        _ = result.Should().Contain("test");
     }
 
     /// <summary>CacheNotify with value types.</summary>
@@ -194,16 +188,16 @@ public class CacheNotifyTests
     {
         var notify = new CacheNotify<DateTime>(CacheAction.Added, DateTime.Today);
 
-        notify.Item.Should().Be(DateTime.Today);
+        _ = notify.Item.Should().Be(DateTime.Today);
     }
 
     /// <summary>CacheNotify with complex types.</summary>
     [Test]
     public void CacheNotify_WithComplexTypes_ShouldWork()
     {
-        var person = new { Id = 1, Name = "John" };
+        var person = (Id: 1, Name: "John");
         var notify = new CacheNotify<object>(CacheAction.Added, person);
 
-        notify.Item.Should().Be(person);
+        _ = notify.Item.Should().Be(person);
     }
 }

@@ -22,32 +22,48 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
     where TItem : notnull
 {
     /// <summary>The number of shards used for partitioning.</summary>
-    protected const int ShardCount = 4;
+    protected static readonly int ShardCount = GetShardCount<TItem>();
 
+    /// <summary>The fixed number of shards used by every closed collection type.</summary>
+    private const int FixedShardCount = 4;
+
+    /// <summary>The property name used when the collection indexer changes.</summary>
     private const string ItemArray = "Item[]";
 
+    /// <summary>Cached property-change arguments for <see cref="Count"/>.</summary>
     private static readonly PropertyChangedEventArgs CountPropertyChangedEventArgs = new(nameof(Count));
 
+    /// <summary>Cached property-change arguments for the collection indexer.</summary>
     private static readonly PropertyChangedEventArgs ItemArrayPropertyChangedEventArgs = new(ItemArray);
 
+    /// <summary>The synchronization context captured when this collection was created.</summary>
     private readonly SynchronizationContext? _syncContext;
 
+    /// <summary>The channel used to queue collection notifications.</summary>
     private Channel<CacheNotify<TItem>>? _eventChannel;
 
+    /// <summary>The lazily initialized gate protecting event processor startup.</summary>
     private object? _eventGate;
 
+    /// <summary>The signal that publishes queued collection notifications.</summary>
     private Signal<CacheNotify<TItem>>? _pipeline;
 
+    /// <summary>Cancellation source for the event processor.</summary>
     private CancellationTokenSource? _cts;
 
+    /// <summary>The currently registered collection-change handlers.</summary>
     private NotifyCollectionChangedEventHandler? _collectionChanged;
 
+    /// <summary>The current item count.</summary>
     private int _count;
 
+    /// <summary>Indicates whether the event processor has started.</summary>
     private int _eventProcessorStarted;
 
+    /// <summary>The number of active stream subscribers.</summary>
     private int _hasSubscribers;
 
+    /// <summary>The collection version incremented by each emitted change.</summary>
     private long _version;
 
     /// <summary>Initializes a new instance of the <see cref="QuaternaryBase{TItem, TValue}"/> class.</summary>
@@ -98,16 +114,18 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
     /// for efficient, low-allocation event delivery.
     /// </remarks>
     public IObservable<CacheNotify<TItem>> Stream => Signal.Create<CacheNotify<TItem>>(observer =>
-                                                              {
-                                                                  EnsureEventProcessorStarted();
-                                                                  Interlocked.Increment(ref _hasSubscribers);
-                                                                  var subscription = _pipeline!.Subscribe(observer);
-                                                                  return Scope.Create(() =>
-                                                                  {
-                                                                      subscription.Dispose();
-                                                                      Interlocked.Decrement(ref _hasSubscribers);
-                                                                  });
-                                                              });
+                                                               {
+                                                                   EnsureEventProcessorStarted();
+                                                                   _ = Interlocked.Increment(ref _hasSubscribers);
+                                                                   var subscription = _pipeline!.Subscribe(observer);
+                                                                   return Scope.Create(
+                                                                       (Subscription: subscription, Source: this),
+                                                                       static state =>
+                                                                       {
+                                                                           state.Subscription.Dispose();
+                                                                           _ = Interlocked.Decrement(ref state.Source._hasSubscribers);
+                                                                       });
+                                                               });
 
     /// <summary>Gets a value indicating whether the object has been disposed.</summary>
     public bool IsDisposed { get; private set; }
@@ -163,9 +181,9 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
         // Clear indices outside of locks
         if (!Indices.IsEmpty)
         {
-            foreach (var idx in Indices.Values)
+            foreach (var pair in Indices)
             {
-                idx.Clear();
+                pair.Value.Clear();
             }
         }
 
@@ -196,12 +214,19 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
     /// <summary>Attempts to enqueue a cache event for processing and increments the version counter.</summary>
     /// <param name="action">The cache action type.</param>
     /// <param name="item">The item associated with the action.</param>
-    /// <param name="batch">An optional batch of items.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected void Emit(CacheAction action, TItem? item, PooledBatch<TItem>? batch = null)
+    protected void Emit(CacheAction action, TItem? item) =>
+        Emit(action, item, null);
+
+    /// <summary>Attempts to enqueue a cache event for processing and increments the version counter.</summary>
+    /// <param name="action">The cache action type.</param>
+    /// <param name="item">The item associated with the action.</param>
+    /// <param name="batch">The batch of items, or <see langword="null"/> for a single-item event.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void Emit(CacheAction action, TItem? item, PooledBatch<TItem>? batch)
     {
         // Increment version atomically for change tracking
-        Interlocked.Increment(ref _version);
+        _ = Interlocked.Increment(ref _version);
         OnPropertyChanged(CountPropertyChangedEventArgs);
         OnPropertyChanged(ItemArrayPropertyChangedEventArgs);
 
@@ -283,7 +308,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
             pool[i] = items[i];
         }
 
-        Emit(CacheAction.BatchAdded, default, new PooledBatch<TItem>(pool, count, ReturnToPool: false));
+        Emit(CacheAction.BatchAdded, default, new(pool, count, ReturnToPool: false));
     }
 
     /// <summary>Raises a batch removed event for the specified items.</summary>
@@ -317,7 +342,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
             return;
         }
 
-        Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(items, count, ReturnToPool: false));
+        Emit(CacheAction.BatchRemoved, default, new(items, count, ReturnToPool: false));
     }
 
     /// <summary>Emits a notification that a batch of items has been removed from the list.</summary>
@@ -342,7 +367,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
             pool[i] = items[i];
         }
 
-        Emit(CacheAction.BatchRemoved, default, new PooledBatch<TItem>(pool, count, ReturnToPool: false));
+        Emit(CacheAction.BatchRemoved, default, new(pool, count, ReturnToPool: false));
     }
 
     /// <summary>Notifies all registered indices that a new item has been added.</summary>
@@ -418,6 +443,15 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
     protected bool HasChangeObservers() =>
         Interlocked.CompareExchange(ref _hasSubscribers, 0, 0) != 0 || _collectionChanged is not null;
 
+    /// <summary>Gets the fixed shard count while associating the cached field with the closed item type.</summary>
+    /// <typeparam name="T">The item type associated with the closed generic collection.</typeparam>
+    /// <returns>The number of collection shards.</returns>
+    private static int GetShardCount<T>()
+    {
+        _ = typeof(T);
+        return FixedShardCount;
+    }
+
     /// <summary>Creates data for the CreateBatch operation.</summary>
     /// <param name="items">The items value.</param>
     /// <param name="count">The count value.</param>
@@ -426,7 +460,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
     {
         var batchItems = new TItem[count];
         Array.Copy(items, batchItems, count);
-        return new PooledBatch<TItem>(batchItems, count, ReturnToPool: false);
+        return new(batchItems, count, ReturnToPool: false);
     }
 
     /// <summary>Asynchronously processes events from the event channel until cancellation is requested.</summary>
@@ -498,7 +532,6 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
                 CacheAction.Added => NotifyCollectionChangedAction.Add,
                 CacheAction.Removed => NotifyCollectionChangedAction.Remove,
                 CacheAction.Cleared => NotifyCollectionChangedAction.Reset,
-                CacheAction.Updated => NotifyCollectionChangedAction.Reset,
                 _ => NotifyCollectionChangedAction.Reset
             };
 
@@ -532,7 +565,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
             return;
         }
 
-        var gate = _eventGate;
+        var gate = Volatile.Read(ref _eventGate);
         if (gate is null)
         {
             var newGate = new object();
@@ -551,7 +584,7 @@ public abstract class QuaternaryBase<TItem, TValue> : IReactiveSource<TItem>, IN
             _pipeline = new();
             _cts = new();
             Volatile.Write(ref _eventProcessorStarted, 1);
-            Task.Factory.StartNew(ProcessEventsAsync, _cts.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            _ = Task.Factory.StartNew(ProcessEventsAsync, _cts.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
     }
 }

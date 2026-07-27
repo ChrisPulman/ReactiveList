@@ -19,6 +19,16 @@ namespace CP.Primitives.Collections;
 public interface IQuaternaryList<T> : ICollection<T>, IReactiveSource<T>
     where T : notnull
 {
+    /// <summary>Gets the number of elements contained in the list.</summary>
+    new int Count { get; }
+
+    /// <summary>Gets a value indicating whether the list is read-only.</summary>
+    new bool IsReadOnly { get; }
+
+    /// <summary>Returns an enumerator that iterates through the list.</summary>
+    /// <returns>An enumerator for the list.</returns>
+    new IEnumerator<T> GetEnumerator();
+
     /// <summary>Adds an index to the collection using the specified name and key selector.</summary>
     /// <remarks>If an index with the specified name already exists, this method may throw an exception or
     /// overwrite the existing index, depending on the implementation. Indexes can improve lookup performance for

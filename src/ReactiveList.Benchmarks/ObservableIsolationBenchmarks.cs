@@ -9,45 +9,59 @@ using DynamicData;
 
 namespace ReactiveList.Benchmarks;
 
-/// <summary>Provides ObservableIsolationBenchmarks.</summary>
+/// <summary>Benchmarks observable delivery and secondary-index isolation.</summary>
 [MemoryDiagnoser]
 [CategoriesColumn]
 [RankColumn]
 public sealed class ObservableIsolationBenchmarks : IDisposable
 {
+    /// <summary>Provides a bit mask that partitions items into eight groups.</summary>
     private const int GroupMask = 7;
 
+    /// <summary>Names the secondary index used by indexed lookup benchmarks.</summary>
     private const string GroupIndexName = "Group";
 
+    /// <summary>Identifies the group queried by indexed lookup and scan benchmarks.</summary>
     private const int IndexedGroup = 3;
 
+    /// <summary>Scales the payload stored in generated benchmark items.</summary>
     private const int ValueMultiplier = 17;
 
+    /// <summary>Stores generated items used by the observable benchmarks.</summary>
     private BenchItem[] _items = [];
 
+    /// <summary>Stores the keyed form of the generated benchmark items.</summary>
     private KeyValuePair<int, BenchItem>[] _pairs = [];
 
+    /// <summary>Holds the prepared indexed quaternary list.</summary>
     private QuaternaryList<BenchItem>? _indexedList;
 
+    /// <summary>Holds the prepared indexed quaternary dictionary.</summary>
     private QuaternaryDictionary<int, BenchItem>? _indexedDictionary;
 
+    /// <summary>Holds the prepared DynamicData source cache.</summary>
     private SourceCache<BenchItem, int>? _sourceCache;
 
+    /// <summary>Tracks whether the prepared benchmark collections have been disposed.</summary>
     private bool _disposed;
 
     /// <summary>Gets or sets the item count.</summary>
     [Params(1024)]
     public int Count { get; set; }
 
-    /// <summary>Provides Setup.</summary>
+    /// <summary>Initializes the data and indexed collections used by the benchmarks.</summary>
     [GlobalSetup]
     public void Setup()
     {
         _disposed = false;
-        _items = Enumerable.Range(0, Count)
-            .Select(static index => new BenchItem(index, index & GroupMask, index * ValueMultiplier))
-            .ToArray();
-        _pairs = _items.Select(static item => KeyValuePair.Create(item.Id, item)).ToArray();
+        _items = new BenchItem[Count];
+        _pairs = new KeyValuePair<int, BenchItem>[Count];
+        for (var index = 0; index < Count; index++)
+        {
+            BenchItem item = new(index, index & GroupMask, index * ValueMultiplier);
+            _items[index] = item;
+            _pairs[index] = KeyValuePair.Create(item.Id, item);
+        }
 
         _indexedList = new();
         _indexedList.AddRange(_items);
@@ -61,7 +75,7 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
         _sourceCache.AddOrUpdate(_items);
     }
 
-    /// <summary>Provides Cleanup.</summary>
+    /// <summary>Releases the indexed collections created for the benchmarks.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {
@@ -79,15 +93,11 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
         _disposed = true;
     }
 
-    /// <summary>Disposes benchmark resources.</summary>
-    public void Dispose()
-    {
-        Cleanup();
-        GC.SuppressFinalize(this);
-    }
+    /// <summary>Releases the indexed collections created for the benchmarks.</summary>
+    public void Dispose() => Cleanup();
 
-    /// <summary>Provides ReactiveList_AddRange_NoSubscriber.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Measures adding all items to a ReactiveList with no subscriber.</summary>
+    /// <returns>The resulting list count.</returns>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("StreamIsolation")]
     public int ReactiveList_AddRange_NoSubscriber()
@@ -97,8 +107,8 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
         return list.Count;
     }
 
-    /// <summary>Provides ReactiveList_AddRange_WithConnectSubscriber.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Measures adding all items to a ReactiveList with a Connect subscriber.</summary>
+    /// <returns>The combined list and observed change counts.</returns>
     [Benchmark]
     [BenchmarkCategory("StreamIsolation")]
     public int ReactiveList_AddRange_WithConnectSubscriber()
@@ -110,8 +120,8 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
         return list.Count + observed;
     }
 
-    /// <summary>Provides QuaternaryList_AddRange_NoSubscriber.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Measures adding all items to a QuaternaryList with no subscriber.</summary>
+    /// <returns>The resulting list count.</returns>
     [Benchmark]
     [BenchmarkCategory("StreamIsolation")]
     public int QuaternaryList_AddRange_NoSubscriber()
@@ -121,8 +131,8 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
         return list.Count;
     }
 
-    /// <summary>Provides QuaternaryDictionary_AddRange_NoSubscriber.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Measures adding all pairs to a QuaternaryDictionary with no subscriber.</summary>
+    /// <returns>The resulting dictionary count.</returns>
     [Benchmark]
     [BenchmarkCategory("StreamIsolation")]
     public int QuaternaryDictionary_AddRange_NoSubscriber()
@@ -132,8 +142,8 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
         return dictionary.Count;
     }
 
-    /// <summary>Provides SourceCache_AddOrUpdate_WithConnectSubscriber.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Measures adding or updating all items in a SourceCache with a Connect subscriber.</summary>
+    /// <returns>The combined cache and observed change counts.</returns>
     [Benchmark]
     [BenchmarkCategory("StreamIsolation")]
     public int SourceCache_AddOrUpdate_WithConnectSubscriber()
@@ -145,36 +155,57 @@ public sealed class ObservableIsolationBenchmarks : IDisposable
         return cache.Count + observed;
     }
 
-    /// <summary>Provides QuaternaryList_SecondaryIndexLookup.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Measures looking up indexed items in a QuaternaryList.</summary>
+    /// <returns>The number of matching items.</returns>
     [Benchmark]
     [BenchmarkCategory("IndexedLookup")]
     public int QuaternaryList_SecondaryIndexLookup()
     {
-        return _indexedList!.GetItemsBySecondaryIndex(GroupIndexName, IndexedGroup).Count();
+        var matches = 0;
+        foreach (var _ in _indexedList!.GetItemsBySecondaryIndex(GroupIndexName, IndexedGroup))
+        {
+            matches++;
+        }
+
+        return matches;
     }
 
-    /// <summary>Provides QuaternaryDictionary_SecondaryIndexLookup.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Measures looking up indexed values in a QuaternaryDictionary.</summary>
+    /// <returns>The number of matching values.</returns>
     [Benchmark]
     [BenchmarkCategory("IndexedLookup")]
     public int QuaternaryDictionary_SecondaryIndexLookup()
     {
-        return _indexedDictionary!.GetValuesBySecondaryIndex(GroupIndexName, IndexedGroup).Count();
+        var matches = 0;
+        foreach (var _ in _indexedDictionary!.GetValuesBySecondaryIndex(GroupIndexName, IndexedGroup))
+        {
+            matches++;
+        }
+
+        return matches;
     }
 
-    /// <summary>Provides SourceCache_SecondaryScan.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Measures scanning a SourceCache for indexed values.</summary>
+    /// <returns>The number of matching values.</returns>
     [Benchmark]
     [BenchmarkCategory("IndexedLookup")]
     public int SourceCache_SecondaryScan()
     {
-        return _sourceCache!.Items.Count(static item => item.Group == IndexedGroup);
+        var matches = 0;
+        foreach (var item in _sourceCache!.Items)
+        {
+            if (item.Group == IndexedGroup)
+            {
+                matches++;
+            }
+        }
+
+        return matches;
     }
 
-    /// <summary>Provides BenchItem.</summary>
-    /// <param name="Id">The Id value.</param>
-    /// <param name="Group">The Group value.</param>
-    /// <param name="Value">The Value.</param>
+    /// <summary>Represents an item used by the isolation benchmarks.</summary>
+    /// <param name="Id">The item's identifier.</param>
+    /// <param name="Group">The item's secondary-index group.</param>
+    /// <param name="Value">The item's payload value.</param>
     private readonly record struct BenchItem(int Id, int Group, int Value);
 }

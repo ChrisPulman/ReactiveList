@@ -5,7 +5,6 @@
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
@@ -19,38 +18,55 @@ namespace ReactiveList.Test;
 /// under various conditions and that its public API contracts are enforced.</remarks>
 public class QuaternaryListTests
 {
+    /// <summary>The second collection value used by test data.</summary>
     private const int SecondCollectionValue = 2;
 
+    /// <summary>The third collection value used by test data.</summary>
     private const int ThirdCollectionValue = 3;
 
+    /// <summary>The fourth collection value used by test data.</summary>
     private const int FourthCollectionValue = 4;
 
+    /// <summary>The fifth collection value used by test data.</summary>
     private const int FifthCollectionValue = 5;
 
+    /// <summary>The sixth collection value used by test data.</summary>
     private const int SixthCollectionValue = 6;
 
+    /// <summary>The seventh collection value used by test data.</summary>
     private const int SeventhCollectionValue = 7;
 
+    /// <summary>The eighth collection value used by test data.</summary>
     private const int EighthCollectionValue = 8;
 
+    /// <summary>The ninth collection value used by test data.</summary>
     private const int NinthCollectionValue = 9;
 
+    /// <summary>The first replacement value used by test data.</summary>
     private const int FirstReplacementValue = 10;
 
+    /// <summary>The second replacement value used by test data.</summary>
     private const int SecondReplacementValue = 20;
 
+    /// <summary>The third replacement value used by test data.</summary>
     private const int ThirdReplacementValue = 30;
 
+    /// <summary>The collection value tracked by notification tests.</summary>
     private const int TrackedCollectionValue = 42;
 
+    /// <summary>A value deliberately absent from test collections.</summary>
     private const int MissingCollectionValue = 99;
 
+    /// <summary>The name of the city secondary index.</summary>
     private const string CityIndexName = "ByCity";
 
+    /// <summary>The New York test value.</summary>
     private const string NewYorkCity = "New York";
 
+    /// <summary>The Los Angeles test value.</summary>
     private const string LosAngelesCity = "Los Angeles";
 
+    /// <summary>The Chicago test value.</summary>
     private const string ChicagoCity = "Chicago";
 
     /// <summary>Verifies that adding an item to a QuaternaryList increases the count and that the item is present in the list.</summary>
@@ -59,7 +75,7 @@ public class QuaternaryListTests
     {
         using var list = new QuaternaryList<int> { TrackedCollectionValue };
 
-        Assert.Single(list);
+        _ = Assert.Single(list);
         Assert.Contains(TrackedCollectionValue, list);
     }
 
@@ -82,9 +98,9 @@ public class QuaternaryListTests
         list.AddRange([0, 1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue]);
 
         Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        Assert.NotNull(notification);
+        _ = Assert.NotNull(notification);
         Assert.Equal(CacheAction.BatchAdded, notification!.Action);
-        Assert.NotNull(notification.Batch);
+        _ = Assert.NotNull(notification.Batch);
         Assert.Equal(FifthCollectionValue, notification.Batch!.Count);
         notification.Batch.Dispose();
 
@@ -115,7 +131,7 @@ public class QuaternaryListTests
     {
         using var list = new QuaternaryList<int> { 1, SecondCollectionValue, ThirdCollectionValue };
 
-        Assert.Throws<NotSupportedException>(() => list[0] = FifthCollectionValue);
+        _ = Assert.Throws<NotSupportedException>(() => list[0] = FifthCollectionValue);
     }
 
     /// <summary>
@@ -126,7 +142,7 @@ public class QuaternaryListTests
     public void AddIndexAndQuery_ShouldTrackAndUpdate()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex(CityIndexName, p => p.City);
+        list.AddIndex(CityIndexName, static p => p.City);
 
         var newYorkPerson = new TestPerson("A", NewYorkCity);
         var losAngelesPerson = new TestPerson("B", LosAngelesCity);
@@ -134,19 +150,19 @@ public class QuaternaryListTests
 
         list.AddRange([newYorkPerson, losAngelesPerson, secondNewYorkPerson]);
 
-        var newYorkResults = list.GetItemsBySecondaryIndex(CityIndexName, NewYorkCity).ToList();
+        var newYorkResults = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, NewYorkCity));
         Assert.Equal(SecondCollectionValue, newYorkResults.Count);
         Assert.Contains(newYorkPerson, newYorkResults);
         Assert.Contains(secondNewYorkPerson, newYorkResults);
 
-        var losAngelesResults = list.GetItemsBySecondaryIndex(CityIndexName, LosAngelesCity).ToList();
-        Assert.Single(losAngelesResults);
+        var losAngelesResults = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, LosAngelesCity));
+        _ = Assert.Single(losAngelesResults);
         Assert.Equal(losAngelesPerson, losAngelesResults[0]);
 
-        list.Remove(newYorkPerson);
+        _ = list.Remove(newYorkPerson);
 
-        var newYorkResultsAfterRemove = list.GetItemsBySecondaryIndex(CityIndexName, NewYorkCity).ToList();
-        Assert.Single(newYorkResultsAfterRemove);
+        var newYorkResultsAfterRemove = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, NewYorkCity));
+        _ = Assert.Single(newYorkResultsAfterRemove);
         Assert.Equal(secondNewYorkPerson, newYorkResultsAfterRemove[0]);
     }
 
@@ -155,7 +171,7 @@ public class QuaternaryListTests
     public void Clear_ShouldResetItemsAndIndices()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex(CityIndexName, p => p.City);
+        list.AddIndex(CityIndexName, static p => p.City);
         list.AddRange(
         [
             new TestPerson("A", NewYorkCity),
@@ -191,9 +207,9 @@ public class QuaternaryListTests
         list.RemoveRange([SecondCollectionValue, FourthCollectionValue]);
 
         Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        Assert.NotNull(notification);
+        _ = Assert.NotNull(notification);
         Assert.Equal(CacheAction.BatchRemoved, notification!.Action);
-        Assert.NotNull(notification.Batch);
+        _ = Assert.NotNull(notification.Batch);
         Assert.Equal(SecondCollectionValue, notification.Batch!.Count);
         notification.Batch.Dispose();
 
@@ -209,9 +225,20 @@ public class QuaternaryListTests
     public void RemoveMany_WithPredicate_ShouldRemoveMatchingItems()
     {
         using var list = new QuaternaryList<int>();
-        list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue, SixthCollectionValue, SeventhCollectionValue, EighthCollectionValue, NinthCollectionValue, FirstReplacementValue]);
+        list.AddRange(
+        [
+            1,
+            SecondCollectionValue,
+            ThirdCollectionValue,
+            FourthCollectionValue,
+            FifthCollectionValue,
+            SixthCollectionValue,
+            SeventhCollectionValue,
+            EighthCollectionValue,
+            NinthCollectionValue,
+            FirstReplacementValue
+        ]);
 
-        CacheNotify<int>? notification = null;
         using var reset = new ManualResetEventSlim(false);
         using var subscription = list.Stream.Subscribe(evt =>
         {
@@ -220,11 +247,10 @@ public class QuaternaryListTests
                 return;
             }
 
-            notification = evt;
             reset.Set();
         });
 
-        var removedCount = list.RemoveMany(x => x % SecondCollectionValue == 0);
+        var removedCount = list.RemoveMany(static x => x % SecondCollectionValue == 0);
 
         Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
         Assert.Equal(FifthCollectionValue, removedCount);
@@ -241,7 +267,7 @@ public class QuaternaryListTests
     {
         using var list = new QuaternaryList<int> { 1 };
 
-        Assert.Throws<LockRecursionException>(() => list.RemoveMany(item =>
+        _ = Assert.Throws<LockRecursionException>(() => list.RemoveMany(item =>
         {
             if (item != 1)
             {
@@ -277,7 +303,7 @@ public class QuaternaryListTests
             reset.Set();
         });
 
-        list.Edit(innerList =>
+        list.Edit(static innerList =>
         {
             innerList.Clear();
             innerList.Add(FirstReplacementValue);
@@ -286,7 +312,7 @@ public class QuaternaryListTests
         });
 
         Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        Assert.Single(notifications);
+        _ = Assert.Single(notifications);
         Assert.Equal(CacheAction.BatchOperation, notifications[0]);
         Assert.Equal(ThirdCollectionValue, list.Count);
         Assert.Contains(FirstReplacementValue, list);
@@ -300,26 +326,26 @@ public class QuaternaryListTests
     public void Edit_ShouldUpdateIndicesCorrectly()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex(CityIndexName, p => p.City);
+        list.AddIndex(CityIndexName, static p => p.City);
 
         list.AddRange([
             new TestPerson("Alice", "NYC"),
             new TestPerson("Bob", "LA")
         ]);
 
-        list.Edit(innerList =>
+        list.Edit(static innerList =>
         {
             innerList.Clear();
-            innerList.Add(new TestPerson("Charlie", "NYC"));
-            innerList.Add(new TestPerson("Diana", ChicagoCity));
+            innerList.Add(new("Charlie", "NYC"));
+            innerList.Add(new("Diana", ChicagoCity));
         });
 
-        var nycResults = list.GetItemsBySecondaryIndex(CityIndexName, "NYC").ToList();
-        Assert.Single(nycResults);
+        var nycResults = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, "NYC"));
+        _ = Assert.Single(nycResults);
         Assert.Equal("Charlie", nycResults[0].Name);
         Assert.Empty(list.GetItemsBySecondaryIndex(CityIndexName, "LA"));
-        var chicagoResults = list.GetItemsBySecondaryIndex(CityIndexName, ChicagoCity).ToList();
-        Assert.Single(chicagoResults);
+        var chicagoResults = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, ChicagoCity));
+        _ = Assert.Single(chicagoResults);
         Assert.Equal("Diana", chicagoResults[0].Name);
     }
 
@@ -369,7 +395,7 @@ public class QuaternaryListTests
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
-        var items = list.ToList();
+        var items = new List<int>(list);
 
         Assert.Equal(FifthCollectionValue, items.Count);
         Assert.Contains(1, items);
@@ -392,7 +418,7 @@ public class QuaternaryListTests
     public void ItemMatchesSecondaryIndex_ShouldReturnCorrectResult()
     {
         using var list = new QuaternaryList<TestPerson>();
-        list.AddIndex(CityIndexName, p => p.City);
+        list.AddIndex(CityIndexName, static p => p.City);
 
         var newYorkPerson = new TestPerson("A", NewYorkCity);
         var losAngelesPerson = new TestPerson("B", LosAngelesCity);
@@ -429,7 +455,7 @@ public class QuaternaryListTests
         list.Add(TrackedCollectionValue);
 
         Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        Assert.NotNull(notification);
+        _ = Assert.NotNull(notification);
         Assert.Equal(CacheAction.Added, notification!.Action);
         Assert.Equal(TrackedCollectionValue, notification.Item);
     }
@@ -453,10 +479,10 @@ public class QuaternaryListTests
             reset.Set();
         });
 
-        list.Remove(TrackedCollectionValue);
+        _ = list.Remove(TrackedCollectionValue);
 
         Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        Assert.NotNull(notification);
+        _ = Assert.NotNull(notification);
         Assert.Equal(CacheAction.Removed, notification!.Action);
         Assert.Equal(TrackedCollectionValue, notification.Item);
     }
@@ -484,7 +510,7 @@ public class QuaternaryListTests
         list.Clear();
 
         Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        Assert.NotNull(notification);
+        _ = Assert.NotNull(notification);
         Assert.Equal(CacheAction.Cleared, notification!.Action);
     }
 
@@ -542,16 +568,17 @@ public class QuaternaryListTests
     public void ReplaceAll_ShouldUpdateSecondaryIndices()
     {
         using var list = new QuaternaryList<int>();
-        list.AddIndex("Mod2", x => x % SecondCollectionValue);
+        list.AddIndex("Mod2", static x => x % SecondCollectionValue);
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
         // Verify initial state
-        Assert.Equal(SecondCollectionValue, list.GetItemsBySecondaryIndex("Mod2", 0).Count()); // 2, 4
+        var initialEvenItems = new List<int>(list.GetItemsBySecondaryIndex("Mod2", 0));
+        Assert.Equal(SecondCollectionValue, initialEvenItems.Count); // 2, 4
 
         list.ReplaceAll([FirstReplacementValue, SecondReplacementValue, ThirdReplacementValue]);
 
         // After replace, new even numbers
-        var evenItems = list.GetItemsBySecondaryIndex("Mod2", 0).ToList();
+        var evenItems = new List<int>(list.GetItemsBySecondaryIndex("Mod2", 0));
         Assert.Equal(ThirdCollectionValue, evenItems.Count); // 10, 20, 30 are all even
     }
 
@@ -562,7 +589,7 @@ public class QuaternaryListTests
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue]);
 
-        Assert.Throws<ArgumentNullException>(() => list.ReplaceAll(null!));
+        _ = Assert.Throws<ArgumentNullException>(() => list.ReplaceAll(null!));
     }
 
     /// <summary>Provides TestPerson.</summary>

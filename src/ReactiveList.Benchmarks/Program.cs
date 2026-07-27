@@ -8,21 +8,26 @@ using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
 
 // Configure for in-process benchmarking with proper thread pool settings.
-const int MinimumThreadCount = 4;
-
-ThreadPool.SetMinThreads(MinimumThreadCount, MinimumThreadCount);
+_ = ThreadPool.SetMinThreads(Program.MinimumThreadCount, Program.MinimumThreadCount);
 
 var config = ManualConfig.Create(DefaultConfig.Instance);
 
-var hasJobOverride = args.Any(arg =>
-    arg.Equals("--job", StringComparison.OrdinalIgnoreCase) ||
-    arg.StartsWith("--job=", StringComparison.OrdinalIgnoreCase));
+var hasJobOverride = Array.Exists(args, static arg =>
+    arg.Equals("--job", StringComparison.OrdinalIgnoreCase)
+    || arg.StartsWith("--job=", StringComparison.OrdinalIgnoreCase));
 
 if (!hasJobOverride)
 {
-    config.AddJob(Job.ShortRun
+    _ = config.AddJob(Job.ShortRun
         .WithToolchain(InProcessEmitToolchain.Instance)
         .WithEnvironmentVariable("DOTNET_SYSTEM_THREADING_THREADPOOL_MINWORKERS", "4"));
 }
 
-BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);
+_ = BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);
+
+/// <summary>Hosts the generated benchmark application entry point.</summary>
+internal sealed partial class Program
+{
+    /// <summary>Specifies the minimum worker and completion-port thread counts used by benchmarks.</summary>
+    internal const int MinimumThreadCount = 4;
+}

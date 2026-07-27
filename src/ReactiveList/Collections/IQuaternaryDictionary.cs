@@ -20,6 +20,16 @@ namespace CP.Primitives.Collections;
 public interface IQuaternaryDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReactiveSource<KeyValuePair<TKey, TValue>>
     where TKey : notnull
 {
+    /// <summary>Gets the number of key/value pairs contained in the dictionary.</summary>
+    new int Count { get; }
+
+    /// <summary>Gets a value indicating whether the dictionary is read-only.</summary>
+    new bool IsReadOnly { get; }
+
+    /// <summary>Returns an enumerator that iterates through the dictionary.</summary>
+    /// <returns>An enumerator for the dictionary.</returns>
+    new IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator();
+
     /// <summary>Adds a new element with the specified key and value, or updates the value if the key already exists.</summary>
     /// <param name="key">The key of the element to add or update. Cannot be null.</param>
     /// <param name="value">The value to set for the specified key.</param>

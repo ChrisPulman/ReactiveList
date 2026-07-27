@@ -14,79 +14,55 @@ namespace CP.Primitives.Views;
 /// </summary>
 /// <typeparam name="TKey">The type of keys in the dictionary.</typeparam>
 /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
-public sealed class DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue> : IReadOnlyList<KeyValuePair<TKey, TValue>>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue>, KeyValuePair<TKey, TValue>>, IDisposable
+public sealed class DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue> :
+    IReadOnlyList<KeyValuePair<TKey, TValue>>,
+    INotifyCollectionChanged,
+    INotifyPropertyChanged,
+    IReactiveView<DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue>, KeyValuePair<TKey, TValue>>
 where TKey : notnull
 {
+    /// <summary>The indexed dictionary whose changes feed this view.</summary>
     private readonly QuaternaryDictionary<TKey, TValue> _source;
 
+    /// <summary>The name of the secondary index queried by this view.</summary>
     private readonly string _indexName;
 
+    /// <summary>Retrieves values for a boxed secondary-index key.</summary>
     private readonly Func<QuaternaryDictionary<TKey, TValue>, string, object, IEnumerable<TValue>> _getValuesByIndex;
 
+    /// <summary>Determines whether a dictionary value matches a boxed secondary-index key.</summary>
     private readonly Func<QuaternaryDictionary<TKey, TValue>, string, TValue, object, bool> _valueMatchesIndex;
 
+    /// <summary>The mutable collection backing the public read-only view.</summary>
     private readonly ObservableCollection<KeyValuePair<TKey, TValue>> _filteredItems;
 
-    private readonly MultipleDisposable _disposables = new();
+    /// <summary>The subscriptions owned by this view.</summary>
+    private readonly MultipleDisposable _disposables = [];
 
+    /// <summary>Serializes key changes and collection updates.</summary>
     private readonly Lock _lock = new();
 
+    /// <summary>The secondary-index keys currently included in the view.</summary>
     private HashSet<object> _currentKeys = [];
 
     /// <summary>Initializes a new instance of the <see cref="DynamicSecondaryIndexDictionaryReactiveView{TKey, TValue}"/> class.</summary>
     /// <param name="source">The source dictionary to filter.</param>
     /// <param name="indexName">The name of the secondary index.</param>
-    /// <param name="keysObservable">An observable of key arrays to filter by.</param>
-    /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
     /// <param name="getValuesByIndex">The delegate used to retrieve values for a boxed secondary index key.</param>
     /// <param name="valueMatchesIndex">The delegate used to test whether a value matches a boxed secondary index key.</param>
     private DynamicSecondaryIndexDictionaryReactiveView(
         QuaternaryDictionary<TKey, TValue> source,
         string indexName,
-        IObservable<object[]> keysObservable,
-        ISequencer scheduler,
-        TimeSpan throttle,
         Func<QuaternaryDictionary<TKey, TValue>, string, object, IEnumerable<TValue>> getValuesByIndex,
         Func<QuaternaryDictionary<TKey, TValue>, string, TValue, object, bool> valueMatchesIndex)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _indexName = indexName ?? throw new ArgumentNullException(nameof(indexName));
-        ThrowHelper.ThrowIfNull(keysObservable);
         _getValuesByIndex = getValuesByIndex ?? throw new ArgumentNullException(nameof(getValuesByIndex));
         _valueMatchesIndex = valueMatchesIndex ?? throw new ArgumentNullException(nameof(valueMatchesIndex));
 
         _filteredItems = [];
         Items = new(_filteredItems);
-
-        var hasInitialKeys = TryGetLatest(keysObservable, out var initialKeys);
-        _currentKeys = initialKeys?.ToHashSet() ?? [];
-        RebuildView();
-
-        // Subscribe to key changes (skip the first since we already processed it)
-        var keyChanges = hasInitialKeys ? keysObservable.Skip(1) : keysObservable;
-        keyChanges
-            .Subscribe(keys =>
-            {
-                lock (_lock)
-                {
-                    _currentKeys = keys is null ? [] : new HashSet<object>(keys);
-                    RebuildView();
-                }
-
-                OnPropertyChanged(nameof(Count));
-            })
-            .DisposeWith(_disposables);
-
-        // Subscribe to source changes
-        _source.Stream
-            .Throttle(throttle)
-            .ObserveOn(scheduler)
-            .Subscribe(OnSourceChanged)
-            .DisposeWith(_disposables);
-
-        // Forward collection changed events
-        _filteredItems.CollectionChanged += (s, e) => CollectionChanged?.Invoke(this, e);
     }
 
     /// <inheritdoc/>
@@ -132,14 +108,13 @@ where TKey : notnull
 
             return boxedKeys;
         });
-        return new DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue>(
+        var view = new DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue>(
             source,
             indexName,
-            typedKeys,
-            scheduler,
-            throttle,
             static (dict, name, key) => dict.GetValuesBySecondaryIndex(name, (TIndexKey)key),
             static (dict, name, value, key) => dict.ValueMatchesSecondaryIndex(name, value, (TIndexKey)key));
+        view.Start(typedKeys, scheduler, throttle);
+        return view;
     }
 
     /// <inheritdoc/>
@@ -180,10 +155,7 @@ where TKey : notnull
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _disposables.Dispose();
-    }
+    public void Dispose() => _disposables.Dispose();
 
     /// <summary>Attempts to get the latest value.</summary>
     /// <param name="source">The source value.</param>
@@ -204,10 +176,48 @@ where TKey : notnull
                 current = next;
                 hasValue = true;
             },
-            _ => { });
+            static _ => { });
 
         value = current;
         return hasValue;
+    }
+
+    /// <summary>Initializes the view contents and activates its subscriptions.</summary>
+    /// <param name="keysObservable">An observable of key arrays to filter by.</param>
+    /// <param name="scheduler">The scheduler for dispatching updates.</param>
+    /// <param name="throttle">The throttle duration for updates.</param>
+    private void Start(IObservable<object[]> keysObservable, ISequencer scheduler, TimeSpan throttle)
+    {
+        ThrowHelper.ThrowIfNull(keysObservable);
+
+        var hasInitialKeys = TryGetLatest(keysObservable, out var initialKeys);
+        _currentKeys = initialKeys?.ToHashSet() ?? [];
+        RebuildView();
+
+        // Subscribe to key changes (skip the first since we already processed it)
+        var keyChanges = hasInitialKeys ? keysObservable.Skip(1) : keysObservable;
+        _ = keyChanges
+            .Subscribe(keys =>
+            {
+                lock (_lock)
+                {
+                    _currentKeys = keys is null ? [] : new HashSet<object>(keys);
+                    RebuildView();
+                }
+
+                OnPropertyChanged(nameof(Count));
+            })
+            .DisposeWith(_disposables);
+
+        // Subscribe to source changes
+        _ = _source.Stream
+            .Throttle(throttle)
+            .ObserveOn(scheduler)
+            .Subscribe(OnSourceChanged)
+            .DisposeWith(_disposables);
+
+        // Forward collection changed events
+        _filteredItems.CollectionChanged += (_, e) => CollectionChanged?.Invoke(this, e);
     }
 
     /// <summary>Handles source change notifications.</summary>

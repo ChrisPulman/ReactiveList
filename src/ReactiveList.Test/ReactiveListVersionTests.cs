@@ -2,7 +2,6 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Linq;
 using CP.Primitives;
 using CP.Primitives.Collections;
 using FluentAssertions;
@@ -25,7 +24,7 @@ public class ReactiveListVersionTests
         list.Add(1);
 
         // Assert
-        list.Version.Should().Be(initialVersion + 1);
+        _ = list.Version.Should().Be(initialVersion + 1);
     }
 
     /// <summary>Tests that Version increments when adding a range.</summary>
@@ -40,7 +39,7 @@ public class ReactiveListVersionTests
         list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
         // Assert
-        list.Version.Should().Be(initialVersion + 1);
+        _ = list.Version.Should().Be(initialVersion + 1);
     }
 
     /// <summary>Tests that Version increments when removing an item.</summary>
@@ -52,10 +51,10 @@ public class ReactiveListVersionTests
         var initialVersion = list.Version;
 
         // Act
-        list.Remove(TestData.TestValueTwo);
+        _ = list.Remove(TestData.TestValueTwo);
 
         // Assert
-        list.Version.Should().Be(initialVersion + 1);
+        _ = list.Version.Should().Be(initialVersion + 1);
     }
 
     /// <summary>Tests that Version increments when clearing.</summary>
@@ -70,7 +69,7 @@ public class ReactiveListVersionTests
         list.Clear();
 
         // Assert
-        list.Version.Should().Be(initialVersion + 1);
+        _ = list.Version.Should().Be(initialVersion + 1);
     }
 
     /// <summary>Tests that Version increments when updating.</summary>
@@ -85,7 +84,7 @@ public class ReactiveListVersionTests
         list.Update(TestData.TestValueTwo, TestData.TestValueTwenty);
 
         // Assert
-        list.Version.Should().Be(initialVersion + 1);
+        _ = list.Version.Should().Be(initialVersion + 1);
     }
 
     /// <summary>Tests that Version increments when moving.</summary>
@@ -100,7 +99,7 @@ public class ReactiveListVersionTests
         list.Move(0, TestData.TestValueTwo);
 
         // Assert
-        list.Version.Should().Be(initialVersion + 1);
+        _ = list.Version.Should().Be(initialVersion + 1);
     }
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
@@ -110,15 +109,21 @@ public class ReactiveListVersionTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(Enumerable.Range(1, TestData.TestValueOneHundred).ToArray());
+        var items = new int[TestData.TestValueOneHundred];
+        for (var i = 0; i < items.Length; i++)
+        {
+            items[i] = i + 1;
+        }
+
+        list.AddRange(items);
         var countBefore = list.Count;
 
         // Act
         list.ClearWithoutDeallocation();
 
         // Assert
-        list.Count.Should().Be(0);
-        countBefore.Should().Be(TestData.TestValueOneHundred);
+        _ = list.Count.Should().Be(0);
+        _ = countBefore.Should().Be(TestData.TestValueOneHundred);
     }
 
     /// <summary>Tests that ClearWithoutDeallocation emits change notification.</summary>
@@ -130,14 +135,14 @@ public class ReactiveListVersionTests
         var changeReceived = false;
         using var subscription = list.Connect().Subscribe(
             _ => changeReceived = true,
-            _ => { },
-            () => { });
+            static _ => { },
+            static () => { });
 
         // Act
         list.ClearWithoutDeallocation();
 
         // Assert
-        changeReceived.Should().BeTrue();
+        _ = changeReceived.Should().BeTrue();
     }
 
     /// <summary>Tests that ClearWithoutDeallocation with notifyChange=false does not emit.</summary>
@@ -149,16 +154,16 @@ public class ReactiveListVersionTests
         var changeCount = 0;
         using var subscription = list.Connect().Subscribe(
             _ => changeCount++,
-            _ => { },
-            () => { });
+            static _ => { },
+            static () => { });
         var countBefore = changeCount;
 
         // Act
         list.ClearWithoutDeallocation(notifyChange: false);
 
         // Assert
-        list.Count.Should().Be(0);
-        changeCount.Should().Be(countBefore); // No additional changes
+        _ = list.Count.Should().Be(0);
+        _ = changeCount.Should().Be(countBefore); // No additional changes
     }
 
     /// <summary>Tests that ClearWithoutDeallocation increments version.</summary>
@@ -173,7 +178,7 @@ public class ReactiveListVersionTests
         list.ClearWithoutDeallocation();
 
         // Assert
-        list.Version.Should().Be(initialVersion + 1);
+        _ = list.Version.Should().Be(initialVersion + 1);
     }
 #endif
 }

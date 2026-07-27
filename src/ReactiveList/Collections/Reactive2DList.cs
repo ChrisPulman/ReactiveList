@@ -136,8 +136,16 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
     /// <summary>Returns a flattened sequence containing all items from each inner collection in the order they appear.</summary>
     /// <returns>An <see cref="IEnumerable{T}"/> that enumerates all items from the inner collections. The sequence is empty if
     /// there are no items.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IEnumerable<T> Flatten() => Items.SelectMany(innerList => innerList.Items);
+    public IEnumerable<T> Flatten()
+    {
+        foreach (var innerList in Items)
+        {
+            foreach (var item in innerList.Items)
+            {
+                yield return item;
+            }
+        }
+    }
 
     /// <summary>Retrieves the element at the specified inner index within the list located at the specified outer index.</summary>
     /// <param name="outerIndex">The zero-based index of the outer list from which to retrieve the inner list. Must be greater than or equal to 0
@@ -165,17 +173,6 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
         return innerList[innerIndex];
     }
 
-    /// <summary>Inserts the elements of a collection into the list at the specified index.</summary>
-    /// <param name="index">The zero-based index at which the new elements should be inserted.</param>
-    /// <param name="items">The collection of elements to insert into the list. Cannot be null.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="items"/> is null.</exception>
-    public void Insert(int index, IEnumerable<T> items)
-    {
-        ThrowHelper.ThrowIfNull(items);
-
-        base.Insert(index, [.. items]);
-    }
-
     /// <summary>Inserts an item into the collection at the specified index.</summary>
     /// <param name="index">The zero-based index at which the item should be inserted.</param>
     /// <param name="item">The item to insert into the collection. Cannot be null.</param>
@@ -200,6 +197,17 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
         ThrowHelper.ThrowIfNull(items);
 
         this[index].InsertRange(innerIndex, items);
+    }
+
+    /// <summary>Inserts the elements of a collection into the list at the specified index as a new row.</summary>
+    /// <param name="index">The zero-based index at which the new row should be inserted.</param>
+    /// <param name="items">The collection of elements to insert as a row. Cannot be null.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="items"/> is null.</exception>
+    public void InsertRange(int index, IEnumerable<T> items)
+    {
+        ThrowHelper.ThrowIfNull(items);
+
+        base.Insert(index, [.. items]);
     }
 
     /// <summary>Removes the element at the specified index from the inner collection at the given outer index.</summary>
@@ -284,7 +292,8 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
             var index = 0;
             foreach (var item in collection)
             {
-                rows[index++] = new(item);
+                rows[index] = new(item);
+                index++;
             }
 
             return rows;
@@ -314,7 +323,8 @@ public class Reactive2DList<T> : ReactiveList<ReactiveList<T>>
             var index = 0;
             foreach (var item in collection)
             {
-                rows[index++] = new(item);
+                rows[index] = new(item);
+                index++;
             }
 
             return rows;

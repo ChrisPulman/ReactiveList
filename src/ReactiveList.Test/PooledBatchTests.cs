@@ -43,10 +43,10 @@ public class PooledBatchTests
         array[1] = PairCount;
         array[PairCount] = TripleCount;
 
-        var batch = new PooledBatch<int>(array, TripleCount);
+        using var batch = new PooledBatch<int>(array, TripleCount);
 
-        batch.Items.Should().BeSameAs(array);
-        batch.Count.Should().Be(TripleCount);
+        _ = batch.Items.Should().BeSameAs(array);
+        _ = batch.Count.Should().Be(TripleCount);
     }
 
     /// <summary>Items should be accessible before dispose.</summary>
@@ -57,10 +57,10 @@ public class PooledBatchTests
         array[0] = "hello";
         array[1] = "world";
 
-        var batch = new PooledBatch<string>(array, PairCount);
+        using var batch = new PooledBatch<string>(array, PairCount);
 
-        batch.Items[0].Should().Be("hello");
-        batch.Items[1].Should().Be("world");
+        _ = batch.Items[0].Should().Be("hello");
+        _ = batch.Items[1].Should().Be("world");
     }
 
     /// <summary>Count should reflect actual item count.</summary>
@@ -69,9 +69,9 @@ public class PooledBatchTests
     {
         var array = ArrayPool<double>.Shared.Rent(LargeArrayCapacity);
 
-        var batch = new PooledBatch<double>(array, ArbitraryBatchCount);
+        using var batch = new PooledBatch<double>(array, ArbitraryBatchCount);
 
-        batch.Count.Should().Be(ArbitraryBatchCount);
+        _ = batch.Count.Should().Be(ArbitraryBatchCount);
     }
 
     /// <summary>Dispose should return array to pool.</summary>
@@ -83,7 +83,7 @@ public class PooledBatchTests
 
         var act = batch.Dispose;
 
-        act.Should().NotThrow();
+        _ = act.Should().NotThrow();
     }
 
     /// <summary>Multiple dispose calls should be safe.</summary>
@@ -96,7 +96,7 @@ public class PooledBatchTests
         batch.Dispose();
         var act = batch.Dispose;
 
-        act.Should().NotThrow();
+        _ = act.Should().NotThrow();
     }
 
     /// <summary>Record equality should work correctly.</summary>
@@ -107,8 +107,8 @@ public class PooledBatchTests
         var batch1 = new PooledBatch<int>(array, DefaultBatchCount);
         var batch2 = new PooledBatch<int>(array, DefaultBatchCount);
 
-        batch1.Should().Be(batch2);
-        (batch1 == batch2).Should().BeTrue();
+        _ = batch1.Should().Be(batch2);
+        _ = (batch1 == batch2).Should().BeTrue();
 
         // Clean up
         batch1.Dispose();
@@ -122,8 +122,8 @@ public class PooledBatchTests
         var batch1 = new PooledBatch<int>(array, DefaultBatchCount);
         var batch2 = new PooledBatch<int>(array, ArrayCapacity);
 
-        batch1.Should().NotBe(batch2);
-        (batch1 != batch2).Should().BeTrue();
+        _ = batch1.Should().NotBe(batch2);
+        _ = (batch1 != batch2).Should().BeTrue();
 
         // Clean up - only one dispose needed since same array
         batch1.Dispose();
@@ -139,9 +139,9 @@ public class PooledBatchTests
 
         using var batch = new PooledBatch<string>(array, PairCount);
 
-        batch.Items[0].Should().Be("test");
-        batch.Items[1].Should().Be("data");
-        batch.Count.Should().Be(PairCount);
+        _ = batch.Items[0].Should().Be("test");
+        _ = batch.Items[1].Should().Be("data");
+        _ = batch.Count.Should().Be(PairCount);
     }
 
     /// <summary>PooledBatch with zero count should be valid.</summary>
@@ -152,8 +152,8 @@ public class PooledBatchTests
 
         using var batch = new PooledBatch<int>(array, 0);
 
-        batch.Count.Should().Be(0);
-        batch.Items.Should().NotBeNull();
+        _ = batch.Count.Should().Be(0);
+        _ = batch.Items.Should().NotBeNull();
     }
 
     /// <summary>PooledBatch should support with expression.</summary>
@@ -165,8 +165,8 @@ public class PooledBatchTests
 
         var batch2 = batch1 with { Count = UpdatedBatchCount };
 
-        batch2.Items.Should().BeSameAs(array);
-        batch2.Count.Should().Be(UpdatedBatchCount);
+        _ = batch2.Items.Should().BeSameAs(array);
+        _ = batch2.Count.Should().Be(UpdatedBatchCount);
 
         // Clean up
         batch1.Dispose();
@@ -182,7 +182,7 @@ public class PooledBatchTests
         var hash1 = batch.GetHashCode();
         var hash2 = batch.GetHashCode();
 
-        hash1.Should().Be(hash2);
+        _ = hash1.Should().Be(hash2);
 
         batch.Dispose();
     }
@@ -196,7 +196,7 @@ public class PooledBatchTests
 
         var result = batch.ToString();
 
-        result.Should().Contain("PooledBatch");
-        result.Should().Contain("5");
+        _ = result.Should().Contain("PooledBatch");
+        _ = result.Should().Contain("5");
     }
 }

@@ -22,27 +22,25 @@ public static class CacheNotifyExtensions
         /// <summary>Converts a single <see cref="CacheNotify{T}"/> to a <see cref="Change{T}"/>.</summary>
         /// <returns>A <see cref="Change{T}"/> representing the notification, or null for batch/clear operations without an item.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Change<T>? ToChange()
-        {
-            return notification is null
+        public Change<T>? ToChange() =>
+            notification is null
                 ? null
                 : notification.Action switch
-            {
-                CacheAction.Added when notification.Item is not null =>
-                    Change<T>.CreateAdd(notification.Item, notification.CurrentIndex),
-                CacheAction.Removed when notification.Item is not null =>
-                    Change<T>.CreateRemove(notification.Item, notification.CurrentIndex),
-                CacheAction.Updated when notification.Item is not null =>
-                    Change<T>.CreateUpdate(notification.Item, notification.Previous!, notification.CurrentIndex),
-                CacheAction.Moved when notification.Item is not null =>
-                    Change<T>.CreateMove(notification.Item, notification.CurrentIndex, notification.PreviousIndex),
-                CacheAction.Refreshed when notification.Item is not null =>
-                    Change<T>.CreateRefresh(notification.Item, notification.CurrentIndex),
-                CacheAction.Cleared =>
-                    new Change<T>(ChangeReason.Clear, default!),
-                _ => null
-            };
-        }
+                {
+                    CacheAction.Added when notification.Item is not null =>
+                        Change<T>.CreateAdd(notification.Item, notification.CurrentIndex),
+                    CacheAction.Removed when notification.Item is not null =>
+                        Change<T>.CreateRemove(notification.Item, notification.CurrentIndex),
+                    CacheAction.Updated when notification.Item is not null =>
+                        Change<T>.CreateUpdate(notification.Item, notification.Previous!, notification.CurrentIndex),
+                    CacheAction.Moved when notification.Item is not null =>
+                        Change<T>.CreateMove(notification.Item, notification.CurrentIndex, notification.PreviousIndex),
+                    CacheAction.Refreshed when notification.Item is not null =>
+                        Change<T>.CreateRefresh(notification.Item, notification.CurrentIndex),
+                    CacheAction.Cleared =>
+                        new Change<T>(ChangeReason.Clear, default!),
+                    _ => null
+                };
     }
 
     /// <summary>Helpers for observables of cache notifications.</summary>
@@ -68,7 +66,7 @@ public static class CacheNotifyExtensions
         {
             ThrowHelper.ThrowIfNull(source);
 
-            return source.Keep(n => n.Action is CacheAction.Added or CacheAction.BatchAdded);
+            return source.Keep(static n => n.Action is CacheAction.Added or CacheAction.BatchAdded);
         }
 
         /// <summary>Filters the stream to only include remove notifications (single and batch).</summary>
@@ -78,7 +76,7 @@ public static class CacheNotifyExtensions
         {
             ThrowHelper.ThrowIfNull(source);
 
-            return source.Keep(n => n.Action is CacheAction.Removed or CacheAction.BatchRemoved);
+            return source.Keep(static n => n.Action is CacheAction.Removed or CacheAction.BatchRemoved);
         }
 
         /// <summary>Projects single item notifications to their items.</summary>
@@ -89,8 +87,8 @@ public static class CacheNotifyExtensions
             ThrowHelper.ThrowIfNull(source);
 
             return source
-                .Keep(n => n.Item is not null)
-                .Map(n => n.Item!);
+                .Keep(static n => n.Item is not null)
+                .Map(static n => n.Item!);
         }
 
         /// <summary>Projects all items from notifications (both single and batch) to a flat sequence.</summary>
@@ -100,7 +98,7 @@ public static class CacheNotifyExtensions
         {
             ThrowHelper.ThrowIfNull(source);
 
-            return source.FlatMap(n =>
+            return source.FlatMap(static n =>
             {
                 if (n.Batch is not null)
                 {
@@ -137,8 +135,8 @@ public static class CacheNotifyExtensions
 
             return source
                 .WhereAction(CacheAction.Moved)
-                .Keep(n => n.Item is not null)
-                .Map(n => (n.Item!, n.PreviousIndex, n.CurrentIndex));
+                .Keep(static n => n.Item is not null)
+                .Map(static n => (n.Item!, n.PreviousIndex, n.CurrentIndex));
         }
 
         /// <summary>Subscribes to clear notifications from the stream.</summary>
@@ -156,7 +154,7 @@ public static class CacheNotifyExtensions
 
             return source
                 .Buffer(bufferTime)
-                .Keep(b => b.Count > 0);
+                .Keep(static b => b.Count > 0);
         }
 
         /// <summary>Throttles the stream to reduce notification frequency.</summary>
@@ -214,7 +212,7 @@ public static class CacheNotifyExtensions
         {
             ThrowHelper.ThrowIfNull(source);
 
-            return source.Tap(n => n.Batch?.Dispose());
+            return source.Tap(static n => n.Batch?.Dispose());
         }
 
         /// <summary>Counts items by action type in a stream.</summary>
@@ -224,7 +222,7 @@ public static class CacheNotifyExtensions
         {
             ThrowHelper.ThrowIfNull(source);
 
-            return source.Map(n =>
+            return source.Map(static n =>
             {
                 var count = n.Batch?.Count ?? (n.Item is not null ? 1 : 0);
                 return (n.Action, count);
@@ -243,7 +241,7 @@ public static class CacheNotifyExtensions
         {
             ThrowHelper.ThrowIfNull(source);
 
-            return source.Map(notification =>
+            return source.Map(static notification =>
             {
                 if (notification.Batch is { Count: > 0 })
                 {
@@ -251,8 +249,7 @@ public static class CacheNotifyExtensions
                     var reason = notification.Action switch
                     {
                         CacheAction.BatchAdded => ChangeReason.Add,
-                        CacheAction.BatchRemoved => ChangeReason.Remove,
-                        CacheAction.Cleared => ChangeReason.Remove, // Clear is semantically a bulk remove
+                        CacheAction.BatchRemoved or CacheAction.Cleared => ChangeReason.Remove,
                         _ => ChangeReason.Refresh
                     };
 
@@ -267,7 +264,7 @@ public static class CacheNotifyExtensions
                         }
                         else if (reason == ChangeReason.Remove)
                         {
-                            changes[i] = Change<T>.CreateRemove(item, -1);
+                            changes[i] = Change<T>.CreateRemove(item);
                         }
                         else
                         {
@@ -285,7 +282,7 @@ public static class CacheNotifyExtensions
 
                 var change = notification.ToChange();
                 return change.HasValue ? new ChangeSet<T>(change.Value) : ChangeSet<T>.Empty;
-            }).Where(cs => cs.Count > 0);
+            }).Where(static cs => cs.Count > 0);
         }
     }
 }

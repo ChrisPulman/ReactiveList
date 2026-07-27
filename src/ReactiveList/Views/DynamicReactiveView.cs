@@ -22,20 +22,28 @@ namespace CP.Primitives.Views;
 public class DynamicReactiveView<T> : INotifyPropertyChanged, IReactiveView<DynamicReactiveView<T>, T>
 where T : notnull
 {
+    /// <summary>The mutable collection backing the public read-only view.</summary>
     private readonly ObservableCollection<T> _target = [];
 
+    /// <summary>The source whose notifications update this view.</summary>
     private readonly IReactiveSource<T> _source;
 
+    /// <summary>The subscriptions owned by this view.</summary>
     private readonly MultipleDisposable _disposables = [];
 
+    /// <summary>The sequencer used to marshal view updates.</summary>
     private readonly ISequencer _scheduler;
 
+    /// <summary>The interval over which source notifications are batched.</summary>
     private readonly TimeSpan _throttle;
 
+    /// <summary>The predicate currently applied to source items.</summary>
     private Func<T, bool> _currentFilter = static _ => true;
 
+    /// <summary>The active subscription to the source notification stream.</summary>
     private IDisposable? _streamSubscription;
 
+    /// <summary>Indicates whether this view has been disposed.</summary>
     private bool _disposedValue;
 
     /// <summary>
@@ -52,7 +60,7 @@ where T : notnull
     /// <param name="scheduler">The scheduler on which to observe and process batched notifications, typically used to marshal updates to the
     /// appropriate thread (such as the UI thread).</param>
     /// <exception cref="ArgumentNullException">Thrown if source, filterObservable, or scheduler is null.</exception>
- #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     public DynamicReactiveView(IReactiveSource<T> source, IObservable<Func<T, bool>> filterObservable, in TimeSpan throttle, ISequencer scheduler)
 #else
     public DynamicReactiveView(IReactiveSource<T> source, IObservable<Func<T, bool>> filterObservable, TimeSpan throttle, ISequencer scheduler)
@@ -95,7 +103,7 @@ where T : notnull
 
         // Subscribe to subsequent filter changes with scheduler observation
         var filterChanges = hasInitialFilter ? filterObservable.Skip(1) : filterObservable;
-        filterChanges
+        _ = filterChanges
             .ObserveOn(scheduler)
             .Subscribe(newFilter =>
             {
@@ -195,7 +203,7 @@ where T : notnull
                 current = next;
                 hasValue = true;
             },
-            _ => { });
+            static _ => { });
 
         value = current;
         return hasValue;
@@ -223,7 +231,7 @@ where T : notnull
                 {
                     if (n.Item is not null)
                     {
-                        _target.Remove(n.Item);
+                        _ = _target.Remove(n.Item);
                     }
 
                     break;
@@ -300,7 +308,7 @@ where T : notnull
 
         for (var i = 0; i < batch.Count; i++)
         {
-            _target.Remove(batch.Items[i]);
+            _ = _target.Remove(batch.Items[i]);
         }
     }
 
@@ -337,7 +345,7 @@ where T : notnull
         // Subscribe to stream with current filter
         _streamSubscription = _source.Stream
             .Buffer(_throttle)
-            .Keep(b => b.Count > 0)
+            .Keep(static b => b.Count > 0)
             .ObserveOn(_scheduler)
             .Subscribe(batch =>
             {

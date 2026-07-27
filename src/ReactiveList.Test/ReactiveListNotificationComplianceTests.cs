@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CP.Primitives.Collections;
@@ -31,14 +30,26 @@ public class ReactiveListNotificationComplianceTests
 
         list[1] = TestData.TestValueTwenty;
 
-        list.Should().Equal(1, TestData.TestValueTwenty, TestData.TestValueThree);
-        collectionEvents.Should().ContainSingle();
-        collectionEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Replace);
+        _ = list.Should().Equal(1, TestData.TestValueTwenty, TestData.TestValueThree);
+        _ = collectionEvents.Should().ContainSingle();
+        _ = collectionEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Replace);
         var oldItems = collectionEvents[0].OldItems ?? throw new InvalidOperationException("Replace notification did not include old items.");
         var newItems = collectionEvents[0].NewItems ?? throw new InvalidOperationException("Replace notification did not include new items.");
-        oldItems.Cast<int>().Should().Equal(TestData.TestValueTwo);
-        newItems.Cast<int>().Should().Equal(TestData.TestValueTwenty);
-        propertyNames.Should().Equal(TestData.IndexerPropertyName);
+        var oldValues = new List<int>(oldItems.Count);
+        foreach (var item in oldItems)
+        {
+            oldValues.Add((int)item!);
+        }
+
+        var newValues = new List<int>(newItems.Count);
+        foreach (var item in newItems)
+        {
+            newValues.Add((int)item!);
+        }
+
+        _ = oldValues.Should().Equal(TestData.TestValueTwo);
+        _ = newValues.Should().Equal(TestData.TestValueTwenty);
+        _ = propertyNames.Should().Equal(TestData.IndexerPropertyName);
     }
 
     /// <summary>Bulk operations on the UI-facing Items collection should coalesce to one collection notification.</summary>
@@ -52,18 +63,18 @@ public class ReactiveListNotificationComplianceTests
         var values = new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour };
         list.AddRange(values.AsSpan());
 
-        itemEvents.Should().ContainSingle();
-        itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
+        _ = itemEvents.Should().ContainSingle();
+        _ = itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
 
         itemEvents.Clear();
         list.Remove([1, TestData.TestValueThree]);
-        itemEvents.Should().ContainSingle();
-        itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
+        _ = itemEvents.Should().ContainSingle();
+        _ = itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
 
         itemEvents.Clear();
-        list.RemoveMany(static item => item > 0);
-        itemEvents.Should().ContainSingle();
-        itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
+        _ = list.RemoveMany(static item => item > 0);
+        _ = itemEvents.Should().ContainSingle();
+        _ = itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
     }
 
     /// <summary>ReplaceAll to empty should not suppress tracking for the following notification.</summary>
@@ -72,14 +83,14 @@ public class ReactiveListNotificationComplianceTests
     {
         using var list = new ReactiveList<string>(["seed"]);
         var snapshots = new List<string[]>();
-        using var subscription = list.CurrentItems.Subscribe(items => snapshots.Add(items.ToArray()));
+        using var subscription = list.CurrentItems.Subscribe(items => AddSnapshot(snapshots, items));
 
         list.ReplaceAll([]);
         list.Add("next");
 
-        list.ItemsAdded.Should().Equal("next");
-        list.ItemsChanged.Should().Equal("next");
-        snapshots[snapshots.Count - 1].Should().Equal("next");
+        _ = list.ItemsAdded.Should().Equal("next");
+        _ = list.ItemsChanged.Should().Equal("next");
+        _ = snapshots[snapshots.Count - 1].Should().Equal("next");
     }
 
     /// <summary>Dynamic views should not block construction when no initial filter has been published.</summary>
@@ -95,9 +106,9 @@ public class ReactiveListNotificationComplianceTests
             TimeSpan.Zero,
             Sequencer.Immediate);
 
-        view.Items.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
+        _ = view.Items.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
         filters.OnNext(static item => item > 1);
-        view.Items.Should().Equal(TestData.TestValueTwo, TestData.TestValueThree);
+        _ = view.Items.Should().Equal(TestData.TestValueTwo, TestData.TestValueThree);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -120,10 +131,10 @@ public class ReactiveListNotificationComplianceTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        view.Items.Should().BeEmpty();
+        _ = view.Items.Should().BeEmpty();
         keys.OnNext(["north"]);
         await Task.Delay(TestData.TestValueTwentyFive);
-        view.Items.Should().ContainSingle().Which.Should().Be(north);
+        _ = view.Items.Should().ContainSingle().Which.Should().Be(north);
     }
 
     /// <summary>Quaternary collections should raise INPC notifications for UI-bound count/indexer properties.</summary>
@@ -136,8 +147,8 @@ public class ReactiveListNotificationComplianceTests
 
         list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
-        listProperties.Should().Contain(nameof(list.Count));
-        listProperties.Should().Contain(TestData.IndexerPropertyName);
+        _ = listProperties.Should().Contain(nameof(list.Count));
+        _ = listProperties.Should().Contain(TestData.IndexerPropertyName);
 
         using var dictionary = new QuaternaryDictionary<int, string>();
         var dictionaryProperties = new List<string?>();
@@ -145,8 +156,8 @@ public class ReactiveListNotificationComplianceTests
 
         dictionary.AddRange([new KeyValuePair<int, string>(1, "one")]);
 
-        dictionaryProperties.Should().Contain(nameof(dictionary.Count));
-        dictionaryProperties.Should().Contain(TestData.IndexerPropertyName);
+        _ = dictionaryProperties.Should().Contain(nameof(dictionary.Count));
+        _ = dictionaryProperties.Should().Contain(TestData.IndexerPropertyName);
     }
 
     /// <summary>Optimized quaternary list range removal should preserve multiset semantics for duplicate values.</summary>
@@ -158,8 +169,8 @@ public class ReactiveListNotificationComplianceTests
 
         list.RemoveRange([1, 1, TestData.TestValueFour]);
 
-        list.Count.Should().Be(TestData.TestValueThree);
-        list.ToArray().Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
+        _ = list.Count.Should().Be(TestData.TestValueThree);
+        _ = list.ToArray().Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
     }
 
     /// <summary>Dictionary range operations should keep count exact for overwrites and no-op removals.</summary>
@@ -169,9 +180,10 @@ public class ReactiveListNotificationComplianceTests
         using var dictionary = new QuaternaryDictionary<int, string>();
         var notifications = 0;
         using var received = new ManualResetEventSlim();
-        using var subscription = dictionary.Stream.Subscribe(_ =>
+        using var subscription = dictionary.Stream.Subscribe(notification =>
         {
-            Interlocked.Increment(ref notifications);
+            _ = notification;
+            _ = Interlocked.Increment(ref notifications);
             received.Set();
         });
 
@@ -182,23 +194,32 @@ public class ReactiveListNotificationComplianceTests
             new KeyValuePair<int, string>(TestData.TestValueTwo, "two")
         ]);
 
-        dictionary.Count.Should().Be(TestData.TestValueTwo);
-        received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        notifications.Should().Be(1);
+        _ = dictionary.Count.Should().Be(TestData.TestValueTwo);
+        _ = received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        _ = notifications.Should().Be(1);
 
         received.Reset();
         dictionary.RemoveKeys([TestData.TestValueNinetyNine]);
-        dictionary.Count.Should().Be(TestData.TestValueTwo);
-        received.Wait(TimeSpan.FromMilliseconds(TestData.TestValueFifty)).Should().BeFalse();
-        notifications.Should().Be(1);
+        _ = dictionary.Count.Should().Be(TestData.TestValueTwo);
+        _ = received.Wait(TimeSpan.FromMilliseconds(TestData.TestValueFifty)).Should().BeFalse();
+        _ = notifications.Should().Be(1);
 
         received.Reset();
         dictionary.RemoveKeys([1]);
-        dictionary.Count.Should().Be(1);
-        received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        notifications.Should().Be(TestData.TestValueTwo);
+        _ = dictionary.Count.Should().Be(1);
+        _ = received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        _ = notifications.Should().Be(TestData.TestValueTwo);
     }
 #endif
+
+    /// <summary>Adds an explicit snapshot without LINQ allocation overhead.</summary>
+    /// <param name="snapshots">The destination snapshot collection.</param>
+    /// <param name="items">The items to snapshot.</param>
+    private static void AddSnapshot(List<string[]> snapshots, IEnumerable<string> items)
+    {
+        var snapshot = new List<string>(items);
+        snapshots.Add([.. snapshot]);
+    }
 
     /// <summary>Provides IndexedItem.</summary>
     /// <param name="Id">The Id value.</param>

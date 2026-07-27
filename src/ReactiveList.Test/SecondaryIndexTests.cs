@@ -5,7 +5,6 @@
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using CP.Primitives.Core;
 using FluentAssertions;
@@ -20,64 +19,73 @@ public class SecondaryIndexTests
     [Test]
     public void OnAdded_ShouldAddItemToIndex()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person = new Person(1, "John", TestData.EngineeringDepartment);
 
         index.OnAdded(person);
 
-        index.Lookup(TestData.EngineeringDepartment).Should().Contain(person);
+        _ = index.Lookup(TestData.EngineeringDepartment).Should().Contain(person);
     }
 
     /// <summary>OnAdded should add multiple items with same key.</summary>
     [Test]
     public void OnAdded_WithSameKey_ShouldAddMultipleItems()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person1 = new Person(1, "John", TestData.EngineeringDepartment);
         var person2 = new Person(TestData.TestValueTwo, "Jane", TestData.EngineeringDepartment);
 
         index.OnAdded(person1);
         index.OnAdded(person2);
 
-        var result = index.Lookup(TestData.EngineeringDepartment).ToList();
-        result.Should().HaveCount(TestData.TestValueTwo);
-        result.Should().Contain(person1);
-        result.Should().Contain(person2);
+        var count = 0;
+        var containsFirst = false;
+        var containsSecond = false;
+        foreach (var person in index.Lookup(TestData.EngineeringDepartment))
+        {
+            count++;
+            containsFirst |= person == person1;
+            containsSecond |= person == person2;
+        }
+
+        _ = count.Should().Be(TestData.TestValueTwo);
+        _ = containsFirst.Should().BeTrue();
+        _ = containsSecond.Should().BeTrue();
     }
 
     /// <summary>OnAdded should handle items with different keys.</summary>
     [Test]
     public void OnAdded_WithDifferentKeys_ShouldIndexSeparately()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person1 = new Person(1, "John", TestData.EngineeringDepartment);
         var person2 = new Person(TestData.TestValueTwo, "Jane", TestData.SalesDepartment);
 
         index.OnAdded(person1);
         index.OnAdded(person2);
 
-        index.Lookup(TestData.EngineeringDepartment).Should().ContainSingle().Which.Should().Be(person1);
-        index.Lookup(TestData.SalesDepartment).Should().ContainSingle().Which.Should().Be(person2);
+        _ = index.Lookup(TestData.EngineeringDepartment).Should().ContainSingle().Which.Should().Be(person1);
+        _ = index.Lookup(TestData.SalesDepartment).Should().ContainSingle().Which.Should().Be(person2);
     }
 
     /// <summary>OnRemoved should remove item from index.</summary>
     [Test]
     public void OnRemoved_ShouldRemoveItemFromIndex()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person = new Person(1, "John", TestData.EngineeringDepartment);
         index.OnAdded(person);
 
         index.OnRemoved(person);
 
-        index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
+        _ = index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
     }
 
     /// <summary>OnRemoved should only remove specified item.</summary>
     [Test]
     public void OnRemoved_ShouldOnlyRemoveSpecifiedItem()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person1 = new Person(1, "John", TestData.EngineeringDepartment);
         var person2 = new Person(TestData.TestValueTwo, "Jane", TestData.EngineeringDepartment);
         index.OnAdded(person1);
@@ -85,92 +93,100 @@ public class SecondaryIndexTests
 
         index.OnRemoved(person1);
 
-        var result = index.Lookup(TestData.EngineeringDepartment).ToList();
-        result.Should().ContainSingle().Which.Should().Be(person2);
+        var count = 0;
+        Person? remainingPerson = null;
+        foreach (var person in index.Lookup(TestData.EngineeringDepartment))
+        {
+            count++;
+            remainingPerson = person;
+        }
+
+        _ = count.Should().Be(1);
+        _ = remainingPerson.Should().Be(person2);
     }
 
     /// <summary>OnRemoved should handle non-existing item gracefully.</summary>
     [Test]
     public void OnRemoved_WithNonExistingItem_ShouldNotThrow()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person = new Person(1, "John", TestData.EngineeringDepartment);
 
         var act = () => index.OnRemoved(person);
 
-        act.Should().NotThrow();
+        _ = act.Should().NotThrow();
     }
 
     /// <summary>OnUpdated should update index with new key.</summary>
     [Test]
     public void OnUpdated_ShouldUpdateIndex()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var oldPerson = new Person(1, "John", TestData.EngineeringDepartment);
         var newPerson = new Person(1, "John", TestData.SalesDepartment);
         index.OnAdded(oldPerson);
 
         index.OnUpdated(oldPerson, newPerson);
 
-        index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
-        index.Lookup(TestData.SalesDepartment).Should().ContainSingle().Which.Should().Be(newPerson);
+        _ = index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
+        _ = index.Lookup(TestData.SalesDepartment).Should().ContainSingle().Which.Should().Be(newPerson);
     }
 
     /// <summary>Lookup should return empty for non-existing key.</summary>
     [Test]
     public void Lookup_WithNonExistingKey_ShouldReturnEmpty()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
 
         var result = index.Lookup("NonExisting");
 
-        result.Should().BeEmpty();
+        _ = result.Should().BeEmpty();
     }
 
     /// <summary>Clear should remove all items.</summary>
     [Test]
     public void Clear_ShouldRemoveAllItems()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
-        index.OnAdded(new Person(1, "John", TestData.EngineeringDepartment));
-        index.OnAdded(new Person(TestData.TestValueTwo, "Jane", TestData.SalesDepartment));
-        index.OnAdded(new Person(TestData.TestValueThree, "Bob", "Marketing"));
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
+        index.OnAdded(new(1, "John", TestData.EngineeringDepartment));
+        index.OnAdded(new(TestData.TestValueTwo, "Jane", TestData.SalesDepartment));
+        index.OnAdded(new(TestData.TestValueThree, "Bob", "Marketing"));
 
         index.Clear();
 
-        index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
-        index.Lookup(TestData.SalesDepartment).Should().BeEmpty();
-        index.Lookup("Marketing").Should().BeEmpty();
+        _ = index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
+        _ = index.Lookup(TestData.SalesDepartment).Should().BeEmpty();
+        _ = index.Lookup("Marketing").Should().BeEmpty();
     }
 
     /// <summary>Index should handle integer keys.</summary>
     [Test]
     public void Index_WithIntegerKey_ShouldWork()
     {
-        var index = new SecondaryIndex<Person, int>(p => p.Id);
+        var index = new SecondaryIndex<Person, int>(static p => p.Id);
         var person = new Person(TestData.TestValueFortyTwo, "John", TestData.EngineeringDepartment);
 
         index.OnAdded(person);
 
-        index.Lookup(TestData.TestValueFortyTwo).Should().ContainSingle().Which.Should().Be(person);
+        _ = index.Lookup(TestData.TestValueFortyTwo).Should().ContainSingle().Which.Should().Be(person);
     }
 
     /// <summary>Index should distribute items across shards.</summary>
     [Test]
     public void Index_ShouldDistributeAcrossShards()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
 
         // Add many items with different keys to ensure shard distribution
         for (var i = 0; i < TestData.TestValueOneHundred; i++)
         {
-            index.OnAdded(new Person(i, $"Person{i}", $"Dept{i}"));
+            index.OnAdded(new(i, $"Person{i}", $"Dept{i}"));
         }
 
         // Verify all items can be looked up
         for (var i = 0; i < TestData.TestValueOneHundred; i++)
         {
-            index.Lookup($"Dept{i}").Should().ContainSingle();
+            _ = index.Lookup($"Dept{i}").Should().ContainSingle();
         }
     }
 
@@ -179,18 +195,18 @@ public class SecondaryIndexTests
     [Test]
     public async Task Index_ShouldBeThreadSafeForConcurrentAdds()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var tasks = new List<Task>();
 
         for (var i = 0; i < TestData.TestValueOneHundred; i++)
         {
             var id = i;
-            tasks.Add(Task.Run(() => index.OnAdded(new Person(id, $"Person{id}", TestData.EngineeringDepartment))));
+            tasks.Add(Task.Run(() => index.OnAdded(new(id, $"Person{id}", TestData.EngineeringDepartment))));
         }
 
-        await Task.WhenAll(tasks.ToArray());
+        await Task.WhenAll([.. tasks]);
 
-        index.Lookup(TestData.EngineeringDepartment).Should().HaveCount(TestData.TestValueOneHundred);
+        _ = index.Lookup(TestData.EngineeringDepartment).Should().HaveCount(TestData.TestValueOneHundred);
     }
 
     /// <summary>Index should be thread-safe for concurrent removes.</summary>
@@ -198,20 +214,28 @@ public class SecondaryIndexTests
     [Test]
     public async Task Index_ShouldBeThreadSafeForConcurrentRemoves()
     {
-        var index = new SecondaryIndex<Person, string>(p => p.Department);
-        var persons = Enumerable.Range(0, TestData.TestValueOneHundred)
-            .Select(i => new Person(i, $"Person{i}", TestData.EngineeringDepartment))
-            .ToList();
+        var index = new SecondaryIndex<Person, string>(static p => p.Department);
+        var persons = new List<Person>(TestData.TestValueOneHundred);
+        for (var i = 0; i < TestData.TestValueOneHundred; i++)
+        {
+            persons.Add(new(i, $"Person{i}", TestData.EngineeringDepartment));
+        }
 
         foreach (var person in persons)
         {
             index.OnAdded(person);
         }
 
-        var tasks = persons.Select(p => Task.Run(() => index.OnRemoved(p))).ToArray();
+        var tasks = new Task[persons.Count];
+        for (var i = 0; i < persons.Count; i++)
+        {
+            var person = persons[i];
+            tasks[i] = Task.Run(() => index.OnRemoved(person));
+        }
+
         await Task.WhenAll(tasks);
 
-        index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
+        _ = index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
     }
 
     /// <summary>Provides Person.</summary>

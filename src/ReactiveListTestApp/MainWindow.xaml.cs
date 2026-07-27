@@ -12,10 +12,13 @@ namespace ReactiveListTestApp;
 /// <summary>Hosts the live ReactiveList feature showcase.</summary>
 public sealed partial class MainWindow : Window, IDisposable
 {
+    /// <summary>The shared whole-number display format.</summary>
     private const string NumberFormat = "{0:N0}";
 
+    /// <summary>The view model owned by this window.</summary>
     private readonly MainWindowViewModel _viewModel;
 
+    /// <summary>Tracks whether the window has released its owned resources.</summary>
     private bool _disposed;
 
     /// <summary>Initializes a new instance of the <see cref="MainWindow"/> class.</summary>
@@ -37,7 +40,6 @@ public sealed partial class MainWindow : Window, IDisposable
 
         _disposed = true;
         _viewModel.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     /// <inheritdoc/>
@@ -59,46 +61,46 @@ public sealed partial class MainWindow : Window, IDisposable
     /// <summary>Attaches all application-level view-model bindings in C#.</summary>
     private void ConfigureBindings()
     {
-        StartPauseButton.SetBinding(Button.CommandProperty, CreateBinding(nameof(MainWindowViewModel.StartPauseCommand)));
-        StartPauseButton.SetBinding(ContentControl.ContentProperty, CreateBinding(nameof(MainWindowViewModel.StartPauseText)));
-        BurstButton.SetBinding(Button.CommandProperty, CreateBinding(nameof(MainWindowViewModel.BurstCommand)));
-        StepButton.SetBinding(Button.CommandProperty, CreateBinding(nameof(MainWindowViewModel.StepCommand)));
-        ResetButton.SetBinding(Button.CommandProperty, CreateBinding(nameof(MainWindowViewModel.ResetCommand)));
-        RateSlider.SetBinding(RangeBase.ValueProperty, CreateBinding(nameof(MainWindowViewModel.TargetRate), mode: BindingMode.TwoWay));
-        TargetRateText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.TargetRate), "{0:N0} events/s"));
-        StatusTextBlock.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.StatusText)));
-        LastOperationText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.LastOperation)));
+        _ = StartPauseButton.SetBinding(Button.CommandProperty, CreateBinding(nameof(MainWindowViewModel.StartPauseCommand)));
+        _ = StartPauseButton.SetBinding(ContentControl.ContentProperty, CreateBinding(nameof(MainWindowViewModel.StartPauseText)));
+        _ = BurstButton.SetBinding(Button.CommandProperty, CreateBinding(nameof(MainWindowViewModel.BurstCommand)));
+        _ = StepButton.SetBinding(Button.CommandProperty, CreateBinding(nameof(MainWindowViewModel.StepCommand)));
+        _ = ResetButton.SetBinding(Button.CommandProperty, CreateBinding(nameof(MainWindowViewModel.ResetCommand)));
+        _ = RateSlider.SetBinding(RangeBase.ValueProperty, CreateBinding(nameof(MainWindowViewModel.TargetRate), mode: BindingMode.TwoWay));
+        _ = TargetRateText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.TargetRate), "{0:N0} events/s"));
+        _ = StatusTextBlock.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.StatusText)));
+        _ = LastOperationText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.LastOperation)));
 
-        RateMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.EventsPerSecond), NumberFormat));
-        FrameMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.UiFramesPerSecond), "{0:N1}"));
-        TotalMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.TotalEvents), NumberFormat));
-        GenerationMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.GenerationMilliseconds), "{0:N2}"));
-        AllocationMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.AllocatedKilobytesPerFrame), "{0:N1}"));
-        SourceMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.SourceCount), NumberFormat));
-        VisibleMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.ViewBacklogCount), NumberFormat));
-        AlertMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.AlertCount), NumberFormat));
+        _ = RateMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.EventsPerSecond), NumberFormat));
+        _ = FrameMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.UiFramesPerSecond), "{0:N1}"));
+        _ = TotalMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.TotalEvents), NumberFormat));
+        _ = GenerationMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.GenerationMilliseconds), "{0:N2}"));
+        _ = AllocationMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.AllocatedKilobytesPerFrame), "{0:N1}"));
+        _ = SourceMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.SourceCount), NumberFormat));
+        _ = VisibleMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.ViewBacklogCount), NumberFormat));
+        _ = AlertMetric.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.AlertCount), NumberFormat));
 
-        LiveTapeGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.LiveTape)));
-        AlertsGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.Alerts)));
-        SearchGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.SearchResults)));
-        LatencyGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.SlowestUpdates)));
-        SectorGroupsList.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.SectorGroups)));
-        IndexedListGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.IndexedVenueSnapshots)));
-        IndexedDictionaryGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.IndexedVenueDictionary)));
-        MatrixGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.MatrixRows)));
-        StreamGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.StreamEvents)));
-        FeaturesGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.Features)));
+        _ = LiveTapeGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.LiveTape)));
+        _ = AlertsGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.Alerts)));
+        _ = SearchGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.SearchResults)));
+        _ = LatencyGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.SlowestUpdates)));
+        _ = SectorGroupsList.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.SectorGroups)));
+        _ = IndexedListGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.IndexedVenueSnapshots)));
+        _ = IndexedDictionaryGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.IndexedVenueDictionary)));
+        _ = MatrixGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.MatrixRows)));
+        _ = StreamGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.StreamEvents)));
+        _ = FeaturesGrid.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.Features)));
 
-        SearchBox.SetBinding(TextBox.TextProperty, CreateBinding(nameof(MainWindowViewModel.SearchText), mode: BindingMode.TwoWay, trigger: UpdateSourceTrigger.PropertyChanged));
-        AlertOnlyCheckBox.SetBinding(ToggleButton.IsCheckedProperty, CreateBinding(nameof(MainWindowViewModel.OnlyAlerts), mode: BindingMode.TwoWay));
-        VenueComboBox.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.Venues)));
-        VenueComboBox.SetBinding(Selector.SelectedItemProperty, CreateBinding(nameof(MainWindowViewModel.SelectedVenue), mode: BindingMode.TwoWay));
+        _ = SearchBox.SetBinding(TextBox.TextProperty, CreateBinding(nameof(MainWindowViewModel.SearchText), mode: BindingMode.TwoWay, trigger: UpdateSourceTrigger.PropertyChanged));
+        _ = AlertOnlyCheckBox.SetBinding(ToggleButton.IsCheckedProperty, CreateBinding(nameof(MainWindowViewModel.OnlyAlerts), mode: BindingMode.TwoWay));
+        _ = VenueComboBox.SetBinding(ItemsControl.ItemsSourceProperty, CreateBinding(nameof(MainWindowViewModel.Venues)));
+        _ = VenueComboBox.SetBinding(Selector.SelectedItemProperty, CreateBinding(nameof(MainWindowViewModel.SelectedVenue), mode: BindingMode.TwoWay));
 
-        ReactiveVersionText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.ReactiveListVersion), "ReactiveList version: {0:N0}"));
-        QuaternaryListCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.QuaternaryListCount), "QuaternaryList retained: {0:N0}"));
-        QuaternaryDictionaryCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.QuaternaryDictionaryCount), "QuaternaryDictionary keys: {0:N0}"));
-        MatrixCellCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.MatrixCellCount), "{0:N0} live cells"));
-        HotTickCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.HotTickCount), "{0:N0} ticks in current scratch batch"));
-        HotDictionaryCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.HotDictionaryCount), "{0:N0} latest instrument snapshots"));
+        _ = ReactiveVersionText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.ReactiveListVersion), "ReactiveList version: {0:N0}"));
+        _ = QuaternaryListCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.QuaternaryListCount), "QuaternaryList retained: {0:N0}"));
+        _ = QuaternaryDictionaryCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.QuaternaryDictionaryCount), "QuaternaryDictionary keys: {0:N0}"));
+        _ = MatrixCellCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.MatrixCellCount), "{0:N0} live cells"));
+        _ = HotTickCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.HotTickCount), "{0:N0} ticks in current scratch batch"));
+        _ = HotDictionaryCountText.SetBinding(TextBlock.TextProperty, CreateBinding(nameof(MainWindowViewModel.HotDictionaryCount), "{0:N0} latest instrument snapshots"));
     }
 }

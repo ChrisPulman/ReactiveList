@@ -13,39 +13,44 @@ namespace CP.Primitives.Views;
 /// </summary>
 /// <typeparam name="TKey">The type of primary keys in the dictionary.</typeparam>
 /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
-public sealed class SecondaryIndexReactiveView<TKey, TValue> : IReadOnlyList<TValue>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<SecondaryIndexReactiveView<TKey, TValue>, TValue>, IDisposable
+public sealed class SecondaryIndexReactiveView<TKey, TValue> : IReadOnlyList<TValue>, INotifyCollectionChanged,
+    INotifyPropertyChanged, IReactiveView<SecondaryIndexReactiveView<TKey, TValue>, TValue>
 where TKey : notnull
 {
+    /// <summary>The dictionary that supplies items to this view.</summary>
     private readonly QuaternaryDictionary<TKey, TValue> _source;
 
+    /// <summary>The name of the secondary index used to filter items.</summary>
     private readonly string _indexName;
 
+    /// <summary>The secondary index key used to filter items.</summary>
     private readonly object _indexKey;
 
+    /// <summary>Retrieves the values matching a secondary index key.</summary>
     private readonly Func<QuaternaryDictionary<TKey, TValue>, string, object, IEnumerable<TValue>> _getValuesByIndex;
 
+    /// <summary>Determines whether a value matches a secondary index key.</summary>
     private readonly Func<QuaternaryDictionary<TKey, TValue>, string, TValue, object, bool> _valueMatchesIndex;
 
+    /// <summary>The mutable collection that backs the read-only filtered items collection.</summary>
     private readonly ObservableCollection<TValue> _filteredItems;
 
+    /// <summary>The subscriptions owned by this view.</summary>
     private readonly MultipleDisposable _disposables = [];
 
+    /// <summary>Synchronizes access to the filtered items collection.</summary>
     private readonly Lock _lock = new();
 
     /// <summary>Initializes a new instance of the <see cref="SecondaryIndexReactiveView{TKey, TValue}"/> class.</summary>
     /// <param name="source">The source dictionary to filter.</param>
     /// <param name="indexName">The name of the secondary index.</param>
     /// <param name="indexKey">The secondary index key (boxed) to filter on.</param>
-    /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
     /// <param name="getValuesByIndex">The delegate used to retrieve values for a boxed secondary index key.</param>
     /// <param name="valueMatchesIndex">The delegate used to test whether a value matches a boxed secondary index key.</param>
     private SecondaryIndexReactiveView(
         QuaternaryDictionary<TKey, TValue> source,
         string indexName,
         object indexKey,
-        ISequencer scheduler,
-        TimeSpan throttle,
         Func<QuaternaryDictionary<TKey, TValue>, string, object, IEnumerable<TValue>> getValuesByIndex,
         Func<QuaternaryDictionary<TKey, TValue>, string, TValue, object, bool> valueMatchesIndex)
     {
@@ -57,20 +62,6 @@ where TKey : notnull
 
         _filteredItems = [];
         Items = new(_filteredItems);
-
-        // Initialize with current matching items
-        RebuildView();
-
-        // Subscribe to changes
-        var subscription = _source.Stream
-            .Throttle(throttle)
-            .ObserveOn(scheduler)
-            .Subscribe(OnSourceChanged);
-
-        _disposables.Add(subscription);
-
-        // Forward collection changed events
-        _filteredItems.CollectionChanged += (s, e) => CollectionChanged?.Invoke(this, e);
     }
 
     /// <inheritdoc/>
@@ -106,14 +97,14 @@ where TKey : notnull
         TimeSpan throttle)
         where TIndexKey : notnull
     {
-        return new SecondaryIndexReactiveView<TKey, TValue>(
+        var view = new SecondaryIndexReactiveView<TKey, TValue>(
             source,
             indexName,
             indexKey,
-            scheduler,
-            throttle,
             static (dict, name, key) => dict.GetValuesBySecondaryIndex(name, (TIndexKey)key),
             static (dict, name, value, key) => dict.ValueMatchesSecondaryIndex(name, value, (TIndexKey)key));
+        view.Start(scheduler, throttle);
+        return view;
     }
 
     /// <inheritdoc/>
@@ -154,9 +145,26 @@ where TKey : notnull
     }
 
     /// <inheritdoc/>
-    public void Dispose()
+    public void Dispose() => _disposables.Dispose();
+
+    /// <summary>Initializes the view contents and activates its subscriptions.</summary>
+    /// <param name="scheduler">The scheduler for dispatching updates.</param>
+    /// <param name="throttle">The throttle duration for updates.</param>
+    private void Start(ISequencer scheduler, TimeSpan throttle)
     {
-        _disposables.Dispose();
+        // Initialize with current matching items
+        RebuildView();
+
+        // Subscribe to changes
+        var subscription = _source.Stream
+            .Throttle(throttle)
+            .ObserveOn(scheduler)
+            .Subscribe(OnSourceChanged);
+
+        _disposables.Add(subscription);
+
+        // Forward collection changed events
+        _filteredItems.CollectionChanged += (_, e) => CollectionChanged?.Invoke(this, e);
     }
 
     /// <summary>Handles source change notifications.</summary>
@@ -182,7 +190,7 @@ where TKey : notnull
                     {
                         if (notification.Item.Value is not null)
                         {
-                            _filteredItems.Remove(notification.Item.Value);
+                            _ = _filteredItems.Remove(notification.Item.Value);
                         }
 
                         break;

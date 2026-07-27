@@ -15,20 +15,24 @@ internal static class ThrowHelper
     /// <param name="argument">The argument value.</param>
     /// <param name="paramName">The parameter name, supplied by the compiler.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ThrowIfNull<T>(
+#if NETFRAMEWORK
+    internal static void ThrowIfNull<T>(
         T? argument,
         [CallerArgumentExpression(nameof(argument))] string? paramName = null)
         where T : class
     {
-#if NETFRAMEWORK
         if (argument is not null)
         {
             return;
         }
 
         throw new ArgumentNullException(paramName);
+    }
 #else
+    internal static void ThrowIfNull<T>(
+        T? argument,
+        [CallerArgumentExpression(nameof(argument))] string? paramName = null)
+        where T : class =>
         ArgumentNullException.ThrowIfNull(argument, paramName);
 #endif
-    }
 }

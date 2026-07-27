@@ -12,91 +12,140 @@ namespace ReactiveListTestApp.Services;
 /// <summary>Generates high-rate value events and publishes bounded immutable frames.</summary>
 internal sealed class LiveDataEngine : IDisposable
 {
+    /// <summary>The number of instruments projected into each frame.</summary>
     private const int InstrumentCount = 40;
 
+    /// <summary>The maximum number of raw ticks sampled into each frame.</summary>
     private const int SampleCount = 12;
 
+    /// <summary>The number of frames generated each second.</summary>
     private const int FramesPerSecond = 8;
 
+    /// <summary>The minimum accepted target event rate.</summary>
     private const int MinimumRate = 1_000;
 
+    /// <summary>The maximum accepted target event rate.</summary>
     private const int MaximumRate = 100_000;
 
+    /// <summary>The midpoint subtracted from generated movement units.</summary>
     private const int MovementCentre = 1_024;
 
+    /// <summary>The exclusive upper range used for generated volume.</summary>
     private const int VolumeRange = 500;
 
-    private const double BaseOpeningPrice = 70d;
+    /// <summary>The opening price of the first instrument.</summary>
+    private const double BaseOpeningPrice = 70D;
 
-    private const double OpeningPriceStep = 2.75d;
+    /// <summary>The opening-price increment between consecutive instruments.</summary>
+    private const double OpeningPriceStep = 2.75D;
 
-    private const double MovementScale = 0.00000015d;
+    /// <summary>The scale applied to generated price movement units.</summary>
+    private const double MovementScale = 0.00000015D;
 
-    private const double MinimumPrice = 0.01d;
+    /// <summary>The lower bound applied to generated prices.</summary>
+    private const double MinimumPrice = 0.01D;
 
-    private const double PercentageMultiplier = 100d;
+    /// <summary>The multiplier used to express a ratio as a percentage.</summary>
+    private const double PercentageMultiplier = 100D;
 
-    private const double BaseLatencyMilliseconds = 0.04d;
+    /// <summary>The baseline simulated latency.</summary>
+    private const double BaseLatencyMilliseconds = 0.04D;
 
-    private const double LatencyDivisor = 34d;
+    /// <summary>The divisor used to scale simulated latency.</summary>
+    private const double LatencyDivisor = 34D;
 
-    private const double ChangeAlertThreshold = 0.65d;
+    /// <summary>The absolute percentage change that raises an alert.</summary>
+    private const double ChangeAlertThreshold = 0.65D;
 
-    private const double LatencyAlertThreshold = 6d;
+    /// <summary>The simulated latency that raises an alert.</summary>
+    private const double LatencyAlertThreshold = 6D;
 
-    private static readonly TimeSpan FrameInterval = TimeSpan.FromMilliseconds(1_000d / FramesPerSecond);
+    /// <summary>The delay between continuous producer frames.</summary>
+    private static readonly TimeSpan FrameInterval = TimeSpan.FromMilliseconds(1_000D / FramesPerSecond);
 
+    /// <summary>The stable symbols used by generated instruments.</summary>
     private static readonly string[] Symbols = CreateSymbols();
 
+    /// <summary>The sectors distributed across generated instruments.</summary>
     private static readonly string[] Sectors = ["Energy", "Finance", "Health", "Industrials", "Technology"];
 
+    /// <summary>The venues distributed across generated instruments.</summary>
     private static readonly string[] Venues = ["LSE", "XNAS", "XNYS", "XEUR"];
 
+    /// <summary>The producer-owned mutable aggregation states.</summary>
     private readonly InstrumentState[] _states = CreateStates();
 
+    /// <summary>The pooled raw tick scratch collection.</summary>
     private readonly QuadList<MarketTick> _hotTicks = [];
 
+    /// <summary>The pooled latest-snapshot aggregation dictionary.</summary>
     private readonly QuadDictionary<int, InstrumentSnapshot> _latestByInstrument = [];
 
-    private readonly object _lifecycleGate = new();
+    /// <summary>Coordinates producer startup, cancellation, and disposal.</summary>
+    private readonly System.Threading.Lock _lifecycleGate = new();
 
-    private readonly object _generationGate = new();
+    /// <summary>Serializes frame generation and reset operations.</summary>
+    private readonly System.Threading.Lock _generationGate = new();
 
+    /// <summary>The clock used to timestamp generated data.</summary>
+    private readonly TimeProvider _timeProvider;
+
+    /// <summary>Cancels the continuous producer.</summary>
     private CancellationTokenSource? _cancellation;
 
+    /// <summary>The active continuous producer task.</summary>
     private Task? _runTask;
 
+    /// <summary>The latest generated raw-event sequence.</summary>
     private long _sequence;
 
+    /// <summary>The cumulative number of generated raw events.</summary>
     private long _totalEvents;
 
-    private uint _randomState = 0xA341316Cu;
+    /// <summary>The current state of the local xorshift generator.</summary>
+    private uint _randomState = 0xA341316CU;
 
+    /// <summary>Indicates whether continuous frame publication is paused.</summary>
     private bool _paused;
 
+    /// <summary>Tracks whether owned resources have been released.</summary>
     private bool _disposed;
 
+    /// <summary>Initializes a new instance of the <see cref="LiveDataEngine"/> class.</summary>
+    internal LiveDataEngine()
+        : this(TimeProvider.System)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="LiveDataEngine"/> class.</summary>
+    /// <param name="timeProvider">The clock used to timestamp generated data.</param>
+    internal LiveDataEngine(TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        _timeProvider = timeProvider;
+    }
+
     /// <summary>Occurs after the worker has generated and aggregated one projection frame.</summary>
-    public event EventHandler<MarketFrame>? FrameProduced;
+    internal event EventHandler<MarketFrame>? FrameProduced;
 
     /// <summary>Gets or sets the requested raw event throughput.</summary>
-    public int TargetEventsPerSecond
+    internal int TargetEventsPerSecond
     {
         get => Volatile.Read(ref field);
         set => Volatile.Write(ref field, Math.Clamp(value, MinimumRate, MaximumRate));
     } = 10_000;
 
     /// <summary>Gets a value indicating whether continuous publication is paused.</summary>
-    public bool IsPaused => Volatile.Read(ref _paused);
+    internal bool IsPaused => Volatile.Read(ref _paused);
 
     /// <summary>Gets the number of raw ticks in the current pooled scratch collection.</summary>
-    public int HotTickCapacityCount => _hotTicks.Count;
+    internal int HotTickCapacityCount => _hotTicks.Count;
 
     /// <summary>Gets the number of current entries in the pooled aggregation dictionary.</summary>
-    public int HotDictionaryCount => _latestByInstrument.Count;
+    internal int HotDictionaryCount => _latestByInstrument.Count;
 
     /// <summary>Starts or resumes the continuous producer.</summary>
-    public void Start()
+    internal void Start()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         lock (_lifecycleGate)
@@ -114,12 +163,12 @@ internal sealed class LiveDataEngine : IDisposable
     }
 
     /// <summary>Switches between continuous generation and a paused state.</summary>
-    public void TogglePause() => _paused = !_paused;
+    internal void TogglePause() => _paused = !_paused;
 
     /// <summary>Generates and aggregates one deterministic-size raw event batch.</summary>
     /// <param name="eventCount">The number of raw events to process.</param>
     /// <returns>The immutable projection frame.</returns>
-    public MarketFrame GenerateFrame(int eventCount)
+    internal MarketFrame GenerateFrame(int eventCount)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(eventCount);
@@ -130,7 +179,7 @@ internal sealed class LiveDataEngine : IDisposable
     }
 
     /// <summary>Resets generated state while retaining pooled collection storage.</summary>
-    public void Reset()
+    internal void Reset()
     {
         lock (_generationGate)
         {
@@ -138,37 +187,10 @@ internal sealed class LiveDataEngine : IDisposable
             initialStates.CopyTo(_states, 0);
             _hotTicks.Clear();
             _latestByInstrument.Clear();
-            Interlocked.Exchange(ref _sequence, 0);
-            Interlocked.Exchange(ref _totalEvents, 0);
-            _randomState = 0xA341316Cu;
+            _ = Interlocked.Exchange(ref _sequence, 0);
+            _ = Interlocked.Exchange(ref _totalEvents, 0);
+            _randomState = 0xA341316CU;
         }
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        lock (_lifecycleGate)
-        {
-            _cancellation?.Cancel();
-        }
-
-        try
-        {
-            _runTask?.GetAwaiter().GetResult();
-        }
-        catch (OperationCanceledException)
-        {
-        }
-
-        _cancellation?.Dispose();
-        _hotTicks.Dispose();
-        _latestByInstrument.Dispose();
     }
 
     /// <summary>Creates stable display symbols once for the lifetime of the process.</summary>
@@ -197,6 +219,36 @@ internal sealed class LiveDataEngine : IDisposable
 
         return states;
     }
+
+    /// <summary>Stops production and releases all owned resources.</summary>
+    private void DisposeCore()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        lock (_lifecycleGate)
+        {
+            _cancellation?.Cancel();
+        }
+
+        try
+        {
+            _runTask?.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        _cancellation?.Dispose();
+        _hotTicks.Dispose();
+        _latestByInstrument.Dispose();
+    }
+
+    /// <inheritdoc/>
+    void IDisposable.Dispose() => DisposeCore();
 
     /// <summary>Runs the ten-frame-per-second projection clock.</summary>
     /// <param name="cancellationToken">Stops the producer.</param>
@@ -240,11 +292,19 @@ internal sealed class LiveDataEngine : IDisposable
             var sequence = Interlocked.Increment(ref _sequence);
             var elapsed = Stopwatch.GetElapsedTime(started);
             var allocated = Math.Max(0, GC.GetAllocatedBytesForCurrentThread() - allocatedBefore);
-            return new MarketFrame(sequence, eventCount, total, elapsed, allocated, snapshots, samples, DateTimeOffset.Now);
+            return new(
+                sequence,
+                eventCount,
+                total,
+                elapsed,
+                allocated,
+                snapshots,
+                samples,
+                _timeProvider.GetLocalNow());
         }
         finally
         {
-            ArrayPool<MarketTick>.Shared.Return(rented, clearArray: false);
+            ArrayPool<MarketTick>.Shared.Return(rented);
         }
     }
 
@@ -259,7 +319,7 @@ internal sealed class LiveDataEngine : IDisposable
             ref var state = ref _states[instrumentId];
             var movementUnits = (int)((random >> 8) & 0x7FF) - MovementCentre;
             var movement = movementUnits * MovementScale;
-            var price = Math.Max(MinimumPrice, state.LastPrice * (1d + movement));
+            var price = Math.Max(MinimumPrice, state.LastPrice * (1D + movement));
             var volume = 1 + (int)((random >> 20) % VolumeRange);
             target[i] = new(
                 Interlocked.Increment(ref _sequence),
@@ -267,7 +327,7 @@ internal sealed class LiveDataEngine : IDisposable
                 price,
                 volume,
                 Stopwatch.GetTimestamp(),
-                (random & 1u) == 0);
+                (random & 1U) == 0);
         }
     }
 
@@ -287,12 +347,12 @@ internal sealed class LiveDataEngine : IDisposable
     /// <returns>The fixed-size snapshot array.</returns>
     private InstrumentSnapshot[] CreateSnapshots()
     {
-        var now = DateTimeOffset.Now;
+        var now = _timeProvider.GetLocalNow();
         var snapshots = new InstrumentSnapshot[InstrumentCount];
         for (var i = 0; i < snapshots.Length; i++)
         {
             ref var state = ref _states[i];
-            var change = ((state.LastPrice / state.OpeningPrice) - 1d) * PercentageMultiplier;
+            var change = ((state.LastPrice / state.OpeningPrice) - 1D) * PercentageMultiplier;
             var latency = BaseLatencyMilliseconds + ((NextRandom() & 0xFF) / LatencyDivisor);
             var snapshot = new InstrumentSnapshot(
                 Volatile.Read(ref _sequence),

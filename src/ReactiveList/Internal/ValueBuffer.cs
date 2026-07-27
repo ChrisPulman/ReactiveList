@@ -14,17 +14,21 @@ namespace CP.Primitives.Internal;
 /// <typeparam name="T">The type of elements in the buffer.</typeparam>
 internal ref struct ValueBuffer<T>
 {
+    /// <summary>The multiplier applied when a rented buffer must grow.</summary>
     private const int BufferGrowthFactor = 2;
 
+    /// <summary>The caller-provided stack buffer used before renting an array.</summary>
     private readonly Span<T> _stackBuffer;
 
+    /// <summary>The rented array used after the stack buffer is exhausted.</summary>
     private T[]? _rentedArray;
 
+    /// <summary>The number of elements currently stored in the buffer.</summary>
     private int _count;
 
     /// <summary>Initializes a new instance of the <see cref="ValueBuffer{T}"/> struct with a stack-allocated buffer.</summary>
     /// <param name="stackBuffer">The stack-allocated buffer to use initially.</param>
-    public ValueBuffer(in Span<T> stackBuffer)
+    internal ValueBuffer(in Span<T> stackBuffer)
     {
         _stackBuffer = stackBuffer;
         _rentedArray = null;
@@ -32,17 +36,17 @@ internal ref struct ValueBuffer<T>
     }
 
     /// <summary>Gets the number of elements in the buffer.</summary>
-    public readonly int Count => _count;
+    internal readonly int Count => _count;
 
     /// <summary>Gets a span over the valid elements in the buffer.</summary>
-    public readonly ReadOnlySpan<T> Span => _rentedArray is not null
+    internal readonly ReadOnlySpan<T> Span => _rentedArray is not null
         ? _rentedArray.AsSpan(0, _count)
         : _stackBuffer.Slice(0, _count);
 
     /// <summary>Adds an item to the buffer, growing if necessary.</summary>
     /// <param name="item">The item to add.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Add(T item)
+    internal void Add(T item)
     {
         var count = _count;
 
@@ -69,7 +73,7 @@ internal ref struct ValueBuffer<T>
     }
 
     /// <summary>Returns the rented array to the pool if one was used.</summary>
-    public void Dispose()
+    internal void Dispose()
     {
         if (_rentedArray is null)
         {

@@ -16,7 +16,25 @@ internal static class EnumerableExtensions
     {
         /// <summary>Creates a hash set from a sequence.</summary>
         /// <returns>A hash set containing the source elements.</returns>
-        public HashSet<TSource> ToHashSet() => new(source);
+        internal HashSet<TSource> ToHashSet() => new(source);
     }
+}
+#elif REACTIVELIST_REACTIVE
+namespace CP.Reactive.Internal;
+
+/// <summary>Marks the runtime-provided enumerable-extension compatibility path.</summary>
+file enum EnumerableExtensions
+{
+    /// <summary>Indicates that the target runtime provides the extension.</summary>
+    RuntimeProvided,
+}
+#else
+namespace CP.Primitives.Internal;
+
+/// <summary>Marks the runtime-provided enumerable-extension compatibility path.</summary>
+file enum EnumerableExtensions
+{
+    /// <summary>Indicates that the target runtime provides the extension.</summary>
+    RuntimeProvided,
 }
 #endif

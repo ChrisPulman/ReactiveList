@@ -16,10 +16,13 @@ namespace CP.Primitives.Core;
 /// <param name="observableCollection">The observable collection to keep in sync (optional).</param>
 public sealed class PooledEditableListWrapper<T>(List<T> list, ObservableCollection<T>? observableCollection = null) : IEditableList<T>, IResettable, IDisposable
 {
+    /// <summary>The wrapped list, or <see langword="null"/> after this wrapper is returned.</summary>
     private List<T>? _list = list;
 
+    /// <summary>The optional observable collection kept in sync with <see cref="_list"/>.</summary>
     private ObservableCollection<T>? _observableCollection = observableCollection;
 
+    /// <summary>Indicates whether this wrapper has been returned to its pool.</summary>
     private bool _isReturned;
 
     /// <inheritdoc/>

@@ -12,19 +12,19 @@ namespace CP.Primitives.Internal;
 internal static class ReactiveListScheduler
 {
     /// <summary>Gets the current-thread scheduler.</summary>
-    public static ISequencer CurrentThread
+    internal static ISequencer CurrentThread =>
 #if REACTIVELIST_REACTIVE
-        => System.Reactive.Concurrency.CurrentThreadScheduler.Instance;
+        System.Reactive.Concurrency.CurrentThreadScheduler.Instance;
 #else
-        => Sequencer.CurrentThread;
+        Sequencer.CurrentThread;
 #endif
 
     /// <summary>Gets the default scheduler.</summary>
-    public static ISequencer Default
+    internal static ISequencer Default =>
 #if REACTIVELIST_REACTIVE
-        => System.Reactive.Concurrency.Scheduler.Default;
+        System.Reactive.Concurrency.Scheduler.Default;
 #else
-        => Sequencer.Default;
+        Sequencer.Default;
 #endif
 
     /// <summary>Schedules an action after a relative delay.</summary>
@@ -32,7 +32,7 @@ internal static class ReactiveListScheduler
     /// <param name="dueTime">The relative delay.</param>
     /// <param name="action">The action to run.</param>
     /// <returns>The scheduled action disposable.</returns>
-    public static IDisposable Schedule(ISequencer scheduler, TimeSpan dueTime, Action action)
+    internal static IDisposable Schedule(ISequencer scheduler, TimeSpan dueTime, Action action)
     {
         ThrowHelper.ThrowIfNull(scheduler);
         ThrowHelper.ThrowIfNull(action);

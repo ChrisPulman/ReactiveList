@@ -4,9 +4,6 @@
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
-#if NETFRAMEWORK
-using System.Linq;
-#endif
 using CP.Primitives.Core;
 using FluentAssertions;
 using TUnit.Core;
@@ -44,15 +41,15 @@ public class CacheActionTests
     [Test]
     public void CacheAction_ShouldHaveCorrectValues()
     {
-        ((int)CacheAction.Added).Should().Be(0);
-        ((int)CacheAction.Removed).Should().Be(1);
-        ((int)CacheAction.Updated).Should().Be(UpdatedActionValue);
-        ((int)CacheAction.Moved).Should().Be(MovedActionValue);
-        ((int)CacheAction.Refreshed).Should().Be(RefreshedActionValue);
-        ((int)CacheAction.Cleared).Should().Be(ClearedActionValue);
-        ((int)CacheAction.BatchOperation).Should().Be(BatchOperationActionValue);
-        ((int)CacheAction.BatchAdded).Should().Be(BatchAddedActionValue);
-        ((int)CacheAction.BatchRemoved).Should().Be(BatchRemovedActionValue);
+        _ = ((int)CacheAction.Added).Should().Be(0);
+        _ = ((int)CacheAction.Removed).Should().Be(1);
+        _ = ((int)CacheAction.Updated).Should().Be(UpdatedActionValue);
+        _ = ((int)CacheAction.Moved).Should().Be(MovedActionValue);
+        _ = ((int)CacheAction.Refreshed).Should().Be(RefreshedActionValue);
+        _ = ((int)CacheAction.Cleared).Should().Be(ClearedActionValue);
+        _ = ((int)CacheAction.BatchOperation).Should().Be(BatchOperationActionValue);
+        _ = ((int)CacheAction.BatchAdded).Should().Be(BatchAddedActionValue);
+        _ = ((int)CacheAction.BatchRemoved).Should().Be(BatchRemovedActionValue);
     }
 
     /// <summary>All CacheAction values should be defined.</summary>
@@ -63,19 +60,35 @@ public class CacheActionTests
 #if NET6_0_OR_GREATER
             Enum.GetValues<CacheAction>();
 #else
-            Enum.GetValues(typeof(CacheAction)).Cast<CacheAction>().ToArray();
+            CreateCacheActionValues();
 #endif
 
-        values.Should().HaveCount(DefinedActionCount);
-        values.Should().Contain(CacheAction.Added);
-        values.Should().Contain(CacheAction.Removed);
-        values.Should().Contain(CacheAction.Updated);
-        values.Should().Contain(CacheAction.Moved);
-        values.Should().Contain(CacheAction.Refreshed);
-        values.Should().Contain(CacheAction.Cleared);
-        values.Should().Contain(CacheAction.BatchOperation);
-        values.Should().Contain(CacheAction.BatchAdded);
-        values.Should().Contain(CacheAction.BatchRemoved);
+        _ = values.Should().HaveCount(DefinedActionCount);
+        _ = values.Should().Contain(CacheAction.Added);
+        _ = values.Should().Contain(CacheAction.Removed);
+        _ = values.Should().Contain(CacheAction.Updated);
+        _ = values.Should().Contain(CacheAction.Moved);
+        _ = values.Should().Contain(CacheAction.Refreshed);
+        _ = values.Should().Contain(CacheAction.Cleared);
+        _ = values.Should().Contain(CacheAction.BatchOperation);
+        _ = values.Should().Contain(CacheAction.BatchAdded);
+        _ = values.Should().Contain(CacheAction.BatchRemoved);
     }
+
+#if NETFRAMEWORK
+    /// <summary>Gets the cache-action values on .NET Framework.</summary>
+    /// <returns>The defined cache-action values.</returns>
+    private static CacheAction[] CreateCacheActionValues()
+    {
+        var rawValues = Enum.GetValues(typeof(CacheAction));
+        var values = new CacheAction[rawValues.Length];
+        for (var index = 0; index < rawValues.Length; index++)
+        {
+            values[index] = (CacheAction)rawValues.GetValue(index)!;
+        }
+
+        return values;
+    }
+#endif
 }
 #endif

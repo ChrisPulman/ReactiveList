@@ -17,6 +17,9 @@ namespace CP.Primitives;
 /// view creation.</remarks>
 public static class QuaternaryExtensions
 {
+    /// <summary>The default view throttle interval in milliseconds.</summary>
+    private const int DefaultThrottleMs = 50;
+
     /// <summary>Extensions for key-value cache notification streams.</summary>
     /// <typeparam name="TKey">The key type carried by the receiver.</typeparam>
     /// <typeparam name="TValue">The value type carried by the receiver.</typeparam>
@@ -48,14 +51,13 @@ public static class QuaternaryExtensions
 
                 return notification.Action switch
                 {
-                    CacheAction.Added when Matches(notification.Item) => notification,
-                    CacheAction.Removed when Matches(notification.Item) => notification,
+                    CacheAction.Added or CacheAction.Removed or CacheAction.Cleared
+                        when notification.Action == CacheAction.Cleared || Matches(notification.Item) => notification,
                     CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch is not null =>
                         ReactiveListExtensions.FilterBatchByPredicate(notification, Matches),
-                    CacheAction.Cleared => notification,
                     _ => null
                 };
-            }).Where(n => n is not null).Map(n => n!);
+            }).Where(static n => n is not null).Map(static n => n!);
         }
 
         /// <summary>
@@ -81,18 +83,17 @@ public static class QuaternaryExtensions
             return stream.Map(notification =>
             {
                 bool Matches(KeyValuePair<TKey, TValue> item) =>
-                    item.Value is not null && indexKeys.Any(key => dict.ValueMatchesSecondaryIndex(indexName, item.Value, key));
+                    item.Value is not null && Array.Exists(indexKeys, key => dict.ValueMatchesSecondaryIndex(indexName, item.Value, key));
 
                 return notification.Action switch
                 {
-                    CacheAction.Added when Matches(notification.Item) => notification,
-                    CacheAction.Removed when Matches(notification.Item) => notification,
+                    CacheAction.Added or CacheAction.Removed or CacheAction.Cleared
+                        when notification.Action == CacheAction.Cleared || Matches(notification.Item) => notification,
                     CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch is not null =>
                         ReactiveListExtensions.FilterBatchByPredicate(notification, Matches),
-                    CacheAction.Cleared => notification,
                     _ => null
                 };
-            }).Where(n => n is not null).Map(n => n!);
+            }).Where(static n => n is not null).Map(static n => n!);
         }
     }
 
@@ -124,14 +125,14 @@ public static class QuaternaryExtensions
 
                 return notification.Action switch
                 {
-                    CacheAction.Added when notification.Item is not null && Matches(notification.Item) => notification,
-                    CacheAction.Removed when notification.Item is not null && Matches(notification.Item) => notification,
+                    CacheAction.Added or CacheAction.Removed or CacheAction.Cleared
+                        when notification.Action == CacheAction.Cleared
+                             || (notification.Item is not null && Matches(notification.Item)) => notification,
                     CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch is not null =>
                         ReactiveListExtensions.FilterBatchByPredicate(notification, Matches),
-                    CacheAction.Cleared => notification,
                     _ => null
                 };
-            }).Where(n => n is not null).Map(n => n!);
+            }).Where(static n => n is not null).Map(static n => n!);
         }
 
         /// <summary>Filters the cache notification stream to only include items that match any of the specified secondary index keys.</summary>
@@ -154,18 +155,18 @@ public static class QuaternaryExtensions
 
             return stream.Map(notification =>
             {
-                bool Matches(T item) => keys.Any(key => list.ItemMatchesSecondaryIndex(indexName, item, key));
+                bool Matches(T item) => Array.Exists(keys, key => list.ItemMatchesSecondaryIndex(indexName, item, key));
 
                 return notification.Action switch
                 {
-                    CacheAction.Added when notification.Item is not null && Matches(notification.Item) => notification,
-                    CacheAction.Removed when notification.Item is not null && Matches(notification.Item) => notification,
+                    CacheAction.Added or CacheAction.Removed or CacheAction.Cleared
+                        when notification.Action == CacheAction.Cleared
+                             || (notification.Item is not null && Matches(notification.Item)) => notification,
                     CacheAction.BatchAdded or CacheAction.BatchRemoved or CacheAction.BatchOperation when notification.Batch is not null =>
                         ReactiveListExtensions.FilterBatchByPredicate(notification, Matches),
-                    CacheAction.Cleared => notification,
                     _ => null
                 };
-            }).Where(n => n is not null).Map(n => n!);
+            }).Where(static n => n is not null).Map(static n => n!);
         }
     }
 
@@ -183,24 +184,47 @@ public static class QuaternaryExtensions
         /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
         /// <param name="indexKey">The key value to filter by.</param>
         /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+        /// <returns>A view filtered by the specified secondary index key.</returns>
+        public ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TIndexKey>(
+            string indexName,
+            TIndexKey indexKey,
+            ISequencer scheduler)
+            where TIndexKey : notnull =>
+            QuaternaryExtensions.CreateViewBySecondaryIndex(dict, indexName, indexKey, scheduler, DefaultThrottleMs);
+
+        /// <summary>Creates a reactive view filtered by a secondary value index key.</summary>
+        /// <typeparam name="TIndexKey">The type of the secondary index key.</typeparam>
+        /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
+        /// <param name="indexKey">The key value to filter by.</param>
+        /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
         /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
         /// milliseconds.</param>
         /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the dictionary matching the specified
         /// secondary index key.</returns>
-        public ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TIndexKey>(string indexName, TIndexKey indexKey, ISequencer scheduler, int throttleMs = 50)
+        public ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TIndexKey>(string indexName, TIndexKey indexKey, ISequencer scheduler, int throttleMs)
             where TIndexKey : notnull
         {
             ThrowHelper.ThrowIfNull(dict);
             ThrowHelper.ThrowIfNull(indexName);
 
             // Get initial snapshot from the secondary index - map values back to key-value pairs
-            var matchingValues = dict.GetValuesBySecondaryIndex(indexName, indexKey).ToHashSet();
-            var snapshot = dict.Where(kvp => matchingValues.Contains(kvp.Value));
+            var matchingValues = new HashSet<TValue>(dict.GetValuesBySecondaryIndex(indexName, indexKey));
+
+            IEnumerable<KeyValuePair<TKey, TValue>> GetSnapshot()
+            {
+                foreach (var item in dict)
+                {
+                    if (matchingValues.Contains(item.Value))
+                    {
+                        yield return item;
+                    }
+                }
+            }
 
             // Create a filter that dynamically checks against the secondary index
-            return new ReactiveView<KeyValuePair<TKey, TValue>>(
+            return new(
                 dict.Stream,
-                snapshot,
+                GetSnapshot(),
                 kvp => dict.ValueMatchesSecondaryIndex(indexName, kvp.Value, indexKey),
                 TimeSpan.FromMilliseconds(throttleMs),
                 scheduler);
@@ -213,11 +237,24 @@ public static class QuaternaryExtensions
         /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
         /// <param name="indexKeys">The key values to filter by. Items whose values match any of these keys are included.</param>
         /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+        /// <returns>A view filtered by any of the specified secondary index keys.</returns>
+        public ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TIndexKey>(
+            string indexName,
+            TIndexKey[] indexKeys,
+            ISequencer scheduler)
+            where TIndexKey : notnull =>
+            QuaternaryExtensions.CreateViewBySecondaryIndex(dict, indexName, indexKeys, scheduler, DefaultThrottleMs);
+
+        /// <summary>Creates a reactive view filtered by multiple secondary value index keys.</summary>
+        /// <typeparam name="TIndexKey">The type of the secondary index key.</typeparam>
+        /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
+        /// <param name="indexKeys">The key values to filter by. Items whose values match any of these keys are included.</param>
+        /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
         /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
         /// milliseconds.</param>
         /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the dictionary matching any of the
         /// specified secondary index keys.</returns>
-        public ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TIndexKey>(string indexName, TIndexKey[] indexKeys, ISequencer scheduler, int throttleMs = 50)
+        public ReactiveView<KeyValuePair<TKey, TValue>> CreateViewBySecondaryIndex<TIndexKey>(string indexName, TIndexKey[] indexKeys, ISequencer scheduler, int throttleMs)
             where TIndexKey : notnull
         {
             ThrowHelper.ThrowIfNull(dict);
@@ -225,15 +262,46 @@ public static class QuaternaryExtensions
             ThrowHelper.ThrowIfNull(indexKeys);
 
             // Get initial snapshot from the secondary index for all keys
-            var matchingValues = indexKeys.SelectMany(k => dict.GetValuesBySecondaryIndex(indexName, k)).ToHashSet();
-            var snapshot = dict.Where(kvp => matchingValues.Contains(kvp.Value));
+            var matchingValues = new HashSet<TValue>();
+            foreach (var key in indexKeys)
+            {
+                foreach (var value in dict.GetValuesBySecondaryIndex(indexName, key))
+                {
+                    _ = matchingValues.Add(value);
+                }
+            }
+
+            IEnumerable<KeyValuePair<TKey, TValue>> GetSnapshot()
+            {
+                foreach (var item in dict)
+                {
+                    if (matchingValues.Contains(item.Value))
+                    {
+                        yield return item;
+                    }
+                }
+            }
 
             // Create a filter that dynamically checks against any of the keys
             var keySet = new HashSet<TIndexKey>(indexKeys);
-            return new ReactiveView<KeyValuePair<TKey, TValue>>(
+
+            bool MatchesAny(TValue value)
+            {
+                foreach (var key in keySet)
+                {
+                    if (dict.ValueMatchesSecondaryIndex(indexName, value, key))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return new(
                 dict.Stream,
-                snapshot,
-                kvp => keySet.Any(k => dict.ValueMatchesSecondaryIndex(indexName, kvp.Value, k)),
+                GetSnapshot(),
+                kvp => MatchesAny(kvp.Value),
                 TimeSpan.FromMilliseconds(throttleMs),
                 scheduler);
         }
@@ -247,11 +315,28 @@ public static class QuaternaryExtensions
         /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
         /// <param name="keysObservable">An observable that emits arrays of key values. When new keys are emitted, the view rebuilds its contents.</param>
         /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+        /// <returns>A dynamic view filtered by the emitted secondary index keys.</returns>
+        public DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue> CreateDynamicViewBySecondaryIndex<TIndexKey>(
+            string indexName,
+            IObservable<TIndexKey[]> keysObservable,
+            ISequencer scheduler)
+            where TIndexKey : notnull =>
+            QuaternaryExtensions.CreateDynamicViewBySecondaryIndex(dict, indexName, keysObservable, scheduler, DefaultThrottleMs);
+
+        /// <summary>Creates a reactive view with a dynamic secondary value index key filter.</summary>
+        /// <typeparam name="TIndexKey">The type of the secondary index key.</typeparam>
+        /// <param name="indexName">The name of the secondary value index to use for filtering.</param>
+        /// <param name="keysObservable">An observable that emits arrays of key values.</param>
+        /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
         /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
         /// milliseconds.</param>
         /// <returns>A <see cref="DynamicSecondaryIndexDictionaryReactiveView{TKey, TValue}"/> that reflects the filtered contents of the dictionary matching the
         /// specified secondary index keys and updates when the keys change.</returns>
-        public DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue> CreateDynamicViewBySecondaryIndex<TIndexKey>(string indexName, IObservable<TIndexKey[]> keysObservable, ISequencer scheduler, int throttleMs = 50)
+        public DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue> CreateDynamicViewBySecondaryIndex<TIndexKey>(
+            string indexName,
+            IObservable<TIndexKey[]> keysObservable,
+            ISequencer scheduler,
+            int throttleMs)
             where TIndexKey : notnull
         {
             ThrowHelper.ThrowIfNull(dict);
@@ -275,11 +360,21 @@ public static class QuaternaryExtensions
         /// <param name="indexName">The name of the secondary index to use for filtering.</param>
         /// <param name="key">The key value to filter by.</param>
         /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+        /// <returns>A view filtered by the specified secondary index key.</returns>
+        public ReactiveView<T> CreateViewBySecondaryIndex<TKey>(string indexName, TKey key, ISequencer scheduler)
+            where TKey : notnull =>
+            QuaternaryExtensions.CreateViewBySecondaryIndex(list, indexName, key, scheduler, DefaultThrottleMs);
+
+        /// <summary>Creates a reactive view filtered by a secondary index key.</summary>
+        /// <typeparam name="TKey">The type of the secondary index key.</typeparam>
+        /// <param name="indexName">The name of the secondary index to use for filtering.</param>
+        /// <param name="key">The key value to filter by.</param>
+        /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
         /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
         /// milliseconds.</param>
         /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the source matching the specified
         /// secondary index key.</returns>
-        public ReactiveView<T> CreateViewBySecondaryIndex<TKey>(string indexName, TKey key, ISequencer scheduler, int throttleMs = 50)
+        public ReactiveView<T> CreateViewBySecondaryIndex<TKey>(string indexName, TKey key, ISequencer scheduler, int throttleMs)
             where TKey : notnull
         {
             ThrowHelper.ThrowIfNull(list);
@@ -290,7 +385,12 @@ public static class QuaternaryExtensions
 
             // Create a filter that dynamically checks against the secondary index
             // This ensures new items are properly filtered based on their key value
-            return new ReactiveView<T>(list.Stream, snapshot, item => list.ItemMatchesSecondaryIndex(indexName, item, key), TimeSpan.FromMilliseconds(throttleMs), scheduler);
+            return new(
+                list.Stream,
+                snapshot,
+                item => list.ItemMatchesSecondaryIndex(indexName, item, key),
+                TimeSpan.FromMilliseconds(throttleMs),
+                scheduler);
         }
 
         /// <summary>Creates a reactive view filtered by multiple secondary index keys.</summary>
@@ -300,11 +400,21 @@ public static class QuaternaryExtensions
         /// <param name="indexName">The name of the secondary index to use for filtering.</param>
         /// <param name="keys">The key values to filter by. Items matching any of these keys are included.</param>
         /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+        /// <returns>A view filtered by any of the specified secondary index keys.</returns>
+        public ReactiveView<T> CreateViewBySecondaryIndex<TKey>(string indexName, TKey[] keys, ISequencer scheduler)
+            where TKey : notnull =>
+            QuaternaryExtensions.CreateViewBySecondaryIndex(list, indexName, keys, scheduler, DefaultThrottleMs);
+
+        /// <summary>Creates a reactive view filtered by multiple secondary index keys.</summary>
+        /// <typeparam name="TKey">The type of the secondary index key.</typeparam>
+        /// <param name="indexName">The name of the secondary index to use for filtering.</param>
+        /// <param name="keys">The key values to filter by.</param>
+        /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
         /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
         /// milliseconds.</param>
         /// <returns>A <see cref="ReactiveView{T}"/> that reflects the filtered contents of the source matching any of the
         /// specified secondary index keys.</returns>
-        public ReactiveView<T> CreateViewBySecondaryIndex<TKey>(string indexName, TKey[] keys, ISequencer scheduler, int throttleMs = 50)
+        public ReactiveView<T> CreateViewBySecondaryIndex<TKey>(string indexName, TKey[] keys, ISequencer scheduler, int throttleMs)
             where TKey : notnull
         {
             ThrowHelper.ThrowIfNull(list);
@@ -312,14 +422,37 @@ public static class QuaternaryExtensions
             ThrowHelper.ThrowIfNull(keys);
 
             // Get initial snapshot from the secondary index for all keys
-            var snapshot = keys.SelectMany(key => list.GetItemsBySecondaryIndex(indexName, key));
+            IEnumerable<T> GetSnapshot()
+            {
+                foreach (var key in keys)
+                {
+                    foreach (var item in list.GetItemsBySecondaryIndex(indexName, key))
+                    {
+                        yield return item;
+                    }
+                }
+            }
 
             // Create a filter that dynamically checks against any of the keys
             var keySet = new HashSet<TKey>(keys);
-            return new ReactiveView<T>(
+
+            bool MatchesAny(T item)
+            {
+                foreach (var key in keySet)
+                {
+                    if (list.ItemMatchesSecondaryIndex(indexName, item, key))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return new(
                 list.Stream,
-                snapshot,
-                item => keySet.Any(key => list.ItemMatchesSecondaryIndex(indexName, item, key)),
+                GetSnapshot(),
+                MatchesAny,
                 TimeSpan.FromMilliseconds(throttleMs),
                 scheduler);
         }
@@ -331,18 +464,31 @@ public static class QuaternaryExtensions
         /// <param name="indexName">The name of the secondary index to use for filtering.</param>
         /// <param name="keysObservable">An observable that emits arrays of key values. When new keys are emitted, the view rebuilds its contents.</param>
         /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
+        /// <returns>A dynamic view filtered by the emitted secondary index keys.</returns>
+        public DynamicSecondaryIndexReactiveView<T, TKey> CreateDynamicViewBySecondaryIndex<TKey>(
+            string indexName,
+            IObservable<TKey[]> keysObservable,
+            ISequencer scheduler)
+            where TKey : notnull =>
+            QuaternaryExtensions.CreateDynamicViewBySecondaryIndex(list, indexName, keysObservable, scheduler, DefaultThrottleMs);
+
+        /// <summary>Creates a reactive view with a dynamic secondary index key filter.</summary>
+        /// <typeparam name="TKey">The type of the secondary index key.</typeparam>
+        /// <param name="indexName">The name of the secondary index to use for filtering.</param>
+        /// <param name="keysObservable">An observable that emits arrays of key values.</param>
+        /// <param name="scheduler">The scheduler used to manage update notifications for the view.</param>
         /// <param name="throttleMs">The minimum time interval, in milliseconds, to wait before propagating updates to the view. Defaults to 50
         /// milliseconds.</param>
         /// <returns>A <see cref="DynamicSecondaryIndexReactiveView{T, TKey}"/> that reflects the filtered contents of the source matching the
         /// specified secondary index keys and updates when the keys change.</returns>
-        public DynamicSecondaryIndexReactiveView<T, TKey> CreateDynamicViewBySecondaryIndex<TKey>(string indexName, IObservable<TKey[]> keysObservable, ISequencer scheduler, int throttleMs = 50)
+        public DynamicSecondaryIndexReactiveView<T, TKey> CreateDynamicViewBySecondaryIndex<TKey>(string indexName, IObservable<TKey[]> keysObservable, ISequencer scheduler, int throttleMs)
             where TKey : notnull
         {
             ThrowHelper.ThrowIfNull(list);
             ThrowHelper.ThrowIfNull(indexName);
             ThrowHelper.ThrowIfNull(keysObservable);
 
-            return new DynamicSecondaryIndexReactiveView<T, TKey>(list, indexName, keysObservable, scheduler, TimeSpan.FromMilliseconds(throttleMs));
+            return new(list, indexName, keysObservable, scheduler, TimeSpan.FromMilliseconds(throttleMs));
         }
     }
 }
