@@ -1,0 +1,8 @@
+# Keep analyzer-sensitive source and build files on LF across all checkout platforms.
+*.cs text eol=lf
+*.csproj text eol=lf
+*.props text eol=lf
+*.targets text eol=lf
+*.slnx text eol=lf
+.editorconfig text eol=lf
+.gitattributes text eol=lf
