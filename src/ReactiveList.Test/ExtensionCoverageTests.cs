@@ -62,7 +62,7 @@ public class ExtensionCoverageTests
     [Test]
     public void ChangeSetOperators_ShouldHandleEmptyNoMatchPartialAllAndPreviousValues()
     {
-        var source = new Signal<ChangeSet<int>>();
+        using var source = new Signal<ChangeSet<int>>();
         var filtered = new List<ChangeSet<int>>();
 
         using var filterSubscription = source
@@ -70,14 +70,14 @@ public class ExtensionCoverageTests
             .Subscribe(filtered.Add);
 
         source.OnNext(ChangeSet<int>.Empty);
-        source.OnNext(new ChangeSet<int>([Change<int>.CreateAdd(1), Change<int>.CreateAdd(CoverageValueThree)]));
-        source.OnNext(new ChangeSet<int>([Change<int>.CreateAdd(1), Change<int>.CreateAdd(CoverageValueTwo), Change<int>.CreateAdd(CoverageValueFour)]));
+        source.OnNext(new([Change<int>.CreateAdd(1), Change<int>.CreateAdd(CoverageValueThree)]));
+        source.OnNext(new([Change<int>.CreateAdd(1), Change<int>.CreateAdd(CoverageValueTwo), Change<int>.CreateAdd(CoverageValueFour)]));
         var allMatch = new ChangeSet<int>([Change<int>.CreateAdd(CoverageValueSix), Change<int>.CreateAdd(CoverageValueEight)]);
         source.OnNext(allMatch);
 
-        filtered.Should().HaveCount(CoverageValueTwo);
-        filtered[0].Select(static change => change.Current).Should().Equal(CoverageValueTwo, CoverageValueFour);
-        filtered[1].Equals(allMatch).Should().BeTrue();
+        _ = filtered.Should().HaveCount(CoverageValueTwo);
+        _ = GetCurrentValues(filtered[0]).Should().Equal(CoverageValueTwo, CoverageValueFour);
+        _ = filtered[1].Equals(allMatch).Should().BeTrue();
 
         Func<string, string> itemSelector = static item => $"value-{item}";
         var projectedSets = new List<ChangeSet<string>>();
@@ -88,10 +88,10 @@ public class ExtensionCoverageTests
             .SelectChanges(itemSelector)
             .Subscribe(projectedSets.Add);
 
-        projectedSets.Should().ContainSingle();
-        projectedSets[0][0].Previous.Should().Be("value-ten");
-        projectedSets[0][0].Current.Should().Be("value-twenty");
-        projectedSets[0][1].Previous.Should().BeNull();
+        _ = projectedSets.Should().ContainSingle();
+        _ = projectedSets[0][0].Previous.Should().Be("value-ten");
+        _ = projectedSets[0][0].Current.Should().Be("value-twenty");
+        _ = projectedSets[0][1].Previous.Should().BeNull();
 
         Func<Change<int>, string> changeSelector = static change => $"{change.Reason}:{change.Current}";
         var flattened = new List<string>();
@@ -102,14 +102,14 @@ public class ExtensionCoverageTests
             .SelectChanges(changeSelector)
             .Subscribe(flattened.Add);
 
-        flattened.Should().Equal("Remove:5", "Move:6");
+        _ = flattened.Should().Equal("Remove:5", "Move:6");
 
         var emptyFlattened = new List<int>();
         using var emptySubscription = Signal.Emit(ChangeSet<int>.Empty)
             .SelectChanges(static change => change.Current)
             .Subscribe(emptyFlattened.Add);
 
-        emptyFlattened.Should().BeEmpty();
+        _ = emptyFlattened.Should().BeEmpty();
     }
 
     /// <summary>Change-set operators should reject null arguments.</summary>
@@ -119,16 +119,16 @@ public class ExtensionCoverageTests
         IObservable<ChangeSet<int>> nullSource = null!;
 
         var whereSource = () => nullSource.WhereChanges(static _ => true);
-        var wherePredicate = () => ReactiveListExtensions.WhereChanges(Signal.None<ChangeSet<int>>(), null!);
+        var wherePredicate = static () => ReactiveListExtensions.WhereChanges(Signal.None<ChangeSet<int>>(), null!);
         var selectSource = () => ReactiveListExtensions.SelectChanges(nullSource, (Func<int, string>)(static item => item.ToString()));
-        var selectItemSelector = () => ReactiveListExtensions.SelectChanges(Signal.None<ChangeSet<int>>(), (Func<int, string>)null!);
-        var selectChangeSelector = () => ReactiveListExtensions.SelectChanges(Signal.None<ChangeSet<int>>(), (Func<Change<int>, string>)null!);
+        var selectItemSelector = static () => ReactiveListExtensions.SelectChanges(Signal.None<ChangeSet<int>>(), (Func<int, string>)null!);
+        var selectChangeSelector = static () => ReactiveListExtensions.SelectChanges(Signal.None<ChangeSet<int>>(), (Func<Change<int>, string>)null!);
 
-        whereSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
-        wherePredicate.Should().Throw<ArgumentNullException>().WithParameterName("predicate");
-        selectSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
-        selectItemSelector.Should().Throw<ArgumentNullException>().WithParameterName("selector");
-        selectChangeSelector.Should().Throw<ArgumentNullException>().WithParameterName("selector");
+        _ = whereSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
+        _ = wherePredicate.Should().Throw<ArgumentNullException>().WithParameterName("predicate");
+        _ = selectSource.Should().Throw<ArgumentNullException>().WithParameterName("source");
+        _ = selectItemSelector.Should().Throw<ArgumentNullException>().WithParameterName("selector");
+        _ = selectChangeSelector.Should().Throw<ArgumentNullException>().WithParameterName("selector");
     }
 
     /// <summary>Generic dynamic stream filters should handle single, batch, remove, and clear notifications.</summary>
@@ -143,21 +143,20 @@ public class ExtensionCoverageTests
             .FilterDynamic(filters)
             .Subscribe(received.Add);
 
-        stream.OnNext(new CacheNotify<int>(CacheAction.Added, CoverageValueTwo));
-        stream.OnNext(new CacheNotify<int>(CacheAction.Added, CoverageValueThree));
-        stream.OnNext(new CacheNotify<int>(CacheAction.Removed, CoverageValueThree));
-        stream.OnNext(new CacheNotify<int>(CacheAction.BatchOperation, default, CreateBatch(CoverageValueFour, CoverageValueFive, CoverageValueSix)));
-        stream.OnNext(new CacheNotify<int>(CacheAction.BatchOperation, default, CreateBatch(CoverageValueFive, CoverageValueSeven)));
-        stream.OnNext(new CacheNotify<int>(CacheAction.Cleared, default));
+        stream.OnNext(new(CacheAction.Added, CoverageValueTwo));
+        stream.OnNext(new(CacheAction.Added, CoverageValueThree));
+        stream.OnNext(new(CacheAction.Removed, CoverageValueThree));
+        stream.OnNext(new(CacheAction.BatchOperation, default, CreateBatch(CoverageValueFour, CoverageValueFive, CoverageValueSix)));
+        stream.OnNext(new(CacheAction.BatchOperation, default, CreateBatch(CoverageValueFive, CoverageValueSeven)));
+        stream.OnNext(new(CacheAction.Cleared, default));
 
-        received.Select(static notification => notification.Action)
-            .Should().Equal(CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation, CacheAction.Cleared);
-        received[0].Item.Should().Be(CoverageValueTwo);
-        received[1].Item.Should().Be(CoverageValueThree);
-        received[CoverageValueTwo].Batch.Should().NotBeNull();
+        _ = GetActions(received).Should().Equal(CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation, CacheAction.Cleared);
+        _ = received[0].Item.Should().Be(CoverageValueTwo);
+        _ = received[1].Item.Should().Be(CoverageValueThree);
+        _ = received[CoverageValueTwo].Batch.Should().NotBeNull();
         var genericBatch = received[CoverageValueTwo].Batch!;
-        genericBatch.Items.Take(genericBatch.Count).Should().Equal(CoverageValueFour, CoverageValueSix);
-        received[CoverageValueThree].Action.Should().Be(CacheAction.Cleared);
+        _ = CopyBatchItems(genericBatch).Should().Equal(CoverageValueFour, CoverageValueSix);
+        _ = received[CoverageValueThree].Action.Should().Be(CacheAction.Cleared);
 
         DisposeBatches(received);
     }
@@ -167,32 +166,36 @@ public class ExtensionCoverageTests
     public void FilterDynamic_DictionaryStream_ShouldFilterAddsBatchesAndPassRemoves()
     {
         using var stream = new Signal<CacheNotify<KeyValuePair<int, string>>>();
-        using var filters = new BehaviorSignal<Func<KeyValuePair<int, string>, bool>>(static item => item.Value.StartsWith("a", StringComparison.Ordinal));
+        using var filters = new BehaviorSignal<Func<KeyValuePair<int, string>, bool>>(static item => item.Value.Length > 0 && item.Value[0] == 'a');
         var received = new List<CacheNotify<KeyValuePair<int, string>>>();
 
         using var subscription = stream
             .FilterDynamic(filters)
             .Subscribe(received.Add);
 
-        stream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.Added, new KeyValuePair<int, string>(1, AlphaItem)));
-        stream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.Added, new KeyValuePair<int, string>(CoverageValueTwo, "beta")));
-        stream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.Removed, new KeyValuePair<int, string>(CoverageValueTwo, "beta")));
-        stream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.BatchAdded, default, CreateBatch(
-            new KeyValuePair<int, string>(CoverageValueThree, "atlas"),
-            new KeyValuePair<int, string>(CoverageValueFour, "beta"))));
-        stream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.BatchRemoved, default, CreateBatch(
-            new KeyValuePair<int, string>(CoverageValueFive, "apex"),
-            new KeyValuePair<int, string>(CoverageValueSix, "cedar"))));
-        stream.OnNext(new CacheNotify<KeyValuePair<int, string>>(CacheAction.Cleared, default));
+        stream.OnNext(new(CacheAction.Added, new(1, AlphaItem)));
+        stream.OnNext(new(CacheAction.Added, new(CoverageValueTwo, "beta")));
+        stream.OnNext(new(CacheAction.Removed, new(CoverageValueTwo, "beta")));
+        stream.OnNext(new(CacheAction.BatchAdded, default, CreateBatch<KeyValuePair<int, string>>(
+            new(CoverageValueThree, "atlas"),
+            new(CoverageValueFour, "beta"))));
+        stream.OnNext(new(CacheAction.BatchRemoved, default, CreateBatch<KeyValuePair<int, string>>(
+            new(CoverageValueFive, "apex"),
+            new(CoverageValueSix, "cedar"))));
+        stream.OnNext(new(CacheAction.Cleared, default));
 
-        received.Select(static notification => notification.Action)
-            .Should().Equal(CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation, CacheAction.BatchOperation, CacheAction.Cleared);
-        received[0].Item.Value.Should().Be(AlphaItem);
-        received[1].Item.Value.Should().Be("beta");
+        _ = GetActions(received).Should().Equal(
+            CacheAction.Added,
+            CacheAction.Removed,
+            CacheAction.BatchOperation,
+            CacheAction.BatchOperation,
+            CacheAction.Cleared);
+        _ = received[0].Item.Value.Should().Be(AlphaItem);
+        _ = received[1].Item.Value.Should().Be("beta");
         var addedBatch = received[CoverageValueTwo].Batch!;
         var removedBatch = received[CoverageValueThree].Batch!;
-        addedBatch.Items.Take(addedBatch.Count).Should().ContainSingle().Which.Value.Should().Be("atlas");
-        removedBatch.Items.Take(removedBatch.Count).Should().ContainSingle().Which.Value.Should().Be("apex");
+        _ = CopyBatchItems(addedBatch).Should().ContainSingle().Which.Value.Should().Be("atlas");
+        _ = CopyBatchItems(removedBatch).Should().ContainSingle().Which.Value.Should().Be("apex");
 
         DisposeBatches(received);
     }
@@ -202,34 +205,34 @@ public class ExtensionCoverageTests
     public void BatchFilterHelpers_ShouldReturnNullForNoBatchOrNoMatchesAndFilterMatches()
     {
         var noBatch = new CacheNotify<int>(CacheAction.BatchOperation, default);
-        ReactiveListExtensions.FilterBatchByPredicate(noBatch, static _ => true).Should().BeNull();
-        ReactiveListExtensions.FilterBatch(noBatch, [1]).Should().BeNull();
+        _ = ReactiveListExtensions.FilterBatchByPredicate(noBatch, static _ => true).Should().BeNull();
+        _ = ReactiveListExtensions.FilterBatch(noBatch, [1]).Should().BeNull();
 
         var noMatch = new CacheNotify<int>(CacheAction.BatchOperation, default, CreateBatch(1, CoverageValueThree, CoverageValueFive));
-        ReactiveListExtensions.FilterBatchByPredicate(noMatch, static item => item % CoverageValueTwo == 0).Should().BeNull();
+        _ = ReactiveListExtensions.FilterBatchByPredicate(noMatch, static item => item % CoverageValueTwo == 0).Should().BeNull();
         noMatch.Batch!.Dispose();
 
         var predicateMatch = new CacheNotify<int>(CacheAction.BatchOperation, default, CreateBatch(1, CoverageValueTwo, CoverageValueFour));
         var predicateResult = ReactiveListExtensions.FilterBatchByPredicate(predicateMatch, static item => item > 1);
-        predicateResult.Should().NotBeNull();
-        predicateResult!.Batch!.Items.Take(predicateResult.Batch.Count).Should().Equal(CoverageValueTwo, CoverageValueFour);
+        _ = predicateResult.Should().NotBeNull();
+        _ = CopyBatchItems(predicateResult!.Batch!).Should().Equal(CoverageValueTwo, CoverageValueFour);
         predicateMatch.Batch!.Dispose();
-        predicateResult.Batch.Dispose();
+        predicateResult.Batch!.Dispose();
 
         var setMatch = new CacheNotify<int>(CacheAction.BatchOperation, default, CreateBatch(1, CoverageValueTwo, CoverageValueThree));
         var setResult = ReactiveListExtensions.FilterBatch(setMatch, [1, CoverageValueThree]);
-        setResult.Should().NotBeNull();
-        setResult!.Batch!.Items.Take(setResult.Batch.Count).Should().Equal(1, CoverageValueThree);
+        _ = setResult.Should().NotBeNull();
+        _ = CopyBatchItems(setResult!.Batch!).Should().Equal(1, CoverageValueThree);
         setMatch.Batch!.Dispose();
-        setResult.Batch.Dispose();
+        setResult.Batch!.Dispose();
     }
 
     /// <summary>Grouping and auto-refresh operators should emit grouped changes and property refreshes.</summary>
     [Test]
     public void GroupingAndAutoRefresh_ShouldGroupChangesAndEmitPropertyRefreshes()
     {
-        var north = new MutableItem(1, NorthRegion, AlphaItem);
-        var south = new MutableItem(CoverageValueTwo, SouthRegion, "beta");
+        var north = new MutableItem(NorthRegion, AlphaItem);
+        var south = new MutableItem(SouthRegion, "beta");
         var changes = new ChangeSet<MutableItem>([
             Change<MutableItem>.CreateAdd(north),
             Change<MutableItem>.CreateAdd(south),
@@ -241,9 +244,9 @@ public class ExtensionCoverageTests
             .GroupingByChanges(static item => item.Region)
             .Subscribe(groupings.Add);
 
-        groupings.Should().HaveCount(CoverageValueTwo);
-        groupings.Single(static group => group.Key == NorthRegion).Should().HaveCount(CoverageValueTwo);
-        groupings.Single(static group => group.Key == SouthRegion).Should().ContainSingle();
+        _ = groupings.Should().HaveCount(CoverageValueTwo);
+        _ = FindGrouping(groupings, NorthRegion).Should().HaveCount(CoverageValueTwo);
+        _ = FindGrouping(groupings, SouthRegion).Should().ContainSingle();
 
         var groupedValues = new Dictionary<string, List<MutableItem>>();
         using var groupBySubscription = Signal.Emit(changes)
@@ -252,11 +255,11 @@ public class ExtensionCoverageTests
             {
                 var valuesForGroup = new List<MutableItem>();
                 groupedValues[group.Key] = valuesForGroup;
-                group.Subscribe(valuesForGroup.Add);
+                _ = group.Subscribe(valuesForGroup.Add);
             });
 
-        groupedValues[NorthRegion].Should().HaveCount(CoverageValueTwo);
-        groupedValues[SouthRegion].Should().ContainSingle().Which.Should().Be(south);
+        _ = groupedValues[NorthRegion].Should().HaveCount(CoverageValueTwo);
+        _ = groupedValues[SouthRegion].Should().ContainSingle().Which.Should().Be(south);
 
         using var refreshSource = new Signal<ChangeSet<MutableItem>>();
         var received = new List<ChangeSet<MutableItem>>();
@@ -264,26 +267,26 @@ public class ExtensionCoverageTests
             .AutoRefresh(nameof(MutableItem.Name))
             .Subscribe(received.Add);
 
-        refreshSource.OnNext(new ChangeSet<MutableItem>(Change<MutableItem>.CreateAdd(north, 0)));
+        refreshSource.OnNext(new(Change<MutableItem>.CreateAdd(north, 0)));
         north.RaisePropertyChanged(nameof(MutableItem.Region));
         north.RaisePropertyChanged(nameof(MutableItem.Name));
 
-        received.Should().HaveCount(CoverageValueTwo);
-        received[0][0].Reason.Should().Be(ChangeReason.Add);
-        received[1][0].Reason.Should().Be(ChangeReason.Refresh);
-        received[1][0].Current.Should().Be(north);
-        received[1][0].CurrentIndex.Should().Be(0);
+        _ = received.Should().HaveCount(CoverageValueTwo);
+        _ = received[0][0].Reason.Should().Be(ChangeReason.Add);
+        _ = received[1][0].Reason.Should().Be(ChangeReason.Refresh);
+        _ = received[1][0].Current.Should().Be(north);
+        _ = received[1][0].CurrentIndex.Should().Be(0);
 
         var allProperties = new List<ChangeSet<MutableItem>>();
         using var allSubscription = refreshSource
             .AutoRefresh(null)
             .Subscribe(allProperties.Add);
 
-        refreshSource.OnNext(new ChangeSet<MutableItem>(Change<MutableItem>.CreateUpdate(south, south, 1)));
+        refreshSource.OnNext(new(Change<MutableItem>.CreateUpdate(south, south, 1)));
         south.RaisePropertyChanged(nameof(MutableItem.Region));
 
-        allProperties.Should().HaveCount(CoverageValueTwo);
-        allProperties[1][0].Reason.Should().Be(ChangeReason.Refresh);
+        _ = allProperties.Should().HaveCount(CoverageValueTwo);
+        _ = allProperties[1][0].Reason.Should().Be(ChangeReason.Refresh);
     }
 
     /// <summary>Source auto-refresh expression overload should validate property expressions and return the source stream.</summary>
@@ -297,14 +300,14 @@ public class ExtensionCoverageTests
             .AutoRefresh(static item => item.Name)
             .Subscribe(received.Add);
 
-        var item = new MutableItem(1, NorthRegion, AlphaItem);
+        var item = new MutableItem(NorthRegion, AlphaItem);
         list.Add(item);
 
-        received.Should().ContainSingle();
-        received[0].Action.Should().Be(CacheAction.Added);
+        _ = received.Should().ContainSingle();
+        _ = received[0].Action.Should().Be(CacheAction.Added);
 
         var invalidExpression = () => list.AutoRefresh(static _ => new object());
-        invalidExpression.Should().Throw<ArgumentException>().WithParameterName("property");
+        _ = invalidExpression.Should().Throw<ArgumentException>().WithParameterName("property");
     }
 
     /// <summary>View factory extensions should create filtered, sorted, grouped, and dynamic views.</summary>
@@ -316,25 +319,21 @@ public class ExtensionCoverageTests
         list.AddRange([CoverageValueThree, 1, CoverageValueTwo]);
 
         using var filtered = list.CreateView(static item => item > 1, scheduler: null, throttleMs: 0);
-        filtered.Items.Should().BeEquivalentTo([CoverageValueTwo, CoverageValueThree]);
+        _ = filtered.Items.Should().BeEquivalentTo([CoverageValueTwo, CoverageValueThree]);
 
         using var dynamicFilters = new BehaviorSignal<Func<int, bool>>(static item => item == 1);
         using var dynamicFiltered = list.CreateView(dynamicFilters, scheduler: null, throttleMs: 0);
         await WaitForPipeline();
-        dynamicFiltered.Items.Should().Equal(1);
+        _ = dynamicFiltered.Items.Should().Equal(1);
 
         using var sorted = list.SortBy(static item => item, descending: true, scheduler: null, throttleMs: 0);
-        sorted.Items.Should().Equal(CoverageValueThree, CoverageValueTwo, 1);
+        _ = sorted.Items.Should().Equal(CoverageValueThree, CoverageValueTwo, 1);
 
         using var grouped = list.GroupBy(static item => item % CoverageValueTwo, scheduler: null, throttleMs: 0);
-        grouped.Keys.Should().BeEquivalentTo([0, 1]);
+        _ = grouped.Keys.Should().BeEquivalentTo([0, 1]);
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
-        using var quaternary = new QuaternaryList<string>
-        {
-            AppleItem,
-            "banana",
-        };
+        using var quaternary = new QuaternaryList<string> { AppleItem, "banana" };
 
         using var query = new BehaviorSignal<string>("app");
         using var queryView = quaternary.CreateView(
@@ -342,11 +341,11 @@ public class ExtensionCoverageTests
             static (queryText, item) => item.StartsWith(queryText, StringComparison.Ordinal),
             Sequencer.Immediate,
             throttleMs: 0);
-        queryView.Items.Should().Equal(AppleItem);
+        _ = queryView.Items.Should().Equal(AppleItem);
 
         using var sourceFilters = new BehaviorSignal<Func<string, bool>>(static item => item.Contains("a", StringComparison.Ordinal));
         using var sourceView = quaternary.CreateView(sourceFilters, Sequencer.Immediate, throttleMs: 0);
-        sourceView.Items.Should().BeEquivalentTo([AppleItem, "banana"]);
+        _ = sourceView.Items.Should().BeEquivalentTo([AppleItem, "banana"]);
 #endif
     }
 
@@ -376,7 +375,7 @@ public class ExtensionCoverageTests
         list.Add(north);
         list.Add(east);
         list.Add(south);
-        list.Remove(north);
+        _ = list.Remove(north);
 
         var northBatch = new IndexedItem(CoverageValueFour, NorthRegion);
         var eastBatch = new IndexedItem(CoverageValueFive, "east");
@@ -386,17 +385,15 @@ public class ExtensionCoverageTests
 
         await WaitForPipeline();
 
-        singleKey.Select(static notification => notification.Action)
-            .Should().Equal(CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation, CacheAction.BatchOperation);
-        singleKey[0].Item.Should().Be(north);
-        singleKey[1].Item.Should().Be(north);
+        _ = GetActions(singleKey).Should().Equal(CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation, CacheAction.BatchOperation);
+        _ = singleKey[0].Item.Should().Be(north);
+        _ = singleKey[1].Item.Should().Be(north);
         var singleAddedBatch = singleKey[CoverageValueTwo].Batch!;
         var singleRemovedBatch = singleKey[CoverageValueThree].Batch!;
-        singleAddedBatch.Items.Take(singleAddedBatch.Count).Should().ContainSingle().Which.Should().Be(northBatch);
-        singleRemovedBatch.Items.Take(singleRemovedBatch.Count).Should().ContainSingle().Which.Should().Be(northBatch);
+        _ = CopyBatchItems(singleAddedBatch).Should().ContainSingle().Which.Should().Be(northBatch);
+        _ = CopyBatchItems(singleRemovedBatch).Should().ContainSingle().Which.Should().Be(northBatch);
 
-        multipleKeys.Select(static notification => notification.Action)
-            .Should().Equal(
+        _ = GetActions(multipleKeys).Should().Equal(
                 CacheAction.Added,
                 CacheAction.Added,
                 CacheAction.Removed,
@@ -404,8 +401,8 @@ public class ExtensionCoverageTests
                 CacheAction.BatchOperation);
         var multipleAddedBatch = multipleKeys[CoverageValueThree].Batch!;
         var multipleRemovedBatch = multipleKeys[CoverageValueFour].Batch!;
-        multipleAddedBatch.Items.Take(multipleAddedBatch.Count).Should().BeEquivalentTo([northBatch, eastBatch]);
-        multipleRemovedBatch.Items.Take(multipleRemovedBatch.Count).Should().BeEquivalentTo([northBatch, eastBatch]);
+        _ = CopyBatchItems(multipleAddedBatch).Should().BeEquivalentTo([northBatch, eastBatch]);
+        _ = CopyBatchItems(multipleRemovedBatch).Should().BeEquivalentTo([northBatch, eastBatch]);
 
         DisposeBatches(singleKey);
         DisposeBatches(multipleKeys);
@@ -435,7 +432,7 @@ public class ExtensionCoverageTests
         dictionary.Add(1, north);
         dictionary.Add(CoverageValueTwo, east);
         dictionary.Add(CoverageValueThree, south);
-        dictionary.Remove(1);
+        _ = dictionary.Remove(1);
 
         var northBatch = new KeyValuePair<int, IndexedItem>(CoverageValueFour, new IndexedItem(CoverageValueFour, NorthRegion));
         var eastBatch = new KeyValuePair<int, IndexedItem>(CoverageValueFive, new IndexedItem(CoverageValueFive, "east"));
@@ -444,17 +441,15 @@ public class ExtensionCoverageTests
 
         await WaitForPipeline();
 
-        singleKey.Select(static notification => notification.Action)
-            .Should().Equal(CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation);
-        singleKey[0].Item.Value.Should().Be(north);
-        singleKey[1].Item.Value.Should().Be(north);
+        _ = GetActions(singleKey).Should().Equal(CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation);
+        _ = singleKey[0].Item.Value.Should().Be(north);
+        _ = singleKey[1].Item.Value.Should().Be(north);
         var dictionarySingleBatch = singleKey[CoverageValueTwo].Batch!;
-        dictionarySingleBatch.Items.Take(dictionarySingleBatch.Count).Should().ContainSingle().Which.Should().Be(northBatch);
+        _ = CopyBatchItems(dictionarySingleBatch).Should().ContainSingle().Which.Should().Be(northBatch);
 
-        multipleKeys.Select(static notification => notification.Action)
-            .Should().Equal(CacheAction.Added, CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation);
+        _ = GetActions(multipleKeys).Should().Equal(CacheAction.Added, CacheAction.Added, CacheAction.Removed, CacheAction.BatchOperation);
         var dictionaryMultipleBatch = multipleKeys[CoverageValueThree].Batch!;
-        dictionaryMultipleBatch.Items.Take(dictionaryMultipleBatch.Count).Should().BeEquivalentTo([northBatch, eastBatch]);
+        _ = CopyBatchItems(dictionaryMultipleBatch).Should().BeEquivalentTo([northBatch, eastBatch]);
 
         DisposeBatches(singleKey);
         DisposeBatches(multipleKeys);
@@ -463,7 +458,7 @@ public class ExtensionCoverageTests
 
     /// <summary>Provides WaitForPipeline.</summary>
     /// <returns>The result.</returns>
-    private static async Task WaitForPipeline() => await Task.Delay(CoverageTimeoutMilliseconds);
+    private static Task WaitForPipeline() => Task.Delay(CoverageTimeoutMilliseconds);
 
     /// <summary>Provides CreateBatch.</summary>
     /// <typeparam name="T">The T type.</typeparam>
@@ -473,7 +468,7 @@ public class ExtensionCoverageTests
     {
         var array = ArrayPool<T>.Shared.Rent(items.Length);
         Array.Copy(items, array, items.Length);
-        return new PooledBatch<T>(array, items.Length);
+        return new(array, items.Length);
     }
 
     /// <summary>Provides DisposeBatches.</summary>
@@ -481,30 +476,92 @@ public class ExtensionCoverageTests
     /// <param name="notifications">The notifications value.</param>
     private static void DisposeBatches<T>(IEnumerable<CacheNotify<T>> notifications)
     {
-        foreach (var batch in notifications.Select(static notification => notification.Batch).Where(static batch => batch is not null))
+        foreach (var notification in notifications)
         {
-            batch!.Dispose();
+            notification.Batch?.Dispose();
         }
+    }
+
+    /// <summary>Copies the active items from a pooled batch.</summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="batch">The pooled batch.</param>
+    /// <returns>The active batch items.</returns>
+    private static List<T> CopyBatchItems<T>(PooledBatch<T> batch)
+    {
+        var items = new List<T>(batch.Count);
+        for (var index = 0; index < batch.Count; index++)
+        {
+            items.Add(batch.Items[index]);
+        }
+
+        return items;
+    }
+
+    /// <summary>Gets the actions from a notification list.</summary>
+    /// <typeparam name="T">The notification item type.</typeparam>
+    /// <param name="notifications">The notifications.</param>
+    /// <returns>The actions.</returns>
+    private static List<CacheAction> GetActions<T>(List<CacheNotify<T>> notifications)
+    {
+        var actions = new List<CacheAction>(notifications.Count);
+        foreach (var notification in notifications)
+        {
+            actions.Add(notification.Action);
+        }
+
+        return actions;
+    }
+
+    /// <summary>Gets current values from a change set.</summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="changes">The changes.</param>
+    /// <returns>The current values.</returns>
+    private static List<T> GetCurrentValues<T>(ChangeSet<T> changes)
+    {
+        var values = new List<T>(changes.Count);
+        foreach (var change in changes)
+        {
+            values.Add(change.Current);
+        }
+
+        return values;
+    }
+
+    /// <summary>Finds a grouping by key.</summary>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <typeparam name="TElement">The element type.</typeparam>
+    /// <param name="groupings">The available groupings.</param>
+    /// <param name="key">The requested key.</param>
+    /// <returns>The matching grouping.</returns>
+    private static IGrouping<TKey, TElement> FindGrouping<TKey, TElement>(
+        IEnumerable<IGrouping<TKey, TElement>> groupings,
+        TKey key)
+    {
+        foreach (var grouping in groupings)
+        {
+            if (EqualityComparer<TKey>.Default.Equals(grouping.Key, key))
+            {
+                return grouping;
+            }
+        }
+
+        throw new InvalidOperationException("The requested grouping was not found.");
     }
 
     /// <summary>Provides MutableItem.</summary>
     private sealed class MutableItem : INotifyPropertyChanged
     {
         /// <summary>Initializes a new instance of the <see cref="MutableItem"/> class.</summary>
-        /// <param name="id">The id value.</param>
         /// <param name="region">The region value.</param>
         /// <param name="name">The name value.</param>
-        public MutableItem(int id, string region, string name)
+        public MutableItem(string region, string name)
         {
-            Id = id;
             Region = region;
             Name = name;
         }
 
+        /// <inheritdoc />
         public event PropertyChangedEventHandler? PropertyChanged;
-
-        /// <summary>Gets Id.</summary>
-        public int Id { get; }
 
         /// <summary>Gets Name.</summary>
         public string Name { get; }

@@ -19,6 +19,10 @@ public interface IQuad<T> : IEnumerable<T>, IDisposable
     /// <summary>Gets the number of elements contained in the shard.</summary>
     int Count { get; }
 
+    /// <summary>Returns an enumerator that iterates through the shard.</summary>
+    /// <returns>An enumerator for the shard.</returns>
+    new IEnumerator<T> GetEnumerator();
+
     /// <summary>Removes all items from the shard.</summary>
     /// <remarks>After calling this method, the shard will be empty. This method does not modify the
     /// capacity of the shard, if applicable.</remarks>

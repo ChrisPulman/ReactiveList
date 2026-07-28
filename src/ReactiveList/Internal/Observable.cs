@@ -14,7 +14,7 @@ internal static class Observable
     /// <typeparam name="T">The observable element type.</typeparam>
     /// <param name="factory">The factory to create the deferred observable.</param>
     /// <returns>An observable sequence that defers invocation to subscription.</returns>
-    public static IObservable<T> Defer<T>(Func<IObservable<T>> factory)
+    internal static IObservable<T> Defer<T>(Func<IObservable<T>> factory)
     {
         ThrowHelper.ThrowIfNull(factory);
 
@@ -41,7 +41,7 @@ internal static class Observable
     /// <param name="addHandler">Adds the event handler.</param>
     /// <param name="removeHandler">Removes the event handler.</param>
     /// <returns>An observable sequence of event pattern values.</returns>
-    public static IObservable<EventPattern<TEventArgs>> FromEventPattern<TEventHandler, TEventArgs>(
+    internal static IObservable<EventPattern<TEventArgs>> FromEventPattern<TEventHandler, TEventArgs>(
         Action<TEventHandler> addHandler,
         Action<TEventHandler> removeHandler)
         where TEventHandler : Delegate
@@ -56,13 +56,13 @@ internal static class Observable
             if (typeof(TEventHandler) == typeof(PropertyChangedEventHandler))
             {
                 PropertyChangedEventHandler typed = (sender, args) =>
-                    observer.OnNext(new EventPattern<TEventArgs>(sender, (TEventArgs)(EventArgs)args));
+                    observer.OnNext(new(sender, (TEventArgs)(EventArgs)args));
                 handler = (TEventHandler)(object)typed;
             }
             else if (typeof(TEventHandler) == typeof(EventHandler<TEventArgs>))
             {
                 EventHandler<TEventArgs> typed = (sender, args) =>
-                    observer.OnNext(new EventPattern<TEventArgs>(sender, args));
+                    observer.OnNext(new(sender, args));
                 handler = (TEventHandler)(object)typed;
             }
             else
@@ -71,7 +71,9 @@ internal static class Observable
             }
 
             addHandler(handler);
-            return Scope.Create(() => removeHandler(handler));
+            return Scope.Create(
+                (removeHandler, handler),
+                static state => state.removeHandler(state.handler));
         });
     }
 }

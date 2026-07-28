@@ -7,4 +7,22 @@ namespace System.Runtime.CompilerServices;
 /// <summary>Indicates that local variables should not be zero-initialized.</summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Constructor | AttributeTargets.Method | AttributeTargets.Module)]
 internal sealed class SkipLocalsInitAttribute : Attribute;
+#elif REACTIVELIST_REACTIVE
+namespace CP.Reactive.Internal;
+
+/// <summary>Marks the runtime-provided local-initialization compatibility path.</summary>
+file enum SkipLocalsInitAttribute
+{
+    /// <summary>Indicates that the target runtime provides the attribute.</summary>
+    RuntimeProvided,
+}
+#else
+namespace CP.Primitives.Internal;
+
+/// <summary>Marks the runtime-provided local-initialization compatibility path.</summary>
+file enum SkipLocalsInitAttribute
+{
+    /// <summary>Indicates that the target runtime provides the attribute.</summary>
+    RuntimeProvided,
+}
 #endif

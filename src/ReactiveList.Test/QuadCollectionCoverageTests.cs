@@ -123,66 +123,69 @@ public class QuadCollectionCoverageTests
     [Test]
     public void QuadList_ShouldSupportMutationAndEnumerationPaths()
     {
-        using var list = new QuadList<int>();
+        var list = new QuadList<int>();
 
         list.AddRange(ReadOnlySpan<int>.Empty);
-        Enumerable.Range(0, QuadListItemCount).ToList().ForEach(list.Add);
+        for (var value = 0; value < QuadListItemCount; value++)
+        {
+            list.Add(value);
+        }
 
-        list.Count.Should().Be(QuadListItemCount);
-        list[QuadListMutationIndex].Should().Be(QuadListMutationIndex);
+        _ = list.Count.Should().Be(QuadListItemCount);
+        _ = list[QuadListMutationIndex].Should().Be(QuadListMutationIndex);
 
         list[QuadListMutationIndex] = QuadListReplacementValue;
-        list[QuadListMutationIndex].Should().Be(QuadListReplacementValue);
-        list.Contains(QuadListReplacementValue).Should().BeTrue();
-        list.IndexOf(QuadListReplacementValue).Should().Be(QuadListMutationIndex);
+        _ = list[QuadListMutationIndex].Should().Be(QuadListReplacementValue);
+        _ = list.Contains(QuadListReplacementValue).Should().BeTrue();
+        _ = list.IndexOf(QuadListReplacementValue).Should().Be(QuadListMutationIndex);
 
-        list.Remove(QuadListReplacementValue).Should().BeTrue();
-        list.Remove(MissingLookupValue).Should().BeFalse();
+        _ = list.Remove(QuadListReplacementValue).Should().BeTrue();
+        _ = list.Remove(MissingLookupValue).Should().BeFalse();
         list.RemoveAt(list.Count - 1);
 
         var copied = new int[list.Count + CopyPadding];
         list.CopyTo(copied, 1);
-        copied[1].Should().Be(0);
+        _ = copied[1].Should().Be(0);
 
         var structEnumerator = list.GetEnumerator();
         var matchingStructEnumerator = list.GetEnumerator();
-        (structEnumerator == matchingStructEnumerator).Should().BeTrue();
-        (structEnumerator != matchingStructEnumerator).Should().BeFalse();
-        structEnumerator.Equals((object)matchingStructEnumerator).Should().BeTrue();
-        structEnumerator.Equals(new object()).Should().BeFalse();
-        structEnumerator.GetHashCode().Should().NotBe(0);
-        structEnumerator.MoveNext().Should().BeTrue();
-        (structEnumerator != matchingStructEnumerator).Should().BeTrue();
-        (structEnumerator == matchingStructEnumerator).Should().BeFalse();
-        structEnumerator.Current.Should().Be(0);
+        _ = (structEnumerator == matchingStructEnumerator).Should().BeTrue();
+        _ = (structEnumerator != matchingStructEnumerator).Should().BeFalse();
+        _ = structEnumerator.Equals((object)matchingStructEnumerator).Should().BeTrue();
+        _ = structEnumerator.Equals(new object()).Should().BeFalse();
+        _ = structEnumerator.GetHashCode().Should().NotBe(0);
+        _ = structEnumerator.MoveNext().Should().BeTrue();
+        _ = (structEnumerator != matchingStructEnumerator).Should().BeTrue();
+        _ = (structEnumerator == matchingStructEnumerator).Should().BeFalse();
+        _ = structEnumerator.Current.Should().Be(0);
         while (structEnumerator.MoveNext())
         {
             _ = structEnumerator.Current;
         }
 
-        structEnumerator.MoveNext().Should().BeFalse();
+        _ = structEnumerator.MoveNext().Should().BeFalse();
 
         using var enumerator = ((IEnumerable<int>)list).GetEnumerator();
-        enumerator.MoveNext().Should().BeTrue();
-        enumerator.Current.Should().Be(0);
+        _ = enumerator.MoveNext().Should().BeTrue();
+        _ = enumerator.Current.Should().Be(0);
         enumerator.Reset();
-        enumerator.MoveNext().Should().BeTrue();
-        ((IEnumerator)enumerator).Current.Should().Be(0);
+        _ = enumerator.MoveNext().Should().BeTrue();
+        _ = ((IEnumerator)enumerator).Current.Should().Be(0);
         while (enumerator.MoveNext())
         {
             _ = enumerator.Current;
         }
 
-        enumerator.MoveNext().Should().BeFalse();
+        _ = enumerator.MoveNext().Should().BeFalse();
 
         var nonGenericEnumerator = ((IEnumerable)list).GetEnumerator();
-        nonGenericEnumerator.MoveNext().Should().BeTrue();
-        nonGenericEnumerator.Current.Should().Be(0);
+        _ = nonGenericEnumerator.MoveNext().Should().BeTrue();
+        _ = nonGenericEnumerator.Current.Should().Be(0);
 
-        list.AsSpan().ToArray().Should().Contain(HighestRemainingValue);
-        list.AsSpan().ToArray().Should().NotContain(RemovedTailValue);
+        _ = list.AsSpan().ToArray().Should().Contain(HighestRemainingValue);
+        _ = list.AsSpan().ToArray().Should().NotContain(RemovedTailValue);
         list.Clear();
-        list.Count.Should().Be(0);
+        _ = list.Count.Should().Be(0);
         list.Dispose();
         list.Dispose();
     }
@@ -198,78 +201,79 @@ public class QuadCollectionCoverageTests
         Action setTooHigh = () => list[1] = "missing";
         Action removeTooHigh = () => list.RemoveAt(1);
 
-        getNegative.Should().Throw<ArgumentOutOfRangeException>();
-        getTooHigh.Should().Throw<ArgumentOutOfRangeException>();
-        setTooHigh.Should().Throw<ArgumentOutOfRangeException>();
-        removeTooHigh.Should().Throw<ArgumentOutOfRangeException>();
+        _ = getNegative.Should().Throw<ArgumentOutOfRangeException>();
+        _ = getTooHigh.Should().Throw<ArgumentOutOfRangeException>();
+        _ = setTooHigh.Should().Throw<ArgumentOutOfRangeException>();
+        _ = removeTooHigh.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     /// <summary>Verifies QuadDictionary collision handling, ref updates, free-list reuse, and wrapper enumeration.</summary>
     [Test]
     public void QuadDictionary_ShouldHandleCollisionsAndRemovedSlots()
     {
-        using var dictionary = new QuadDictionary<string, int>(new ConstantHashStringComparer());
+        var dictionary = new QuadDictionary<string, int>(new ConstantHashStringComparer());
 
-        dictionary.TryAdd("one", 1).Should().BeTrue();
-        dictionary.TryAdd("two", SecondDictionaryValue).Should().BeTrue();
-        dictionary.TryAdd("three", InitialDictionaryCount).Should().BeTrue();
-        dictionary.TryAdd("two", DuplicateDictionaryValue).Should().BeFalse();
-        dictionary.Count.Should().Be(InitialDictionaryCount);
+        _ = dictionary.TryAdd("one", 1).Should().BeTrue();
+        _ = dictionary.TryAdd("two", SecondDictionaryValue).Should().BeTrue();
+        _ = dictionary.TryAdd("three", InitialDictionaryCount).Should().BeTrue();
+        _ = dictionary.TryAdd("two", DuplicateDictionaryValue).Should().BeFalse();
+        _ = dictionary.Count.Should().Be(InitialDictionaryCount);
 
-        dictionary.Remove("two", out var removedMiddle).Should().BeTrue();
-        removedMiddle.Should().Be(SecondDictionaryValue);
-        dictionary.Remove("three").Should().BeTrue();
-        dictionary.Remove("missing", out var missingValue).Should().BeFalse();
-        missingValue.Should().Be(default(int));
+        _ = dictionary.Remove("two", out var removedMiddle).Should().BeTrue();
+        _ = removedMiddle.Should().Be(SecondDictionaryValue);
+        _ = dictionary.Remove("three").Should().BeTrue();
+        _ = dictionary.Remove("missing", out var missingValue).Should().BeFalse();
+        _ = missingValue.Should().Be(default(int));
 
-        dictionary.TryAdd("four", FourthDictionaryValue).Should().BeTrue();
-        dictionary["one"].Should().Be(1);
+        _ = dictionary.TryAdd("four", FourthDictionaryValue).Should().BeTrue();
+        _ = dictionary["one"].Should().Be(1);
         dictionary["one"] = UpdatedDictionaryValue;
-        dictionary["one"].Should().Be(UpdatedDictionaryValue);
+        _ = dictionary["one"].Should().Be(UpdatedDictionaryValue);
 
         ref var valueRef = ref dictionary.GetValueRefOrAddDefault("five", out var existed);
-        existed.Should().BeFalse();
+        _ = existed.Should().BeFalse();
         valueRef = FifthDictionaryValue;
 
         ref var existingRef = ref dictionary.GetValueRefOrAddDefault("five", out existed);
-        existed.Should().BeTrue();
-        existingRef.Should().Be(FifthDictionaryValue);
+        _ = existed.Should().BeTrue();
+        _ = existingRef.Should().Be(FifthDictionaryValue);
 
-        dictionary.Keys.Should().BeEquivalentTo(["one", "four", "five"]);
-        dictionary.Values.Should().BeEquivalentTo([UpdatedDictionaryValue, FourthDictionaryValue, FifthDictionaryValue]);
+        _ = dictionary.Keys.Should().BeEquivalentTo(["one", "four", "five"]);
+        _ = dictionary.Values.Should().BeEquivalentTo([UpdatedDictionaryValue, FourthDictionaryValue, FifthDictionaryValue]);
 
         var copied = new List<KeyValuePair<string, int>>();
         dictionary.CopyTo(copied);
-        copied.Should().BeEquivalentTo(dictionary.ToArray());
+        var enumerated = new List<KeyValuePair<string, int>>(dictionary);
+        _ = copied.Should().BeEquivalentTo(enumerated);
 
         var structEnumerator = dictionary.GetEnumerator();
         var matchingStructEnumerator = dictionary.GetEnumerator();
-        (structEnumerator == matchingStructEnumerator).Should().BeTrue();
-        (structEnumerator != matchingStructEnumerator).Should().BeFalse();
-        structEnumerator.Equals((object)matchingStructEnumerator).Should().BeTrue();
-        structEnumerator.Equals(new object()).Should().BeFalse();
-        structEnumerator.GetHashCode().Should().NotBe(0);
-        structEnumerator.TryGetNext(out var first).Should().BeTrue();
-        (structEnumerator != matchingStructEnumerator).Should().BeTrue();
-        (structEnumerator == matchingStructEnumerator).Should().BeFalse();
-        first.Key.Should().NotBeNull();
+        _ = (structEnumerator == matchingStructEnumerator).Should().BeTrue();
+        _ = (structEnumerator != matchingStructEnumerator).Should().BeFalse();
+        _ = structEnumerator.Equals((object)matchingStructEnumerator).Should().BeTrue();
+        _ = structEnumerator.Equals(new object()).Should().BeFalse();
+        _ = structEnumerator.GetHashCode().Should().NotBe(0);
+        _ = structEnumerator.TryGetNext(out var first).Should().BeTrue();
+        _ = (structEnumerator != matchingStructEnumerator).Should().BeTrue();
+        _ = (structEnumerator == matchingStructEnumerator).Should().BeFalse();
+        _ = first.Key.Should().NotBeNull();
         while (structEnumerator.MoveNext())
         {
             _ = structEnumerator.Current;
         }
 
-        structEnumerator.TryGetNext(out var afterLast).Should().BeFalse();
-        afterLast.Should().Be(default(KeyValuePair<string, int>));
+        _ = structEnumerator.TryGetNext(out var afterLast).Should().BeFalse();
+        _ = afterLast.Should().Be(default(KeyValuePair<string, int>));
 
         using var wrapper = ((IEnumerable<KeyValuePair<string, int>>)dictionary).GetEnumerator();
-        wrapper.MoveNext().Should().BeTrue();
-        ((IEnumerator)wrapper).Current.Should().BeOfType<KeyValuePair<string, int>>();
+        _ = wrapper.MoveNext().Should().BeTrue();
+        _ = ((IEnumerator)wrapper).Current.Should().BeOfType<KeyValuePair<string, int>>();
         wrapper.Reset();
-        wrapper.MoveNext().Should().BeTrue();
+        _ = wrapper.MoveNext().Should().BeTrue();
 
         var nonGenericWrapper = ((IEnumerable)dictionary).GetEnumerator();
-        nonGenericWrapper.MoveNext().Should().BeTrue();
-        nonGenericWrapper.Current.Should().BeOfType<KeyValuePair<string, int>>();
+        _ = nonGenericWrapper.MoveNext().Should().BeTrue();
+        _ = nonGenericWrapper.Current.Should().BeOfType<KeyValuePair<string, int>>();
 
         dictionary.Dispose();
         dictionary.Dispose();
@@ -284,12 +288,15 @@ public class QuadCollectionCoverageTests
         dictionary.EnsureCapacity(InitialDictionaryCapacity);
         dictionary.EnsureCapacity(ExpandedDictionaryCapacity);
 
-        Enumerable.Range(0, DictionaryPopulationCount).ToList().ForEach(i => dictionary.Add(i, $"value-{i}"));
+        for (var key = 0; key < DictionaryPopulationCount; key++)
+        {
+            dictionary.Add(key, $"value-{key}");
+        }
 
-        dictionary.Count.Should().Be(DictionaryPopulationCount);
-        dictionary.ContainsKey(ExistingDictionaryKey).Should().BeTrue();
-        dictionary.TryGetValue(MissingLookupValue, out var missing).Should().BeFalse();
-        missing.Should().BeNull();
+        _ = dictionary.Count.Should().Be(DictionaryPopulationCount);
+        _ = dictionary.ContainsKey(ExistingDictionaryKey).Should().BeTrue();
+        _ = dictionary.TryGetValue(MissingLookupValue, out var missing).Should().BeFalse();
+        _ = missing.Should().BeNull();
 
         Action duplicateAdd = () => dictionary.Add(ExistingDictionaryKey, "duplicate");
         Action missingIndexer = () => _ = dictionary[MissingLookupValue];
@@ -297,14 +304,14 @@ public class QuadCollectionCoverageTests
         Action nullKeysTarget = () => dictionary.CopyKeysTo(null!);
         Action nullValuesTarget = () => dictionary.CopyValuesTo(null!);
 
-        duplicateAdd.Should().Throw<ArgumentException>();
-        missingIndexer.Should().Throw<KeyNotFoundException>();
-        nullCopyTarget.Should().Throw<ArgumentNullException>();
-        nullKeysTarget.Should().Throw<ArgumentNullException>().WithParameterName("list");
-        nullValuesTarget.Should().Throw<ArgumentNullException>().WithParameterName("list");
+        _ = duplicateAdd.Should().Throw<ArgumentException>();
+        _ = missingIndexer.Should().Throw<KeyNotFoundException>();
+        _ = nullCopyTarget.Should().Throw<ArgumentNullException>();
+        _ = nullKeysTarget.Should().Throw<ArgumentNullException>().WithParameterName("list");
+        _ = nullValuesTarget.Should().Throw<ArgumentNullException>().WithParameterName("list");
 
         dictionary.Clear();
-        dictionary.Count.Should().Be(0);
+        _ = dictionary.Count.Should().Be(0);
         dictionary.Clear();
 
         using var autoResize = new QuadDictionary<int, int>();
@@ -313,14 +320,14 @@ public class QuadCollectionCoverageTests
             autoResize.Add(i, i);
         }
 
-        autoResize.Remove(1).Should().BeTrue();
+        _ = autoResize.Remove(1).Should().BeTrue();
         autoResize.EnsureCapacity(AutoResizeCapacity);
-        autoResize.Keys.Should().Contain(AutoResizeLastKey);
+        _ = autoResize.Keys.Should().Contain(AutoResizeLastKey);
 
         using var nullableKeyDictionary = new QuadDictionary<string?, int>();
-        nullableKeyDictionary.TryAdd(null, 1).Should().BeTrue();
-        nullableKeyDictionary.TryGetValue(null, out var nullKeyValue).Should().BeTrue();
-        nullKeyValue.Should().Be(1);
+        _ = nullableKeyDictionary.TryAdd(null, 1).Should().BeTrue();
+        _ = nullableKeyDictionary.TryGetValue(null, out var nullKeyValue).Should().BeTrue();
+        _ = nullKeyValue.Should().Be(1);
     }
 
     /// <summary>Verifies pooled batch change tracking including growth and reset on disposal.</summary>
@@ -339,15 +346,15 @@ public class QuadCollectionCoverageTests
             tracker.TrackRemoved($"removed-{i}");
         }
 
-        tracker.HasChanges.Should().BeTrue();
-        tracker.AddedItems.ToArray().Should().StartWith("added-0").And.EndWith("added-23");
-        tracker.RemovedItems.ToArray().Should().StartWith("removed-0").And.EndWith("removed-19");
+        _ = tracker.HasChanges.Should().BeTrue();
+        _ = tracker.AddedItems.ToArray().Should().StartWith("added-0").And.EndWith("added-23");
+        _ = tracker.RemovedItems.ToArray().Should().StartWith("removed-0").And.EndWith("removed-19");
 
         tracker.Dispose();
 
-        tracker.HasChanges.Should().BeFalse();
-        tracker.AddedItems.Length.Should().Be(0);
-        tracker.RemovedItems.Length.Should().Be(0);
+        _ = tracker.HasChanges.Should().BeFalse();
+        _ = tracker.AddedItems.Length.Should().Be(0);
+        _ = tracker.RemovedItems.Length.Should().Be(0);
     }
 
     /// <summary>Verifies ChangeToken value storage and change detection.</summary>
@@ -356,11 +363,11 @@ public class QuadCollectionCoverageTests
     {
         var token = new ChangeToken(version: 7, count: 3);
 
-        token.Version.Should().Be(InitialTokenVersion);
-        token.Count.Should().Be(TrackedItemCount);
-        token.HasChanged(InitialTokenVersion).Should().BeFalse();
-        token.HasChanged(NextTokenVersion).Should().BeTrue();
-        token.Should().Be(new ChangeToken(InitialTokenVersion, TrackedItemCount));
+        _ = token.Version.Should().Be(InitialTokenVersion);
+        _ = token.Count.Should().Be(TrackedItemCount);
+        _ = token.HasChanged(InitialTokenVersion).Should().BeFalse();
+        _ = token.HasChanged(NextTokenVersion).Should().BeTrue();
+        _ = token.Should().Be(new ChangeToken(InitialTokenVersion, TrackedItemCount));
     }
 
     /// <summary>Verifies PooledBuffer list copying and idempotent disposal.</summary>
@@ -368,9 +375,9 @@ public class QuadCollectionCoverageTests
     public void PooledBuffer_FromList_ShouldExposeCopiedSpanAndDispose()
     {
         var source = new List<string> { "alpha", "beta", "gamma" };
-        using var buffer = PooledBuffer<string>.FromList(source);
+        var buffer = PooledBuffer<string>.FromList(source);
 
-        buffer.Span.ToArray().Should().Equal(source);
+        _ = buffer.Span.ToArray().Should().Equal(source);
 
         buffer.Dispose();
         buffer.Dispose();
@@ -385,7 +392,7 @@ public class QuadCollectionCoverageTests
 
         buffer.Add(1);
         buffer.Add(SecondBufferedValue);
-        buffer.Span.ToArray().Should().Equal(1, SecondBufferedValue);
+        _ = buffer.Span.ToArray().Should().Equal(1, SecondBufferedValue);
 
         buffer.Add(ThirdBufferedValue);
         for (var i = 4; i <= ValueBufferFinalCount; i++)
@@ -393,8 +400,8 @@ public class QuadCollectionCoverageTests
             buffer.Add(i);
         }
 
-        buffer.Count.Should().Be(ValueBufferFinalCount);
-        buffer.Span.ToArray().Should().Equal(Enumerable.Range(1, ValueBufferFinalCount));
+        _ = buffer.Count.Should().Be(ValueBufferFinalCount);
+        _ = buffer.Span.ToArray().Should().Equal(Enumerable.Range(1, ValueBufferFinalCount));
 
         buffer.Dispose();
         buffer.Dispose();
@@ -404,16 +411,16 @@ public class QuadCollectionCoverageTests
     [Test]
     public void ShardHash_ShouldReturnExpectedShardRanges()
     {
-        ShardHash.GetShardIndex<string?>(null, FourWayShardCount).Should().Be(0);
-        ShardHash.GetShardIndex4<string?>(null).Should().Be(0);
+        _ = ShardHash.GetShardIndex<string?>(null, FourWayShardCount).Should().Be(0);
+        _ = ShardHash.GetShardIndex4<string?>(null).Should().Be(0);
 
         var positive = new FixedHash(1);
         var negative = new FixedHash(int.MinValue);
 
-        ShardHash.GetShardIndex(positive, EightWayShardCount).Should().BeInRange(0, EightWayMaximumIndex);
-        ShardHash.GetShardIndex(negative, SixteenWayShardCount).Should().BeInRange(0, SixteenWayMaximumIndex);
-        ShardHash.GetShardIndex4(positive).Should().Be(ShardHash.GetShardIndex(positive, FourWayShardCount));
-        ShardHash.GetShardIndex4(negative).Should().BeInRange(0, FourWayMaximumIndex);
+        _ = ShardHash.GetShardIndex(positive, EightWayShardCount).Should().BeInRange(0, EightWayMaximumIndex);
+        _ = ShardHash.GetShardIndex(negative, SixteenWayShardCount).Should().BeInRange(0, SixteenWayMaximumIndex);
+        _ = ShardHash.GetShardIndex4(positive).Should().Be(ShardHash.GetShardIndex(positive, FourWayShardCount));
+        _ = ShardHash.GetShardIndex4(negative).Should().BeInRange(0, FourWayMaximumIndex);
     }
 
     /// <summary>Provides ConstantHashStringComparer.</summary>
@@ -434,6 +441,7 @@ public class QuadCollectionCoverageTests
     /// <summary>Provides FixedHash.</summary>
     private sealed class FixedHash
     {
+        /// <summary>The fixed hash code returned by this instance.</summary>
         private readonly int _hashCode;
 
         /// <summary>Initializes a new instance of the <see cref="FixedHash"/> class.</summary>

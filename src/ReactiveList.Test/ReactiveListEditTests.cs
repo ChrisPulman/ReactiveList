@@ -18,17 +18,17 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = [];
 
-        fixture.Edit(list =>
+        fixture.Edit(static list =>
         {
             list.Add("one");
             list.Add("two");
             list.Add(TestData.ThreeText);
         });
 
-        fixture.Count.Should().Be(TestData.TestValueThree);
-        fixture[0].Should().Be("one");
-        fixture[1].Should().Be("two");
-        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        _ = fixture.Count.Should().Be(TestData.TestValueThree);
+        _ = fixture[0].Should().Be("one");
+        _ = fixture[1].Should().Be("two");
+        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow batch remove operations.</summary>
@@ -37,15 +37,15 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText, "four"];
 
-        fixture.Edit(list =>
+        fixture.Edit(static list =>
         {
-            list.Remove("two");
-            list.Remove("four");
+            _ = list.Remove("two");
+            _ = list.Remove("four");
         });
 
-        fixture.Count.Should().Be(TestData.TestValueTwo);
-        fixture[0].Should().Be("one");
-        fixture[1].Should().Be(TestData.ThreeText);
+        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
+        _ = fixture[0].Should().Be("one");
+        _ = fixture[1].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow mixed operations.</summary>
@@ -54,18 +54,18 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one", "two"];
 
-        fixture.Edit(list =>
+        fixture.Edit(static list =>
         {
             list.Add(TestData.ThreeText);
-            list.Remove("one");
+            _ = list.Remove("one");
             list.Add("four");
         });
 
-        fixture.Count.Should().Be(TestData.TestValueThree);
-        fixture.Should().Contain("two");
-        fixture.Should().Contain(TestData.ThreeText);
-        fixture.Should().Contain("four");
-        fixture.Should().NotContain("one");
+        _ = fixture.Count.Should().Be(TestData.TestValueThree);
+        _ = fixture.Should().Contain("two");
+        _ = fixture.Should().Contain(TestData.ThreeText);
+        _ = fixture.Should().Contain("four");
+        _ = fixture.Should().NotContain("one");
     }
 
     /// <summary>Edit should allow clear and repopulate.</summary>
@@ -74,16 +74,16 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        fixture.Edit(list =>
+        fixture.Edit(static list =>
         {
             list.Clear();
             list.Add("alpha");
             list.Add("beta");
         });
 
-        fixture.Count.Should().Be(TestData.TestValueTwo);
-        fixture[0].Should().Be("alpha");
-        fixture[1].Should().Be("beta");
+        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
+        _ = fixture[0].Should().Be("alpha");
+        _ = fixture[1].Should().Be("beta");
     }
 
     /// <summary>Edit should throw when action is null.</summary>
@@ -94,7 +94,7 @@ public class ReactiveListEditTests
 
         var action = () => fixture.Edit(null!);
 
-        action.Should().Throw<ArgumentNullException>()
+        _ = action.Should().Throw<ArgumentNullException>()
             .WithParameterName("editAction");
     }
 
@@ -120,15 +120,15 @@ public class ReactiveListEditTests
             itemArrayChanges++;
         };
 
-        fixture.Edit(list =>
+        fixture.Edit(static list =>
         {
             list.Add("one");
             list.Add("two");
             list.Add(TestData.ThreeText);
         });
 
-        countChanges.Should().Be(1);
-        itemArrayChanges.Should().Be(1);
+        _ = countChanges.Should().Be(1);
+        _ = itemArrayChanges.Should().Be(1);
     }
 
     /// <summary>Edit should allow insert at index.</summary>
@@ -137,12 +137,12 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one", TestData.ThreeText];
 
-        fixture.Edit(list => list.Insert(1, "two"));
+        fixture.Edit(static list => list.Insert(1, "two"));
 
-        fixture.Count.Should().Be(TestData.TestValueThree);
-        fixture[0].Should().Be("one");
-        fixture[1].Should().Be("two");
-        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        _ = fixture.Count.Should().Be(TestData.TestValueThree);
+        _ = fixture[0].Should().Be("one");
+        _ = fixture[1].Should().Be("two");
+        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow remove at index.</summary>
@@ -151,11 +151,11 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        fixture.Edit(list => list.RemoveAt(1));
+        fixture.Edit(static list => list.RemoveAt(1));
 
-        fixture.Count.Should().Be(TestData.TestValueTwo);
-        fixture[0].Should().Be("one");
-        fixture[1].Should().Be(TestData.ThreeText);
+        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
+        _ = fixture[0].Should().Be("one");
+        _ = fixture[1].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow add range.</summary>
@@ -164,13 +164,13 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one"];
 
-        fixture.Edit(list => list.AddRange(["two", TestData.ThreeText, "four"]));
+        fixture.Edit(static list => list.AddRange(["two", TestData.ThreeText, "four"]));
 
-        fixture.Count.Should().Be(TestData.TestValueFour);
-        fixture[0].Should().Be("one");
-        fixture[1].Should().Be("two");
-        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
-        fixture[TestData.TestValueThree].Should().Be("four");
+        _ = fixture.Count.Should().Be(TestData.TestValueFour);
+        _ = fixture[0].Should().Be("one");
+        _ = fixture[1].Should().Be("two");
+        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        _ = fixture[TestData.TestValueThree].Should().Be("four");
     }
 
     /// <summary>Edit should allow replace operation.</summary>
@@ -179,17 +179,17 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        fixture.Edit(list =>
+        fixture.Edit(static list =>
         {
             var index = list.IndexOf("two");
             list.RemoveAt(index);
             list.Insert(index, "TWO");
         });
 
-        fixture.Count.Should().Be(TestData.TestValueThree);
-        fixture[0].Should().Be("one");
-        fixture[1].Should().Be("TWO");
-        fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        _ = fixture.Count.Should().Be(TestData.TestValueThree);
+        _ = fixture[0].Should().Be("one");
+        _ = fixture[1].Should().Be("TWO");
+        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
     }
 
     /// <summary>Edit should work with complex types.</summary>
@@ -198,15 +198,15 @@ public class ReactiveListEditTests
     {
         ReactiveList<TestData> fixture = [];
 
-        fixture.Edit(list =>
+        fixture.Edit(static list =>
         {
-            list.Add(new TestData("Alice", TestData.TestValueTwentyFive));
-            list.Add(new TestData("Bob", TestData.TestValueThirty));
+            list.Add(new("Alice", TestData.TestValueTwentyFive));
+            list.Add(new("Bob", TestData.TestValueThirty));
         });
 
-        fixture.Count.Should().Be(TestData.TestValueTwo);
-        fixture[0].Name.Should().Be("Alice");
-        fixture[1].Name.Should().Be("Bob");
+        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
+        _ = fixture[0].Name.Should().Be("Alice");
+        _ = fixture[1].Name.Should().Be("Bob");
     }
 
     /// <summary>Edit should handle empty action gracefully.</summary>
@@ -215,11 +215,11 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one", "two"];
 
-        fixture.Edit(_ => { });
+        fixture.Edit(static _ => { });
 
-        fixture.Count.Should().Be(TestData.TestValueTwo);
-        fixture[0].Should().Be("one");
-        fixture[1].Should().Be("two");
+        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
+        _ = fixture[0].Should().Be("one");
+        _ = fixture[1].Should().Be("two");
     }
 
     /// <summary>Edit should allow move operation.</summary>
@@ -228,12 +228,12 @@ public class ReactiveListEditTests
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
-        fixture.Edit(list => list.Move(0, TestData.TestValueTwo));
+        fixture.Edit(static list => list.Move(0, TestData.TestValueTwo));
 
-        fixture.Count.Should().Be(TestData.TestValueThree);
-        fixture[0].Should().Be("two");
-        fixture[1].Should().Be(TestData.ThreeText);
-        fixture[TestData.TestValueTwo].Should().Be("one");
+        _ = fixture.Count.Should().Be(TestData.TestValueThree);
+        _ = fixture[0].Should().Be("two");
+        _ = fixture[1].Should().Be(TestData.ThreeText);
+        _ = fixture[TestData.TestValueTwo].Should().Be("one");
     }
 
     /// <summary>Edit should allow multiple operations in sequence.</summary>
@@ -242,7 +242,7 @@ public class ReactiveListEditTests
     {
         ReactiveList<int> fixture = [];
 
-        fixture.Edit(list =>
+        fixture.Edit(static list =>
         {
             for (var i = 1; i <= TestData.TestValueFive; i++)
             {
@@ -254,7 +254,7 @@ public class ReactiveListEditTests
             list.Move(TestData.TestValueFour, 1); // Move 5 to position 1
         });
 
-        fixture.Count.Should().Be(TestData.TestValueFive);
-        fixture.Should().ContainInOrder(0, TestData.TestValueFive, 1, TestData.TestValueTwo, TestData.TestValueFour);
+        _ = fixture.Count.Should().Be(TestData.TestValueFive);
+        _ = fixture.Should().ContainInOrder(0, TestData.TestValueFive, 1, TestData.TestValueTwo, TestData.TestValueFour);
     }
 }

@@ -17,7 +17,7 @@ internal static class BenchmarkObservableExtensions
         /// <summary>Subscribes an action observer.</summary>
         /// <param name="onNext">The next-value handler.</param>
         /// <returns>The subscription disposable.</returns>
-        public IDisposable SubscribeObserver(Action<T> onNext)
+        internal IDisposable SubscribeObserver(Action<T> onNext)
         {
             ArgumentNullException.ThrowIfNull(source);
             ArgumentNullException.ThrowIfNull(onNext);

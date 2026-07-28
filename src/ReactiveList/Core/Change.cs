@@ -15,13 +15,40 @@ namespace CP.Primitives.Core;
 /// <typeparam name="T">The type of item that changed.</typeparam>
 public readonly record struct Change<T>
 {
+    /// <summary>Initializes a new instance of the <see cref="Change{T}"/> class.</summary>
+    /// <param name="reason">The reason for the change.</param>
+    /// <param name="current">The current/new item value.</param>
+    public Change(ChangeReason reason, T current)
+        : this(reason, current, default, -1, -1)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="Change{T}"/> class.</summary>
+    /// <param name="reason">The reason for the change.</param>
+    /// <param name="current">The current/new item value.</param>
+    /// <param name="previous">The previous item value (for updates).</param>
+    public Change(ChangeReason reason, T current, T? previous)
+        : this(reason, current, previous, -1, -1)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="Change{T}"/> class.</summary>
+    /// <param name="reason">The reason for the change.</param>
+    /// <param name="current">The current/new item value.</param>
+    /// <param name="previous">The previous item value (for updates).</param>
+    /// <param name="currentIndex">The current index of the item, or -1 if not applicable.</param>
+    public Change(ChangeReason reason, T current, T? previous, int currentIndex)
+        : this(reason, current, previous, currentIndex, -1)
+    {
+    }
+
     /// <summary>Initializes a new instance of the <see cref="Change{T}"/> struct.</summary>
     /// <param name="reason">The reason for the change.</param>
     /// <param name="current">The current/new item value.</param>
     /// <param name="previous">The previous item value (for updates).</param>
     /// <param name="currentIndex">The current index of the item, or -1 if not applicable.</param>
     /// <param name="previousIndex">The previous index of the item (for moves), or -1 if not applicable.</param>
-    public Change(ChangeReason reason, T current, T? previous = default, int currentIndex = -1, int previousIndex = -1)
+    public Change(ChangeReason reason, T current, T? previous, int currentIndex, int previousIndex)
     {
         Reason = reason;
         Current = current;
@@ -47,24 +74,43 @@ public readonly record struct Change<T>
 
     /// <summary>Creates an Add change.</summary>
     /// <param name="item">The item being added.</param>
+    /// <returns>A new Change representing an add operation.</returns>
+    public static Change<T> CreateAdd(T item) =>
+        CreateAdd(item, -1);
+
+    /// <summary>Creates an Add change.</summary>
+    /// <param name="item">The item being added.</param>
     /// <param name="index">The index where the item was added.</param>
     /// <returns>A new Change representing an add operation.</returns>
-    public static Change<T> CreateAdd(T item, int index = -1) =>
-        new(ChangeReason.Add, item, currentIndex: index);
+    public static Change<T> CreateAdd(T item, int index) =>
+        new(ChangeReason.Add, item, default, index, -1);
+
+    /// <summary>Creates a Remove change.</summary>
+    /// <param name="item">The item being removed.</param>
+    /// <returns>A new Change representing a remove operation.</returns>
+    public static Change<T> CreateRemove(T item) =>
+        CreateRemove(item, -1);
 
     /// <summary>Creates a Remove change.</summary>
     /// <param name="item">The item being removed.</param>
     /// <param name="index">The index from which the item was removed.</param>
     /// <returns>A new Change representing a remove operation.</returns>
-    public static Change<T> CreateRemove(T item, int index = -1) =>
-        new(ChangeReason.Remove, item, previousIndex: index);
+    public static Change<T> CreateRemove(T item, int index) =>
+        new(ChangeReason.Remove, item, default, -1, index);
+
+    /// <summary>Creates an Update change.</summary>
+    /// <param name="current">The new item value.</param>
+    /// <param name="previous">The previous item value.</param>
+    /// <returns>A new Change representing an update operation.</returns>
+    public static Change<T> CreateUpdate(T current, T previous) =>
+        CreateUpdate(current, previous, -1);
 
     /// <summary>Creates an Update change.</summary>
     /// <param name="current">The new item value.</param>
     /// <param name="previous">The previous item value.</param>
     /// <param name="index">The index of the updated item.</param>
     /// <returns>A new Change representing an update operation.</returns>
-    public static Change<T> CreateUpdate(T current, T previous, int index = -1) =>
+    public static Change<T> CreateUpdate(T current, T previous, int index) =>
         new(ChangeReason.Update, current, previous, index, index);
 
     /// <summary>Creates a Move change.</summary>
@@ -73,12 +119,18 @@ public readonly record struct Change<T>
     /// <param name="previousIndex">The previous index of the item.</param>
     /// <returns>A new Change representing a move operation.</returns>
     public static Change<T> CreateMove(T item, int currentIndex, int previousIndex) =>
-        new(ChangeReason.Move, item, currentIndex: currentIndex, previousIndex: previousIndex);
+        new(ChangeReason.Move, item, default, currentIndex, previousIndex);
+
+    /// <summary>Creates a Refresh change.</summary>
+    /// <param name="item">The item being refreshed.</param>
+    /// <returns>A new Change representing a refresh operation.</returns>
+    public static Change<T> CreateRefresh(T item) =>
+        CreateRefresh(item, -1);
 
     /// <summary>Creates a Refresh change.</summary>
     /// <param name="item">The item being refreshed.</param>
     /// <param name="index">The index of the item.</param>
     /// <returns>A new Change representing a refresh operation.</returns>
-    public static Change<T> CreateRefresh(T item, int index = -1) =>
-        new(ChangeReason.Refresh, item, currentIndex: index);
+    public static Change<T> CreateRefresh(T item, int index) =>
+        new(ChangeReason.Refresh, item, default, index, -1);
 }

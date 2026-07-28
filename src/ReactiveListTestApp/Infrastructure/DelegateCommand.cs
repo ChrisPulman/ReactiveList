@@ -21,5 +21,5 @@ internal sealed class DelegateCommand(Action execute, Func<bool>? canExecute = n
     public void Execute(object? parameter) => execute();
 
     /// <summary>Notifies WPF that command availability may have changed.</summary>
-    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    internal void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }

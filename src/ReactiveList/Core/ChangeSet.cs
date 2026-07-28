@@ -16,6 +16,7 @@ namespace CP.Primitives.Core;
 /// <typeparam name="T">The type of items in the collection.</typeparam>
 public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposable, IEquatable<ChangeSet<T>>
 {
+    /// <summary>The compact array containing the changes in this set.</summary>
     private readonly Change<T>[]? _changes;
 
     /// <summary>Initializes a new instance of the <see cref="ChangeSet{T}"/> struct with a single change.</summary>
@@ -110,7 +111,7 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
     IEnumerator<Change<T>> IEnumerable<Change<T>>.GetEnumerator() => GetEnumerator();
 
     /// <inheritdoc/>
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => (IEnumerator<Change<T>>)GetEnumerator();
 
     /// <summary>Retained for compatibility. Change sets no longer own pooled storage.</summary>
     public void Dispose()
@@ -140,12 +141,18 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
     }
 
     /// <summary>Enumerates the elements of a <see cref="ChangeSet{T}"/>.</summary>
-    public struct Enumerator : IEnumerator<Change<T>>
+    public struct Enumerator : IEnumerator<Change<T>>, IEquatable<Enumerator>
     {
+        /// <summary>The multiplier used to combine legacy hash-code components.</summary>
+        private const int EqualityHashMultiplier = 397;
+
+        /// <summary>The array being enumerated.</summary>
         private readonly Change<T>[] _changes;
 
+        /// <summary>The number of valid changes in <see cref="_changes"/>.</summary>
         private readonly int _count;
 
+        /// <summary>The zero-based position of the current change.</summary>
         private int _index;
 
         /// <summary>Initializes a new instance of the <see cref="Enumerator"/> struct.</summary>
@@ -164,6 +171,18 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
         /// <inheritdoc/>
         readonly object IEnumerator.Current => Current;
 
+        /// <summary>Determines whether two enumerators have the same source and enumeration state.</summary>
+        /// <param name="left">The first enumerator to compare.</param>
+        /// <param name="right">The second enumerator to compare.</param>
+        /// <returns><see langword="true"/> when the enumerators are equal; otherwise, <see langword="false"/>.</returns>
+        public static bool operator ==(Enumerator left, Enumerator right) => left.Equals(right);
+
+        /// <summary>Determines whether two enumerators have different sources or enumeration states.</summary>
+        /// <param name="left">The first enumerator to compare.</param>
+        /// <param name="right">The second enumerator to compare.</param>
+        /// <returns><see langword="true"/> when the enumerators are not equal; otherwise, <see langword="false"/>.</returns>
+        public static bool operator !=(Enumerator left, Enumerator right) => !left.Equals(right);
+
         /// <summary>Advances the enumerator to the next element.</summary>
         /// <returns>true if the enumerator was successfully advanced; false if it has passed the end.</returns>
         public bool MoveNext()
@@ -181,9 +200,34 @@ public readonly record struct ChangeSet<T> : IReadOnlyList<Change<T>>, IDisposab
         /// <summary>Sets the enumerator to its initial position.</summary>
         public void Reset() => _index = -1;
 
+        /// <inheritdoc/>
+        public readonly bool Equals(Enumerator other) =>
+            ReferenceEquals(_changes, other._changes) && _count == other._count && _index == other._index;
+
+        /// <inheritdoc/>
+        public override readonly bool Equals(object? obj) => obj is Enumerator other && Equals(other);
+
+        /// <inheritdoc/>
+        public override readonly int GetHashCode() =>
+#if NET6_0_OR_GREATER
+            HashCode.Combine(_changes, _count);
+#else
+            GetLegacyEqualityHashCode();
+#endif
+
         /// <summary>Releases resources used by the enumerator.</summary>
         public readonly void Dispose()
         {
         }
+
+#if !NET6_0_OR_GREATER
+        /// <summary>Computes an equality hash code on target frameworks without the built-in hash combiner.</summary>
+        /// <returns>A hash code for the current source and enumeration state.</returns>
+        private readonly int GetLegacyEqualityHashCode()
+        {
+            var hashCode = _changes?.GetHashCode() ?? 0;
+            return (hashCode * EqualityHashMultiplier) ^ _count;
+        }
+#endif
     }
 }

@@ -6,6 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+#if NET8_0_OR_GREATER
+using System.Runtime.InteropServices;
+#endif
 using System.Threading.Tasks;
 using CP.Primitives;
 using CP.Primitives.Collections;
@@ -39,9 +42,9 @@ public class ReactiveListExtensionsAdditionalTests
         list.Update(TestData.OriginalText, "updated");
 
         // Assert - Previous should contain the original value
-        updates.Should().HaveCount(1);
-        updates[0].Previous.Should().Be(TestData.OriginalText);
-        updates[0].Current.Should().Be("updated");
+        _ = updates.Should().HaveCount(1);
+        _ = updates[0].Previous.Should().Be(TestData.OriginalText);
+        _ = updates[0].Current.Should().Be("updated");
     }
 
     /// <summary>Tests that OnUpdate does not emit for add operations.</summary>
@@ -62,7 +65,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueThree);
 
         // Assert
-        updateCount.Should().Be(0);
+        _ = updateCount.Should().Be(0);
     }
 
     /// <summary>Tests that OnUpdate handles multiple sequential updates with previous values.</summary>
@@ -84,13 +87,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.Update(TestData.TestValueOneHundred, TestData.TestValueOneThousand);
 
         // Assert - Previous should contain the actual previous value
-        updates.Should().HaveCount(TestData.TestValueThree);
-        updates[0].Previous.Should().Be(1);
-        updates[0].Current.Should().Be(TestData.TestValueTen);
-        updates[1].Previous.Should().Be(TestData.TestValueTen);
-        updates[1].Current.Should().Be(TestData.TestValueOneHundred);
-        updates[TestData.TestValueTwo].Previous.Should().Be(TestData.TestValueOneHundred);
-        updates[TestData.TestValueTwo].Current.Should().Be(TestData.TestValueOneThousand);
+        _ = updates.Should().HaveCount(TestData.TestValueThree);
+        _ = updates[0].Previous.Should().Be(1);
+        _ = updates[0].Current.Should().Be(TestData.TestValueTen);
+        _ = updates[1].Previous.Should().Be(TestData.TestValueTen);
+        _ = updates[1].Current.Should().Be(TestData.TestValueOneHundred);
+        _ = updates[TestData.TestValueTwo].Previous.Should().Be(TestData.TestValueOneHundred);
+        _ = updates[TestData.TestValueTwo].Current.Should().Be(TestData.TestValueOneThousand);
     }
 
     /// <summary>Tests that OnMove returns item and indices when items are moved.</summary>
@@ -106,14 +109,14 @@ public class ReactiveListExtensionsAdditionalTests
             .Subscribe(moves.Add);
 
         // Act
-        list.AddRange(new[] { "a", "b", "c", "d" });
+        list.AddRange(["a", "b", "c", "d"]);
         list.Move(0, TestData.TestValueThree); // Move "a" from index 0 to index 3
 
         // Assert
-        moves.Should().HaveCount(1);
-        moves[0].Item.Should().Be("a");
-        moves[0].OldIndex.Should().Be(0);
-        moves[0].NewIndex.Should().Be(TestData.TestValueThree);
+        _ = moves.Should().HaveCount(1);
+        _ = moves[0].Item.Should().Be("a");
+        _ = moves[0].OldIndex.Should().Be(0);
+        _ = moves[0].NewIndex.Should().Be(TestData.TestValueThree);
     }
 
     /// <summary>Tests that OnMove does not emit for add or remove operations.</summary>
@@ -131,10 +134,10 @@ public class ReactiveListExtensionsAdditionalTests
         // Act
         list.Add(1);
         list.Add(TestData.TestValueTwo);
-        list.Remove(1);
+        _ = list.Remove(1);
 
         // Assert
-        moveCount.Should().Be(0);
+        _ = moveCount.Should().Be(0);
     }
 
     /// <summary>Tests that OnMove handles multiple move operations.</summary>
@@ -150,12 +153,12 @@ public class ReactiveListExtensionsAdditionalTests
             .Subscribe(moves.Add);
 
         // Act
-        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive });
+        list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
         list.Move(0, TestData.TestValueFour); // Move 1 to end
         list.Move(TestData.TestValueThree, 0); // Move 1 back to start (it's now at index 3)
 
         // Assert
-        moves.Should().HaveCount(TestData.TestValueTwo);
+        _ = moves.Should().HaveCount(TestData.TestValueTwo);
     }
 
     /// <summary>Tests that FilterDynamic filters items based on dynamic predicate.</summary>
@@ -164,7 +167,7 @@ public class ReactiveListExtensionsAdditionalTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSignal<Func<int, bool>>(_ => true);
+        using var filterSubject = new BehaviorSignal<Func<int, bool>>(static _ => true);
         var receivedItems = new List<int>();
 
         using var subscription = list.Stream
@@ -185,16 +188,16 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueThree);
 
         // Assert
-        receivedItems.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
+        _ = receivedItems.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
         // Act - change filter to only even numbers
         receivedItems.Clear();
-        filterSubject.OnNext(x => x % TestData.TestValueTwo == 0);
+        filterSubject.OnNext(static x => x % TestData.TestValueTwo == 0);
         list.Add(TestData.TestValueFour);
         list.Add(TestData.TestValueFive);
 
         // Assert - only even number should be received
-        receivedItems.Should().BeEquivalentTo([TestData.TestValueFour]);
+        _ = receivedItems.Should().BeEquivalentTo([TestData.TestValueFour]);
     }
 
     /// <summary>Tests that FilterDynamic always passes removed items.</summary>
@@ -203,7 +206,7 @@ public class ReactiveListExtensionsAdditionalTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSignal<Func<int, bool>>(x => x > TestData.TestValueFive);
+        using var filterSubject = new BehaviorSignal<Func<int, bool>>(static x => x > TestData.TestValueFive);
         var removedItems = new List<int>();
 
         using var subscription = list.Stream
@@ -221,10 +224,10 @@ public class ReactiveListExtensionsAdditionalTests
         // Act - add items (only > 5 pass filter)
         list.Add(TestData.TestValueThree); // filtered out on add
         list.Add(TestData.TestValueTen); // passes filter
-        list.Remove(TestData.TestValueThree); // should still emit remove
+        _ = list.Remove(TestData.TestValueThree); // should still emit remove
 
         // Assert
-        removedItems.Should().Contain(TestData.TestValueThree);
+        _ = removedItems.Should().Contain(TestData.TestValueThree);
     }
 
     /// <summary>Tests that FilterDynamic passes Cleared notifications.</summary>
@@ -233,7 +236,7 @@ public class ReactiveListExtensionsAdditionalTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        var filterSubject = new BehaviorSignal<Func<int, bool>>(x => x > 0);
+        using var filterSubject = new BehaviorSignal<Func<int, bool>>(static x => x > 0);
         var clearReceived = false;
 
         using var subscription = list.Stream
@@ -249,11 +252,11 @@ public class ReactiveListExtensionsAdditionalTests
             });
 
         // Act
-        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree });
+        list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
         list.Clear();
 
         // Assert
-        clearReceived.Should().BeTrue();
+        _ = clearReceived.Should().BeTrue();
     }
 
     /// <summary>Tests that CreateView without filter contains all items.</summary>
@@ -263,15 +266,15 @@ public class ReactiveListExtensionsAdditionalTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive });
+        list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
 
         // Act
         using var view = list.CreateView(Sequencer.Immediate, 0);
         await Task.Delay(TestData.TestValueFifty);
 
         // Assert
-        view.Count.Should().Be(TestData.TestValueFive);
-        view.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
+        _ = view.Count.Should().Be(TestData.TestValueFive);
+        _ = view.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
     }
 
     /// <summary>Tests that CreateView without filter updates when source changes.</summary>
@@ -281,7 +284,7 @@ public class ReactiveListExtensionsAdditionalTests
     {
         // Arrange
         using var list = new ReactiveList<int>();
-        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree });
+        list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
         using var view = list.CreateView(Sequencer.Immediate, 0);
         await Task.Delay(TestData.TestValueFifty);
@@ -291,7 +294,7 @@ public class ReactiveListExtensionsAdditionalTests
         await Task.Delay(TestData.TestValueFifty);
 
         // Assert
-        view.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
+        _ = view.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -305,31 +308,31 @@ public class ReactiveListExtensionsAdditionalTests
         using var list = new QuaternaryList<string>();
         list.AddRange([TestData.AppleText, TestData.BananaText, TestData.ApricotText, TestData.CherryText, "avocado"]);
 
-        var searchQuery = new BehaviorSignal<string>(string.Empty);
+        using var searchQuery = new BehaviorSignal<string>(string.Empty);
 
         // Act
         using var view = list.CreateView(
             searchQuery,
-            (query, item) => string.IsNullOrEmpty(query) || item.StartsWith(query, StringComparison.OrdinalIgnoreCase),
+            static (query, item) => string.IsNullOrEmpty(query) || item.StartsWith(query, StringComparison.OrdinalIgnoreCase),
             Sequencer.Immediate,
             0);
 
         await Task.Delay(TestData.TestValueFifty);
 
         // Initial - all items
-        view.Items.Count.Should().Be(TestData.TestValueFive);
+        _ = view.Items.Count.Should().Be(TestData.TestValueFive);
 
         // Search for "a"
         searchQuery.OnNext("a");
         await Task.Delay(TestData.TestValueOneHundred);
 
-        view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText, "avocado"]);
+        _ = view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText, "avocado"]);
 
         // Search for "ap"
         searchQuery.OnNext("ap");
         await Task.Delay(TestData.TestValueOneHundred);
 
-        view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
+        _ = view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
     }
 
     /// <summary>Tests that CreateView with query observable updates when source changes.</summary>
@@ -341,30 +344,30 @@ public class ReactiveListExtensionsAdditionalTests
         using var list = new QuaternaryList<int>();
         list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
-        var thresholdQuery = new BehaviorSignal<int>(TestData.TestValueTwo);
+        using var thresholdQuery = new BehaviorSignal<int>(TestData.TestValueTwo);
 
         using var view = list.CreateView(
             thresholdQuery,
-            (threshold, item) => item > threshold,
+            static (threshold, item) => item > threshold,
             Sequencer.Immediate,
             0);
 
         await Task.Delay(TestData.TestValueFifty);
-        view.Items.Should().BeEquivalentTo([TestData.TestValueThree]);
+        _ = view.Items.Should().BeEquivalentTo([TestData.TestValueThree]);
 
         // Act - add item that passes filter
         list.Add(TestData.TestValueFive);
         await Task.Delay(TestData.TestValueOneHundred);
 
         // Assert
-        view.Items.Should().BeEquivalentTo([TestData.TestValueThree, TestData.TestValueFive]);
+        _ = view.Items.Should().BeEquivalentTo([TestData.TestValueThree, TestData.TestValueFive]);
 
         // Act - change threshold
         thresholdQuery.OnNext(TestData.TestValueFour);
         await Task.Delay(TestData.TestValueOneHundred);
 
         // Assert
-        view.Items.Should().BeEquivalentTo([TestData.TestValueFive]);
+        _ = view.Items.Should().BeEquivalentTo([TestData.TestValueFive]);
     }
 #endif
 
@@ -377,16 +380,22 @@ public class ReactiveListExtensionsAdditionalTests
         var groups = new Dictionary<string, List<int>>();
 
         using var subscription = list.Connect()
-            .GroupByChanges(x => x % TestData.TestValueTwo == 0 ? "even" : "odd")
+            .GroupByChanges(static x => x % TestData.TestValueTwo == 0 ? "even" : "odd")
             .Subscribe(group =>
             {
+#if NET8_0_OR_GREATER
+                ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(groups, group.Key, out _);
+                value ??= [];
+                _ = group.Subscribe(value.Add);
+#else
                 if (!groups.TryGetValue(group.Key, out var value))
                 {
                     value = [];
-                    groups[group.Key] = value;
+                    groups.Add(group.Key, value);
                 }
 
-                group.Subscribe(value.Add);
+                _ = group.Subscribe(value.Add);
+#endif
             });
 
         // Act
@@ -396,10 +405,10 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueFour);
 
         // Assert
-        groups.Should().ContainKey("odd");
-        groups.Should().ContainKey("even");
-        groups["odd"].Should().BeEquivalentTo([1, TestData.TestValueThree]);
-        groups["even"].Should().BeEquivalentTo([TestData.TestValueTwo, TestData.TestValueFour]);
+        _ = groups.Should().ContainKey("odd");
+        _ = groups.Should().ContainKey("even");
+        _ = groups["odd"].Should().BeEquivalentTo([1, TestData.TestValueThree]);
+        _ = groups["even"].Should().BeEquivalentTo([TestData.TestValueTwo, TestData.TestValueFour]);
     }
 
     /// <summary>Tests that GroupByChanges handles string keys.</summary>
@@ -411,16 +420,22 @@ public class ReactiveListExtensionsAdditionalTests
         var groups = new Dictionary<char, List<string>>();
 
         using var subscription = list.Connect()
-            .GroupByChanges(s => s[0])
+            .GroupByChanges(static s => s[0])
             .Subscribe(group =>
             {
+#if NET8_0_OR_GREATER
+                ref var value = ref CollectionsMarshal.GetValueRefOrAddDefault(groups, group.Key, out _);
+                value ??= [];
+                _ = group.Subscribe(value.Add);
+#else
                 if (!groups.TryGetValue(group.Key, out var value))
                 {
                     value = [];
-                    groups[group.Key] = value;
+                    groups.Add(group.Key, value);
                 }
 
-                group.Subscribe(value.Add);
+                _ = group.Subscribe(value.Add);
+#endif
             });
 
         // Act
@@ -430,9 +445,9 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.CherryText);
 
         // Assert
-        groups['a'].Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
-        groups['b'].Should().BeEquivalentTo([TestData.BananaText]);
-        groups['c'].Should().BeEquivalentTo([TestData.CherryText]);
+        _ = groups['a'].Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
+        _ = groups['b'].Should().BeEquivalentTo([TestData.BananaText]);
+        _ = groups['c'].Should().BeEquivalentTo([TestData.CherryText]);
     }
 
     /// <summary>Tests that GroupingByChanges creates proper groupings.</summary>
@@ -444,14 +459,14 @@ public class ReactiveListExtensionsAdditionalTests
         var groupings = new List<IGrouping<string, Change<int>>>();
 
         using var subscription = list.Connect()
-            .GroupingByChanges(x => x % TestData.TestValueTwo == 0 ? "even" : "odd")
+            .GroupingByChanges(static x => x % TestData.TestValueTwo == 0 ? "even" : "odd")
             .Subscribe(groupings.Add);
 
         // Act
-        list.AddRange(new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour });
+        list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
 
         // Assert - each add creates a separate changeset, which creates groupings
-        groupings.Should().HaveCountGreaterThan(0);
+        _ = groupings.Should().HaveCountGreaterThan(0);
     }
 
     /// <summary>Tests that GroupingByChanges handles batch operations.</summary>
@@ -463,18 +478,18 @@ public class ReactiveListExtensionsAdditionalTests
         var groupings = new List<IGrouping<int, Change<int>>>();
 
         using var subscription = list.Connect()
-            .GroupingByChanges(x => x / TestData.TestValueTen) // Group by tens
+            .GroupingByChanges(static x => x / TestData.TestValueTen) // Group by tens
             .Subscribe(groupings.Add);
 
         // Act - add items in different decades
-        list.AddRange(new[] { TestData.TestValueFive, TestData.TestValueFifteen, TestData.TestValueTwentyFive, TestData.TestValueSeven, TestData.TestValueSeventeen });
+        list.AddRange([TestData.TestValueFive, TestData.TestValueFifteen, TestData.TestValueTwentyFive, TestData.TestValueSeven, TestData.TestValueSeventeen]);
 
         // Assert
-        groupings.Should().HaveCountGreaterThan(0);
-        var keys = groupings.Select(g => g.Key).Distinct().ToList();
-        keys.Should().Contain(0); // 5, 7
-        keys.Should().Contain(1); // 15, 17
-        keys.Should().Contain(TestData.TestValueTwo); // 25
+        _ = groupings.Should().HaveCountGreaterThan(0);
+        var keys = GetDistinctKeys(groupings);
+        _ = keys.Should().Contain(0); // 5, 7
+        _ = keys.Should().Contain(1); // 15, 17
+        _ = keys.Should().Contain(TestData.TestValueTwo); // 25
     }
 
     /// <summary>Tests that AutoRefresh emits refresh when property changes.</summary>
@@ -497,7 +512,7 @@ public class ReactiveListExtensionsAdditionalTests
         item.Name = "Updated";
 
         // Assert
-        refreshCount.Should().Be(1);
+        _ = refreshCount.Should().Be(1);
     }
 
     /// <summary>Tests that AutoRefresh does not emit for unrelated property changes.</summary>
@@ -520,7 +535,7 @@ public class ReactiveListExtensionsAdditionalTests
         item.Value = TestData.TestValueOneHundred; // Change different property
 
         // Assert
-        refreshCount.Should().Be(0);
+        _ = refreshCount.Should().Be(0);
     }
 
     /// <summary>Tests that AutoRefresh without property name watches all property changes.</summary>
@@ -544,7 +559,7 @@ public class ReactiveListExtensionsAdditionalTests
         item.Value = TestData.TestValueTwo;
 
         // Assert - should get refresh for both property changes
-        refreshCount.Should().Be(TestData.TestValueTwo);
+        _ = refreshCount.Should().Be(TestData.TestValueTwo);
     }
 
     /// <summary>Tests that Connect returns observable of change sets.</summary>
@@ -564,8 +579,8 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueThree);
 
         // Assert
-        changeSets.Should().HaveCount(TestData.TestValueThree);
-        changeSets.SelectMany(cs => cs.Select(c => c.Current)).Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
+        _ = changeSets.Should().HaveCount(TestData.TestValueThree);
+        _ = GetCurrentItems(changeSets).Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
     }
 
     /// <summary>Tests that Connect throws for null source.</summary>
@@ -577,7 +592,7 @@ public class ReactiveListExtensionsAdditionalTests
 
         // Act & Assert
         var act = () => nullSource!.Connect();
-        act.Should().Throw<ArgumentNullException>();
+        _ = act.Should().Throw<ArgumentNullException>();
     }
 
     /// <summary>Tests that WhereItems filters notifications by predicate.</summary>
@@ -589,7 +604,7 @@ public class ReactiveListExtensionsAdditionalTests
         var receivedItems = new List<int>();
 
         using var subscription = list.Stream
-            .WhereItems(x => x > TestData.TestValueFive)
+            .WhereItems(static x => x > TestData.TestValueFive)
             .Subscribe(notification =>
             {
                 if (notification.Action != CacheAction.Added)
@@ -607,7 +622,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueTen);
 
         // Assert - only items > 5 should be received
-        receivedItems.Should().BeEquivalentTo([TestData.TestValueSeven, TestData.TestValueTen]);
+        _ = receivedItems.Should().BeEquivalentTo([TestData.TestValueSeven, TestData.TestValueTen]);
     }
 
     /// <summary>Tests that WhereItems passes Cleared notifications.</summary>
@@ -619,7 +634,7 @@ public class ReactiveListExtensionsAdditionalTests
         var clearedReceived = false;
 
         using var subscription = list.Stream
-            .WhereItems(x => x.Length > 5)
+            .WhereItems(static x => x.Length > 5)
             .Subscribe(notification =>
             {
                 if (notification.Action != CacheAction.Cleared)
@@ -631,11 +646,11 @@ public class ReactiveListExtensionsAdditionalTests
             });
 
         // Act
-        list.AddRange(new[] { "short", "longertext", "x" });
+        list.AddRange(["short", "longertext", "x"]);
         list.Clear();
 
         // Assert
-        clearedReceived.Should().BeTrue();
+        _ = clearedReceived.Should().BeTrue();
     }
 
     /// <summary>Tests that WhereItems passes BatchOperation notifications.</summary>
@@ -647,11 +662,11 @@ public class ReactiveListExtensionsAdditionalTests
         var batchReceived = false;
 
         using var subscription = list.Stream
-            .WhereItems(x => x.Length > 5)
+            .WhereItems(static x => x.Length > 5)
             .Subscribe(notification =>
             {
-                if (notification.Action != CacheAction.BatchAdded &&
-                    notification.Action != CacheAction.BatchOperation)
+                if (notification.Action != CacheAction.BatchAdded
+                    && notification.Action != CacheAction.BatchOperation)
                 {
                     return;
                 }
@@ -660,10 +675,10 @@ public class ReactiveListExtensionsAdditionalTests
             });
 
         // Act
-        list.AddRange(new[] { "short", "medium", "verylongtext", "x" });
+        list.AddRange(["short", "medium", "verylongtext", "x"]);
 
         // Assert
-        batchReceived.Should().BeTrue();
+        _ = batchReceived.Should().BeTrue();
     }
 
     /// <summary>Tests that WhereItems correctly filters value types including zero.</summary>
@@ -675,7 +690,7 @@ public class ReactiveListExtensionsAdditionalTests
         var receivedItems = new List<int>();
 
         using var subscription = list.Stream
-            .WhereItems(x => x >= 0) // Filter: all non-negative numbers including 0
+            .WhereItems(static x => x >= 0) // Filter: all non-negative numbers including 0
             .Subscribe(notification =>
             {
                 if (notification.Action != CacheAction.Added)
@@ -694,7 +709,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueTen); // Should be included
 
         // Assert - 0 should be correctly included
-        receivedItems.Should().BeEquivalentTo([0, TestData.TestValueFive, TestData.TestValueTen]);
+        _ = receivedItems.Should().BeEquivalentTo([0, TestData.TestValueFive, TestData.TestValueTen]);
     }
 
     /// <summary>Tests that SortBy sorts change sets by key selector.</summary>
@@ -706,7 +721,7 @@ public class ReactiveListExtensionsAdditionalTests
         var sortedItems = new List<int>();
 
         using var subscription = list.Connect()
-            .SortBy(x => x)
+            .SortBy(static x => x)
             .Subscribe(cs =>
             {
                 sortedItems.Clear();
@@ -720,7 +735,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.AddRange([TestData.TestValueFive, 1, TestData.TestValueThree, TestData.TestValueTwo, TestData.TestValueFour]);
 
         // Assert
-        sortedItems.Should().BeInAscendingOrder();
+        _ = sortedItems.Should().BeInAscendingOrder();
     }
 
     /// <summary>Tests that SortBy handles string sorting.</summary>
@@ -732,7 +747,7 @@ public class ReactiveListExtensionsAdditionalTests
         var sortedItems = new List<string>();
 
         using var subscription = list.Connect()
-            .SortBy(s => s.Length)
+            .SortBy(static s => s.Length)
             .Subscribe(cs =>
             {
                 sortedItems.Clear();
@@ -746,7 +761,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.AddRange(["elephant", "cat", "dog", "bird"]);
 
         // Assert
-        sortedItems.Select(s => s.Length).Should().BeInAscendingOrder();
+        _ = GetLengths(sortedItems).Should().BeInAscendingOrder();
     }
 
     /// <summary>Tests that SelectChanges transforms to different type maintaining change metadata.</summary>
@@ -758,7 +773,7 @@ public class ReactiveListExtensionsAdditionalTests
         var transformedSets = new List<ChangeSet<string>>();
 
         using var subscription = list.Connect()
-            .SelectChanges((int x) => $"Value:{x}")
+            .SelectChanges(static (int x) => $"Value:{x}")
             .Subscribe(transformedSets.Add);
 
         // Act
@@ -766,9 +781,9 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueTwo);
 
         // Assert
-        transformedSets.Should().HaveCount(TestData.TestValueTwo);
-        transformedSets[0][0].Current.Should().Be("Value:1");
-        transformedSets[1][0].Current.Should().Be("Value:2");
+        _ = transformedSets.Should().HaveCount(TestData.TestValueTwo);
+        _ = transformedSets[0][0].Current.Should().Be("Value:1");
+        _ = transformedSets[1][0].Current.Should().Be("Value:2");
     }
 
     /// <summary>Tests that SelectChanges preserves change reason.</summary>
@@ -780,7 +795,7 @@ public class ReactiveListExtensionsAdditionalTests
         var reasons = new List<ChangeReason>();
 
         using var subscription = list.Connect()
-            .SelectChanges((int x) => x.ToString())
+            .SelectChanges(static (int x) => x.ToString())
             .Subscribe(cs =>
             {
                 foreach (var change in cs)
@@ -792,17 +807,69 @@ public class ReactiveListExtensionsAdditionalTests
         // Act - use Update method (indexer does Remove+Add, not Update)
         list.Add(1);
         list.Update(1, TestData.TestValueTwo);
-        list.Remove(TestData.TestValueTwo);
+        _ = list.Remove(TestData.TestValueTwo);
 
         // Assert
-        reasons.Should().Contain(ChangeReason.Add);
-        reasons.Should().Contain(ChangeReason.Update);
-        reasons.Should().Contain(ChangeReason.Remove);
+        _ = reasons.Should().Contain(ChangeReason.Add);
+        _ = reasons.Should().Contain(ChangeReason.Update);
+        _ = reasons.Should().Contain(ChangeReason.Remove);
+    }
+
+    /// <summary>Collects distinct grouping keys without allocating a LINQ pipeline.</summary>
+    /// <typeparam name="TKey">The grouping key type.</typeparam>
+    /// <typeparam name="TElement">The grouping element type.</typeparam>
+    /// <param name="groupings">The groupings.</param>
+    /// <returns>The distinct keys.</returns>
+    private static List<TKey> GetDistinctKeys<TKey, TElement>(IEnumerable<IGrouping<TKey, TElement>> groupings)
+    {
+        var keys = new List<TKey>();
+        foreach (var grouping in groupings)
+        {
+            if (!keys.Contains(grouping.Key))
+            {
+                keys.Add(grouping.Key);
+            }
+        }
+
+        return keys;
+    }
+
+    /// <summary>Collects the current items from change sets.</summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="changeSets">The change sets.</param>
+    /// <returns>The current items.</returns>
+    private static List<T> GetCurrentItems<T>(IEnumerable<ChangeSet<T>> changeSets)
+    {
+        var items = new List<T>();
+        foreach (var changeSet in changeSets)
+        {
+            foreach (var change in changeSet)
+            {
+                items.Add(change.Current);
+            }
+        }
+
+        return items;
+    }
+
+    /// <summary>Gets the lengths of the supplied strings.</summary>
+    /// <param name="items">The strings.</param>
+    /// <returns>The string lengths.</returns>
+    private static List<int> GetLengths(IEnumerable<string> items)
+    {
+        var lengths = new List<int>();
+        foreach (var item in items)
+        {
+            lengths.Add(item.Length);
+        }
+
+        return lengths;
     }
 
     /// <summary>Test class that implements INotifyPropertyChanged.</summary>
     private sealed class NotifyingItem : INotifyPropertyChanged
     {
+        /// <inheritdoc />
         public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>Gets or sets Value.</summary>

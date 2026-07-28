@@ -3,24 +3,33 @@
 // See the LICENSE file in the project root for full license information.
 
 #if REACTIVELIST_REACTIVE
+using CP.Reactive.Internal;
+
 namespace CP.Reactive.Views;
 #else
+using CP.Primitives.Internal;
+
 namespace CP.Primitives.Views;
 #endif
 /// <summary>Provides a filtered, read-only view over a <see cref="IReactiveList{T}"/> that automatically updates when the source list changes.</summary>
 /// <typeparam name="T">The type of elements in the view.</typeparam>
-public sealed class FilteredReactiveView<T> : IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<FilteredReactiveView<T>, T>, IDisposable
+public sealed class FilteredReactiveView<T> : IReadOnlyList<T>, INotifyCollectionChanged, INotifyPropertyChanged, IReactiveView<FilteredReactiveView<T>, T>
 where T : notnull
 {
-    private readonly IReactiveList<T> _source;
+    /// <summary>Synchronizes collection-changed subscriptions to this facade.</summary>
+    private readonly Lock _collectionChangedGate = new();
 
-    private readonly Func<T, bool> _filter;
+    /// <summary>Synchronizes property-changed subscriptions to this facade.</summary>
+    private readonly Lock _propertyChangedGate = new();
 
-    private readonly ObservableCollection<T> _filteredItems;
+    /// <summary>The completed state object that owns filtering and source subscriptions.</summary>
+    private readonly State _state;
 
-    private readonly MultipleDisposable _disposables = [];
+    /// <summary>Relays collection notifications with this facade as the sender.</summary>
+    private NotificationRelay<NotifyCollectionChangedEventArgs>? _collectionChangedRelay;
 
-    private readonly Lock _lock = new();
+    /// <summary>Relays property notifications with this facade as the sender.</summary>
+    private NotificationRelay<PropertyChangedEventArgs>? _propertyChangedRelay;
 
     /// <summary>Initializes a new instance of the <see cref="FilteredReactiveView{T}"/> class.</summary>
     /// <param name="source">The source reactive list to filter.</param>
@@ -33,59 +42,103 @@ where T : notnull
         ISequencer scheduler,
         TimeSpan throttle)
     {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _filter = filter ?? throw new ArgumentNullException(nameof(filter));
-
-        _filteredItems = [];
-        Items = new(_filteredItems);
-
-        // Initialize with current items
-        RebuildView();
-
-        // Subscribe to changes using Stream with ToChangeSets()
-        var subscription = _source.Stream
-            .ToChangeSets()
-            .Throttle(throttle)
-            .ObserveOn(scheduler)
-            .Subscribe(OnSourceChanged);
-
-        _disposables.Add(subscription);
-
-        // Forward collection changed events
-        _filteredItems.CollectionChanged += (s, e) => CollectionChanged?.Invoke(this, e);
+        _state = new(source, filter, scheduler, throttle);
+        _state.Start();
     }
 
     /// <inheritdoc/>
-    public event NotifyCollectionChangedEventHandler? CollectionChanged;
+    public event NotifyCollectionChangedEventHandler? CollectionChanged
+    {
+        add
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            lock (_collectionChangedGate)
+            {
+                _collectionChangedRelay ??= new(this);
+                if (_collectionChangedRelay.Add(value.Invoke))
+                {
+                    _state.CollectionChanged += _collectionChangedRelay.OnEvent;
+                }
+            }
+        }
+
+        remove
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            lock (_collectionChangedGate)
+            {
+                if (_collectionChangedRelay?.Remove(value.Invoke) is true)
+                {
+                    _state.CollectionChanged -= _collectionChangedRelay.OnEvent;
+                }
+            }
+        }
+    }
 
     /// <inheritdoc/>
-    public event PropertyChangedEventHandler? PropertyChanged;
+    public event PropertyChangedEventHandler? PropertyChanged
+    {
+        add
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            lock (_propertyChangedGate)
+            {
+                _propertyChangedRelay ??= new(this);
+                if (_propertyChangedRelay.Add(value.Invoke))
+                {
+                    _state.PropertyChanged += _propertyChangedRelay.OnEvent;
+                }
+            }
+        }
+
+        remove
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            lock (_propertyChangedGate)
+            {
+                if (_propertyChangedRelay?.Remove(value.Invoke) is true)
+                {
+                    _state.PropertyChanged -= _propertyChangedRelay.OnEvent;
+                }
+            }
+        }
+    }
 
     /// <summary>Gets the number of items in the filtered view.</summary>
-    public int Count => _filteredItems.Count;
+    public int Count => _state.Count;
 
     /// <summary>Gets the underlying read-only observable collection for UI binding.</summary>
-    public ReadOnlyObservableCollection<T> Items { get; }
+    public ReadOnlyObservableCollection<T> Items => _state.Items;
 
     /// <summary>Gets the item at the specified index.</summary>
     /// <param name="index">The zero-based index of the item to get.</param>
     /// <returns>The item at the specified index.</returns>
-    public T this[int index] => _filteredItems[index];
+    public T this[int index] => _state.GetItem(index);
 
     /// <inheritdoc/>
-    public IEnumerator<T> GetEnumerator() => _filteredItems.GetEnumerator();
+    public IEnumerator<T> GetEnumerator() => _state.GetEnumerator();
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>Forces a rebuild of the filtered view from the source.</summary>
-    public void Refresh()
-    {
-        lock (_lock)
-        {
-            RebuildView();
-        }
-    }
+    public void Refresh() => _state.Refresh();
 
     /// <summary>Assigns the current collection of items to a property using the specified setter action.</summary>
     /// <remarks>This method is typically used to bind the internal collection to an external property, such
@@ -117,122 +170,207 @@ where T : notnull
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
-        _disposables.Dispose();
-    }
+    public void Dispose() => _state.Dispose();
 
-    /// <summary>Handles source change notifications.</summary>
-    /// <param name="changes">The changes value.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void OnSourceChanged(ChangeSet<T> changes)
+    /// <summary>Owns the mutable filtered view after construction has completed.</summary>
+    private sealed class State
     {
-        lock (_lock)
+        /// <summary>The reactive list that supplies items to this view.</summary>
+        private readonly IReactiveList<T> _source;
+
+        /// <summary>The predicate that determines whether an item is included.</summary>
+        private readonly Func<T, bool> _filter;
+
+        /// <summary>The mutable collection that backs the read-only filtered items collection.</summary>
+        private readonly ObservableCollection<T> _filteredItems = [];
+
+        /// <summary>The scheduler used to dispatch source notifications.</summary>
+        private readonly ISequencer _scheduler;
+
+        /// <summary>The throttle applied to source notifications.</summary>
+        private readonly TimeSpan _throttle;
+
+        /// <summary>The subscriptions owned by this state.</summary>
+        private readonly MultipleDisposable _disposables = [];
+
+        /// <summary>Synchronizes access to the filtered items collection.</summary>
+        private readonly Lock _lock = new();
+
+        /// <summary>Initializes a new instance of the <see cref="State"/> class without publishing callbacks.</summary>
+        /// <param name="source">The source reactive list to filter.</param>
+        /// <param name="filter">The filter predicate.</param>
+        /// <param name="scheduler">The scheduler for dispatching updates.</param>
+        /// <param name="throttle">The throttle duration for updates.</param>
+        internal State(
+            IReactiveList<T> source,
+            Func<T, bool> filter,
+            ISequencer scheduler,
+            TimeSpan throttle)
         {
-            for (var i = 0; i < changes.Count; i++)
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _filter = filter ?? throw new ArgumentNullException(nameof(filter));
+            _scheduler = scheduler;
+            _throttle = throttle;
+            Items = new(_filteredItems);
+            RebuildView();
+        }
+
+        /// <summary>Raised when the filtered collection changes.</summary>
+        internal event EventHandler<NotifyCollectionChangedEventArgs>? CollectionChanged;
+
+        /// <summary>Raised when a state property changes.</summary>
+        internal event EventHandler<PropertyChangedEventArgs>? PropertyChanged;
+
+        /// <summary>Gets the number of filtered items.</summary>
+        internal int Count => _filteredItems.Count;
+
+        /// <summary>Gets the read-only observable filtered items.</summary>
+        internal ReadOnlyObservableCollection<T> Items { get; }
+
+        /// <summary>Gets the item at the specified index.</summary>
+        /// <param name="index">The zero-based item index.</param>
+        /// <returns>The filtered item.</returns>
+        internal T GetItem(int index) => _filteredItems[index];
+
+        /// <summary>Starts collection forwarding and source observation after state construction.</summary>
+        internal void Start()
+        {
+            _filteredItems.CollectionChanged += OnCollectionChanged;
+            var subscription = _source.Stream
+                .ToChangeSets()
+                .Throttle(_throttle)
+                .ObserveOn(_scheduler)
+                .Subscribe(OnSourceChanged);
+
+            _disposables.Add(subscription);
+        }
+
+        /// <summary>Returns an enumerator over the filtered items.</summary>
+        /// <returns>An enumerator over the filtered items.</returns>
+        internal IEnumerator<T> GetEnumerator() => _filteredItems.GetEnumerator();
+
+        /// <summary>Rebuilds the view from the current source state.</summary>
+        internal void Refresh()
+        {
+            lock (_lock)
             {
-                var change = changes[i];
-                ProcessChange(change);
+                RebuildView();
             }
         }
 
-        OnPropertyChanged(nameof(Count));
-    }
+        /// <summary>Disposes the source subscription.</summary>
+        internal void Dispose() => _disposables.Dispose();
 
-    /// <summary>Processes a source collection change.</summary>
-    /// <param name="change">The change value.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ProcessChange(Change<T> change)
-    {
-        switch (change.Reason)
+        /// <summary>Handles source change notifications.</summary>
+        /// <param name="changes">The changes value.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void OnSourceChanged(ChangeSet<T> changes)
         {
-            case ChangeReason.Add:
+            lock (_lock)
+            {
+                for (var i = 0; i < changes.Count; i++)
                 {
-                    if (_filter(change.Current))
+                    ProcessChange(changes[i]);
+                }
+            }
+
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
+        }
+
+        /// <summary>Processes a source collection change.</summary>
+        /// <param name="change">The change value.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ProcessChange(Change<T> change)
+        {
+            switch (change.Reason)
+            {
+                case ChangeReason.Add:
                     {
-                        _filteredItems.Add(change.Current);
+                        if (_filter(change.Current))
+                        {
+                            _filteredItems.Add(change.Current);
+                        }
+
+                        break;
                     }
 
-                    break;
-                }
+                case ChangeReason.Remove:
+                    {
+                        _ = _filteredItems.Remove(change.Current);
+                        break;
+                    }
 
-            case ChangeReason.Remove:
-                {
-                    _filteredItems.Remove(change.Current);
-                    break;
-                }
+                case ChangeReason.Update:
+                    {
+                        UpdateItem(change);
+                        break;
+                    }
 
-            case ChangeReason.Update:
-                {
-                    UpdateItem(change);
-                    break;
-                }
+                case ChangeReason.Clear:
+                    {
+                        _filteredItems.Clear();
+                        break;
+                    }
 
-            case ChangeReason.Clear:
-                {
-                    _filteredItems.Clear();
-                    break;
-                }
+                case ChangeReason.Move or ChangeReason.Refresh:
+                    {
+                        RebuildView();
+                        break;
+                    }
 
-            case ChangeReason.Move or ChangeReason.Refresh:
-                {
-                    // For move and refresh, rebuild the view to maintain correct order
-                    RebuildView();
-                    break;
-                }
-
-            default:
-                {
-                    // Ignore invalid enum values to preserve the view's current state.
-                    break;
-                }
+                default:
+                    {
+                        break;
+                    }
+            }
         }
-    }
 
-    /// <summary>Updates an item while preserving its filtered position when possible.</summary>
-    /// <param name="change">The update change to apply.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void UpdateItem(Change<T> change)
-    {
-        var previous = change.Previous;
-        var existingIndex = previous is null ? -1 : _filteredItems.IndexOf(previous);
-        var shouldInclude = _filter(change.Current);
-
-        if (existingIndex < 0)
+        /// <summary>Updates an item while preserving its filtered position when possible.</summary>
+        /// <param name="change">The update change to apply.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void UpdateItem(Change<T> change)
         {
-            if (!shouldInclude)
+            var previous = change.Previous;
+            var existingIndex = previous is null ? -1 : _filteredItems.IndexOf(previous);
+            var shouldInclude = _filter(change.Current);
+
+            if (existingIndex < 0)
             {
+                if (!shouldInclude)
+                {
+                    return;
+                }
+
+                _filteredItems.Add(change.Current);
                 return;
             }
 
-            _filteredItems.Add(change.Current);
-            return;
-        }
-
-        if (!shouldInclude)
-        {
-            _filteredItems.RemoveAt(existingIndex);
-            return;
-        }
-
-        _filteredItems[existingIndex] = change.Current;
-    }
-
-    /// <summary>Rebuilds the view from the current source state.</summary>
-    private void RebuildView()
-    {
-        _filteredItems.Clear();
-        foreach (var item in _source)
-        {
-            if (_filter(item))
+            if (!shouldInclude)
             {
-                _filteredItems.Add(item);
+                _filteredItems.RemoveAt(existingIndex);
+                return;
+            }
+
+            _filteredItems[existingIndex] = change.Current;
+        }
+
+        /// <summary>Rebuilds the view from the current source state.</summary>
+        private void RebuildView()
+        {
+            _filteredItems.Clear();
+            foreach (var item in _source)
+            {
+                if (_filter(item))
+                {
+                    _filteredItems.Add(item);
+                }
             }
         }
-    }
 
-    /// <summary>Handles property change notifications.</summary>
-    /// <param name="propertyName">The propertyName value.</param>
-    private void OnPropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        /// <summary>Forwards collection changes from the mutable collection.</summary>
+        /// <param name="sender">The originating collection.</param>
+        /// <param name="eventArgs">The collection change event data.</param>
+        private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs eventArgs) =>
+            CollectionChanged?.Invoke(sender, eventArgs);
+    }
 }

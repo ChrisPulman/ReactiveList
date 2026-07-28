@@ -19,7 +19,7 @@ internal static class ObservableMixins
         /// <typeparam name="TResult">The output value type.</typeparam>
         /// <param name="selector">A function that returns an enumerable of output elements for each source value.</param>
         /// <returns>An observable sequence of flattened results.</returns>
-        public IObservable<TResult> FlatMap<TResult>(Func<TSource, IEnumerable<TResult>> selector)
+        internal IObservable<TResult> FlatMap<TResult>(Func<TSource, IEnumerable<TResult>> selector)
         {
             ThrowHelper.ThrowIfNull(source);
             ThrowHelper.ThrowIfNull(selector);
@@ -39,7 +39,7 @@ internal static class ObservableMixins
 
         /// <summary>Converts an observable sequence to a materialized list.</summary>
         /// <returns>A list containing all values from the source sequence.</returns>
-        public IEnumerable<TSource> ToEnumerable()
+        internal IEnumerable<TSource> ToEnumerable()
         {
             ThrowHelper.ThrowIfNull(source);
 

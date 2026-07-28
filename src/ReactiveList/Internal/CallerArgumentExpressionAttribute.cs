@@ -10,6 +10,24 @@ namespace System.Runtime.CompilerServices;
 internal sealed class CallerArgumentExpressionAttribute(string parameterName) : Attribute
 {
     /// <summary>Gets the source parameter name.</summary>
-    public string ParameterName { get; } = parameterName;
+    internal string ParameterName { get; } = parameterName;
+}
+#elif REACTIVELIST_REACTIVE
+namespace CP.Reactive.Internal;
+
+/// <summary>Marks the runtime-provided caller-argument-expression compatibility path.</summary>
+file enum CallerArgumentExpressionAttribute
+{
+    /// <summary>Indicates that the target runtime provides the attribute.</summary>
+    RuntimeProvided,
+}
+#else
+namespace CP.Primitives.Internal;
+
+/// <summary>Marks the runtime-provided caller-argument-expression compatibility path.</summary>
+file enum CallerArgumentExpressionAttribute
+{
+    /// <summary>Indicates that the target runtime provides the attribute.</summary>
+    RuntimeProvided,
 }
 #endif

@@ -2,10 +2,11 @@
 // Chris Pulman and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+global using CP.Primitives.Internal;
+global using ReactiveUI.Primitives;
+global using ReactiveUI.Primitives.Concurrency;
+global using ReactiveUI.Primitives.Signals;
+
 using TUnit.Assertions.Exceptions;
 
 namespace ReactiveList.Test;
@@ -17,7 +18,9 @@ internal static class Assert
     /// <typeparam name="T">The T type.</typeparam>
     /// <param name="collection">The collection value.</param>
     /// <param name="assertion">The assertion value.</param>
-    public static void All<T>(IEnumerable<T> collection, Action<T> assertion)
+    internal static void All<T>(
+        System.Collections.Generic.IEnumerable<T> collection,
+        System.Action<T> assertion)
     {
         foreach (var item in collection)
         {
@@ -29,11 +32,16 @@ internal static class Assert
     /// <typeparam name="T">The T type.</typeparam>
     /// <param name="expected">The expected value.</param>
     /// <param name="collection">The collection value.</param>
-    public static void Contains<T>(T expected, IEnumerable<T> collection)
+    internal static void Contains<T>(
+        T expected,
+        System.Collections.Generic.IEnumerable<T> collection)
     {
-        if (collection.Contains(expected))
+        foreach (var item in collection)
         {
-            return;
+            if (System.Collections.Generic.EqualityComparer<T>.Default.Equals(item, expected))
+            {
+                return;
+            }
         }
 
         Fail($"Expected collection to contain {expected}.");
@@ -43,11 +51,16 @@ internal static class Assert
     /// <typeparam name="T">The T type.</typeparam>
     /// <param name="collection">The collection value.</param>
     /// <param name="predicate">The predicate value.</param>
-    public static void Contains<T>(IEnumerable<T> collection, Predicate<T> predicate)
+    internal static void Contains<T>(
+        System.Collections.Generic.IEnumerable<T> collection,
+        System.Predicate<T> predicate)
     {
-        if (collection.Any(item => predicate(item)))
+        foreach (var item in collection)
         {
-            return;
+            if (predicate(item))
+            {
+                return;
+            }
         }
 
         Fail("Expected collection to contain a matching item.");
@@ -57,33 +70,39 @@ internal static class Assert
     /// <typeparam name="T">The T type.</typeparam>
     /// <param name="expected">The expected value.</param>
     /// <param name="collection">The collection value.</param>
-    public static void DoesNotContain<T>(T expected, IEnumerable<T> collection)
+    internal static void DoesNotContain<T>(
+        T expected,
+        System.Collections.Generic.IEnumerable<T> collection)
     {
-        if (!collection.Contains(expected))
+        foreach (var item in collection)
         {
-            return;
+            if (System.Collections.Generic.EqualityComparer<T>.Default.Equals(item, expected))
+            {
+                Fail($"Expected collection not to contain {expected}.");
+            }
         }
-
-        Fail($"Expected collection not to contain {expected}.");
     }
 
     /// <summary>Provides DoesNotContain.</summary>
     /// <typeparam name="T">The T type.</typeparam>
     /// <param name="collection">The collection value.</param>
     /// <param name="predicate">The predicate value.</param>
-    public static void DoesNotContain<T>(IEnumerable<T> collection, Predicate<T> predicate)
+    internal static void DoesNotContain<T>(
+        System.Collections.Generic.IEnumerable<T> collection,
+        System.Predicate<T> predicate)
     {
-        if (!collection.Any(item => predicate(item)))
+        foreach (var item in collection)
         {
-            return;
+            if (predicate(item))
+            {
+                Fail("Expected collection not to contain a matching item.");
+            }
         }
-
-        Fail("Expected collection not to contain a matching item.");
     }
 
     /// <summary>Provides Empty.</summary>
     /// <param name="collection">The collection value.</param>
-    public static void Empty(IEnumerable collection)
+    internal static void Empty(System.Collections.IEnumerable collection)
     {
         if (!collection.GetEnumerator().MoveNext())
         {
@@ -97,9 +116,9 @@ internal static class Assert
     /// <typeparam name="T">The T type.</typeparam>
     /// <param name="expected">The expected value.</param>
     /// <param name="actual">The actual value.</param>
-    public static void Equal<T>(T expected, T actual)
+    internal static void Equal<T>(T expected, T actual)
     {
-        if (EqualityComparer<T>.Default.Equals(expected, actual))
+        if (System.Collections.Generic.EqualityComparer<T>.Default.Equals(expected, actual))
         {
             return;
         }
@@ -109,7 +128,7 @@ internal static class Assert
 
     /// <summary>Provides False.</summary>
     /// <param name="condition">The condition value.</param>
-    public static void False(bool condition)
+    internal static void False(bool condition)
     {
         if (!condition)
         {
@@ -123,12 +142,12 @@ internal static class Assert
     /// <typeparam name="T">The T type.</typeparam>
     /// <returns>The result.</returns>
     /// <param name="value">The value.</param>
-    public static T NotNull<T>(T? value)
+    internal static T NotNull<T>(T? value)
     {
         if (value is null)
         {
             Fail("Expected value not to be null.");
-            throw new InvalidOperationException("The assertion failure did not throw.");
+            throw new System.InvalidOperationException("The assertion failure did not throw.");
         }
 
         return value;
@@ -138,7 +157,7 @@ internal static class Assert
     /// <typeparam name="T">The T type.</typeparam>
     /// <returns>The result.</returns>
     /// <param name="collection">The collection value.</param>
-    public static T Single<T>(IEnumerable<T> collection)
+    internal static T Single<T>(System.Collections.Generic.IEnumerable<T> collection)
     {
         using var enumerator = collection.GetEnumerator();
         if (!enumerator.MoveNext())
@@ -159,8 +178,8 @@ internal static class Assert
     /// <typeparam name="T">The T type.</typeparam>
     /// <returns>The result.</returns>
     /// <param name="action">The action value.</param>
-    public static T Throws<T>(Action action)
-        where T : Exception
+    internal static T Throws<T>(System.Action action)
+        where T : System.Exception
     {
         try
         {
@@ -172,12 +191,12 @@ internal static class Assert
         }
 
         Fail($"Expected exception of type {typeof(T)}.");
-        throw new InvalidOperationException("The assertion failure did not throw.");
+        throw new System.InvalidOperationException("The assertion failure did not throw.");
     }
 
     /// <summary>Provides True.</summary>
     /// <param name="condition">The condition value.</param>
-    public static void True(bool condition)
+    internal static void True(bool condition)
     {
         if (condition)
         {

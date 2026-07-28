@@ -9,58 +9,49 @@ namespace CP.Primitives.Internal;
 #endif
 /// <summary>Provides batch change tracking for efficient event coalescing.</summary>
 /// <typeparam name="T">The type of items being tracked.</typeparam>
-internal struct BatchChangeTracker<T> : IDisposable
+internal struct BatchChangeTracker<T> : IDisposable, IEquatable<BatchChangeTracker<T>>
 {
+    /// <summary>The multiplier applied when a rented buffer must grow.</summary>
     private const int BufferGrowthFactor = 2;
 
+    /// <summary>The minimum size of the initially rented buffers.</summary>
     private const int InitialBufferSize = 16;
 
+    /// <summary>The rented buffer containing tracked additions.</summary>
     private T[]? _addedItems;
 
+    /// <summary>The rented buffer containing tracked removals.</summary>
     private T[]? _removedItems;
 
+    /// <summary>The number of valid entries in <see cref="_addedItems"/>.</summary>
     private int _addedCount;
 
+    /// <summary>The number of valid entries in <see cref="_removedItems"/>.</summary>
     private int _removedCount;
 
     /// <summary>Gets a value indicating whether there are any tracked changes.</summary>
-    public readonly bool HasChanges => _addedCount > 0 || _removedCount > 0;
+    internal readonly bool HasChanges => _addedCount > 0 || _removedCount > 0;
 
     /// <summary>Gets the added items as a span.</summary>
-    public readonly ReadOnlySpan<T> AddedItems => _addedItems.AsSpan(0, _addedCount);
+    internal readonly ReadOnlySpan<T> AddedItems => _addedItems.AsSpan(0, _addedCount);
 
     /// <summary>Gets the removed items as a span.</summary>
-    public readonly ReadOnlySpan<T> RemovedItems => _removedItems.AsSpan(0, _removedCount);
+    internal readonly ReadOnlySpan<T> RemovedItems => _removedItems.AsSpan(0, _removedCount);
 
-    /// <summary>Tracks an added item.</summary>
-    /// <param name="item">The item that was added.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void TrackAdded(T item)
-    {
-        _addedItems ??= ArrayPool<T>.Shared.Rent(InitialBufferSize);
+    /// <summary>Determines whether this tracker references the same buffers and positions as another tracker.</summary>
+    /// <param name="other">The tracker to compare.</param>
+    /// <returns><see langword="true"/> when both trackers have identical state; otherwise, <see langword="false"/>.</returns>
+    public readonly bool Equals(BatchChangeTracker<T> other) =>
+        ReferenceEquals(_addedItems, other._addedItems)
+        && ReferenceEquals(_removedItems, other._removedItems)
+        && _addedCount == other._addedCount
+        && _removedCount == other._removedCount;
 
-        if (_addedCount >= _addedItems.Length)
-        {
-            GrowAdded();
-        }
+    /// <inheritdoc/>
+    public override readonly bool Equals(object? obj) => obj is BatchChangeTracker<T> other && Equals(other);
 
-        _addedItems[_addedCount++] = item;
-    }
-
-    /// <summary>Tracks a removed item.</summary>
-    /// <param name="item">The item that was removed.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void TrackRemoved(T item)
-    {
-        _removedItems ??= ArrayPool<T>.Shared.Rent(InitialBufferSize);
-
-        if (_removedCount >= _removedItems.Length)
-        {
-            GrowRemoved();
-        }
-
-        _removedItems[_removedCount++] = item;
-    }
+    /// <inheritdoc/>
+    public override readonly int GetHashCode() => 0;
 
     /// <summary>Releases pooled arrays back to the pool.</summary>
     public void Dispose()
@@ -79,6 +70,38 @@ internal struct BatchChangeTracker<T> : IDisposable
 
         _addedCount = 0;
         _removedCount = 0;
+    }
+
+    /// <summary>Tracks an added item.</summary>
+    /// <param name="item">The item that was added.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void TrackAdded(T item)
+    {
+        _addedItems ??= ArrayPool<T>.Shared.Rent(InitialBufferSize);
+
+        if (_addedCount >= _addedItems.Length)
+        {
+            GrowAdded();
+        }
+
+        _addedItems[_addedCount] = item;
+        _addedCount++;
+    }
+
+    /// <summary>Tracks a removed item.</summary>
+    /// <param name="item">The item that was removed.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void TrackRemoved(T item)
+    {
+        _removedItems ??= ArrayPool<T>.Shared.Rent(InitialBufferSize);
+
+        if (_removedCount >= _removedItems.Length)
+        {
+            GrowRemoved();
+        }
+
+        _removedItems[_removedCount] = item;
+        _removedCount++;
     }
 
     /// <summary>Expands the backing store used for added items.</summary>

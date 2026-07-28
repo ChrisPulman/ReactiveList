@@ -42,6 +42,10 @@ public interface IReactiveSource<T> : IEnumerable<T>, INotifyCollectionChanged, 
     /// </remarks>
     IObservable<CacheNotify<T>> Stream { get; }
 
+    /// <summary>Returns an enumerator that iterates through the source.</summary>
+    /// <returns>An enumerator for the source.</returns>
+    new IEnumerator<T> GetEnumerator();
+
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 
     /// <summary>Creates a snapshot of current items as an array.</summary>

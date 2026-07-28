@@ -22,14 +22,19 @@ namespace CP.Primitives.Collections;
 public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     where T : notnull
 {
+    /// <summary>Initial capacity used for buffers that collect removed items.</summary>
     private const int InitialRemovalBufferSize = 64;
 
+    /// <summary>Multiplier applied when a removal buffer grows.</summary>
     private const int CapacityGrowthFactor = 2;
 
+    /// <summary>Largest buffer allocated on the stack.</summary>
     private const int StackAllocationThreshold = 1024;
 
+    /// <summary>The zero-based index of the third shard.</summary>
     private const int ThirdShardIndex = 2;
 
+    /// <summary>The zero-based index of the fourth shard.</summary>
     private const int FourthShardIndex = 3;
 
     /// <inheritdoc/>
@@ -195,7 +200,8 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                                 removedBuffer = newBuffer;
                             }
 
-                            removedBuffer[removedCount++] = item;
+                            removedBuffer[removedCount] = item;
+                            removedCount++;
                             totalRemoved++;
                         }
                     }
@@ -310,10 +316,8 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     /// <param name="key">The key value to search for within the specified index.</param>
     /// <returns>An enumerable collection of entities that match the specified key.</returns>
     public IEnumerable<T> GetItemsBySecondaryIndex<TKey>(string indexName, TKey key)
-        where TKey : notnull
-    {
-        return Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<T, TKey> typedIdx ? typedIdx.Lookup(key) : [];
-    }
+        where TKey : notnull =>
+        Indices.TryGetValue(indexName, out var idx) && idx is SecondaryIndex<T, TKey> typedIdx ? typedIdx.Lookup(key) : [];
 
     /// <summary>Determines whether the specified item matches the given key in the specified secondary index.</summary>
     /// <typeparam name="TKey">The type of the key used in the secondary index.</typeparam>
@@ -322,10 +326,8 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     /// <param name="key">The key value to match against.</param>
     /// <returns><see langword="true"/> if the item's indexed value matches the specified key; otherwise, <see langword="false"/>.</returns>
     public bool ItemMatchesSecondaryIndex<TKey>(string indexName, T item, TKey key)
-        where TKey : notnull
-    {
-        return Indices.TryGetValue(indexName, out var idx) && idx.MatchesKey(item, key);
-    }
+        where TKey : notnull =>
+        Indices.TryGetValue(indexName, out var idx) && idx.MatchesKey(item, key);
 
     /// <summary>Determines whether the collection contains a specific value.</summary>
     /// <param name="item">The value to locate.</param>
@@ -540,7 +542,8 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         {
             var item = items[i];
             var shardIndex = GetShardIndex(item);
-            bucketArrays[shardIndex][bucketIndexes[shardIndex]++] = item;
+            bucketArrays[shardIndex][bucketIndexes[shardIndex]] = item;
+            bucketIndexes[shardIndex]++;
         }
     }
 
@@ -567,9 +570,9 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         }
 
         SetCount(0);
-        foreach (var index in Indices.Values)
+        foreach (var pair in Indices)
         {
-            index.Clear();
+            pair.Value.Clear();
         }
     }
 
@@ -712,7 +715,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         {
             if (rentedShardIndexes is not null)
             {
-                ArrayPool<int>.Shared.Return(rentedShardIndexes, clearArray: false);
+                ArrayPool<int>.Shared.Return(rentedShardIndexes);
             }
         }
 
@@ -768,7 +771,7 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         {
             if (rentedShardIndexes is not null)
             {
-                ArrayPool<int>.Shared.Return(rentedShardIndexes, clearArray: false);
+                ArrayPool<int>.Shared.Return(rentedShardIndexes);
             }
         }
 
@@ -1015,8 +1018,10 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
     /// <summary>Internal wrapper for Edit operations that bypasses locking and notifications.</summary>
     private sealed class QuaternaryEditWrapper : ICollection<T>
     {
+        /// <summary>The list whose shards are edited.</summary>
         private readonly QuaternaryList<T> _parent;
 
+        /// <summary>Indicates whether secondary indexes must be maintained.</summary>
         private readonly bool _hasIndices;
 
         /// <summary>Initializes a new instance of the <see cref="QuaternaryEditWrapper"/> class.</summary>
@@ -1045,37 +1050,6 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         /// <summary>Gets a value indicating whether the collection is read-only.</summary>
         public bool IsReadOnly => false;
 
-        /// <summary>Gets the element at the specified index across all shards.</summary>
-        /// <remarks>This indexer provides read-only access to elements as if the sharded collection were
-        /// a single contiguous list. Setting elements by index is not supported and will throw an exception.</remarks>
-        /// <param name="index">The zero-based index of the element to get. Must be greater than or equal to 0 and less than the total
-        /// number of elements in all shards.</param>
-        /// <returns>The element at the specified index in the combined sharded collection.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="index"/> is less than 0 or greater than or equal to the total number of elements
-        /// in all shards.</exception>
-        /// <exception cref="NotSupportedException">Thrown when attempting to set an element by index, as direct replacement is not supported in the sharded
-        /// list.</exception>
-        public T this[int index]
-        {
-            get
-            {
-                for (var i = 0; i < ShardCount; i++)
-                {
-                    var quadCount = _parent.Quads[i].Count;
-                    if (index < quadCount)
-                    {
-                        return _parent.Quads[i][index];
-                    }
-
-                    index -= quadCount;
-                }
-
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
-
-            set => throw new NotSupportedException("Direct index replacement in sharded list is unstable.");
-        }
-
         /// <summary>Adds the specified item to the collection.</summary>
         /// <param name="item">The item to add to the collection.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1089,19 +1063,6 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
             }
 
             _parent.NotifyIndicesAdded(item);
-        }
-
-        /// <summary>Adds the elements of the specified collection to the end of the collection.</summary>
-        /// <remarks>The order of the elements in the input collection is preserved. If any element in the
-        /// input collection is invalid for the collection, an exception may be thrown when adding that
-        /// element.</remarks>
-        /// <param name="items">The collection whose elements should be added to the end of the collection. Cannot be null.</param>
-        public void AddRange(IEnumerable<T> items)
-        {
-            foreach (var item in items)
-            {
-                Add(item);
-            }
         }
 
         /// <summary>Removes the specified item from the collection.</summary>
@@ -1139,9 +1100,9 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
                 return;
             }
 
-            foreach (var idx in _parent.Indices.Values)
+            foreach (var pair in _parent.Indices)
             {
-                idx.Clear();
+                pair.Value.Clear();
             }
         }
 

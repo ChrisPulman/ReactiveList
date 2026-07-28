@@ -27,6 +27,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// <summary>Minimum ArrayPool size as a power of two.</summary>
     private const int MinimumSize = 16;
 
+    /// <summary>Maximum occupied fraction before the table grows.</summary>
     private const double LoadFactor = 0.72;
 
     /// <summary>Capacity multiplier used when growing pooled storage.</summary>
@@ -38,8 +39,10 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// <summary>Marks the end of a bucket chain.</summary>
     private const int EndOfChain = -1;
 
+    /// <summary>Comparer used to hash and compare keys.</summary>
     private readonly IEqualityComparer<TKey> _comparer;
 
+    /// <summary>Pooled storage for dictionary entries.</summary>
     private Entry[] _entries;
 
     /// <summary>Bucket value is the 1-based entry index, with zero representing empty.</summary>
@@ -48,13 +51,16 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// <summary>Current bucket array length as a power of two.</summary>
     private int _bucketsLength;
 
+    /// <summary>The next unused entry position.</summary>
     private int _entryIndex;
 
+    /// <summary>The occupied entry count at which the table grows.</summary>
     private int _resizeThreshold;
 
     /// <summary>Head of the free list, or -1 when there are no free entries.</summary>
     private int _freeList;
 
+    /// <summary>The number of reusable entries in the free list.</summary>
     private int _freeCount;
 
     /// <summary>Initializes a new instance of the <see cref="QuadDictionary{TKey, TValue}"/> class with default settings.</summary>
@@ -66,8 +72,8 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     }
 
     /// <summary>Initializes a new instance of the <see cref="QuadDictionary{TKey, TValue}"/> class.</summary>
-    /// <param name="comparer">Optional equality comparer for keys.</param>
-    public QuadDictionary(IEqualityComparer<TKey>? comparer = null)
+    /// <param name="comparer">The equality comparer for keys, or <see langword="null"/> to use the default comparer.</param>
+    public QuadDictionary(IEqualityComparer<TKey>? comparer)
     {
         _comparer = comparer ?? EqualityComparer<TKey>.Default;
         _buckets = ArrayPool<int>.Shared.Rent(MinimumSize);
@@ -346,7 +352,11 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() => new EnumeratorWrapper(this);
 
     /// <inheritdoc/>
-    IEnumerator IEnumerable.GetEnumerator() => new EnumeratorWrapper(this);
+    IEnumerator<KeyValuePair<TKey, TValue>> IQuad<KeyValuePair<TKey, TValue>>.GetEnumerator() =>
+        ((IEnumerable<KeyValuePair<TKey, TValue>>)this).GetEnumerator();
+
+    /// <inheritdoc/>
+    IEnumerator IEnumerable.GetEnumerator() => ((IQuad<KeyValuePair<TKey, TValue>>)this).GetEnumerator();
 
     /// <summary>Copies all keys to a list.</summary>
     /// <param name="list">The list to copy to.</param>
@@ -398,7 +408,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
                 continue; // Skip free entries (Next < -1 means in freelist)
             }
 
-            list.Add(new KeyValuePair<TKey, TValue>(entry.GetKey(), entry.GetValue()));
+            list.Add(new(entry.GetKey(), entry.GetValue()));
         }
     }
 
@@ -407,7 +417,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     {
         if (_buckets is not null)
         {
-            ArrayPool<int>.Shared.Return(_buckets, clearArray: false);
+            ArrayPool<int>.Shared.Return(_buckets);
             _buckets = null!;
         }
 
@@ -498,7 +508,7 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
             bucket = i + 1;
         }
 
-        ArrayPool<int>.Shared.Return(_buckets, clearArray: false);
+        ArrayPool<int>.Shared.Return(_buckets);
         ArrayPool<Entry>.Shared.Return(_entries, clearArray: ArrayPoolClearHelper.IsReferenceOrContainsReferences<Entry>());
 
         _entries = newEntries;
@@ -522,10 +532,13 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// <summary>Enumerates the elements of a <see cref="QuadDictionary{TKey, TValue}"/>.</summary>
     public struct Enumerator : IEquatable<Enumerator>
     {
+        /// <summary>The dictionary being enumerated.</summary>
         private readonly QuadDictionary<TKey, TValue> _dictionary;
 
+        /// <summary>The next entry position to inspect.</summary>
         private int _index;
 
+        /// <summary>The current key/value pair.</summary>
         private KeyValuePair<TKey, TValue> _current;
 
         /// <summary>Initializes a new instance of the <see cref="Enumerator"/> struct.</summary>
@@ -558,7 +571,8 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         {
             while (_index < _dictionary._entryIndex)
             {
-                ref var entry = ref _dictionary._entries[_index++];
+                ref var entry = ref _dictionary._entries[_index];
+                _index++;
 
                 // Skip free entries (Next < -1 means in freelist)
                 if (entry.GetNext() < EndOfChain)
@@ -591,9 +605,9 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
 
         /// <inheritdoc/>
         public readonly bool Equals(Enumerator other) =>
-            ReferenceEquals(_dictionary, other._dictionary) &&
-            _index == other._index &&
-            EqualityComparer<KeyValuePair<TKey, TValue>>.Default.Equals(_current, other._current);
+            ReferenceEquals(_dictionary, other._dictionary)
+            && _index == other._index
+            && EqualityComparer<KeyValuePair<TKey, TValue>>.Default.Equals(_current, other._current);
 
         /// <inheritdoc/>
         public override readonly bool Equals(object? obj) => obj is Enumerator other && Equals(other);
@@ -608,10 +622,13 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     /// intended for internal use and is not thread-safe.</remarks>
     private struct EnumeratorWrapper : IEnumerator<KeyValuePair<TKey, TValue>>
     {
+        /// <summary>The dictionary being enumerated.</summary>
         private readonly QuadDictionary<TKey, TValue> _dictionary;
 
+        /// <summary>The next entry position to inspect.</summary>
         private int _index;
 
+        /// <summary>The current key/value pair.</summary>
         private KeyValuePair<TKey, TValue> _current;
 
         /// <summary>Initializes a new instance of the <see cref="EnumeratorWrapper"/> struct.</summary>
@@ -639,7 +656,8 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
         {
             while (_index < _dictionary._entryIndex)
             {
-                ref var entry = ref _dictionary._entries[_index++];
+                ref var entry = ref _dictionary._entries[_index];
+                _index++;
 
                 // Skip free entries (Next < -1 means in freelist)
                 if (entry.GetNext() < EndOfChain)
@@ -684,12 +702,16 @@ public sealed class QuadDictionary<TKey, TValue> : IQuad<KeyValuePair<TKey, TVal
     [DebuggerDisplay("HashCode = {_hashCode}, Key = {_key}, Value = {_value}, Next = {_next}")]
     private struct Entry
     {
+        /// <summary>The stored key hash code.</summary>
         private uint _hashCode;
 
+        /// <summary>The stored key.</summary>
         private TKey _key;
 
+        /// <summary>The stored value.</summary>
         private TValue _value;
 
+        /// <summary>The next entry in the bucket chain or encoded free-list link.</summary>
         private int _next;
 
         /// <summary>Gets a mutable reference to the stored value.</summary>

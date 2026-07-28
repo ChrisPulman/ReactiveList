@@ -6,7 +6,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Threading.Tasks;
 using CP.Primitives.Core;
 using TUnit.Assertions.Exceptions;
@@ -22,7 +21,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the action.</summary>
         /// <returns>The action assertions.</returns>
-        public ActionAssertions Should() => new(subject);
+        internal ActionAssertions Should() => new(subject);
     }
 
     /// <summary>Provides change-set assertions.</summary>
@@ -32,7 +31,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the change set.</summary>
         /// <returns>The enumerable assertions.</returns>
-        public EnumerableAssertions<Change<TItem>> Should() => new(subject);
+        internal EnumerableAssertions<Change<TItem>> Should() => new(subject);
     }
 
     /// <summary>Provides function assertions.</summary>
@@ -42,7 +41,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the function.</summary>
         /// <returns>The action assertions.</returns>
-        public ActionAssertions Should() => new(() => _ = subject());
+        internal ActionAssertions Should() => new(() => _ = subject());
     }
 
     /// <summary>Provides task-producing function assertions.</summary>
@@ -51,7 +50,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the task-producing function.</summary>
         /// <returns>The function assertions.</returns>
-        public FuncTaskAssertions Should() => new(subject);
+        internal FuncTaskAssertions Should() => new(subject);
     }
 
     /// <summary>Provides enumerable assertions.</summary>
@@ -61,7 +60,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the enumerable.</summary>
         /// <returns>The enumerable assertions.</returns>
-        public EnumerableAssertions<TItem> Should() => new(subject);
+        internal EnumerableAssertions<TItem> Should() => new(subject);
     }
 
     /// <summary>Provides value-type object assertions.</summary>
@@ -72,7 +71,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the value.</summary>
         /// <returns>The object assertions.</returns>
-        public ObjectAssertions<TSubject> Should() => new(subject);
+        internal ObjectAssertions<TSubject> Should() => new(subject);
     }
 
     /// <summary>Provides Boolean assertions.</summary>
@@ -81,7 +80,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the Boolean value.</summary>
         /// <returns>The Boolean assertions.</returns>
-        public BooleanAssertions Should() => new(subject);
+        internal BooleanAssertions Should() => new(subject);
     }
 
     /// <summary>Provides object assertions.</summary>
@@ -90,7 +89,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the object.</summary>
         /// <returns>The object assertions.</returns>
-        public ObjectAssertions<object?> Should() => new(subject);
+        internal ObjectAssertions<object?> Should() => new(subject);
     }
 
     /// <summary>Provides string assertions.</summary>
@@ -99,7 +98,7 @@ internal static class AssertionExtensions
     {
         /// <summary>Creates assertions for the string.</summary>
         /// <returns>The string assertions.</returns>
-        public StringAssertions Should() => new(subject);
+        internal StringAssertions Should() => new(subject);
     }
 
     /// <summary>Provides shared assertion helper methods.</summary>
@@ -157,7 +156,7 @@ internal static class AssertionExtensions
                 return;
             }
 
-            var unmatched = expected.ToList();
+            var unmatched = new List<object?>(expected);
             foreach (var item in actual)
             {
                 var index = unmatched.FindIndex(expectedItem => Equals(item, expectedItem));
@@ -182,7 +181,13 @@ internal static class AssertionExtensions
                 return false;
             }
 
-            items = enumerable.Cast<object?>().ToArray();
+            var snapshot = new List<object?>();
+            foreach (var item in enumerable)
+            {
+                snapshot.Add(item);
+            }
+
+            items = snapshot;
             return true;
         }
 
@@ -197,11 +202,13 @@ internal static class AssertionExtensions
                 return true;
             }
 
-            return actual is not IConvertible actualConvertible ||
-                expected is not IConvertible expectedConvertible ||
-                !IsNumeric(actualConvertible.GetTypeCode()) ||
-                !IsNumeric(expectedConvertible.GetTypeCode()) ? false : Convert.ToDecimal(actualConvertible, CultureInfo.InvariantCulture) ==
-                Convert.ToDecimal(expectedConvertible, CultureInfo.InvariantCulture);
+            return actual is not IConvertible actualConvertible
+                || expected is not IConvertible expectedConvertible
+                || !IsNumeric(actualConvertible.GetTypeCode())
+                || !IsNumeric(expectedConvertible.GetTypeCode())
+                ? false
+                : Convert.ToDecimal(actualConvertible, CultureInfo.InvariantCulture)
+                    == Convert.ToDecimal(expectedConvertible, CultureInfo.InvariantCulture);
         }
 
         /// <summary>Compares two values.</summary>
@@ -236,7 +243,7 @@ internal static class AssertionExtensions
                 return string.Empty;
             }
 
-            return " because " + (args.Length == 0 ? because : string.Format(because, args));
+            return $" because {(args.Length == 0 ? because : string.Format(because, args))}";
         }
 
         /// <summary>Determines whether the type code represents a numeric value.</summary>
@@ -249,11 +256,11 @@ internal static class AssertionExtensions
     internal sealed class EquivalencyAssertionOptions
     {
         /// <summary>Gets StrictOrdering.</summary>
-        public bool StrictOrdering { get; private set; }
+        internal bool StrictOrdering { get; private set; }
 
         /// <summary>Provides WithStrictOrdering.</summary>
         /// <returns>The result.</returns>
-        public EquivalencyAssertionOptions WithStrictOrdering()
+        internal EquivalencyAssertionOptions WithStrictOrdering()
         {
             StrictOrdering = true;
             return this;
@@ -266,24 +273,25 @@ internal static class AssertionExtensions
     {
         /// <summary>Initializes a new instance of the AndWhichConstraint class.</summary>
         /// <param name="which">The which value.</param>
-        public AndWhichConstraint(T which) => Which = which;
+        internal AndWhichConstraint(T which) => Which = which;
 
         /// <summary>Gets Which.</summary>
-        public T Which { get; }
+        internal T Which { get; }
 
         /// <summary>Gets And.</summary>
-        public AndWhichConstraint<T> And => this;
+        internal AndWhichConstraint<T> And => this;
     }
 
     /// <summary>Provides ObjectAssertions.</summary>
     /// <typeparam name="TSubject">The TSubject type.</typeparam>
     internal sealed class ObjectAssertions<TSubject>
     {
+        /// <summary>The assertion subject.</summary>
         private readonly TSubject _subject;
 
         /// <summary>Initializes a new instance of the ObjectAssertions class.</summary>
         /// <param name="subject">The subject value.</param>
-        public ObjectAssertions(TSubject subject) => _subject = subject;
+        internal ObjectAssertions(TSubject subject) => _subject = subject;
 
         /// <summary>Provides Be.</summary>
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
@@ -291,7 +299,7 @@ internal static class AssertionExtensions
         /// <param name="because">The because value.</param>
         /// <returns>The result.</returns>
         /// <param name="becauseArgs">The becauseArgs value.</param>
-        public ObjectAssertions<TSubject> Be<TExpected>(TExpected expected, string because = "", params object[] becauseArgs)
+        internal ObjectAssertions<TSubject> Be<TExpected>(TExpected expected, string because = "", params object[] becauseArgs)
         {
             if (!AssertionHelpers.AreEqual(_subject, expected))
             {
@@ -305,7 +313,7 @@ internal static class AssertionExtensions
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public ObjectAssertions<TSubject> NotBe<TExpected>(TExpected expected)
+        internal ObjectAssertions<TSubject> NotBe<TExpected>(TExpected expected)
         {
             if (Equals(_subject, expected))
             {
@@ -318,7 +326,7 @@ internal static class AssertionExtensions
         /// <summary>Provides BeSameAs.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public ObjectAssertions<TSubject> BeSameAs(object? expected)
+        internal ObjectAssertions<TSubject> BeSameAs(object? expected)
         {
             if (!ReferenceEquals(_subject, expected))
             {
@@ -330,7 +338,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides BeNull.</summary>
         /// <returns>The result.</returns>
-        public ObjectAssertions<TSubject> BeNull()
+        internal ObjectAssertions<TSubject> BeNull()
         {
             if (_subject is not null)
             {
@@ -342,7 +350,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides NotBeNull.</summary>
         /// <returns>The result.</returns>
-        public ObjectAssertions<TSubject> NotBeNull()
+        internal ObjectAssertions<TSubject> NotBeNull()
         {
             if (_subject is null)
             {
@@ -355,11 +363,11 @@ internal static class AssertionExtensions
         /// <summary>Provides BeOfType.</summary>
         /// <returns>The result.</returns>
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
-        public AndWhichConstraint<TExpected> BeOfType<TExpected>()
+        internal AndWhichConstraint<TExpected> BeOfType<TExpected>()
         {
             if (_subject is TExpected expected)
             {
-                return new AndWhichConstraint<TExpected>(expected);
+                return new(expected);
             }
 
             AssertionHelpers.Fail($"Expected value to be of type {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
@@ -369,11 +377,11 @@ internal static class AssertionExtensions
         /// <summary>Provides BeAssignableTo.</summary>
         /// <returns>The result.</returns>
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
-        public AndWhichConstraint<TExpected> BeAssignableTo<TExpected>()
+        internal AndWhichConstraint<TExpected> BeAssignableTo<TExpected>()
         {
             if (_subject is TExpected expected)
             {
-                return new AndWhichConstraint<TExpected>(expected);
+                return new(expected);
             }
 
             AssertionHelpers.Fail($"Expected value to be assignable to {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
@@ -385,7 +393,7 @@ internal static class AssertionExtensions
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
         /// <param name="configure">The configure value.</param>
-        public ObjectAssertions<TSubject> BeEquivalentTo<TExpected>(
+        internal ObjectAssertions<TSubject> BeEquivalentTo<TExpected>(
             TExpected expected,
             Func<EquivalencyAssertionOptions, EquivalencyAssertionOptions>? configure = null)
         {
@@ -407,7 +415,7 @@ internal static class AssertionExtensions
         /// <summary>Provides HaveCount.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public ObjectAssertions<TSubject> HaveCount(int expected)
+        internal ObjectAssertions<TSubject> HaveCount(int expected)
         {
             var actual = SnapshotEnumerable().Count;
             if (actual != expected)
@@ -420,7 +428,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides ContainSingle.</summary>
         /// <returns>The result.</returns>
-        public AndWhichConstraint<object?> ContainSingle()
+        internal AndWhichConstraint<object?> ContainSingle()
         {
             var actual = SnapshotEnumerable();
             if (actual.Count != 1)
@@ -428,14 +436,14 @@ internal static class AssertionExtensions
                 AssertionHelpers.Fail($"Expected collection to contain a single item, but found {actual.Count}.");
             }
 
-            return new AndWhichConstraint<object?>(actual[0]);
+            return new(actual[0]);
         }
 
         /// <summary>Provides BeGreaterThan.</summary>
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
         /// <returns>The result.</returns>
         /// <param name="expected">The expected value.</param>
-        public ObjectAssertions<TSubject> BeGreaterThan<TExpected>(TExpected expected)
+        internal ObjectAssertions<TSubject> BeGreaterThan<TExpected>(TExpected expected)
         {
             if (AssertionHelpers.Compare(_subject, expected) <= 0)
             {
@@ -449,7 +457,7 @@ internal static class AssertionExtensions
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
         /// <returns>The result.</returns>
         /// <param name="expected">The expected value.</param>
-        public ObjectAssertions<TSubject> BeGreaterThanOrEqualTo<TExpected>(TExpected expected)
+        internal ObjectAssertions<TSubject> BeGreaterThanOrEqualTo<TExpected>(TExpected expected)
         {
             if (AssertionHelpers.Compare(_subject, expected) < 0)
             {
@@ -463,7 +471,7 @@ internal static class AssertionExtensions
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
         /// <returns>The result.</returns>
         /// <param name="expected">The expected value.</param>
-        public ObjectAssertions<TSubject> BeLessThanOrEqualTo<TExpected>(TExpected expected)
+        internal ObjectAssertions<TSubject> BeLessThanOrEqualTo<TExpected>(TExpected expected)
         {
             if (AssertionHelpers.Compare(_subject, expected) > 0)
             {
@@ -478,7 +486,7 @@ internal static class AssertionExtensions
         /// <param name="minimum">The minimum value.</param>
         /// <param name="maximum">The maximum value.</param>
         /// <returns>The result.</returns>
-        public ObjectAssertions<TSubject> BeInRange<TExpected>(TExpected minimum, TExpected maximum)
+        internal ObjectAssertions<TSubject> BeInRange<TExpected>(TExpected minimum, TExpected maximum)
         {
             if (AssertionHelpers.Compare(_subject, minimum) < 0 || AssertionHelpers.Compare(_subject, maximum) > 0)
             {
@@ -504,18 +512,19 @@ internal static class AssertionExtensions
     /// <summary>Provides BooleanAssertions.</summary>
     internal sealed class BooleanAssertions
     {
+        /// <summary>The assertion subject.</summary>
         private readonly bool _subject;
 
         /// <summary>Initializes a new instance of the <see cref="BooleanAssertions"/> class.</summary>
         /// <param name="subject">The subject value.</param>
-        public BooleanAssertions(bool subject) => _subject = subject;
+        internal BooleanAssertions(bool subject) => _subject = subject;
 
         /// <summary>Provides Be.</summary>
         /// <param name="expected">The expected value.</param>
         /// <param name="because">The because value.</param>
         /// <param name="becauseArgs">The becauseArgs value.</param>
         /// <returns>The result.</returns>
-        public BooleanAssertions Be(bool expected, string because = "", params object[] becauseArgs)
+        internal BooleanAssertions Be(bool expected, string because = "", params object[] becauseArgs)
         {
             if (_subject != expected)
             {
@@ -529,33 +538,34 @@ internal static class AssertionExtensions
         /// <param name="because">The because value.</param>
         /// <param name="becauseArgs">The becauseArgs value.</param>
         /// <returns>The result.</returns>
-        public BooleanAssertions BeTrue(string because = "", params object[] becauseArgs) => Be(true, because, becauseArgs);
+        internal BooleanAssertions BeTrue(string because = "", params object[] becauseArgs) => Be(true, because, becauseArgs);
 
         /// <summary>Provides BeFalse.</summary>
         /// <param name="because">The because value.</param>
         /// <param name="becauseArgs">The becauseArgs value.</param>
         /// <returns>The result.</returns>
-        public BooleanAssertions BeFalse(string because = "", params object[] becauseArgs) => Be(false, because, becauseArgs);
+        internal BooleanAssertions BeFalse(string because = "", params object[] becauseArgs) => Be(false, because, becauseArgs);
     }
 
     /// <summary>Provides StringAssertions.</summary>
     internal sealed class StringAssertions
     {
+        /// <summary>The assertion subject.</summary>
         private readonly string? _subject;
 
         /// <summary>Initializes a new instance of the <see cref="StringAssertions"/> class.</summary>
         /// <param name="subject">The subject value.</param>
-        public StringAssertions(string? subject) => _subject = subject;
+        internal StringAssertions(string? subject) => _subject = subject;
 
         /// <summary>Gets And.</summary>
-        public StringAssertions And => this;
+        internal StringAssertions And => this;
 
         /// <summary>Provides Be.</summary>
         /// <param name="expected">The expected value.</param>
         /// <param name="because">The because value.</param>
         /// <param name="becauseArgs">The becauseArgs value.</param>
         /// <returns>The result.</returns>
-        public StringAssertions Be(string? expected, string because = "", params object[] becauseArgs)
+        internal StringAssertions Be(string? expected, string because = "", params object[] becauseArgs)
         {
             if (!string.Equals(_subject, expected, StringComparison.Ordinal))
             {
@@ -567,7 +577,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides NotBeNullOrEmpty.</summary>
         /// <returns>The result.</returns>
-        public StringAssertions NotBeNullOrEmpty()
+        internal StringAssertions NotBeNullOrEmpty()
         {
             if (string.IsNullOrEmpty(_subject))
             {
@@ -579,7 +589,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides BeNull.</summary>
         /// <returns>The result.</returns>
-        public StringAssertions BeNull()
+        internal StringAssertions BeNull()
         {
             if (_subject is not null)
             {
@@ -591,7 +601,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides NotBeNull.</summary>
         /// <returns>The result.</returns>
-        public StringAssertions NotBeNull()
+        internal StringAssertions NotBeNull()
         {
             if (_subject is null)
             {
@@ -603,7 +613,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides BeEmpty.</summary>
         /// <returns>The result.</returns>
-        public StringAssertions BeEmpty()
+        internal StringAssertions BeEmpty()
         {
             if (_subject?.Length > 0)
             {
@@ -615,7 +625,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides NotBeEmpty.</summary>
         /// <returns>The result.</returns>
-        public StringAssertions NotBeEmpty()
+        internal StringAssertions NotBeEmpty()
         {
             if (_subject?.Length == 0)
             {
@@ -628,7 +638,7 @@ internal static class AssertionExtensions
         /// <summary>Provides Contain.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public StringAssertions Contain(string expected)
+        internal StringAssertions Contain(string expected)
         {
             if (_subject?.Contains(expected, StringComparison.Ordinal) != true)
             {
@@ -641,7 +651,7 @@ internal static class AssertionExtensions
         /// <summary>Provides NotContain.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public StringAssertions NotContain(string expected)
+        internal StringAssertions NotContain(string expected)
         {
             if (_subject?.Contains(expected, StringComparison.Ordinal) == true)
             {
@@ -654,7 +664,7 @@ internal static class AssertionExtensions
         /// <summary>Provides StartWith.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public StringAssertions StartWith(string expected)
+        internal StringAssertions StartWith(string expected)
         {
             if (_subject?.StartsWith(expected, StringComparison.Ordinal) != true)
             {
@@ -667,7 +677,7 @@ internal static class AssertionExtensions
         /// <summary>Provides EndWith.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public StringAssertions EndWith(string expected)
+        internal StringAssertions EndWith(string expected)
         {
             if (_subject?.EndsWith(expected, StringComparison.Ordinal) != true)
             {
@@ -682,19 +692,20 @@ internal static class AssertionExtensions
     /// <typeparam name="TItem">The TItem type.</typeparam>
     internal sealed class EnumerableAssertions<TItem>
     {
+        /// <summary>The assertion subject.</summary>
         private readonly IEnumerable<TItem>? _subject;
 
         /// <summary>Initializes a new instance of the EnumerableAssertions class.</summary>
         /// <param name="subject">The subject value.</param>
-        public EnumerableAssertions(IEnumerable<TItem>? subject) => _subject = subject;
+        internal EnumerableAssertions(IEnumerable<TItem>? subject) => _subject = subject;
 
         /// <summary>Gets And.</summary>
-        public EnumerableAssertions<TItem> And => this;
+        internal EnumerableAssertions<TItem> And => this;
 
         /// <summary>Provides BeSameAs.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> BeSameAs(object? expected)
+        internal EnumerableAssertions<TItem> BeSameAs(object? expected)
         {
             if (!ReferenceEquals(_subject, expected))
             {
@@ -708,35 +719,41 @@ internal static class AssertionExtensions
         /// <param name="expected">The expected value.</param>
         /// <param name="configure">The configure value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> BeEquivalentTo(
+        internal EnumerableAssertions<TItem> BeEquivalentTo(
             IEnumerable<TItem> expected,
             Func<EquivalencyAssertionOptions, EquivalencyAssertionOptions>? configure = null)
         {
             var options = AssertionHelpers.ApplyOptions(configure);
-            AssertionHelpers.AssertEquivalentSequence(SnapshotObjects(), expected.Cast<object?>().ToArray(), options.StrictOrdering);
+            var expectedItems = new List<object?>();
+            foreach (var item in expected)
+            {
+                expectedItems.Add(item);
+            }
+
+            AssertionHelpers.AssertEquivalentSequence(SnapshotObjects(), expectedItems, options.StrictOrdering);
             return this;
         }
 
         /// <summary>Provides Equal.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> Equal(params TItem[] expected) => Equal((IEnumerable<TItem>)expected);
+        internal EnumerableAssertions<TItem> Equal(params TItem[] expected) => Equal((IEnumerable<TItem>)expected);
 
         /// <summary>Provides Equal.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> Equal(IEnumerable<TItem> expected)
+        internal EnumerableAssertions<TItem> Equal(IEnumerable<TItem> expected)
         {
             var actual = Snapshot();
-            var expectedItems = expected.ToArray();
-            if (actual.Count != expectedItems.Length)
+            var expectedItems = new List<TItem>(expected);
+            if (actual.Count != expectedItems.Count)
             {
-                AssertionHelpers.Fail($"Expected {expectedItems.Length} item(s), but found {actual.Count} item(s).");
+                AssertionHelpers.Fail($"Expected {expectedItems.Count} item(s), but found {actual.Count} item(s).");
             }
 
             for (var i = 0; i < actual.Count; i++)
             {
-                if (!Equals(actual[i], expectedItems[i]))
+                if (!EqualityComparer<TItem>.Default.Equals(actual[i], expectedItems[i]))
                 {
                     AssertionHelpers.Fail($"Expected item at index {i} to be {AssertionHelpers.Format(expectedItems[i])}, but found {AssertionHelpers.Format(actual[i])}.");
                 }
@@ -748,11 +765,11 @@ internal static class AssertionExtensions
         /// <summary>Provides AllBeEquivalentTo.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> AllBeEquivalentTo(TItem expected)
+        internal EnumerableAssertions<TItem> AllBeEquivalentTo(TItem expected)
         {
             foreach (var item in Snapshot())
             {
-                if (!Equals(item, expected))
+                if (!EqualityComparer<TItem>.Default.Equals(item, expected))
                 {
                     AssertionHelpers.Fail($"Expected all items to be {AssertionHelpers.Format(expected)}, but found {AssertionHelpers.Format(item)}.");
                 }
@@ -763,7 +780,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides BeEmpty.</summary>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> BeEmpty()
+        internal EnumerableAssertions<TItem> BeEmpty()
         {
             if (Snapshot().Count != 0)
             {
@@ -775,7 +792,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides NotBeEmpty.</summary>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> NotBeEmpty()
+        internal EnumerableAssertions<TItem> NotBeEmpty()
         {
             if (Snapshot().Count == 0)
             {
@@ -787,7 +804,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides NotBeNull.</summary>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> NotBeNull()
+        internal EnumerableAssertions<TItem> NotBeNull()
         {
             if (_subject is null)
             {
@@ -801,7 +818,7 @@ internal static class AssertionExtensions
         /// <summary>Provides HaveCount.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> HaveCount(int expected)
+        internal EnumerableAssertions<TItem> HaveCount(int expected)
         {
             var actual = Count();
             if (actual != expected)
@@ -815,7 +832,7 @@ internal static class AssertionExtensions
         /// <summary>Provides HaveCountGreaterThan.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> HaveCountGreaterThan(int expected)
+        internal EnumerableAssertions<TItem> HaveCountGreaterThan(int expected)
         {
             var actual = Count();
             if (actual <= expected)
@@ -829,7 +846,7 @@ internal static class AssertionExtensions
         /// <summary>Provides HaveCountGreaterThanOrEqualTo.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> HaveCountGreaterThanOrEqualTo(int expected)
+        internal EnumerableAssertions<TItem> HaveCountGreaterThanOrEqualTo(int expected)
         {
             var actual = Count();
             if (actual < expected)
@@ -843,7 +860,7 @@ internal static class AssertionExtensions
         /// <summary>Provides Contain.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> Contain(TItem expected)
+        internal EnumerableAssertions<TItem> Contain(TItem expected)
         {
             if (!Snapshot().Contains(expected))
             {
@@ -856,7 +873,7 @@ internal static class AssertionExtensions
         /// <summary>Provides Contain.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> Contain(IEnumerable<TItem> expected)
+        internal EnumerableAssertions<TItem> Contain(IEnumerable<TItem> expected)
         {
             var actual = Snapshot();
             foreach (var expectedItem in expected)
@@ -873,9 +890,9 @@ internal static class AssertionExtensions
         /// <summary>Provides Contain.</summary>
         /// <param name="predicate">The predicate value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> Contain(Func<TItem, bool> predicate)
+        internal EnumerableAssertions<TItem> Contain(Func<TItem, bool> predicate)
         {
-            if (!Snapshot().Any(predicate))
+            if (!Snapshot().Exists(item => predicate(item)))
             {
                 AssertionHelpers.Fail("Expected collection to contain a matching item.");
             }
@@ -886,7 +903,7 @@ internal static class AssertionExtensions
         /// <summary>Provides NotContain.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> NotContain(TItem expected)
+        internal EnumerableAssertions<TItem> NotContain(TItem expected)
         {
             if (Snapshot().Contains(expected))
             {
@@ -899,9 +916,9 @@ internal static class AssertionExtensions
         /// <summary>Provides NotContain.</summary>
         /// <param name="predicate">The predicate value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> NotContain(Func<TItem, bool> predicate)
+        internal EnumerableAssertions<TItem> NotContain(Func<TItem, bool> predicate)
         {
-            if (Snapshot().Any(predicate))
+            if (Snapshot().Exists(item => predicate(item)))
             {
                 AssertionHelpers.Fail("Expected collection not to contain a matching item.");
             }
@@ -911,7 +928,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides ContainSingle.</summary>
         /// <returns>The result.</returns>
-        public AndWhichConstraint<TItem> ContainSingle()
+        internal AndWhichConstraint<TItem> ContainSingle()
         {
             var actual = Snapshot();
             if (actual.Count != 1)
@@ -919,13 +936,13 @@ internal static class AssertionExtensions
                 AssertionHelpers.Fail($"Expected collection to contain a single item, but found {actual.Count}.");
             }
 
-            return new AndWhichConstraint<TItem>(actual[0]);
+            return new(actual[0]);
         }
 
         /// <summary>Provides ContainInOrder.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> ContainInOrder(params TItem[] expected)
+        internal EnumerableAssertions<TItem> ContainInOrder(params TItem[] expected)
         {
             var actual = Snapshot();
             var searchIndex = 0;
@@ -934,7 +951,9 @@ internal static class AssertionExtensions
                 var found = false;
                 while (searchIndex < actual.Count)
                 {
-                    if (Equals(actual[searchIndex++], expectedItem))
+                    var actualItem = actual[searchIndex];
+                    searchIndex++;
+                    if (EqualityComparer<TItem>.Default.Equals(actualItem, expectedItem))
                     {
                         found = true;
                         break;
@@ -954,7 +973,7 @@ internal static class AssertionExtensions
         /// <typeparam name="TKey">The TKey type.</typeparam>
         /// <returns>The result.</returns>
         /// <param name="expected">The expected value.</param>
-        public EnumerableAssertions<TItem> ContainKey<TKey>(TKey expected)
+        internal EnumerableAssertions<TItem> ContainKey<TKey>(TKey expected)
         {
             if (_subject is IDictionary dictionary)
             {
@@ -967,7 +986,20 @@ internal static class AssertionExtensions
             }
 
             var keyProperty = typeof(TItem).GetProperty("Key");
-            if (keyProperty is null || !Snapshot().Any(item => Equals(keyProperty.GetValue(item), expected)))
+            var containsKey = false;
+            if (keyProperty is not null)
+            {
+                foreach (var item in Snapshot())
+                {
+                    if (Equals(keyProperty.GetValue(item), expected))
+                    {
+                        containsKey = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!containsKey)
             {
                 AssertionHelpers.Fail($"Expected dictionary to contain key {AssertionHelpers.Format(expected)}.");
             }
@@ -977,7 +1009,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides BeInAscendingOrder.</summary>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> BeInAscendingOrder()
+        internal EnumerableAssertions<TItem> BeInAscendingOrder()
         {
             var actual = Snapshot();
             var comparer = Comparer<TItem>.Default;
@@ -995,10 +1027,10 @@ internal static class AssertionExtensions
         /// <summary>Provides StartWith.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> StartWith(TItem expected)
+        internal EnumerableAssertions<TItem> StartWith(TItem expected)
         {
             var actual = Snapshot();
-            if (actual.Count == 0 || !Equals(actual[0], expected))
+            if (actual.Count == 0 || !EqualityComparer<TItem>.Default.Equals(actual[0], expected))
             {
                 AssertionHelpers.Fail($"Expected collection to start with {AssertionHelpers.Format(expected)}.");
             }
@@ -1009,10 +1041,10 @@ internal static class AssertionExtensions
         /// <summary>Provides EndWith.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> EndWith(TItem expected)
+        internal EnumerableAssertions<TItem> EndWith(TItem expected)
         {
             var actual = Snapshot();
-            if (actual.Count == 0 || !Equals(actual[actual.Count - 1], expected))
+            if (actual.Count == 0 || !EqualityComparer<TItem>.Default.Equals(actual[actual.Count - 1], expected))
             {
                 AssertionHelpers.Fail($"Expected collection to end with {AssertionHelpers.Format(expected)}.");
             }
@@ -1023,11 +1055,11 @@ internal static class AssertionExtensions
         /// <summary>Provides BeOfType.</summary>
         /// <returns>The result.</returns>
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
-        public AndWhichConstraint<TExpected> BeOfType<TExpected>()
+        internal AndWhichConstraint<TExpected> BeOfType<TExpected>()
         {
             if (_subject is TExpected expected)
             {
-                return new AndWhichConstraint<TExpected>(expected);
+                return new(expected);
             }
 
             AssertionHelpers.Fail($"Expected value to be of type {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
@@ -1037,11 +1069,11 @@ internal static class AssertionExtensions
         /// <summary>Provides BeAssignableTo.</summary>
         /// <returns>The result.</returns>
         /// <typeparam name="TExpected">The TExpected type.</typeparam>
-        public AndWhichConstraint<TExpected> BeAssignableTo<TExpected>()
+        internal AndWhichConstraint<TExpected> BeAssignableTo<TExpected>()
         {
             if (_subject is TExpected expected)
             {
-                return new AndWhichConstraint<TExpected>(expected);
+                return new(expected);
             }
 
             AssertionHelpers.Fail($"Expected value to be assignable to {typeof(TExpected).FullName}, but found {_subject?.GetType().FullName ?? AssertionHelpers.NullDisplayValue}.");
@@ -1051,10 +1083,10 @@ internal static class AssertionExtensions
         /// <summary>Provides Be.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public EnumerableAssertions<TItem> Be(TItem expected)
+        internal EnumerableAssertions<TItem> Be(TItem expected)
         {
             var actual = Snapshot();
-            if (actual.Count != 1 || !Equals(actual[0], expected))
+            if (actual.Count != 1 || !EqualityComparer<TItem>.Default.Equals(actual[0], expected))
             {
                 AssertionHelpers.Fail($"Expected single collection item {AssertionHelpers.Format(expected)}.");
             }
@@ -1077,7 +1109,18 @@ internal static class AssertionExtensions
                 return collection.Count;
             }
 
-            return _subject is IReadOnlyCollection<TItem> readOnlyCollection ? readOnlyCollection.Count : _subject.Count();
+            if (_subject is IReadOnlyCollection<TItem> readOnlyCollection)
+            {
+                return readOnlyCollection.Count;
+            }
+
+            var count = 0;
+            foreach (var _ in _subject)
+            {
+                count++;
+            }
+
+            return count;
         }
 
         /// <summary>Provides Snapshot.</summary>
@@ -1090,27 +1133,38 @@ internal static class AssertionExtensions
                 throw new InvalidOperationException(AssertionHelpers.AssertionFailureDidNotThrow);
             }
 
-            return _subject.ToList();
+            return new(_subject);
         }
 
         /// <summary>Provides SnapshotObjects.</summary>
         /// <returns>The result.</returns>
-        private object?[] SnapshotObjects() => Snapshot().Cast<object?>().ToArray();
+        private object?[] SnapshotObjects()
+        {
+            var snapshot = Snapshot();
+            var objects = new object?[snapshot.Count];
+            for (var i = 0; i < snapshot.Count; i++)
+            {
+                objects[i] = snapshot[i];
+            }
+
+            return objects;
+        }
     }
 
     /// <summary>Provides ActionAssertions.</summary>
     internal sealed class ActionAssertions
     {
+        /// <summary>The assertion subject.</summary>
         private readonly Action _subject;
 
         /// <summary>Initializes a new instance of the <see cref="ActionAssertions"/> class.</summary>
         /// <param name="subject">The subject value.</param>
-        public ActionAssertions(Action subject) => _subject = subject;
+        internal ActionAssertions(Action subject) => _subject = subject;
 
         /// <summary>Provides Throw.</summary>
         /// <typeparam name="TException">The TException type.</typeparam>
         /// <returns>The result.</returns>
-        public ExceptionAssertions<TException> Throw<TException>()
+        internal ExceptionAssertions<TException> Throw<TException>()
             where TException : Exception
         {
             try
@@ -1119,7 +1173,7 @@ internal static class AssertionExtensions
             }
             catch (Exception exception) when (exception is TException typed)
             {
-                return new ExceptionAssertions<TException>(typed);
+                return new(typed);
             }
             catch (Exception exception)
             {
@@ -1132,7 +1186,7 @@ internal static class AssertionExtensions
 
         /// <summary>Provides NotThrow.</summary>
         /// <returns>The result.</returns>
-        public ActionAssertions NotThrow()
+        internal ActionAssertions NotThrow()
         {
             try
             {
@@ -1150,15 +1204,16 @@ internal static class AssertionExtensions
     /// <summary>Provides FuncTaskAssertions.</summary>
     internal sealed class FuncTaskAssertions
     {
+        /// <summary>The assertion subject.</summary>
         private readonly Func<Task> _subject;
 
         /// <summary>Initializes a new instance of the <see cref="FuncTaskAssertions"/> class.</summary>
         /// <param name="subject">The subject value.</param>
-        public FuncTaskAssertions(Func<Task> subject) => _subject = subject;
+        internal FuncTaskAssertions(Func<Task> subject) => _subject = subject;
 
         /// <summary>Provides NotThrowAsync.</summary>
         /// <returns>The result.</returns>
-        public async Task<FuncTaskAssertions> NotThrowAsync()
+        internal async Task<FuncTaskAssertions> NotThrowAsync()
         {
             try
             {
@@ -1180,15 +1235,15 @@ internal static class AssertionExtensions
     {
         /// <summary>Initializes a new instance of the ExceptionAssertions class.</summary>
         /// <param name="exception">The exception value.</param>
-        public ExceptionAssertions(TException exception) => Which = exception;
+        internal ExceptionAssertions(TException exception) => Which = exception;
 
         /// <summary>Gets Which.</summary>
-        public TException Which { get; }
+        internal TException Which { get; }
 
         /// <summary>Provides WithParameterName.</summary>
         /// <param name="expected">The expected value.</param>
         /// <returns>The result.</returns>
-        public ExceptionAssertions<TException> WithParameterName(string expected)
+        internal ExceptionAssertions<TException> WithParameterName(string expected)
         {
             if (Which is ArgumentException argumentException)
             {
@@ -1207,7 +1262,7 @@ internal static class AssertionExtensions
         /// <summary>Provides WithInnerException.</summary>
         /// <returns>The result.</returns>
         /// <typeparam name="TInnerException">The TInnerException type.</typeparam>
-        public ExceptionAssertions<TException> WithInnerException<TInnerException>()
+        internal ExceptionAssertions<TException> WithInnerException<TInnerException>()
             where TInnerException : Exception
         {
             if (Which.InnerException is not TInnerException)

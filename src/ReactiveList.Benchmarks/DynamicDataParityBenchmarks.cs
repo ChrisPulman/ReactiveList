@@ -12,26 +12,38 @@ using DynamicData.Binding;
 
 namespace ReactiveList.Benchmarks;
 
-/// <summary>Provides DynamicDataParityBenchmarks.</summary>
+/// <summary>Benchmarks ReactiveList and DynamicData pipelines with equivalent observable behavior.</summary>
 [MemoryDiagnoser]
 public class DynamicDataParityBenchmarks
 {
+    /// <summary>Identifies the even values used by parity-based pipelines.</summary>
     private const int ParityDivisor = 2;
 
+    /// <summary>Scales values emitted by transform benchmarks.</summary>
     private const int TransformMultiplier = 2;
 
+    /// <summary>Stores the sequential values supplied to each benchmark invocation.</summary>
     private int[] _data = [];
 
-    /// <summary>Gets or sets the item count.</summary>
+    /// <summary>Gets or sets the number of sequential items supplied to each benchmark.</summary>
     [Params(1_000, 10_000)]
     public int Count { get; set; }
 
-    /// <summary>Provides Setup.</summary>
+    /// <summary>Initializes the sequential source data for the configured item count.</summary>
     [GlobalSetup]
-    public void Setup() => _data = Enumerable.Range(0, Count).ToArray();
+    public void Setup()
+    {
+        var data = new int[Count];
+        for (var index = 0; index < data.Length; index++)
+        {
+            data[index] = index;
+        }
 
-    /// <summary>Provides ReactiveList_Connect_Preloaded_InitialSnapshot.</summary>
-    /// <returns>The result.</returns>
+        _data = data;
+    }
+
+    /// <summary>Benchmarks the initial snapshot delivered when connecting to a preloaded ReactiveList.</summary>
+    /// <returns>The number of changes reported by the observer.</returns>
     [Benchmark]
     public int ReactiveList_Connect_Preloaded_InitialSnapshot()
     {
@@ -41,8 +53,8 @@ public class DynamicDataParityBenchmarks
         return total;
     }
 
-    /// <summary>Provides SourceList_Connect_Preloaded_InitialSnapshot.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Benchmarks the initial snapshot delivered when connecting to a preloaded SourceList.</summary>
+    /// <returns>The number of changes reported by the observer.</returns>
     [Benchmark]
     public int SourceList_Connect_Preloaded_InitialSnapshot()
     {
@@ -53,14 +65,14 @@ public class DynamicDataParityBenchmarks
         return total;
     }
 
-    /// <summary>Provides ReactiveList_FilterTransformSort.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Benchmarks filtering, transforming, and sorting a ReactiveList change stream.</summary>
+    /// <returns>The number of changes delivered by the pipeline.</returns>
     [Benchmark]
     public int ReactiveList_FilterTransformSort()
     {
         using var list = new ReactiveList<int>();
         var total = 0;
-        var pipeline = CP.Primitives.ReactiveListExtensions.SortBy<int, int>(
+        var pipeline = CP.Primitives.ReactiveListExtensions.SortBy(
             list.Connect()
                 .WhereChanges(static change => change.Current % ParityDivisor == 0)
                 .SelectChanges(static item => item * TransformMultiplier),
@@ -71,8 +83,8 @@ public class DynamicDataParityBenchmarks
         return total;
     }
 
-    /// <summary>Provides SourceList_FilterTransformSortBind.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Benchmarks filtering, transforming, sorting, and binding a SourceList change stream.</summary>
+    /// <returns>The number of values in the bound collection.</returns>
     [Benchmark]
     public int SourceList_FilterTransformSortBind()
     {
@@ -82,14 +94,14 @@ public class DynamicDataParityBenchmarks
             .Transform(static item => item * TransformMultiplier)
             .Sort(SortExpressionComparer<int>.Ascending(static item => item))
             .Bind(out ReadOnlyObservableCollection<int> bound)
-            .SubscribeObserver(_ => { });
+            .SubscribeObserver(static _ => { });
 
         list.AddRange(_data);
         return bound.Count;
     }
 
-    /// <summary>Provides ReactiveList_INCC_AddRange_WithItemsSubscriber.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Benchmarks item collection-change events raised by a ReactiveList add range.</summary>
+    /// <returns>The number of collection-change events raised.</returns>
     [Benchmark]
     public int ReactiveList_INCC_AddRange_WithItemsSubscriber()
     {
@@ -101,15 +113,15 @@ public class DynamicDataParityBenchmarks
         return events;
     }
 
-    /// <summary>Provides SourceList_INCC_AddRange_WithBoundSubscriber.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Benchmarks bound collection-change events raised by a SourceList add range.</summary>
+    /// <returns>The number of collection-change events raised.</returns>
     [Benchmark]
     public int SourceList_INCC_AddRange_WithBoundSubscriber()
     {
         using var list = new SourceList<int>();
         using var subscription = list.Connect()
             .Bind(out ReadOnlyObservableCollection<int> bound)
-            .SubscribeObserver(_ => { });
+            .SubscribeObserver(static _ => { });
         var events = 0;
         ((INotifyCollectionChanged)bound).CollectionChanged += (_, _) => events++;
 
@@ -117,8 +129,8 @@ public class DynamicDataParityBenchmarks
         return events;
     }
 
-    /// <summary>Provides QuaternaryList_Stream_AddRange_DeliveryWait.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Benchmarks delivery of a QuaternaryList stream notification for an add range.</summary>
+    /// <returns>The number of stream notifications received.</returns>
     [Benchmark]
     public int QuaternaryList_Stream_AddRange_DeliveryWait()
     {
@@ -133,12 +145,12 @@ public class DynamicDataParityBenchmarks
         });
 
         list.AddRange(_data);
-        delivered.Wait(TimeSpan.FromSeconds(1));
+        _ = delivered.Wait(TimeSpan.FromSeconds(1));
         return events;
     }
 
-    /// <summary>Provides SourceList_Stream_AddRange_Delivery.</summary>
-    /// <returns>The result.</returns>
+    /// <summary>Benchmarks delivery of a SourceList change stream notification for an add range.</summary>
+    /// <returns>The number of change stream notifications received.</returns>
     [Benchmark]
     public int SourceList_Stream_AddRange_Delivery()
     {

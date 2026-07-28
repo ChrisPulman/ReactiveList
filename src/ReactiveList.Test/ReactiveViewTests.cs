@@ -4,6 +4,7 @@
 
 using System;
 using System.Buffers;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using CP.Primitives.Core;
 using CP.Primitives.Views;
@@ -15,18 +16,24 @@ namespace ReactiveList.Test;
 /// <summary>Tests for ReactiveView.</summary>
 public class ReactiveViewTests
 {
+    /// <summary>The notification timeout in seconds.</summary>
+    private const int NotificationTimeoutSeconds = 5;
+
+    /// <summary>The maximum time to wait for a buffered view notification.</summary>
+    private static readonly TimeSpan NotificationTimeout = TimeSpan.FromSeconds(NotificationTimeoutSeconds);
+
     /// <summary>Constructor should throw when stream is null.</summary>
     [Test]
     public void Constructor_WithNullStream_ShouldThrow()
     {
-        var act = () => new ReactiveView<string>(
+        var act = static () => new ReactiveView<string>(
             null!,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName("stream");
     }
 
@@ -43,7 +50,7 @@ public class ReactiveViewTests
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName("filter");
     }
 
@@ -57,11 +64,11 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             snapshot,
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        view.Items.Should().BeEquivalentTo(["one", "two", TestData.ThreeText]);
+        _ = view.Items.Should().BeEquivalentTo(["one", "two", TestData.ThreeText]);
     }
 
     /// <summary>Constructor should filter snapshot items.</summary>
@@ -74,11 +81,11 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             snapshot,
-            s => s.StartsWith("a"),
+            static s => s.Length > 0 && s[0] == 'a',
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
+        _ = view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
     }
 
     /// <summary>Constructor with null snapshot should not throw.</summary>
@@ -92,12 +99,12 @@ public class ReactiveViewTests
             using var view = new ReactiveView<string>(
                 subject,
                 null!,
-                _ => true,
+                static _ => true,
                 TimeSpan.FromMilliseconds(TestData.TestValueTen),
                 Sequencer.Immediate);
         };
 
-        act.Should().NotThrow();
+        _ = act.Should().NotThrow();
     }
 
     /// <summary>Items property should be read-only.</summary>
@@ -109,11 +116,11 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             ["test"],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        view.Items.Should().BeOfType<System.Collections.ObjectModel.ReadOnlyObservableCollection<string>>();
+        _ = view.Items.Should().BeOfType<System.Collections.ObjectModel.ReadOnlyObservableCollection<string>>();
     }
 
     /// <summary>Added notification should add item to view.</summary>
@@ -126,15 +133,15 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, "newItem"));
+        subject.OnNext(new(CacheAction.Added, "newItem"));
 
         await Task.Delay(TestData.TestValueFifty); // Wait for buffer
 
-        view.Items.Should().Contain("newItem");
+        _ = view.Items.Should().Contain("newItem");
     }
 
     /// <summary>Added notification with filter should only add matching items.</summary>
@@ -147,16 +154,16 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             [],
-            s => s.Length > 3,
+            static s => s.Length > 3,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, "ab"));
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, "abcd"));
+        subject.OnNext(new(CacheAction.Added, "ab"));
+        subject.OnNext(new(CacheAction.Added, "abcd"));
 
         await Task.Delay(TestData.TestValueFifty);
 
-        view.Items.Should().BeEquivalentTo(["abcd"]);
+        _ = view.Items.Should().BeEquivalentTo(["abcd"]);
     }
 
     /// <summary>Removed notification should remove item from view.</summary>
@@ -169,15 +176,15 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             ["one", "two", TestData.ThreeText],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.Removed, "two"));
+        subject.OnNext(new(CacheAction.Removed, "two"));
 
         await Task.Delay(TestData.TestValueFifty);
 
-        view.Items.Should().BeEquivalentTo(["one", TestData.ThreeText]);
+        _ = view.Items.Should().BeEquivalentTo(["one", TestData.ThreeText]);
     }
 
     /// <summary>Cleared notification should clear view.</summary>
@@ -190,15 +197,15 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             ["one", "two", TestData.ThreeText],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.Cleared, null));
+        subject.OnNext(new(CacheAction.Cleared, null));
 
         await Task.Delay(TestData.TestValueFifty);
 
-        view.Items.Should().BeEmpty();
+        _ = view.Items.Should().BeEmpty();
     }
 
     /// <summary>BatchOperation notification should add batch items.</summary>
@@ -211,7 +218,7 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
@@ -221,11 +228,11 @@ public class ReactiveViewTests
         array[TestData.TestValueTwo] = "item3";
         var batch = new PooledBatch<string>(array, TestData.TestValueThree);
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.BatchOperation, null, batch));
+        subject.OnNext(new(CacheAction.BatchOperation, null, batch));
 
         await Task.Delay(TestData.TestValueFifty);
 
-        view.Items.Should().BeEquivalentTo(["item1", "item2", "item3"]);
+        _ = view.Items.Should().BeEquivalentTo(["item1", "item2", "item3"]);
     }
 
     /// <summary>BatchOperation with filter should only add matching items.</summary>
@@ -238,7 +245,7 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             [],
-            s => s.StartsWith("a"),
+            static s => s.Length > 0 && s[0] == 'a',
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
@@ -248,11 +255,11 @@ public class ReactiveViewTests
         array[TestData.TestValueTwo] = TestData.ApricotText;
         var batch = new PooledBatch<string>(array, TestData.TestValueThree);
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.BatchOperation, null, batch));
+        subject.OnNext(new(CacheAction.BatchOperation, null, batch));
 
         await Task.Delay(TestData.TestValueFifty);
 
-        view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
+        _ = view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
     }
 
     /// <summary>ToProperty should set property.</summary>
@@ -265,14 +272,14 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             ["test"],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        result.Should().BeSameAs(view);
-        capturedItems.Should().BeSameAs(view.Items);
+        _ = result.Should().BeSameAs(view);
+        _ = capturedItems.Should().BeSameAs(view.Items);
     }
 
     /// <summary>ToProperty should throw when setter is null.</summary>
@@ -284,13 +291,13 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         var act = () => view.ToProperty(null!);
 
-        act.Should().Throw<ArgumentNullException>()
+        _ = act.Should().Throw<ArgumentNullException>()
             .WithParameterName("propertySetter");
     }
 
@@ -303,13 +310,13 @@ public class ReactiveViewTests
         var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         var act = view.Dispose;
 
-        act.Should().NotThrow();
+        _ = act.Should().NotThrow();
     }
 
     /// <summary>Multiple dispose should be safe.</summary>
@@ -321,14 +328,14 @@ public class ReactiveViewTests
         var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         view.Dispose();
         var act = view.Dispose;
 
-        act.Should().NotThrow();
+        _ = act.Should().NotThrow();
     }
 
     /// <summary>PropertyChanged should fire when items updated.</summary>
@@ -337,30 +344,70 @@ public class ReactiveViewTests
     public async Task PropertyChanged_ShouldFireWhenItemsUpdated()
     {
         var subject = new Signal<CacheNotify<string>>();
-        var propertyChangedFired = false;
+        var propertyChanged = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         using var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         view.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName != "Items")
+            if (e.PropertyName != nameof(view.Items))
             {
                 return;
             }
 
-            propertyChangedFired = true;
+            _ = propertyChanged.TrySetResult(true);
         };
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, "test"));
+        subject.OnNext(new(CacheAction.Added, "test"));
 
+        await AssertCompletesAsync(propertyChanged.Task);
+        await TUnit.Assertions.Assert.That(await propertyChanged.Task).IsTrue();
+    }
+
+    /// <summary>PropertyChanged should preserve facade sender and unsubscription semantics.</summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
+    [Test]
+    public async Task PropertyChanged_ShouldRelayFacadeSenderAndAllowUnsubscription()
+    {
+        var subject = new Signal<CacheNotify<string>>();
+        var notificationCount = 0;
+        object? sender = null;
+
+        using var view = new ReactiveView<string>(
+            subject,
+            [],
+            static _ => true,
+            TimeSpan.FromMilliseconds(TestData.TestValueTen),
+            Sequencer.Immediate);
+
+        PropertyChangedEventHandler handler = (eventSender, eventArgs) =>
+        {
+            if (eventArgs.PropertyName != nameof(view.Items))
+            {
+                return;
+            }
+
+            sender = eventSender;
+            notificationCount++;
+        };
+
+        view.PropertyChanged += handler;
+        subject.OnNext(new(CacheAction.Added, "first"));
         await Task.Delay(TestData.TestValueFifty);
 
-        propertyChangedFired.Should().BeTrue();
+        await TUnit.Assertions.Assert.That(ReferenceEquals(sender, view)).IsTrue();
+        await TUnit.Assertions.Assert.That(notificationCount).IsEqualTo(1);
+
+        view.PropertyChanged -= handler;
+        subject.OnNext(new(CacheAction.Added, "second"));
+        await Task.Delay(TestData.TestValueFifty);
+
+        await TUnit.Assertions.Assert.That(notificationCount).IsEqualTo(1);
     }
 
     /// <summary>Added notification with null item should not add anything.</summary>
@@ -373,15 +420,15 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, null));
+        subject.OnNext(new(CacheAction.Added, null));
 
         await Task.Delay(TestData.TestValueFifty);
 
-        view.Items.Should().BeEmpty();
+        _ = view.Items.Should().BeEmpty();
     }
 
     /// <summary>Removed notification with null item should not throw.</summary>
@@ -394,13 +441,13 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             ["test"],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         var act = async () =>
         {
-            subject.OnNext(new CacheNotify<string>(CacheAction.Removed, null));
+            subject.OnNext(new(CacheAction.Removed, null));
             await Task.Delay(TestData.TestValueFifty);
         };
 
@@ -417,13 +464,13 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         var act = async () =>
         {
-            subject.OnNext(new CacheNotify<string>(CacheAction.BatchOperation, null, null));
+            subject.OnNext(new(CacheAction.BatchOperation, null));
             await Task.Delay(TestData.TestValueFifty);
         };
 
@@ -436,22 +483,35 @@ public class ReactiveViewTests
     public async Task View_ShouldBufferMultipleNotifications()
     {
         var subject = new Signal<CacheNotify<string>>();
+        var propertyChanged = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         using var view = new ReactiveView<string>(
             subject,
             [],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueFifty),
             Sequencer.Immediate);
 
+        view.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(view.Items))
+            {
+                return;
+            }
+
+            _ = propertyChanged.TrySetResult(true);
+        };
+
         // Send multiple notifications quickly
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, "one"));
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, "two"));
-        subject.OnNext(new CacheNotify<string>(CacheAction.Added, TestData.ThreeText));
+        subject.OnNext(new(CacheAction.Added, "one"));
+        subject.OnNext(new(CacheAction.Added, "two"));
+        subject.OnNext(new(CacheAction.Added, TestData.ThreeText));
 
-        await Task.Delay(TestData.TestValueOneHundred);
-
-        view.Items.Should().BeEquivalentTo(["one", "two", TestData.ThreeText]);
+        await AssertCompletesAsync(propertyChanged.Task);
+        await TUnit.Assertions.Assert.That(view.Items.Count).IsEqualTo(TestData.TestValueThree);
+        await TUnit.Assertions.Assert.That(view.Items[0]).IsEqualTo("one");
+        await TUnit.Assertions.Assert.That(view.Items[1]).IsEqualTo("two");
+        await TUnit.Assertions.Assert.That(view.Items[TestData.TestValueTwo]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Updated action should not add or remove.</summary>
@@ -464,15 +524,24 @@ public class ReactiveViewTests
         using var view = new ReactiveView<string>(
             subject,
             ["original"],
-            _ => true,
+            static _ => true,
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
         // Updated action is not handled in ApplyChange, so items should remain
-        subject.OnNext(new CacheNotify<string>(CacheAction.Updated, "updated"));
+        subject.OnNext(new(CacheAction.Updated, "updated"));
 
         await Task.Delay(TestData.TestValueFifty);
 
-        view.Items.Should().BeEquivalentTo(["original"]);
+        _ = view.Items.Should().BeEquivalentTo(["original"]);
+    }
+
+    /// <summary>Waits for an asynchronous view notification without relying on a scheduler-sensitive fixed delay.</summary>
+    /// <param name="task">The notification task to await.</param>
+    /// <returns>A task that completes when the notification arrives or the timeout is asserted.</returns>
+    private static async Task AssertCompletesAsync(Task task)
+    {
+        var completed = await Task.WhenAny(task, Task.Delay(NotificationTimeout));
+        await TUnit.Assertions.Assert.That(ReferenceEquals(completed, task)).IsTrue();
     }
 }

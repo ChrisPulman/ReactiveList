@@ -16,7 +16,7 @@ namespace ReactiveListTestApp.Models;
 /// <param name="LatencyMilliseconds">The simulated processing latency.</param>
 /// <param name="IsAlert">Whether the snapshot crosses an alert threshold.</param>
 /// <param name="UpdatedAt">The projection timestamp.</param>
-internal readonly record struct InstrumentSnapshot(
+public readonly record struct InstrumentSnapshot(
     long Sequence,
     int InstrumentId,
     string Symbol,

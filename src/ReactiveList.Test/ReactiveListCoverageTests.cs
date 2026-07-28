@@ -7,8 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.Serialization;
+using System.Threading.Tasks;
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
 using FluentAssertions;
@@ -28,24 +27,30 @@ public class ReactiveListCoverageTests
         var current = new List<string[]>();
         var removed = new List<string[]>();
 
-        using var changedSubscription = fixture.Changed.Subscribe(items => changed.Add(items.ToArray()));
-        using var currentSubscription = fixture.CurrentItems.Subscribe(items => current.Add(items.ToArray()));
-        using var removedSubscription = fixture.Removed.Subscribe(items => removed.Add(items.ToArray()));
+        using var changedSubscription = fixture.Changed.Subscribe(items => AddSnapshot(changed, items));
+        using var currentSubscription = fixture.CurrentItems.Subscribe(items => AddSnapshot(current, items));
+        using var removedSubscription = fixture.Removed.Subscribe(items => AddSnapshot(removed, items));
 
-        fixture.IsDisposed.Should().BeFalse();
-        fixture.IsFixedSize.Should().BeFalse();
-        fixture.IsReadOnly.Should().BeFalse();
-        fixture.IsSynchronized.Should().BeFalse();
-        fixture.SyncRoot.Should().BeSameAs(fixture);
+        _ = fixture.IsDisposed.Should().BeFalse();
+        _ = fixture.IsFixedSize.Should().BeFalse();
+        _ = fixture.IsReadOnly.Should().BeFalse();
+        _ = fixture.IsSynchronized.Should().BeFalse();
+        _ = fixture.SyncRoot.Should().BeSameAs(fixture);
 
         fixture.Add("one");
         fixture.Update("one", "uno");
-        fixture.Remove("uno");
+        _ = fixture.Remove("uno");
 
-        changed.SelectMany(items => items).Should().Contain(["one", "uno"]);
-        current.Should().NotBeEmpty();
-        current[current.Count - 1].Should().BeEmpty();
-        removed.Should().ContainSingle()
+        var changedItems = new List<string>();
+        foreach (var snapshot in changed)
+        {
+            changedItems.AddRange(snapshot);
+        }
+
+        _ = changedItems.Should().Contain(["one", "uno"]);
+        _ = current.Should().NotBeEmpty();
+        _ = current[current.Count - 1].Should().BeEmpty();
+        _ = removed.Should().ContainSingle()
             .Which.Should().Equal("uno");
     }
 
@@ -56,26 +61,26 @@ public class ReactiveListCoverageTests
         ReactiveList<string> fixture = ["one", "two"];
         var list = (IList)fixture;
 
-        list[0].Should().Be("one");
+        _ = list[0].Should().Be("one");
         list[0] = "zero";
-        fixture[0].Should().Be("zero");
+        _ = fixture[0].Should().Be("zero");
 
-        list.Add(TestData.ThreeText).Should().Be(TestData.TestValueTwo);
+        _ = list.Add(TestData.ThreeText).Should().Be(TestData.TestValueTwo);
         list.Insert(1, "inserted");
-        list.Contains("two").Should().BeTrue();
-        list.Contains(TestData.TestValueFortyTwo).Should().BeFalse();
-        list.IndexOf(TestData.ThreeText).Should().Be(TestData.TestValueThree);
-        list.IndexOf(TestData.TestValueFortyTwo).Should().Be(-1);
+        _ = list.Contains("two").Should().BeTrue();
+        _ = list.Contains(TestData.TestValueFortyTwo).Should().BeFalse();
+        _ = list.IndexOf(TestData.ThreeText).Should().Be(TestData.TestValueThree);
+        _ = list.IndexOf(TestData.TestValueFortyTwo).Should().Be(-1);
         list.Remove("inserted");
         list.Remove(TestData.TestValueFortyTwo);
 
         var objects = new object[fixture.Count];
         ((ICollection)fixture).CopyTo(objects, 0);
-        objects.Should().Equal("zero", "two", TestData.ThreeText);
+        _ = objects.Should().Equal("zero", "two", TestData.ThreeText);
 
         var typed = new string[fixture.Count];
         ((ICollection)fixture).CopyTo(typed, 0);
-        typed.Should().Equal("zero", "two", TestData.ThreeText);
+        _ = typed.Should().Equal("zero", "two", TestData.ThreeText);
 
         Action addWrongType = () => list.Add(TestData.TestValueFortyTwo);
         Action insertWrongType = () => list.Insert(0, TestData.TestValueFortyTwo);
@@ -84,53 +89,57 @@ public class ReactiveListCoverageTests
         Action copyNonZeroLowerBound = () => ((ICollection)fixture).CopyTo(Array.CreateInstance(typeof(string), [TestData.TestValueThree], [1]), 0);
         Action copyNegativeIndex = () => ((ICollection)fixture).CopyTo(new string[3], -1);
         Action copyTooSmall = () => ((ICollection)fixture).CopyTo(new string[2], 0);
-        Action copyInvalidArrayType = () => ((ICollection)new ReactiveList<int>([1])).CopyTo(new string[1], 0);
+        Action copyInvalidArrayType = static () =>
+        {
+            using var invalidFixture = new ReactiveList<int>([1]);
+            ((ICollection)invalidFixture).CopyTo(new string[1], 0);
+        };
 
-        addWrongType.Should().Throw<InvalidCastException>();
-        insertWrongType.Should().Throw<InvalidCastException>();
-        copyNull.Should().Throw<ArgumentNullException>()
+        _ = addWrongType.Should().Throw<InvalidCastException>();
+        _ = insertWrongType.Should().Throw<InvalidCastException>();
+        _ = copyNull.Should().Throw<ArgumentNullException>()
             .WithParameterName(TestData.ArrayParameterName);
-        copyMultiDimensional.Should().Throw<ArgumentException>()
+        _ = copyMultiDimensional.Should().Throw<ArgumentException>()
             .WithParameterName(TestData.ArrayParameterName);
-        copyNonZeroLowerBound.Should().Throw<ArgumentException>()
+        _ = copyNonZeroLowerBound.Should().Throw<ArgumentException>()
             .WithParameterName(TestData.ArrayParameterName);
-        copyNegativeIndex.Should().Throw<ArgumentOutOfRangeException>()
+        _ = copyNegativeIndex.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName(TestData.IndexParameterName);
-        copyTooSmall.Should().Throw<ArgumentException>()
+        _ = copyTooSmall.Should().Throw<ArgumentException>()
             .WithParameterName(TestData.ArrayParameterName);
-        copyInvalidArrayType.Should().Throw<ArgumentException>();
+        _ = copyInvalidArrayType.Should().Throw<ArgumentException>();
 
         list.Clear();
-        fixture.Count.Should().Be(0);
+        _ = fixture.Count.Should().Be(0);
     }
 
     /// <summary>Generic explicit members and empty batch branches should be no-ops.</summary>
     [Test]
     public void GenericExplicitMembersAndEmptyBatches_ShouldBehaveConsistently()
     {
-        ReactiveList<int> emptyFromEnumerable = new([]);
+        using ReactiveList<int> emptyFromEnumerable = new([]);
         ReactiveList<int> fixture = [1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour];
         var genericCollection = (ICollection<int>)fixture;
         var genericList = (IList<int>)fixture;
 
-        emptyFromEnumerable.Count.Should().Be(0);
-        genericList.IndexOf(TestData.TestValueThree).Should().Be(TestData.TestValueTwo);
-        ((IList)fixture).IndexOf(null).Should().Be(-1);
-        ((IList)fixture).Contains(null).Should().BeFalse();
+        _ = emptyFromEnumerable.Count.Should().Be(0);
+        _ = genericList.IndexOf(TestData.TestValueThree).Should().Be(TestData.TestValueTwo);
+        _ = ((IList)fixture).IndexOf(null).Should().Be(-1);
+        _ = ((IList)fixture).Contains(null).Should().BeFalse();
 
         fixture.AddRange(Array.Empty<int>());
         fixture.InsertRange(TestData.TestValueTwo, []);
         fixture.Remove([]);
         fixture.RemoveRange(0, 0);
 
-        fixture.Count.Should().Be(TestData.TestValueFour);
+        _ = fixture.Count.Should().Be(TestData.TestValueFour);
 
         genericList.RemoveAt(0);
         ((IList)fixture).RemoveAt(0);
-        fixture.Should().Equal(TestData.TestValueThree, TestData.TestValueFour);
+        _ = fixture.Should().Equal(TestData.TestValueThree, TestData.TestValueFour);
 
         genericCollection.Clear();
-        fixture.Count.Should().Be(0);
+        _ = fixture.Count.Should().Be(0);
     }
 
     /// <summary>Reactive2DList guard branches should validate outer indexes and null row values.</summary>
@@ -143,11 +152,11 @@ public class ReactiveListCoverageTests
         Action addSingleBadOuter = () => grid.AddToInner(-1, "b");
         Action insertNullItem = () => grid.Insert(0, (string)null!);
 
-        addManyBadOuter.Should().Throw<ArgumentOutOfRangeException>()
+        _ = addManyBadOuter.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("outerIndex");
-        addSingleBadOuter.Should().Throw<ArgumentOutOfRangeException>()
+        _ = addSingleBadOuter.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("outerIndex");
-        insertNullItem.Should().Throw<ArgumentNullException>()
+        _ = insertNullItem.Should().Throw<ArgumentNullException>()
             .WithParameterName("item");
     }
 
@@ -159,24 +168,24 @@ public class ReactiveListCoverageTests
     {
         ReactiveList<int> fixture = [1, TestData.TestValueTwo, TestData.TestValueThree];
 
-        fixture.ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
-        fixture.AsSpan().ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
-        fixture.AsMemory().ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
+        _ = fixture.ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
+        _ = fixture.AsSpan().ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
+        _ = fixture.AsMemory().ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
 
         var destination = new int[3];
         fixture.CopyTo(destination.AsSpan());
-        destination.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
+        _ = destination.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
 
         Action copyTooSmall = () => fixture.CopyTo(new int[2].AsSpan());
-        copyTooSmall.Should().Throw<ArgumentException>()
+        _ = copyTooSmall.Should().Throw<ArgumentException>()
             .WithParameterName("destination");
 
         fixture.AddRange(ReadOnlySpan<int>.Empty);
-        fixture.Count.Should().Be(TestData.TestValueThree);
+        _ = fixture.Count.Should().Be(TestData.TestValueThree);
 
         int[] values = [TestData.TestValueFour, TestData.TestValueFive];
         fixture.AddRange(values.AsSpan());
-        fixture.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive);
+        _ = fixture.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive);
     }
 #endif
 
@@ -191,25 +200,25 @@ public class ReactiveListCoverageTests
         fixture.PropertyChanged += (sender, args) => propertyNames.Add(args.PropertyName);
 
         fixture.ClearWithoutDeallocation(notifyChange: false);
-        propertyNames.Should().BeEmpty();
+        _ = propertyNames.Should().BeEmpty();
 
         fixture.ClearWithoutDeallocation();
-        propertyNames.Should().Equal(nameof(fixture.Count), "Item[]");
+        _ = propertyNames.Should().Equal(nameof(fixture.Count), "Item[]");
 
         fixture.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
         propertyNames.Clear();
         fixture.ClearWithoutDeallocation(notifyChange: false);
 
-        fixture.Count.Should().Be(0);
-        fixture.Items.Should().BeEmpty();
-        propertyNames.Should().BeEmpty();
+        _ = fixture.Count.Should().Be(0);
+        _ = fixture.Items.Should().BeEmpty();
+        _ = propertyNames.Should().BeEmpty();
 
         fixture.AddRange([TestData.TestValueFour, TestData.TestValueFive]);
         fixture.ClearWithoutDeallocation();
 
-        fixture.Count.Should().Be(0);
-        fixture.ItemsRemoved.Should().Equal(TestData.TestValueFour, TestData.TestValueFive);
-        fixture.ItemsChanged.Should().Equal(TestData.TestValueFour, TestData.TestValueFive);
+        _ = fixture.Count.Should().Be(0);
+        _ = fixture.ItemsRemoved.Should().Equal(TestData.TestValueFour, TestData.TestValueFive);
+        _ = fixture.ItemsChanged.Should().Equal(TestData.TestValueFour, TestData.TestValueFive);
     }
 #endif
 
@@ -219,12 +228,12 @@ public class ReactiveListCoverageTests
     {
         ReactiveList<int> fixture = [.. Enumerable.Range(0, TestData.TestValueForty)];
         var removed = new List<int[]>();
-        using var subscription = fixture.Removed.Subscribe(items => removed.Add(items.ToArray()));
+        using var subscription = fixture.Removed.Subscribe(items => AddSnapshot(removed, items));
 
         fixture.Remove([1, TestData.TestValueOneHundred, TestData.TestValueThree]);
 
-        fixture.Count.Should().Be(TestData.TestValueThirtyEight);
-        removed.Should().ContainSingle()
+        _ = fixture.Count.Should().Be(TestData.TestValueThirtyEight);
+        _ = removed.Should().ContainSingle()
             .Which.Should().Equal(1, TestData.TestValueThree);
 
         Action removeManyNull = () => fixture.RemoveMany(null!);
@@ -232,20 +241,20 @@ public class ReactiveListCoverageTests
         Action removeRangeBadIndex = () => fixture.RemoveRange(-1, 1);
         Action removeRangeBadCount = () => fixture.RemoveRange(0, fixture.Count + 1);
 
-        removeManyNull.Should().Throw<ArgumentNullException>()
+        _ = removeManyNull.Should().Throw<ArgumentNullException>()
             .WithParameterName("predicate");
-        removeAtInvalid.Should().Throw<ArgumentOutOfRangeException>()
+        _ = removeAtInvalid.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName(TestData.IndexParameterName);
-        removeRangeBadIndex.Should().Throw<ArgumentOutOfRangeException>()
+        _ = removeRangeBadIndex.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName(TestData.IndexParameterName);
-        removeRangeBadCount.Should().Throw<ArgumentOutOfRangeException>()
+        _ = removeRangeBadCount.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("count");
 
         fixture.RemoveRange(0, TestData.TestValueTwo);
-        var removedCount = fixture.RemoveMany(_ => true);
+        var removedCount = fixture.RemoveMany(static _ => true);
 
-        removedCount.Should().Be(TestData.TestValueThirtySix);
-        fixture.Count.Should().Be(0);
+        _ = removedCount.Should().Be(TestData.TestValueThirtySix);
+        _ = fixture.Count.Should().Be(0);
     }
 
     /// <summary>CollectionChanged should use specific actions for single changes and reset for batches.</summary>
@@ -257,19 +266,25 @@ public class ReactiveListCoverageTests
         fixture.CollectionChanged += (sender, args) => events.Add(args);
 
         fixture.Add("four");
-        fixture.Remove("four");
+        _ = fixture.Remove("four");
         fixture.Move(0, 1);
         fixture.AddRange(["five", "six"]);
 
-        events.Select(args => args.Action).Should().Equal(
+        var actions = new List<NotifyCollectionChangedAction>(events.Count);
+        foreach (var eventArgs in events)
+        {
+            actions.Add(eventArgs.Action);
+        }
+
+        _ = actions.Should().Equal(
             NotifyCollectionChangedAction.Add,
             NotifyCollectionChangedAction.Remove,
             NotifyCollectionChangedAction.Move,
             NotifyCollectionChangedAction.Reset);
-        events[0].NewStartingIndex.Should().Be(TestData.TestValueThree);
-        events[1].OldStartingIndex.Should().Be(TestData.TestValueThree);
-        events[TestData.TestValueTwo].OldStartingIndex.Should().Be(0);
-        events[TestData.TestValueTwo].NewStartingIndex.Should().Be(1);
+        _ = events[0].NewStartingIndex.Should().Be(TestData.TestValueThree);
+        _ = events[1].OldStartingIndex.Should().Be(TestData.TestValueThree);
+        _ = events[TestData.TestValueTwo].OldStartingIndex.Should().Be(0);
+        _ = events[TestData.TestValueTwo].NewStartingIndex.Should().Be(1);
     }
 
     /// <summary>ReplaceAll should emit old and new batches when either side is populated.</summary>
@@ -287,8 +302,8 @@ public class ReactiveListCoverageTests
         fixture.ReplaceAll(["one", "two"]);
         fixture.ReplaceAll([]);
 
-        fixture.Count.Should().Be(0);
-        actions.Should().Equal(CacheAction.BatchAdded, CacheAction.BatchRemoved);
+        _ = fixture.Count.Should().Be(0);
+        _ = actions.Should().Equal(CacheAction.BatchAdded, CacheAction.BatchRemoved);
     }
 
     /// <summary>Subscribe should delegate to CurrentItems and Dispose should release resources.</summary>
@@ -300,92 +315,71 @@ public class ReactiveListCoverageTests
         using var subscription = fixture.Subscribe(observer);
 
         fixture.Add(TestData.TestValueTen);
-        observer.Snapshots.Should().HaveCountGreaterThanOrEqualTo(TestData.TestValueTwo);
-        observer.Snapshots[observer.Snapshots.Count - 1].Should().Equal(TestData.TestValueTen);
+        _ = observer.Snapshots.Should().HaveCountGreaterThanOrEqualTo(TestData.TestValueTwo);
+        _ = observer.Snapshots[observer.Snapshots.Count - 1].Should().Equal(TestData.TestValueTen);
 
         fixture.Dispose();
 
-        fixture.IsDisposed.Should().BeTrue();
+        _ = fixture.IsDisposed.Should().BeTrue();
 
         using var disposeHarness = new DisposeHarness<int>();
         disposeHarness.DisposeWithoutManagedResources();
-        disposeHarness.IsDisposed.Should().BeFalse();
+        _ = disposeHarness.IsDisposed.Should().BeFalse();
     }
 
-    /// <summary>
-    /// Private notification helpers should preserve stream and range collection behavior for otherwise unreachable no-op paths.
-    /// </summary>
+    /// <summary>Public notification paths should preserve stream behavior and handle empty batch no-ops.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public void InternalNotificationHelpers_ShouldHandleEmptyAndRefreshBranches()
+    public async Task NotificationPaths_ShouldHandleEmptyAndChangedBranches()
     {
         ReactiveList<int> fixture = [];
-        ReactiveList<int> deserializedFixture = [];
         var stream = new List<CacheNotify<int>>();
-        ReactiveList<string> referenceFixture = [];
-        var changed = new List<string[]>();
+        var changed = new List<int[]>();
 
+        using var changedSubscription = fixture.Changed.Subscribe(items => AddSnapshot(changed, items));
         using var streamSubscription = fixture.Stream.Subscribe(notification =>
         {
             stream.Add(notification);
             notification.Batch?.Dispose();
         });
-        using var changedSubscription = referenceFixture.Changed.Subscribe(items => changed.Add(items.ToArray()));
 
         fixture.AddRange((IEnumerable<int>)Array.Empty<int>());
 
         Action setInvalidIndex = () => fixture[0] = 1;
-        setInvalidIndex.Should().Throw<ArgumentOutOfRangeException>()
+        _ = setInvalidIndex.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName(TestData.IndexParameterName);
 
-        InvokePrivate(deserializedFixture, "OnDeserialized", default(StreamingContext));
-        InvokePrivate(fixture, "OnPropertyChanged", "Custom");
-        InvokePrivate(fixture, "NotifyCleared", Array.Empty<int>(), true);
-        InvokePrivate(fixture, "NotifyCleared", Array.Empty<int>(), false);
-        InvokePrivate(fixture, "NotifyAdded", TestData.TestValueOneHundred, -1, false);
-        InvokePrivate(fixture, "NotifyRemoved", TestData.TestValueOneHundred, 0, false);
-        InvokePrivate(fixture, "NotifyChangedSingle", TestData.TestValueFortyTwo, ChangeReason.Refresh, -1, -1, default(int));
-        InvokePrivate(fixture, "NotifyChangedSingle", TestData.TestValueFortyThree, (ChangeReason)TestData.TestValueInvalidEnumValue, -1, -1, default(int));
-        InvokePrivate(referenceFixture, "EmitStream", CacheAction.Updated, null, null, -1, -1, null);
+        await TUnit.Assertions.Assert.That(stream.Count).IsEqualTo(0);
+        await TUnit.Assertions.Assert.That(changed.Count).IsEqualTo(0);
 
-        var observableItems = GetPrivateField(fixture, "_observableItems");
-        var observableItemsType = observableItems.GetType();
-        var addRangeMethod = observableItemsType.GetMethod("AddRange") ?? throw new MissingMethodException(observableItemsType.FullName, "AddRange");
-        var insertRangeMethod = observableItemsType.GetMethod("InsertRange") ?? throw new MissingMethodException(observableItemsType.FullName, "InsertRange");
-        var removeRangeMethod = observableItemsType.GetMethod("RemoveRange") ?? throw new MissingMethodException(observableItemsType.FullName, "RemoveRange");
-        addRangeMethod.Invoke(observableItems, [Array.Empty<int>()]);
-        insertRangeMethod.Invoke(observableItems, [0, Array.Empty<int>()]);
-        removeRangeMethod.Invoke(observableItems, [0, 0]);
+        fixture.Add(TestData.TestValueFortyTwo);
+        fixture[0] = TestData.TestValueFortyThree;
+        fixture.Clear();
 
-        stream.Select(notification => notification.Action).Should().Contain(
-            [CacheAction.Cleared, CacheAction.Refreshed]);
-        changed.Any(static items => items.Length == 0).Should().BeTrue();
+        var actions = new List<CacheAction>(stream.Count);
+        foreach (var notification in stream)
+        {
+            actions.Add(notification.Action);
+        }
+
+        await TUnit.Assertions.Assert.That(actions.Count).IsEqualTo(TestData.TestValueThree);
+        await TUnit.Assertions.Assert.That(actions[0]).IsEqualTo(CacheAction.Added);
+        await TUnit.Assertions.Assert.That(actions[1]).IsEqualTo(CacheAction.Updated);
+        await TUnit.Assertions.Assert.That(actions[TestData.TestValueTwo]).IsEqualTo(CacheAction.Cleared);
+        await TUnit.Assertions.Assert.That(changed.Count).IsEqualTo(TestData.TestValueThree);
+        await TUnit.Assertions.Assert.That(changed[0][0]).IsEqualTo(TestData.TestValueFortyTwo);
+        await TUnit.Assertions.Assert.That(changed[1][0]).IsEqualTo(TestData.TestValueFortyThree);
+        await TUnit.Assertions.Assert.That(changed[TestData.TestValueTwo][0]).IsEqualTo(TestData.TestValueFortyThree);
     }
 
-    /// <summary>Provides GetPrivateField.</summary>
-    /// <typeparam name="T">The T type.</typeparam>
-    /// <param name="target">The target value.</param>
-    /// <param name="fieldName">The fieldName value.</param>
-    /// <returns>The result.</returns>
-    private static object GetPrivateField<T>(ReactiveList<T> target, string fieldName)
-        where T : notnull
+    /// <summary>Adds an explicit snapshot without LINQ allocation overhead.</summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="snapshots">The destination snapshot collection.</param>
+    /// <param name="items">The items to snapshot.</param>
+    private static void AddSnapshot<T>(List<T[]> snapshots, IEnumerable<T> items)
     {
-        var field = typeof(ReactiveList<T>).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new MissingFieldException(typeof(ReactiveList<T>).FullName, fieldName);
-        return field.GetValue(target) ?? throw new InvalidOperationException($"Field '{fieldName}' returned null.");
-    }
-
-    /// <summary>Provides InvokePrivate.</summary>
-    /// <typeparam name="T">The T type.</typeparam>
-    /// <param name="target">The target value.</param>
-    /// <param name="methodName">The methodName value.</param>
-    /// <param name="args">The args value.</param>
-    /// <returns>The result.</returns>
-    private static object? InvokePrivate<T>(ReactiveList<T> target, string methodName, params object?[] args)
-        where T : notnull
-    {
-        var method = typeof(ReactiveList<T>).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new MissingMethodException(typeof(ReactiveList<T>).FullName, methodName);
-        return method.Invoke(target, args);
+        var snapshot = new List<T>(items);
+        snapshots.Add([.. snapshot]);
     }
 
     /// <summary>Provides DisposeHarness.</summary>
@@ -417,6 +411,6 @@ public class ReactiveListCoverageTests
 
         /// <summary>Provides OnNext.</summary>
         /// <param name="value">The value.</param>
-        public void OnNext(IEnumerable<T> value) => Snapshots.Add(value.ToArray());
+        public void OnNext(IEnumerable<T> value) => AddSnapshot(Snapshots, value);
     }
 }

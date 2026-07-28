@@ -14,8 +14,10 @@ namespace CP.Primitives.Core;
 public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T>
     where TKey : notnull
 {
+    /// <summary>The fixed number of independently locked shards.</summary>
     private const int ShardCount = 4;
 
+    /// <summary>The hash buckets used to partition indexed values.</summary>
     private readonly ConcurrentDictionary<TKey, HashSet<T>>[] _shards =
     [
         new ConcurrentDictionary<TKey, HashSet<T>>(),
@@ -33,20 +35,20 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
         var s = GetShardIndex(key);
 
 #if NETFRAMEWORK
-        var set = _shards[s].GetOrAdd(key, _ => []);
+        var set = _shards[s].GetOrAdd(key, static _ => []);
         lock (set)
         {
-            set.Add(item);
+            _ = set.Add(item);
         }
 #else
-        _shards[s].AddOrUpdate(
+        _ = _shards[s].AddOrUpdate(
             key,
             addValueFactory: static (_, newItem) => [newItem],
-            updateValueFactory: static (_, set, newItem) =>
+            updateValueFactory: static (key, set, newItem) =>
             {
                 lock (set)
                 {
-                    set.Add(newItem);
+                    _ = set.Add(newItem);
                 }
 
                 return set;
@@ -70,10 +72,10 @@ public class SecondaryIndex<T, TKey>(Func<T, TKey> selector) : ISecondaryIndex<T
 
         lock (set)
         {
-            set.Remove(item);
+            _ = set.Remove(item);
             if (set.Count == 0)
             {
-                _shards[s].TryRemove(key, out _);
+                _ = _shards[s].TryRemove(key, out _);
             }
         }
     }

@@ -19,6 +19,12 @@ namespace CP.Primitives.Collections;
 public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IReactiveSource<T>, INotifyPropertyChanged
     where T : notnull
 {
+    /// <summary>Gets the number of elements contained in the list.</summary>
+    new int Count { get; }
+
+    /// <summary>Gets a value indicating whether the list is read-only.</summary>
+    new bool IsReadOnly { get; }
+
     /// <summary>Gets the added.</summary>
     /// <value>
     /// The added.
@@ -66,6 +72,15 @@ public interface IReactiveList<T> : IList<T>, IList, IReadOnlyList<T>, IReactive
     /// The removed.
     /// </value>
     IObservable<IEnumerable<T>> Removed { get; }
+
+    /// <summary>Gets or sets the element at the specified index.</summary>
+    /// <param name="index">The zero-based index of the element to get or set.</param>
+    /// <returns>The element at the specified index.</returns>
+    new T this[int index] { get; set; }
+
+    /// <summary>Returns an enumerator that iterates through the list.</summary>
+    /// <returns>An enumerator for the list.</returns>
+    new IEnumerator<T> GetEnumerator();
 
     /// <summary>Adds the range.</summary>
     /// <param name="items">The items.</param>

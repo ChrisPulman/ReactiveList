@@ -14,9 +14,9 @@ internal static class BitOperationsCompat
     /// <param name="value">The value.</param>
     /// <returns>The integer base-2 logarithm.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int Log2(uint value)
-    {
 #if NETFRAMEWORK
+    internal static int Log2(uint value)
+    {
         var result = 0;
         while ((value >>= 1) != 0)
         {
@@ -24,18 +24,18 @@ internal static class BitOperationsCompat
         }
 
         return result;
-#else
-        return System.Numerics.BitOperations.Log2(value);
-#endif
     }
+#else
+    internal static int Log2(uint value) => System.Numerics.BitOperations.Log2(value);
+#endif
 
     /// <summary>Rounds a value up to the next power of two.</summary>
     /// <param name="value">The value to round.</param>
     /// <returns>The rounded power-of-two value.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static uint RoundUpToPowerOf2(uint value)
-    {
 #if NETFRAMEWORK
+    internal static uint RoundUpToPowerOf2(uint value)
+    {
         if (value <= 1)
         {
             return 1;
@@ -48,8 +48,8 @@ internal static class BitOperationsCompat
         value |= value >> 8;
         value |= value >> 16;
         return value + 1;
-#else
-        return System.Numerics.BitOperations.RoundUpToPowerOf2(value);
-#endif
     }
+#else
+    internal static uint RoundUpToPowerOf2(uint value) => System.Numerics.BitOperations.RoundUpToPowerOf2(value);
+#endif
 }
