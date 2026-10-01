@@ -5,7 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using FluentAssertions;
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -29,62 +29,68 @@ public class EditableListWrapperTests
     private const string UpdatedItem = "updated";
 
     /// <summary>Constructor should initialize with list only.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Constructor_WithListOnly_ShouldInitialize()
+    public async Task Constructor_WithListOnly_ShouldInitialize()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        _ = wrapper.Count.Should().Be(SecondOrdinal);
-        _ = wrapper[0].Should().Be("one");
-        _ = wrapper[1].Should().Be("two");
+        await Assert.That(wrapper.Count).IsEqualTo(SecondOrdinal);
+        await Assert.That(wrapper[0]).IsEqualTo("one");
+        await Assert.That(wrapper[1]).IsEqualTo("two");
     }
 
     /// <summary>Constructor should initialize with list and observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Constructor_WithListAndObservableCollection_ShouldInitialize()
+    public async Task Constructor_WithListAndObservableCollection_ShouldInitialize()
     {
         var list = new List<string> { "one", "two" };
         var observable = new ObservableCollection<string>(list);
         var wrapper = new EditableListWrapper<string>(list, observable);
 
-        _ = wrapper.Count.Should().Be(SecondOrdinal);
-        _ = observable.Count.Should().Be(SecondOrdinal);
+        await Assert.That(wrapper.Count).IsEqualTo(SecondOrdinal);
+        await Assert.That(observable.Count).IsEqualTo(SecondOrdinal);
     }
 
     /// <summary>IsReadOnly should return false.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void IsReadOnly_ShouldReturnFalse()
+    public async Task IsReadOnly_ShouldReturnFalse()
     {
         var wrapper = new EditableListWrapper<string>([]);
-        _ = wrapper.IsReadOnly.Should().BeFalse();
+        await Assert.That(wrapper.IsReadOnly).IsFalse();
     }
 
     /// <summary>Indexer get should return correct item.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Indexer_Get_ShouldReturnCorrectItem()
+    public async Task Indexer_Get_ShouldReturnCorrectItem()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
-        _ = wrapper[1].Should().Be("two");
+        await Assert.That(wrapper[1]).IsEqualTo("two");
     }
 
     /// <summary>Indexer set should update list only when no observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Indexer_Set_WithoutObservable_ShouldUpdateList()
+    public async Task Indexer_Set_WithoutObservable_ShouldUpdateList()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper[0] = UpdatedItem;
 
-        _ = list[0].Should().Be(UpdatedItem);
+        await Assert.That(list[0]).IsEqualTo(UpdatedItem);
     }
 
     /// <summary>Indexer set should update both list and observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Indexer_Set_WithObservable_ShouldUpdateBoth()
+    public async Task Indexer_Set_WithObservable_ShouldUpdateBoth()
     {
         var list = new List<string> { "one", "two" };
         var observable = new ObservableCollection<string>(list);
@@ -92,25 +98,27 @@ public class EditableListWrapperTests
 
         wrapper[0] = UpdatedItem;
 
-        _ = list[0].Should().Be(UpdatedItem);
-        _ = observable[0].Should().Be(UpdatedItem);
+        await Assert.That(list[0]).IsEqualTo(UpdatedItem);
+        await Assert.That(observable[0]).IsEqualTo(UpdatedItem);
     }
 
     /// <summary>Add should add to list only when no observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Add_WithoutObservable_ShouldAddToList()
+    public async Task Add_WithoutObservable_ShouldAddToList()
     {
         var list = new List<string>();
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.Add("item");
 
-        _ = list.Should().Contain("item");
+        await Assert.That(list).Contains("item");
     }
 
     /// <summary>Add should add to both list and observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Add_WithObservable_ShouldAddToBoth()
+    public async Task Add_WithObservable_ShouldAddToBoth()
     {
         var list = new List<string>();
         var observable = new ObservableCollection<string>();
@@ -118,25 +126,27 @@ public class EditableListWrapperTests
 
         wrapper.Add("item");
 
-        _ = list.Should().Contain("item");
-        _ = observable.Should().Contain("item");
+        await Assert.That(list).Contains("item");
+        await Assert.That(observable).Contains("item");
     }
 
     /// <summary>AddRange should add array items to list.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AddRange_WithArray_ShouldAddItems()
+    public async Task AddRange_WithArray_ShouldAddItems()
     {
         var list = new List<string>();
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.AddRange(["one", "two", ThirdItem]);
 
-        _ = list.Should().BeEquivalentTo(["one", "two", ThirdItem]);
+        await Assert.That(list).IsEquivalentTo(["one", "two", ThirdItem]);
     }
 
     /// <summary>AddRange should add items to both list and observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AddRange_WithObservable_ShouldAddToBoth()
+    public async Task AddRange_WithObservable_ShouldAddToBoth()
     {
         var list = new List<string>();
         var observable = new ObservableCollection<string>();
@@ -144,13 +154,14 @@ public class EditableListWrapperTests
 
         wrapper.AddRange(["one", "two"]);
 
-        _ = list.Should().BeEquivalentTo(["one", "two"]);
-        _ = observable.Should().BeEquivalentTo(["one", "two"]);
+        await Assert.That(list).IsEquivalentTo(["one", "two"]);
+        await Assert.That(observable).IsEquivalentTo(["one", "two"]);
     }
 
     /// <summary>AddRange should handle enumerable that is not array.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AddRange_WithEnumerable_ShouldAddItems()
+    public async Task AddRange_WithEnumerable_ShouldAddItems()
     {
         var list = new List<string>();
         var wrapper = new EditableListWrapper<string>(list);
@@ -158,24 +169,26 @@ public class EditableListWrapperTests
         var items = EnumerateRangeItems();
         wrapper.AddRange(items);
 
-        _ = list.Should().BeEquivalentTo(["item1", "item2", "item3"]);
+        await Assert.That(list).IsEquivalentTo(["item1", "item2", "item3"]);
     }
 
     /// <summary>Clear should clear list only when no observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Clear_WithoutObservable_ShouldClearList()
+    public async Task Clear_WithoutObservable_ShouldClearList()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.Clear();
 
-        _ = list.Should().BeEmpty();
+        await Assert.That(list).IsEmpty();
     }
 
     /// <summary>Clear should clear both list and observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Clear_WithObservable_ShouldClearBoth()
+    public async Task Clear_WithObservable_ShouldClearBoth()
     {
         var list = new List<string> { "one", "two" };
         var observable = new ObservableCollection<string>(list);
@@ -183,33 +196,36 @@ public class EditableListWrapperTests
 
         wrapper.Clear();
 
-        _ = list.Should().BeEmpty();
-        _ = observable.Should().BeEmpty();
+        await Assert.That(list).IsEmpty();
+        await Assert.That(observable).IsEmpty();
     }
 
     /// <summary>Contains should return true for existing item.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Contains_WithExistingItem_ShouldReturnTrue()
+    public async Task Contains_WithExistingItem_ShouldReturnTrue()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        _ = wrapper.Contains("one").Should().BeTrue();
+        await Assert.That(wrapper.Contains("one")).IsTrue();
     }
 
     /// <summary>Contains should return false for non-existing item.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Contains_WithNonExistingItem_ShouldReturnFalse()
+    public async Task Contains_WithNonExistingItem_ShouldReturnFalse()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        _ = wrapper.Contains(ThirdItem).Should().BeFalse();
+        await Assert.That(wrapper.Contains(ThirdItem)).IsFalse();
     }
 
     /// <summary>CopyTo should copy items to array.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CopyTo_ShouldCopyItemsToArray()
+    public async Task CopyTo_ShouldCopyItemsToArray()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
@@ -217,58 +233,63 @@ public class EditableListWrapperTests
 
         wrapper.CopyTo(array, 1);
 
-        _ = array[0].Should().BeNull();
-        _ = array[1].Should().Be("one");
-        _ = array[SecondOrdinal].Should().Be("two");
+        await Assert.That(array[0]).IsNull();
+        await Assert.That(array[1]).IsEqualTo("one");
+        await Assert.That(array[SecondOrdinal]).IsEqualTo("two");
     }
 
     /// <summary>GetEnumerator should enumerate items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GetEnumerator_ShouldEnumerateItems()
+    public async Task GetEnumerator_ShouldEnumerateItems()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         var items = new List<string>(wrapper);
 
-        _ = items.Should().BeEquivalentTo(["one", "two", ThirdItem]);
+        await Assert.That(items).IsEquivalentTo(["one", "two", ThirdItem]);
     }
 
     /// <summary>IndexOf should return correct index.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void IndexOf_ShouldReturnCorrectIndex()
+    public async Task IndexOf_ShouldReturnCorrectIndex()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
-        _ = wrapper.IndexOf("two").Should().Be(1);
+        await Assert.That(wrapper.IndexOf("two")).IsEqualTo(1);
     }
 
     /// <summary>IndexOf should return -1 for non-existing item.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void IndexOf_WithNonExistingItem_ShouldReturnNegativeOne()
+    public async Task IndexOf_WithNonExistingItem_ShouldReturnNegativeOne()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
-        _ = wrapper.IndexOf(ThirdItem).Should().Be(-1);
+        await Assert.That(wrapper.IndexOf(ThirdItem)).IsEqualTo(-1);
     }
 
     /// <summary>Insert should insert at correct position without observable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Insert_WithoutObservable_ShouldInsertAtPosition()
+    public async Task Insert_WithoutObservable_ShouldInsertAtPosition()
     {
         var list = new List<string> { "one", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.Insert(1, "two");
 
-        _ = list.Should().BeEquivalentTo(["one", "two", ThirdItem], static options => options.WithStrictOrdering());
+        await Assert.That(list).IsEquivalentTo(["one", "two", ThirdItem], CollectionOrdering.Matching);
     }
 
     /// <summary>Insert should insert at correct position with observable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Insert_WithObservable_ShouldInsertInBoth()
+    public async Task Insert_WithObservable_ShouldInsertInBoth()
     {
         var list = new List<string> { "one", ThirdItem };
         var observable = new ObservableCollection<string>(list);
@@ -276,25 +297,27 @@ public class EditableListWrapperTests
 
         wrapper.Insert(1, "two");
 
-        _ = list.Should().BeEquivalentTo(["one", "two", ThirdItem], static options => options.WithStrictOrdering());
-        _ = observable.Should().BeEquivalentTo(["one", "two", ThirdItem], static options => options.WithStrictOrdering());
+        await Assert.That(list).IsEquivalentTo(["one", "two", ThirdItem], CollectionOrdering.Matching);
+        await Assert.That(observable).IsEquivalentTo(["one", "two", ThirdItem], CollectionOrdering.Matching);
     }
 
     /// <summary>Move should move item to new position.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldMoveItemToNewPosition()
+    public async Task Move_ShouldMoveItemToNewPosition()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.Move(0, SecondOrdinal);
 
-        _ = list.Should().BeEquivalentTo(["two", ThirdItem, "one"], static options => options.WithStrictOrdering());
+        await Assert.That(list).IsEquivalentTo(["two", ThirdItem, "one"], CollectionOrdering.Matching);
     }
 
     /// <summary>Move should move item in both list and observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_WithObservable_ShouldMoveInBoth()
+    public async Task Move_WithObservable_ShouldMoveInBoth()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var observable = new ObservableCollection<string>(list);
@@ -302,77 +325,81 @@ public class EditableListWrapperTests
 
         wrapper.Move(0, SecondOrdinal);
 
-        _ = list.Should().BeEquivalentTo(["two", ThirdItem, "one"], static options => options.WithStrictOrdering());
-        _ = observable.Should().BeEquivalentTo(["two", ThirdItem, "one"], static options => options.WithStrictOrdering());
+        await Assert.That(list).IsEquivalentTo(["two", ThirdItem, "one"], CollectionOrdering.Matching);
+        await Assert.That(observable).IsEquivalentTo(["two", ThirdItem, "one"], CollectionOrdering.Matching);
     }
 
     /// <summary>Move should do nothing when old and new index are same.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_WhenSameIndex_ShouldDoNothing()
+    public async Task Move_WhenSameIndex_ShouldDoNothing()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.Move(1, 1);
 
-        _ = list.Should().BeEquivalentTo(["one", "two", ThirdItem], static options => options.WithStrictOrdering());
+        await Assert.That(list).IsEquivalentTo(["one", "two", ThirdItem], CollectionOrdering.Matching);
     }
 
     /// <summary>Move should throw when old index is out of range.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_WhenOldIndexOutOfRange_ShouldThrow()
+    public async Task Move_WhenOldIndexOutOfRange_ShouldThrow()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
         var act = () => wrapper.Move(-1, 0);
 
-        _ = act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("oldIndex");
+        await Assert.That(act).Throws<ArgumentOutOfRangeException>().WithParameterName("oldIndex");
     }
 
     /// <summary>Move should throw when new index is out of range.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_WhenNewIndexOutOfRange_ShouldThrow()
+    public async Task Move_WhenNewIndexOutOfRange_ShouldThrow()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
         var act = () => wrapper.Move(0, OutOfRangeIndex);
 
-        _ = act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("newIndex");
+        await Assert.That(act).Throws<ArgumentOutOfRangeException>().WithParameterName("newIndex");
     }
 
     /// <summary>Remove should remove existing item and return true.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Remove_ExistingItem_ShouldRemoveAndReturnTrue()
+    public async Task Remove_ExistingItem_ShouldRemoveAndReturnTrue()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         var result = wrapper.Remove("two");
 
-        _ = result.Should().BeTrue();
-        _ = list.Should().BeEquivalentTo(["one", ThirdItem]);
+        await Assert.That(result).IsTrue();
+        await Assert.That(list).IsEquivalentTo(["one", ThirdItem]);
     }
 
     /// <summary>Remove should return false for non-existing item.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Remove_NonExistingItem_ShouldReturnFalse()
+    public async Task Remove_NonExistingItem_ShouldReturnFalse()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
 
         var result = wrapper.Remove(ThirdItem);
 
-        _ = result.Should().BeFalse();
-        _ = list.Count.Should().Be(SecondOrdinal);
+        await Assert.That(result).IsFalse();
+        await Assert.That(list.Count).IsEqualTo(SecondOrdinal);
     }
 
     /// <summary>Remove should remove from both list and observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Remove_WithObservable_ShouldRemoveFromBoth()
+    public async Task Remove_WithObservable_ShouldRemoveFromBoth()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var observable = new ObservableCollection<string>(list);
@@ -380,25 +407,27 @@ public class EditableListWrapperTests
 
         _ = wrapper.Remove("two");
 
-        _ = list.Should().BeEquivalentTo(["one", ThirdItem]);
-        _ = observable.Should().BeEquivalentTo(["one", ThirdItem]);
+        await Assert.That(list).IsEquivalentTo(["one", ThirdItem]);
+        await Assert.That(observable).IsEquivalentTo(["one", ThirdItem]);
     }
 
     /// <summary>RemoveAt should remove item at index without observable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RemoveAt_WithoutObservable_ShouldRemoveAtIndex()
+    public async Task RemoveAt_WithoutObservable_ShouldRemoveAtIndex()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var wrapper = new EditableListWrapper<string>(list);
 
         wrapper.RemoveAt(1);
 
-        _ = list.Should().BeEquivalentTo(["one", ThirdItem]);
+        await Assert.That(list).IsEquivalentTo(["one", ThirdItem]);
     }
 
     /// <summary>RemoveAt should remove from both list and observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RemoveAt_WithObservable_ShouldRemoveFromBoth()
+    public async Task RemoveAt_WithObservable_ShouldRemoveFromBoth()
     {
         var list = new List<string> { "one", "two", ThirdItem };
         var observable = new ObservableCollection<string>(list);
@@ -406,13 +435,14 @@ public class EditableListWrapperTests
 
         wrapper.RemoveAt(1);
 
-        _ = list.Should().BeEquivalentTo(["one", ThirdItem]);
-        _ = observable.Should().BeEquivalentTo(["one", ThirdItem]);
+        await Assert.That(list).IsEquivalentTo(["one", ThirdItem]);
+        await Assert.That(observable).IsEquivalentTo(["one", ThirdItem]);
     }
 
     /// <summary>Non-generic GetEnumerator should enumerate items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void NonGenericGetEnumerator_ShouldEnumerateItems()
+    public async Task NonGenericGetEnumerator_ShouldEnumerateItems()
     {
         var list = new List<string> { "one", "two" };
         var wrapper = new EditableListWrapper<string>(list);
@@ -423,7 +453,7 @@ public class EditableListWrapperTests
             items.Add(item);
         }
 
-        _ = items.Should().BeEquivalentTo(["one", "two"]);
+        await Assert.That(items).IsEquivalentTo(ExpectedSequences.WrapperItems);
     }
 
     /// <summary>Produces a non-array enumerable for AddRange coverage.</summary>

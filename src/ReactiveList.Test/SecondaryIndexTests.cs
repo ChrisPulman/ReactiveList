@@ -6,8 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Core;
+#else
 using CP.Primitives.Core;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -16,20 +20,22 @@ namespace ReactiveList.Test;
 public class SecondaryIndexTests
 {
     /// <summary>OnAdded should add item to index.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnAdded_ShouldAddItemToIndex()
+    public async Task OnAdded_ShouldAddItemToIndex()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person = new Person(1, "John", TestData.EngineeringDepartment);
 
         index.OnAdded(person);
 
-        _ = index.Lookup(TestData.EngineeringDepartment).Should().Contain(person);
+        await Assert.That(index.Lookup(TestData.EngineeringDepartment)).Contains(person);
     }
 
     /// <summary>OnAdded should add multiple items with same key.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnAdded_WithSameKey_ShouldAddMultipleItems()
+    public async Task OnAdded_WithSameKey_ShouldAddMultipleItems()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person1 = new Person(1, "John", TestData.EngineeringDepartment);
@@ -48,14 +54,15 @@ public class SecondaryIndexTests
             containsSecond |= person == person2;
         }
 
-        _ = count.Should().Be(TestData.TestValueTwo);
-        _ = containsFirst.Should().BeTrue();
-        _ = containsSecond.Should().BeTrue();
+        await Assert.That(count).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(containsFirst).IsTrue();
+        await Assert.That(containsSecond).IsTrue();
     }
 
     /// <summary>OnAdded should handle items with different keys.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnAdded_WithDifferentKeys_ShouldIndexSeparately()
+    public async Task OnAdded_WithDifferentKeys_ShouldIndexSeparately()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person1 = new Person(1, "John", TestData.EngineeringDepartment);
@@ -64,13 +71,14 @@ public class SecondaryIndexTests
         index.OnAdded(person1);
         index.OnAdded(person2);
 
-        _ = index.Lookup(TestData.EngineeringDepartment).Should().ContainSingle().Which.Should().Be(person1);
-        _ = index.Lookup(TestData.SalesDepartment).Should().ContainSingle().Which.Should().Be(person2);
+        await Assert.That(await Assert.That(index.Lookup(TestData.EngineeringDepartment)).HasSingleItem()).IsEqualTo(person1);
+        await Assert.That(await Assert.That(index.Lookup(TestData.SalesDepartment)).HasSingleItem()).IsEqualTo(person2);
     }
 
     /// <summary>OnRemoved should remove item from index.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnRemoved_ShouldRemoveItemFromIndex()
+    public async Task OnRemoved_ShouldRemoveItemFromIndex()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person = new Person(1, "John", TestData.EngineeringDepartment);
@@ -78,12 +86,13 @@ public class SecondaryIndexTests
 
         index.OnRemoved(person);
 
-        _ = index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
+        await Assert.That(index.Lookup(TestData.EngineeringDepartment)).IsEmpty();
     }
 
     /// <summary>OnRemoved should only remove specified item.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnRemoved_ShouldOnlyRemoveSpecifiedItem()
+    public async Task OnRemoved_ShouldOnlyRemoveSpecifiedItem()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person1 = new Person(1, "John", TestData.EngineeringDepartment);
@@ -101,25 +110,27 @@ public class SecondaryIndexTests
             remainingPerson = person;
         }
 
-        _ = count.Should().Be(1);
-        _ = remainingPerson.Should().Be(person2);
+        await Assert.That(count).IsEqualTo(1);
+        await Assert.That(remainingPerson).IsEqualTo(person2);
     }
 
     /// <summary>OnRemoved should handle non-existing item gracefully.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnRemoved_WithNonExistingItem_ShouldNotThrow()
+    public async Task OnRemoved_WithNonExistingItem_ShouldNotThrow()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var person = new Person(1, "John", TestData.EngineeringDepartment);
 
         var act = () => index.OnRemoved(person);
 
-        _ = act.Should().NotThrow();
+        await Assert.That(act).ThrowsNothing();
     }
 
     /// <summary>OnUpdated should update index with new key.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnUpdated_ShouldUpdateIndex()
+    public async Task OnUpdated_ShouldUpdateIndex()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
         var oldPerson = new Person(1, "John", TestData.EngineeringDepartment);
@@ -128,24 +139,26 @@ public class SecondaryIndexTests
 
         index.OnUpdated(oldPerson, newPerson);
 
-        _ = index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
-        _ = index.Lookup(TestData.SalesDepartment).Should().ContainSingle().Which.Should().Be(newPerson);
+        await Assert.That(index.Lookup(TestData.EngineeringDepartment)).IsEmpty();
+        await Assert.That(await Assert.That(index.Lookup(TestData.SalesDepartment)).HasSingleItem()).IsEqualTo(newPerson);
     }
 
     /// <summary>Lookup should return empty for non-existing key.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Lookup_WithNonExistingKey_ShouldReturnEmpty()
+    public async Task Lookup_WithNonExistingKey_ShouldReturnEmpty()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
 
         var result = index.Lookup("NonExisting");
 
-        _ = result.Should().BeEmpty();
+        await Assert.That(result).IsEmpty();
     }
 
     /// <summary>Clear should remove all items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Clear_ShouldRemoveAllItems()
+    public async Task Clear_ShouldRemoveAllItems()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
         index.OnAdded(new(1, "John", TestData.EngineeringDepartment));
@@ -154,26 +167,28 @@ public class SecondaryIndexTests
 
         index.Clear();
 
-        _ = index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
-        _ = index.Lookup(TestData.SalesDepartment).Should().BeEmpty();
-        _ = index.Lookup("Marketing").Should().BeEmpty();
+        await Assert.That(index.Lookup(TestData.EngineeringDepartment)).IsEmpty();
+        await Assert.That(index.Lookup(TestData.SalesDepartment)).IsEmpty();
+        await Assert.That(index.Lookup("Marketing")).IsEmpty();
     }
 
     /// <summary>Index should handle integer keys.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Index_WithIntegerKey_ShouldWork()
+    public async Task Index_WithIntegerKey_ShouldWork()
     {
         var index = new SecondaryIndex<Person, int>(static p => p.Id);
         var person = new Person(TestData.TestValueFortyTwo, "John", TestData.EngineeringDepartment);
 
         index.OnAdded(person);
 
-        _ = index.Lookup(TestData.TestValueFortyTwo).Should().ContainSingle().Which.Should().Be(person);
+        await Assert.That(await Assert.That(index.Lookup(TestData.TestValueFortyTwo)).HasSingleItem()).IsEqualTo(person);
     }
 
     /// <summary>Index should distribute items across shards.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Index_ShouldDistributeAcrossShards()
+    public async Task Index_ShouldDistributeAcrossShards()
     {
         var index = new SecondaryIndex<Person, string>(static p => p.Department);
 
@@ -186,7 +201,7 @@ public class SecondaryIndexTests
         // Verify all items can be looked up
         for (var i = 0; i < TestData.TestValueOneHundred; i++)
         {
-            _ = index.Lookup($"Dept{i}").Should().ContainSingle();
+            await Assert.That(index.Lookup($"Dept{i}")).HasSingleItem();
         }
     }
 
@@ -206,7 +221,7 @@ public class SecondaryIndexTests
 
         await Task.WhenAll([.. tasks]);
 
-        _ = index.Lookup(TestData.EngineeringDepartment).Should().HaveCount(TestData.TestValueOneHundred);
+        await Assert.That(index.Lookup(TestData.EngineeringDepartment)).Count().IsEqualTo(TestData.TestValueOneHundred);
     }
 
     /// <summary>Index should be thread-safe for concurrent removes.</summary>
@@ -235,7 +250,7 @@ public class SecondaryIndexTests
 
         await Task.WhenAll(tasks);
 
-        _ = index.Lookup(TestData.EngineeringDepartment).Should().BeEmpty();
+        await Assert.That(index.Lookup(TestData.EngineeringDepartment)).IsEmpty();
     }
 
     /// <summary>Provides Person.</summary>

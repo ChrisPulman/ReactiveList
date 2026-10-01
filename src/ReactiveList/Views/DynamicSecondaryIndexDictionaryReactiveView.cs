@@ -30,7 +30,7 @@ where TKey : notnull
     /// <summary>Retrieves values for a boxed secondary-index key.</summary>
     private readonly Func<QuaternaryDictionary<TKey, TValue>, string, object, IEnumerable<TValue>> _getValuesByIndex;
 
-    /// <summary>Determines whether a dictionary value matches a boxed secondary-index key.</summary>
+    /// <summary>Validates current membership when an indexed value is mutable.</summary>
     private readonly Func<QuaternaryDictionary<TKey, TValue>, string, TValue, object, bool> _valueMatchesIndex;
 
     /// <summary>The mutable collection backing the public read-only view.</summary>
@@ -45,11 +45,17 @@ where TKey : notnull
     /// <summary>The secondary-index keys currently included in the view.</summary>
     private HashSet<object> _currentKeys = [];
 
+    /// <summary>Indicates that reconciliation is delivering collection notifications.</summary>
+    private bool _rebuilding;
+
+    /// <summary>Defers reentrant requests until the current reconciliation completes.</summary>
+    private bool _rebuildRequested;
+
     /// <summary>Initializes a new instance of the <see cref="DynamicSecondaryIndexDictionaryReactiveView{TKey, TValue}"/> class.</summary>
     /// <param name="source">The source dictionary to filter.</param>
     /// <param name="indexName">The name of the secondary index.</param>
     /// <param name="getValuesByIndex">The delegate used to retrieve values for a boxed secondary index key.</param>
-    /// <param name="valueMatchesIndex">The delegate used to test whether a value matches a boxed secondary index key.</param>
+    /// <param name="valueMatchesIndex">The delegate used to validate current secondary-index membership.</param>
     private DynamicSecondaryIndexDictionaryReactiveView(
         QuaternaryDictionary<TKey, TValue> source,
         string indexName,
@@ -88,7 +94,7 @@ where TKey : notnull
     /// <param name="indexName">The name of the secondary index.</param>
     /// <param name="keysObservable">An observable of key arrays to filter by.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
+    /// <param name="throttle">The quiet period before reconciling indexed entries; zero dispatches without debounce.</param>
     /// <returns>A <see cref="DynamicSecondaryIndexDictionaryReactiveView{TKey, TValue}"/> instance.</returns>
     public static DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue> Create<TIndexKey>(
         QuaternaryDictionary<TKey, TValue> source,
@@ -210,10 +216,15 @@ where TKey : notnull
             .DisposeWith(_disposables);
 
         // Subscribe to source changes
-        _ = _source.Stream
-            .Throttle(throttle)
+        var updates = _source.Stream.Map(static notification => notification.Action);
+        if (throttle > TimeSpan.Zero)
+        {
+            updates = updates.Throttle(throttle);
+        }
+
+        _ = updates
             .ObserveOn(scheduler)
-            .Subscribe(OnSourceChanged)
+            .Subscribe(_ => OnSourceChanged())
             .DisposeWith(_disposables);
 
         // Forward collection changed events
@@ -221,173 +232,103 @@ where TKey : notnull
     }
 
     /// <summary>Handles source change notifications.</summary>
-    /// <param name="notification">The notification value.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void OnSourceChanged(CacheNotify<KeyValuePair<TKey, TValue>> notification)
+    private void OnSourceChanged()
     {
         lock (_lock)
         {
-            switch (notification.Action)
-            {
-                case CacheAction.Added:
-                    {
-                        AddItem(notification.Item);
-                        break;
-                    }
-
-                case CacheAction.Removed:
-                    {
-                        RemoveItem(notification.Item.Key);
-                        break;
-                    }
-
-                case CacheAction.Updated:
-                    {
-                        UpdateItem(notification.Item);
-                        break;
-                    }
-
-                case CacheAction.Cleared:
-                    {
-                        _filteredItems.Clear();
-                        break;
-                    }
-
-                case CacheAction.Moved or
-                     CacheAction.Refreshed or
-                     CacheAction.BatchOperation or
-                     CacheAction.BatchAdded or
-                     CacheAction.BatchRemoved:
-                    {
-                        RebuildView();
-                        break;
-                    }
-
-                default:
-                    {
-                        // Ignore invalid enum values to preserve the view's current state.
-                        break;
-                    }
-            }
+            RebuildView();
         }
 
         OnPropertyChanged(nameof(Count));
     }
 
-    /// <summary>Adds an item when its value matches one of the current secondary-index keys.</summary>
-    /// <param name="item">The item to consider.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void AddItem(KeyValuePair<TKey, TValue> item)
-    {
-        if (item.Value is null || !ValueMatchesCurrentKeys(item.Value))
-        {
-            return;
-        }
-
-        _filteredItems.Add(item);
-    }
-
-    /// <summary>Removes the item with the specified primary key.</summary>
-    /// <param name="key">The primary key to remove.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void RemoveItem(TKey key)
-    {
-        var existingIndex = FindItemIndex(key);
-        if (existingIndex < 0)
-        {
-            return;
-        }
-
-        _filteredItems.RemoveAt(existingIndex);
-    }
-
-    /// <summary>Updates an item's value and membership in the current secondary-index view.</summary>
-    /// <param name="item">The current item.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void UpdateItem(KeyValuePair<TKey, TValue> item)
-    {
-        if (item.Value is null)
-        {
-            return;
-        }
-
-        var existingIndex = FindItemIndex(item.Key);
-        var shouldBeInView = ValueMatchesCurrentKeys(item.Value);
-        if (existingIndex < 0)
-        {
-            if (!shouldBeInView)
-            {
-                return;
-            }
-
-            _filteredItems.Add(item);
-            return;
-        }
-
-        if (!shouldBeInView)
-        {
-            _filteredItems.RemoveAt(existingIndex);
-            return;
-        }
-
-        _filteredItems[existingIndex] = item;
-    }
-
-    /// <summary>Finds the view index for a primary key.</summary>
-    /// <param name="key">The primary key to find.</param>
-    /// <returns>The matching view index, or -1 when the key is absent.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int FindItemIndex(TKey key)
-    {
-        var comparer = EqualityComparer<TKey>.Default;
-        for (var i = 0; i < _filteredItems.Count; i++)
-        {
-            if (comparer.Equals(_filteredItems[i].Key, key))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
     /// <summary>Rebuilds the view from the current source state.</summary>
     private void RebuildView()
     {
-        _filteredItems.Clear();
+        if (_rebuilding)
+        {
+            _rebuildRequested = true;
+            return;
+        }
 
-        // Get values from secondary index for all current keys, then find their dictionary entries
-        var addedKeys = new HashSet<TKey>();
+        _rebuilding = true;
+        try
+        {
+            do
+            {
+                _rebuildRequested = false;
+                ReconcileSnapshot();
+            }
+            while (_rebuildRequested);
+        }
+        finally
+        {
+            _rebuilding = false;
+        }
+    }
+
+    /// <summary>Reconciles current indexed entries, preserving primary-key uniqueness and value identity.</summary>
+    private void ReconcileSnapshot()
+    {
+        var snapshot = CreateSnapshot();
+        for (var index = 0; index < snapshot.Count; index++)
+        {
+            var item = snapshot[index];
+            if (index == _filteredItems.Count)
+            {
+                _filteredItems.Add(item);
+            }
+            else if (!EqualityComparer<TKey>.Default.Equals(_filteredItems[index].Key, item.Key)
+                || (typeof(TValue).IsValueType
+                    ? !EqualityComparer<TValue>.Default.Equals(_filteredItems[index].Value, item.Value)
+                    : !ReferenceEquals(_filteredItems[index].Value, item.Value)))
+            {
+                _filteredItems[index] = item;
+            }
+        }
+
+        while (_filteredItems.Count > snapshot.Count)
+        {
+            _filteredItems.RemoveAt(_filteredItems.Count - 1);
+        }
+    }
+
+    /// <summary>Snapshots all matching indexed entries once per primary key.</summary>
+    /// <returns>The current matching dictionary entries.</returns>
+    private List<KeyValuePair<TKey, TValue>> CreateSnapshot()
+    {
+        List<KeyValuePair<TKey, TValue>> snapshot = [];
+        HashSet<TKey> addedKeys = [];
         foreach (var indexKey in _currentKeys)
         {
             foreach (var value in _getValuesByIndex(_source, _indexName, indexKey))
             {
-                // Find the key for this value in the source dictionary
-                foreach (var kvp in _source)
+                if (value is null || !_valueMatchesIndex(_source, _indexName, value, indexKey))
                 {
-                    if (EqualityComparer<TValue>.Default.Equals(kvp.Value, value) && addedKeys.Add(kvp.Key))
-                    {
-                        _filteredItems.Add(kvp);
-                    }
+                    continue;
                 }
+
+                AppendMatchingEntries(value, addedKeys, snapshot);
             }
         }
+
+        return snapshot;
     }
 
-    /// <summary>Performs the ValueMatchesCurrentKeys operation.</summary>
-    /// <param name="value">The value to test.</param>
-    /// <returns><see langword="true"/> when the value matches any current key; otherwise, <see langword="false"/>.</returns>
-    private bool ValueMatchesCurrentKeys(TValue value)
+    /// <summary>Adds dictionary entries associated with one indexed value.</summary>
+    /// <param name="value">The indexed value.</param>
+    /// <param name="addedKeys">The primary keys already included.</param>
+    /// <param name="snapshot">The matching entries.</param>
+    private void AppendMatchingEntries(TValue value, HashSet<TKey> addedKeys, List<KeyValuePair<TKey, TValue>> snapshot)
     {
-        foreach (var key in _currentKeys)
+        foreach (var item in _source)
         {
-            if (_valueMatchesIndex(_source, _indexName, value, key))
+            if (EqualityComparer<TValue>.Default.Equals(item.Value, value) && addedKeys.Add(item.Key))
             {
-                return true;
+                snapshot.Add(item);
             }
         }
-
-        return false;
     }
 
     /// <summary>Handles property change notifications.</summary>

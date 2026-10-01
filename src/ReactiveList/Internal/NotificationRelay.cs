@@ -12,83 +12,30 @@ namespace CP.Primitives.Internal;
 internal sealed class NotificationRelay<TEventArgs>
     where TEventArgs : EventArgs
 {
-    /// <summary>Synchronizes changes to the subscribed handlers.</summary>
-    private readonly Lock _gate = new();
-
-    /// <summary>The facade instance reported as the sender for each notification.</summary>
-    private readonly object _sender;
-
-    /// <summary>The handlers that receive relayed notifications.</summary>
-    private Action<object?, TEventArgs>? _handlers;
+    /// <summary>The typed relay that owns the action subscriptions.</summary>
+    private readonly TypedNotificationRelay<TEventArgs, Action<object?, TEventArgs>> _relay;
 
     /// <summary>Initializes a new instance of the <see cref="NotificationRelay{TEventArgs}"/> class.</summary>
     /// <param name="sender">The facade instance to report as the notification sender.</param>
-    internal NotificationRelay(object sender) => _sender = sender ?? throw new ArgumentNullException(nameof(sender));
+    internal NotificationRelay(object sender) =>
+        _relay = new(sender, static (handler, facade, eventArgs) => handler(facade, eventArgs));
 
-    /// <summary>Adds a handler to receive subsequent relayed notifications.</summary>
-    /// <param name="handler">The handler to add, or <see langword="null"/> to make no change.</param>
-    /// <returns><see langword="true"/> when the handler is the relay's first subscription; otherwise, <see langword="false"/>.</returns>
-    /// <remarks>Duplicate handlers are retained, matching .NET event subscription semantics.</remarks>
-    internal bool Add(Action<object?, TEventArgs>? handler)
-    {
-        if (handler is null)
-        {
-            return false;
-        }
+    /// <summary>Adds a handler and reports whether this is the first subscription.</summary>
+    /// <param name="handler">The handler to add.</param>
+    /// <returns>True when this is the first subscription.</returns>
+    internal bool Add(Action<object?, TEventArgs>? handler) => _relay.Add(handler);
 
-        lock (_gate)
-        {
-            var isFirstHandler = _handlers is null;
-            _handlers += handler;
-            return isFirstHandler;
-        }
-    }
+    /// <summary>Removes a handler and reports whether the final subscription was removed.</summary>
+    /// <param name="handler">The handler to remove.</param>
+    /// <returns>True when the final subscription was removed.</returns>
+    internal bool Remove(Action<object?, TEventArgs>? handler) => _relay.Remove(handler);
 
-    /// <summary>Removes the last matching handler from the relay.</summary>
-    /// <param name="handler">The handler to remove, or <see langword="null"/> to make no change.</param>
-    /// <returns>
-    /// <see langword="true"/> when a handler was removed and the relay has no remaining subscriptions;
-    /// otherwise, <see langword="false"/>.
-    /// </returns>
-    /// <remarks>When a handler was added more than once, only its most recent subscription is removed.</remarks>
-    internal bool Remove(Action<object?, TEventArgs>? handler)
-    {
-        if (handler is null)
-        {
-            return false;
-        }
+    /// <summary>Relays an event using the public facade as its sender.</summary>
+    /// <param name="source">The original event sender.</param>
+    /// <param name="eventArgs">The notification data.</param>
+    internal void OnEvent(object? source, TEventArgs eventArgs) => _relay.OnEvent(source, eventArgs);
 
-        lock (_gate)
-        {
-            var previousHandlers = _handlers;
-            var remainingHandlers = (Action<object?, TEventArgs>?)Delegate.Remove(previousHandlers, handler);
-            var wasRemoved = !ReferenceEquals(previousHandlers, remainingHandlers);
-            _handlers = remainingHandlers;
-            return wasRemoved && remainingHandlers is null;
-        }
-    }
-
-    /// <summary>Relays an event received from the wrapped source.</summary>
-    /// <param name="source">The wrapped source that raised the event.</param>
-    /// <param name="eventArgs">The event data to relay.</param>
-    /// <remarks>The source is intentionally ignored so subscribers observe the facade as the sender.</remarks>
-    internal void OnEvent(object? source, TEventArgs eventArgs)
-    {
-        _ = source;
-        Dispatch(eventArgs);
-    }
-
-    /// <summary>Delivers a notification to a snapshot of the current handlers.</summary>
-    /// <param name="eventArgs">The event data to relay.</param>
-    internal void Dispatch(TEventArgs eventArgs)
-    {
-        Action<object?, TEventArgs>? handlers;
-
-        lock (_gate)
-        {
-            handlers = _handlers;
-        }
-
-        handlers?.Invoke(_sender, eventArgs);
-    }
+    /// <summary>Dispatches notification data to the current action subscribers.</summary>
+    /// <param name="eventArgs">The notification data.</param>
+    internal void Dispatch(TEventArgs eventArgs) => _relay.Dispatch(eventArgs);
 }

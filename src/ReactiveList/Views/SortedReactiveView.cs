@@ -26,10 +26,10 @@ where T : notnull
     private readonly State _state;
 
     /// <summary>Relays collection notifications with this facade as the sender.</summary>
-    private NotificationRelay<NotifyCollectionChangedEventArgs>? _collectionChangedRelay;
+    private TypedNotificationRelay<NotifyCollectionChangedEventArgs, NotifyCollectionChangedEventHandler>? _collectionChangedRelay;
 
     /// <summary>Relays property notifications with this facade as the sender.</summary>
-    private NotificationRelay<PropertyChangedEventArgs>? _propertyChangedRelay;
+    private TypedNotificationRelay<PropertyChangedEventArgs, PropertyChangedEventHandler>? _propertyChangedRelay;
 
     /// <summary>Initializes a new instance of the <see cref="SortedReactiveView{T}"/> class.</summary>
     /// <param name="source">The source reactive list to sort.</param>
@@ -58,8 +58,8 @@ where T : notnull
 
             lock (_collectionChangedGate)
             {
-                _collectionChangedRelay ??= new(this);
-                if (_collectionChangedRelay.Add(value.Invoke))
+                _collectionChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_collectionChangedRelay.Add(value))
                 {
                     _state.CollectionChanged += _collectionChangedRelay.OnEvent;
                 }
@@ -75,7 +75,7 @@ where T : notnull
 
             lock (_collectionChangedGate)
             {
-                if (_collectionChangedRelay?.Remove(value.Invoke) is true)
+                if (_collectionChangedRelay?.Remove(value) is true)
                 {
                     _state.CollectionChanged -= _collectionChangedRelay.OnEvent;
                 }
@@ -95,8 +95,8 @@ where T : notnull
 
             lock (_propertyChangedGate)
             {
-                _propertyChangedRelay ??= new(this);
-                if (_propertyChangedRelay.Add(value.Invoke))
+                _propertyChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_propertyChangedRelay.Add(value))
                 {
                     _state.PropertyChanged += _propertyChangedRelay.OnEvent;
                 }
@@ -112,7 +112,7 @@ where T : notnull
 
             lock (_propertyChangedGate)
             {
-                if (_propertyChangedRelay?.Remove(value.Invoke) is true)
+                if (_propertyChangedRelay?.Remove(value) is true)
                 {
                     _state.PropertyChanged -= _propertyChangedRelay.OnEvent;
                 }
@@ -273,47 +273,25 @@ where T : notnull
                 for (var i = 0; i < changes.Count; i++)
                 {
                     var change = changes[i];
-                    switch (change.Reason)
+                    if (change.Reason is ChangeReason.Add)
                     {
-                        case ChangeReason.Add:
-                            {
-                                InsertSorted(change.Current);
-                                break;
-                            }
-
-                        case ChangeReason.Remove:
-                            {
-                                _ = _sortedItems.Remove(change.Current);
-                                break;
-                            }
-
-                        case ChangeReason.Update:
-                            {
-                                if (change.Previous is not null)
-                                {
-                                    _ = _sortedItems.Remove(change.Previous);
-                                }
-
-                                InsertSorted(change.Current);
-                                break;
-                            }
-
-                        case ChangeReason.Clear:
-                            {
-                                _sortedItems.Clear();
-                                break;
-                            }
-
-                        case ChangeReason.Move or ChangeReason.Refresh:
-                            {
-                                needsRebuild = true;
-                                break;
-                            }
-
-                        default:
-                            {
-                                break;
-                            }
+                        InsertSorted(change.Current);
+                    }
+                    else if (change.Reason is ChangeReason.Remove)
+                    {
+                        _ = _sortedItems.Remove(change.Current);
+                    }
+                    else if (change.Reason is ChangeReason.Update)
+                    {
+                        UpdateItem(change);
+                    }
+                    else if (change.Reason is ChangeReason.Clear)
+                    {
+                        _sortedItems.Clear();
+                    }
+                    else if (change.Reason is ChangeReason.Move or ChangeReason.Refresh)
+                    {
+                        needsRebuild = true;
                     }
                 }
 
@@ -324,6 +302,18 @@ where T : notnull
             }
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
+        }
+
+        /// <summary>Replaces an item while maintaining sorted order.</summary>
+        /// <param name="change">The update to apply.</param>
+        private void UpdateItem(Change<T> change)
+        {
+            if (change.Previous is not null)
+            {
+                _ = _sortedItems.Remove(change.Previous);
+            }
+
+            InsertSorted(change.Current);
         }
 
         /// <summary>Inserts data for the InsertSorted operation.</summary>

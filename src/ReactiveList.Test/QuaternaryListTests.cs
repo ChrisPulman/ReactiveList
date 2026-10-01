@@ -6,8 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+#else
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
+#endif
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -70,21 +75,23 @@ public class QuaternaryListTests
     private const string ChicagoCity = "Chicago";
 
     /// <summary>Verifies that adding an item to a QuaternaryList increases the count and that the item is present in the list.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Add_ShouldIncreaseCountAndContainItem()
+    public async Task Add_ShouldIncreaseCountAndContainItem()
     {
         using var list = new QuaternaryList<int> { TrackedCollectionValue };
 
-        _ = Assert.Single(list);
-        Assert.Contains(TrackedCollectionValue, list);
+        await Assert.That(list).HasSingleItem();
+        await Assert.That(list).Contains(TrackedCollectionValue);
     }
 
     /// <summary>
     /// Verifies that the AddRange method emits a batch notification and correctly copies the added items to the
     /// underlying collection.
     /// </summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AddRange_ShouldEmitBatchAndCopyItems()
+    public async Task AddRange_ShouldEmitBatchAndCopyItems()
     {
         using var list = new QuaternaryList<int>();
         CacheNotify<int>? notification = null;
@@ -97,49 +104,52 @@ public class QuaternaryListTests
 
         list.AddRange([0, 1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue]);
 
-        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        _ = Assert.NotNull(notification);
-        Assert.Equal(CacheAction.BatchAdded, notification!.Action);
-        _ = Assert.NotNull(notification.Batch);
-        Assert.Equal(FifthCollectionValue, notification.Batch!.Count);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notification).IsNotNull();
+        await Assert.That(notification!.Action).IsEqualTo(CacheAction.BatchAdded);
+        await Assert.That(notification.Batch).IsNotNull();
+        await Assert.That(notification.Batch!.Count).IsEqualTo(FifthCollectionValue);
         notification.Batch.Dispose();
 
-        Assert.Equal(FifthCollectionValue, list.Count);
+        await Assert.That(list.Count).IsEqualTo(FifthCollectionValue);
         var buffer = new int[5];
         list.CopyTo(buffer, 0);
-        Assert.Contains(0, buffer);
-        Assert.Contains(1, buffer);
-        Assert.Contains(SecondCollectionValue, buffer);
-        Assert.Contains(ThirdCollectionValue, buffer);
-        Assert.Contains(FourthCollectionValue, buffer);
+        await Assert.That(buffer).Contains(0);
+        await Assert.That(buffer).Contains(1);
+        await Assert.That(buffer).Contains(SecondCollectionValue);
+        await Assert.That(buffer).Contains(ThirdCollectionValue);
+        await Assert.That(buffer).Contains(FourthCollectionValue);
     }
 
     /// <summary>Verifies that the indexer of the QuaternaryList returns the correct items across multiple shards.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Indexer_ShouldReturnItemsAcrossShards()
+    public async Task Indexer_ShouldReturnItemsAcrossShards()
     {
         using var list = new QuaternaryList<int> { 0, FourthCollectionValue, EighthCollectionValue };
 
-        Assert.Equal(0, list[0]);
-        Assert.Equal(FourthCollectionValue, list[1]);
-        Assert.Equal(EighthCollectionValue, list[SecondCollectionValue]);
+        await Assert.That(list[0]).IsEqualTo(0);
+        await Assert.That(list[1]).IsEqualTo(FourthCollectionValue);
+        await Assert.That(list[SecondCollectionValue]).IsEqualTo(EighthCollectionValue);
     }
 
     /// <summary>Verifies that setting an item via the indexer throws NotSupportedException.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void IndexerSetter_ShouldThrowNotSupportedException()
+    public async Task IndexerSetter_ShouldThrowNotSupportedException()
     {
         using var list = new QuaternaryList<int> { 1, SecondCollectionValue, ThirdCollectionValue };
 
-        _ = Assert.Throws<NotSupportedException>(() => list[0] = FifthCollectionValue);
+        await Assert.That(() => list[0] = FifthCollectionValue).Throws<NotSupportedException>();
     }
 
     /// <summary>
     /// Verifies that adding an index to a QuaternaryList and querying by that index correctly tracks and updates
     /// results as items are added and removed.
     /// </summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AddIndexAndQuery_ShouldTrackAndUpdate()
+    public async Task AddIndexAndQuery_ShouldTrackAndUpdate()
     {
         using var list = new QuaternaryList<TestPerson>();
         list.AddIndex(CityIndexName, static p => p.City);
@@ -151,24 +161,25 @@ public class QuaternaryListTests
         list.AddRange([newYorkPerson, losAngelesPerson, secondNewYorkPerson]);
 
         var newYorkResults = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, NewYorkCity));
-        Assert.Equal(SecondCollectionValue, newYorkResults.Count);
-        Assert.Contains(newYorkPerson, newYorkResults);
-        Assert.Contains(secondNewYorkPerson, newYorkResults);
+        await Assert.That(newYorkResults.Count).IsEqualTo(SecondCollectionValue);
+        await Assert.That(newYorkResults).Contains(newYorkPerson);
+        await Assert.That(newYorkResults).Contains(secondNewYorkPerson);
 
         var losAngelesResults = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, LosAngelesCity));
-        _ = Assert.Single(losAngelesResults);
-        Assert.Equal(losAngelesPerson, losAngelesResults[0]);
+        await Assert.That(losAngelesResults).HasSingleItem();
+        await Assert.That(losAngelesResults[0]).IsEqualTo(losAngelesPerson);
 
         _ = list.Remove(newYorkPerson);
 
         var newYorkResultsAfterRemove = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, NewYorkCity));
-        _ = Assert.Single(newYorkResultsAfterRemove);
-        Assert.Equal(secondNewYorkPerson, newYorkResultsAfterRemove[0]);
+        await Assert.That(newYorkResultsAfterRemove).HasSingleItem();
+        await Assert.That(newYorkResultsAfterRemove[0]).IsEqualTo(secondNewYorkPerson);
     }
 
     /// <summary>Verifies that calling Clear on a QuaternaryList resets the item collection and all associated indices.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Clear_ShouldResetItemsAndIndices()
+    public async Task Clear_ShouldResetItemsAndIndices()
     {
         using var list = new QuaternaryList<TestPerson>();
         list.AddIndex(CityIndexName, static p => p.City);
@@ -180,13 +191,14 @@ public class QuaternaryListTests
 
         list.Clear();
 
-        Assert.Empty(list);
-        Assert.Empty(list.GetItemsBySecondaryIndex(CityIndexName, NewYorkCity));
+        await Assert.That(list).IsEmpty();
+        await Assert.That(list.GetItemsBySecondaryIndex(CityIndexName, NewYorkCity)).IsEmpty();
     }
 
     /// <summary>Verifies that the RemoveRange method removes the specified items from the list and emits a batch removed notification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RemoveRange_ShouldRemoveItemsAndEmitBatchRemoved()
+    public async Task RemoveRange_ShouldRemoveItemsAndEmitBatchRemoved()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue]);
@@ -206,23 +218,24 @@ public class QuaternaryListTests
 
         list.RemoveRange([SecondCollectionValue, FourthCollectionValue]);
 
-        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        _ = Assert.NotNull(notification);
-        Assert.Equal(CacheAction.BatchRemoved, notification!.Action);
-        _ = Assert.NotNull(notification.Batch);
-        Assert.Equal(SecondCollectionValue, notification.Batch!.Count);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notification).IsNotNull();
+        await Assert.That(notification!.Action).IsEqualTo(CacheAction.BatchRemoved);
+        await Assert.That(notification.Batch).IsNotNull();
+        await Assert.That(notification.Batch!.Count).IsEqualTo(SecondCollectionValue);
         notification.Batch.Dispose();
 
-        Assert.Equal(SecondCollectionValue, list.Count);
-        Assert.DoesNotContain(SecondCollectionValue, list);
-        Assert.DoesNotContain(FourthCollectionValue, list);
-        Assert.Contains(1, list);
-        Assert.Contains(ThirdCollectionValue, list);
+        await Assert.That(list.Count).IsEqualTo(SecondCollectionValue);
+        await Assert.That(list).DoesNotContain(SecondCollectionValue);
+        await Assert.That(list).DoesNotContain(FourthCollectionValue);
+        await Assert.That(list).Contains(1);
+        await Assert.That(list).Contains(ThirdCollectionValue);
     }
 
     /// <summary>Verifies that RemoveMany with a predicate removes matching items and emits a batch removed notification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RemoveMany_WithPredicate_ShouldRemoveMatchingItems()
+    public async Task RemoveMany_WithPredicate_ShouldRemoveMatchingItems()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange(
@@ -252,22 +265,23 @@ public class QuaternaryListTests
 
         var removedCount = list.RemoveMany(static x => x % SecondCollectionValue == 0);
 
-        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        Assert.Equal(FifthCollectionValue, removedCount);
-        Assert.Equal(FifthCollectionValue, list.Count);
-        Assert.DoesNotContain(SecondCollectionValue, list);
-        Assert.DoesNotContain(FourthCollectionValue, list);
-        Assert.Contains(1, list);
-        Assert.Contains(ThirdCollectionValue, list);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(removedCount).IsEqualTo(FifthCollectionValue);
+        await Assert.That(list.Count).IsEqualTo(FifthCollectionValue);
+        await Assert.That(list).DoesNotContain(SecondCollectionValue);
+        await Assert.That(list).DoesNotContain(FourthCollectionValue);
+        await Assert.That(list).Contains(1);
+        await Assert.That(list).Contains(ThirdCollectionValue);
     }
 
     /// <summary>Snapshot should release earlier shard locks when reentrant acquisition fails.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Snapshot_ReentrantFailure_ShouldReleaseAcquiredShardLocks()
+    public async Task Snapshot_ReentrantFailure_ShouldReleaseAcquiredShardLocks()
     {
         using var list = new QuaternaryList<int> { 1 };
 
-        _ = Assert.Throws<LockRecursionException>(() => list.RemoveMany(item =>
+        await Assert.That(() => list.RemoveMany(item =>
         {
             if (item != 1)
             {
@@ -276,16 +290,17 @@ public class QuaternaryListTests
 
             _ = list.Snapshot();
             return false;
-        }));
+        })).Throws<LockRecursionException>();
 
         list.Add(FourthCollectionValue);
 
-        Assert.Contains(FourthCollectionValue, list);
+        await Assert.That(list).Contains(FourthCollectionValue);
     }
 
     /// <summary>Verifies that the Edit method allows batch modifications with a single notification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldPerformBatchModificationsWithSingleNotification()
+    public async Task Edit_ShouldPerformBatchModificationsWithSingleNotification()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue]);
@@ -311,19 +326,20 @@ public class QuaternaryListTests
             innerList.Add(ThirdReplacementValue);
         });
 
-        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        _ = Assert.Single(notifications);
-        Assert.Equal(CacheAction.BatchOperation, notifications[0]);
-        Assert.Equal(ThirdCollectionValue, list.Count);
-        Assert.Contains(FirstReplacementValue, list);
-        Assert.Contains(SecondReplacementValue, list);
-        Assert.Contains(ThirdReplacementValue, list);
-        Assert.DoesNotContain(1, list);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notifications).HasSingleItem();
+        await Assert.That(notifications[0]).IsEqualTo(CacheAction.BatchOperation);
+        await Assert.That(list.Count).IsEqualTo(ThirdCollectionValue);
+        await Assert.That(list).Contains(FirstReplacementValue);
+        await Assert.That(list).Contains(SecondReplacementValue);
+        await Assert.That(list).Contains(ThirdReplacementValue);
+        await Assert.That(list).DoesNotContain(1);
     }
 
     /// <summary>Verifies that Edit updates indices correctly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldUpdateIndicesCorrectly()
+    public async Task Edit_ShouldUpdateIndicesCorrectly()
     {
         using var list = new QuaternaryList<TestPerson>();
         list.AddIndex(CityIndexName, static p => p.City);
@@ -341,38 +357,41 @@ public class QuaternaryListTests
         });
 
         var nycResults = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, "NYC"));
-        _ = Assert.Single(nycResults);
-        Assert.Equal("Charlie", nycResults[0].Name);
-        Assert.Empty(list.GetItemsBySecondaryIndex(CityIndexName, "LA"));
+        await Assert.That(nycResults).HasSingleItem();
+        await Assert.That(nycResults[0].Name).IsEqualTo("Charlie");
+        await Assert.That(list.GetItemsBySecondaryIndex(CityIndexName, "LA")).IsEmpty();
         var chicagoResults = new List<TestPerson>(list.GetItemsBySecondaryIndex(CityIndexName, ChicagoCity));
-        _ = Assert.Single(chicagoResults);
-        Assert.Equal("Diana", chicagoResults[0].Name);
+        await Assert.That(chicagoResults).HasSingleItem();
+        await Assert.That(chicagoResults[0].Name).IsEqualTo("Diana");
     }
 
     /// <summary>Verifies that Remove returns true when item exists and false when it doesn't.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Remove_ShouldReturnCorrectResult()
+    public async Task Remove_ShouldReturnCorrectResult()
     {
         using var list = new QuaternaryList<int> { TrackedCollectionValue };
 
-        Assert.True(list.Remove(TrackedCollectionValue));
-        Assert.False(list.Remove(TrackedCollectionValue));
-        Assert.Empty(list);
+        await Assert.That(list.Remove(TrackedCollectionValue)).IsTrue();
+        await Assert.That(list.Remove(TrackedCollectionValue)).IsFalse();
+        await Assert.That(list).IsEmpty();
     }
 
     /// <summary>Verifies that Contains returns correct results.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Contains_ShouldReturnCorrectResult()
+    public async Task Contains_ShouldReturnCorrectResult()
     {
         using var list = new QuaternaryList<int> { TrackedCollectionValue };
 
-        Assert.Contains(TrackedCollectionValue, list);
-        Assert.DoesNotContain(MissingCollectionValue, list);
+        await Assert.That(list).Contains(TrackedCollectionValue);
+        await Assert.That(list).DoesNotContain(MissingCollectionValue);
     }
 
     /// <summary>Verifies that CopyTo copies all items to the target array.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CopyTo_ShouldCopyAllItems()
+    public async Task CopyTo_ShouldCopyAllItems()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
@@ -380,42 +399,45 @@ public class QuaternaryListTests
         var buffer = new int[5];
         list.CopyTo(buffer, 0);
 
-        Assert.Equal(FifthCollectionValue, buffer.Length);
-        Assert.Contains(1, buffer);
-        Assert.Contains(SecondCollectionValue, buffer);
-        Assert.Contains(ThirdCollectionValue, buffer);
-        Assert.Contains(FourthCollectionValue, buffer);
-        Assert.Contains(FifthCollectionValue, buffer);
+        await Assert.That(buffer.Length).IsEqualTo(FifthCollectionValue);
+        await Assert.That(buffer).Contains(1);
+        await Assert.That(buffer).Contains(SecondCollectionValue);
+        await Assert.That(buffer).Contains(ThirdCollectionValue);
+        await Assert.That(buffer).Contains(FourthCollectionValue);
+        await Assert.That(buffer).Contains(FifthCollectionValue);
     }
 
     /// <summary>Verifies that GetEnumerator iterates over all items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GetEnumerator_ShouldIterateAllItems()
+    public async Task GetEnumerator_ShouldIterateAllItems()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
         var items = new List<int>(list);
 
-        Assert.Equal(FifthCollectionValue, items.Count);
-        Assert.Contains(1, items);
-        Assert.Contains(SecondCollectionValue, items);
-        Assert.Contains(ThirdCollectionValue, items);
-        Assert.Contains(FourthCollectionValue, items);
-        Assert.Contains(FifthCollectionValue, items);
+        await Assert.That(items.Count).IsEqualTo(FifthCollectionValue);
+        await Assert.That(items).Contains(1);
+        await Assert.That(items).Contains(SecondCollectionValue);
+        await Assert.That(items).Contains(ThirdCollectionValue);
+        await Assert.That(items).Contains(FourthCollectionValue);
+        await Assert.That(items).Contains(FifthCollectionValue);
     }
 
     /// <summary>Verifies that IsReadOnly returns false.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void IsReadOnly_ShouldReturnFalse()
+    public async Task IsReadOnly_ShouldReturnFalse()
     {
         using var list = new QuaternaryList<int>();
-        Assert.False(list.IsReadOnly);
+        await Assert.That(list.IsReadOnly).IsFalse();
     }
 
     /// <summary>Verifies that ItemMatchesSecondaryIndex returns correct results.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ItemMatchesSecondaryIndex_ShouldReturnCorrectResult()
+    public async Task ItemMatchesSecondaryIndex_ShouldReturnCorrectResult()
     {
         using var list = new QuaternaryList<TestPerson>();
         list.AddIndex(CityIndexName, static p => p.City);
@@ -424,24 +446,26 @@ public class QuaternaryListTests
         var losAngelesPerson = new TestPerson("B", LosAngelesCity);
         list.AddRange([newYorkPerson, losAngelesPerson]);
 
-        Assert.True(list.ItemMatchesSecondaryIndex(CityIndexName, newYorkPerson, NewYorkCity));
-        Assert.False(list.ItemMatchesSecondaryIndex(CityIndexName, newYorkPerson, LosAngelesCity));
-        Assert.True(list.ItemMatchesSecondaryIndex(CityIndexName, losAngelesPerson, LosAngelesCity));
-        Assert.False(list.ItemMatchesSecondaryIndex("NonExistent", newYorkPerson, NewYorkCity));
+        await Assert.That(list.ItemMatchesSecondaryIndex(CityIndexName, newYorkPerson, NewYorkCity)).IsTrue();
+        await Assert.That(list.ItemMatchesSecondaryIndex(CityIndexName, newYorkPerson, LosAngelesCity)).IsFalse();
+        await Assert.That(list.ItemMatchesSecondaryIndex(CityIndexName, losAngelesPerson, LosAngelesCity)).IsTrue();
+        await Assert.That(list.ItemMatchesSecondaryIndex("NonExistent", newYorkPerson, NewYorkCity)).IsFalse();
     }
 
     /// <summary>Verifies that GetItemsBySecondaryIndex returns empty when index doesn't exist.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GetItemsBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
+    public async Task GetItemsBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
     {
         using var list = new QuaternaryList<TestPerson>();
         var result = list.GetItemsBySecondaryIndex("NonExistent", "SomeKey");
-        Assert.Empty(result);
+        await Assert.That(result).IsEmpty();
     }
 
     /// <summary>Verifies that Stream emits Added notification for single item add.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Stream_ShouldEmitAddedNotification()
+    public async Task Stream_ShouldEmitAddedNotification()
     {
         using var list = new QuaternaryList<int>();
         CacheNotify<int>? notification = null;
@@ -454,15 +478,16 @@ public class QuaternaryListTests
 
         list.Add(TrackedCollectionValue);
 
-        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        _ = Assert.NotNull(notification);
-        Assert.Equal(CacheAction.Added, notification!.Action);
-        Assert.Equal(TrackedCollectionValue, notification.Item);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notification).IsNotNull();
+        await Assert.That(notification!.Action).IsEqualTo(CacheAction.Added);
+        await Assert.That(notification.Item).IsEqualTo(TrackedCollectionValue);
     }
 
     /// <summary>Verifies that Stream emits Removed notification for single item remove.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Stream_ShouldEmitRemovedNotification()
+    public async Task Stream_ShouldEmitRemovedNotification()
     {
         using var list = new QuaternaryList<int> { TrackedCollectionValue };
 
@@ -481,15 +506,16 @@ public class QuaternaryListTests
 
         _ = list.Remove(TrackedCollectionValue);
 
-        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        _ = Assert.NotNull(notification);
-        Assert.Equal(CacheAction.Removed, notification!.Action);
-        Assert.Equal(TrackedCollectionValue, notification.Item);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notification).IsNotNull();
+        await Assert.That(notification!.Action).IsEqualTo(CacheAction.Removed);
+        await Assert.That(notification.Item).IsEqualTo(TrackedCollectionValue);
     }
 
     /// <summary>Verifies that Stream emits Cleared notification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Stream_ShouldEmitClearedNotification()
+    public async Task Stream_ShouldEmitClearedNotification()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue]);
@@ -509,31 +535,33 @@ public class QuaternaryListTests
 
         list.Clear();
 
-        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        _ = Assert.NotNull(notification);
-        Assert.Equal(CacheAction.Cleared, notification!.Action);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notification).IsNotNull();
+        await Assert.That(notification!.Action).IsEqualTo(CacheAction.Cleared);
     }
 
     /// <summary>Verifies that ReplaceAll replaces all items atomically.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReplaceAll_ShouldReplaceAllItemsAtomically()
+    public async Task ReplaceAll_ShouldReplaceAllItemsAtomically()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
         list.ReplaceAll([FirstReplacementValue, SecondReplacementValue, ThirdReplacementValue]);
 
-        Assert.Equal(ThirdCollectionValue, list.Count);
-        Assert.Contains(FirstReplacementValue, list);
-        Assert.Contains(SecondReplacementValue, list);
-        Assert.Contains(ThirdReplacementValue, list);
-        Assert.DoesNotContain(1, list);
-        Assert.DoesNotContain(FifthCollectionValue, list);
+        await Assert.That(list.Count).IsEqualTo(ThirdCollectionValue);
+        await Assert.That(list).Contains(FirstReplacementValue);
+        await Assert.That(list).Contains(SecondReplacementValue);
+        await Assert.That(list).Contains(ThirdReplacementValue);
+        await Assert.That(list).DoesNotContain(1);
+        await Assert.That(list).DoesNotContain(FifthCollectionValue);
     }
 
     /// <summary>Verifies that ReplaceAll emits a single batch notification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReplaceAll_ShouldEmitSingleBatchNotification()
+    public async Task ReplaceAll_ShouldEmitSingleBatchNotification()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue]);
@@ -547,25 +575,27 @@ public class QuaternaryListTests
 
         list.ReplaceAll([FirstReplacementValue, SecondReplacementValue]);
 
-        Assert.True(reset.Wait(TimeSpan.FromSeconds(1)));
-        Assert.Equal(1, notificationCount); // Should be exactly one notification
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notificationCount).IsEqualTo(1); // Should be exactly one notification
     }
 
     /// <summary>Verifies that ReplaceAll with empty collection clears the list.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReplaceAll_WithEmptyCollection_ShouldClearList()
+    public async Task ReplaceAll_WithEmptyCollection_ShouldClearList()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
         list.ReplaceAll([]);
 
-        Assert.Empty(list);
+        await Assert.That(list).IsEmpty();
     }
 
     /// <summary>Verifies that ReplaceAll updates secondary indices correctly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReplaceAll_ShouldUpdateSecondaryIndices()
+    public async Task ReplaceAll_ShouldUpdateSecondaryIndices()
     {
         using var list = new QuaternaryList<int>();
         list.AddIndex("Mod2", static x => x % SecondCollectionValue);
@@ -573,23 +603,24 @@ public class QuaternaryListTests
 
         // Verify initial state
         var initialEvenItems = new List<int>(list.GetItemsBySecondaryIndex("Mod2", 0));
-        Assert.Equal(SecondCollectionValue, initialEvenItems.Count); // 2, 4
+        await Assert.That(initialEvenItems.Count).IsEqualTo(SecondCollectionValue); // 2, 4
 
         list.ReplaceAll([FirstReplacementValue, SecondReplacementValue, ThirdReplacementValue]);
 
         // After replace, new even numbers
         var evenItems = new List<int>(list.GetItemsBySecondaryIndex("Mod2", 0));
-        Assert.Equal(ThirdCollectionValue, evenItems.Count); // 10, 20, 30 are all even
+        await Assert.That(evenItems.Count).IsEqualTo(ThirdCollectionValue); // 10, 20, 30 are all even
     }
 
     /// <summary>Verifies that ReplaceAll throws ArgumentNullException when items is null.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReplaceAll_WithNull_ShouldThrowArgumentNullException()
+    public async Task ReplaceAll_WithNull_ShouldThrowArgumentNullException()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue]);
 
-        _ = Assert.Throws<ArgumentNullException>(() => list.ReplaceAll(null!));
+        await Assert.That(() => list.ReplaceAll(null!)).Throws<ArgumentNullException>();
     }
 
     /// <summary>Provides TestPerson.</summary>

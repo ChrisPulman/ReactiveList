@@ -27,10 +27,10 @@ public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollecti
     private readonly State _state;
 
     /// <summary>Relays collection notifications through this facade when it has subscribers.</summary>
-    private NotificationRelay<NotifyCollectionChangedEventArgs>? _collectionChangedRelay;
+    private TypedNotificationRelay<NotifyCollectionChangedEventArgs, NotifyCollectionChangedEventHandler>? _collectionChangedRelay;
 
     /// <summary>Relays property notifications through this facade when it has subscribers.</summary>
-    private NotificationRelay<PropertyChangedEventArgs>? _propertyChangedRelay;
+    private TypedNotificationRelay<PropertyChangedEventArgs, PropertyChangedEventHandler>? _propertyChangedRelay;
 
     /// <summary>Initializes a new instance of the <see cref="ReactiveGroup{TKey, T}"/> class.</summary>
     /// <param name="key">The group key.</param>
@@ -55,8 +55,8 @@ public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollecti
 
             lock (_collectionChangedGate)
             {
-                _collectionChangedRelay ??= new(this);
-                if (_collectionChangedRelay.Add(value.Invoke))
+                _collectionChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_collectionChangedRelay.Add(value))
                 {
                     _state.CollectionChanged += _collectionChangedRelay.OnEvent;
                 }
@@ -72,7 +72,7 @@ public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollecti
 
             lock (_collectionChangedGate)
             {
-                if (_collectionChangedRelay?.Remove(value.Invoke) is true)
+                if (_collectionChangedRelay?.Remove(value) is true)
                 {
                     _state.CollectionChanged -= _collectionChangedRelay.OnEvent;
                 }
@@ -92,8 +92,8 @@ public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollecti
 
             lock (_propertyChangedGate)
             {
-                _propertyChangedRelay ??= new(this);
-                if (_propertyChangedRelay.Add(value.Invoke))
+                _propertyChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_propertyChangedRelay.Add(value))
                 {
                     _state.PropertyChanged += _propertyChangedRelay.OnEvent;
                 }
@@ -109,7 +109,7 @@ public sealed class ReactiveGroup<TKey, T> : IGrouping<TKey, T>, INotifyCollecti
 
             lock (_propertyChangedGate)
             {
-                if (_propertyChangedRelay?.Remove(value.Invoke) is true)
+                if (_propertyChangedRelay?.Remove(value) is true)
                 {
                     _state.PropertyChanged -= _propertyChangedRelay.OnEvent;
                 }

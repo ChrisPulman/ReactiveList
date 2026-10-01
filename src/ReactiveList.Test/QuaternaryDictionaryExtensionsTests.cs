@@ -5,8 +5,13 @@
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Collections.Generic;
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive;
+using CP.Reactive.Collections;
+#else
 using CP.Primitives;
 using CP.Primitives.Collections;
+#endif
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -36,8 +41,9 @@ public class QuaternaryDictionaryExtensionsTests
     private const string ThreeText = "three";
 
     /// <summary>Verifies that CreateView returns a view with all items when no filter is applied.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateView_WithoutFilter_ShouldContainAllItems()
+    public async Task CreateView_WithoutFilter_ShouldContainAllItems()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
@@ -48,12 +54,13 @@ public class QuaternaryDictionaryExtensionsTests
 
         using var view = dict.CreateView(Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(ThirdEntryKey, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(ThirdEntryKey);
     }
 
     /// <summary>Verifies that CreateView with filter returns only matching items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateView_WithFilter_ShouldContainOnlyMatchingItems()
+    public async Task CreateView_WithFilter_ShouldContainOnlyMatchingItems()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
@@ -64,14 +71,15 @@ public class QuaternaryDictionaryExtensionsTests
 
         using var view = dict.CreateView(static kvp => kvp.Value.Length == 3, Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(SecondEntryKey, view.Items.Count);
-        Assert.Contains(view.Items, static kvp => kvp.Value == "one");
-        Assert.Contains(view.Items, static kvp => kvp.Value == "two");
+        await Assert.That(view.Items.Count).IsEqualTo(SecondEntryKey);
+        await Assert.That(view.Items).Contains(static kvp => kvp.Value == "one");
+        await Assert.That(view.Items).Contains(static kvp => kvp.Value == "two");
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex filters items by the secondary value index key.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateViewBySecondaryIndex_ShouldFilterByKey()
+    public async Task CreateViewBySecondaryIndex_ShouldFilterByKey()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
         dict.AddValueIndex(CityIndexName, static p => p.City);
@@ -83,13 +91,14 @@ public class QuaternaryDictionaryExtensionsTests
 
         using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>(CityIndexName, "NYC", Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(SecondEntryKey, view.Items.Count);
-        Assert.All(view.Items, static kvp => Assert.Equal("NYC", kvp.Value.City));
+        await Assert.That(view.Items.Count).IsEqualTo(SecondEntryKey);
+        await Assert.That(view.Items).All(static kvp => kvp.Value.City == "NYC");
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex with multiple keys includes items matching any key.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
+    public async Task CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
     {
         using var dict = new QuaternaryDictionary<int, TestPerson>();
         dict.AddValueIndex(CityIndexName, static p => p.City);
@@ -102,12 +111,13 @@ public class QuaternaryDictionaryExtensionsTests
 
         using var view = dict.CreateViewBySecondaryIndex(CityIndexName, ["NYC", "LA"], Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(ThirdEntryKey, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(ThirdEntryKey);
     }
 
     /// <summary>Verifies that ToProperty sets the property correctly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ToProperty_ShouldSetProperty()
+    public async Task ToProperty_ShouldSetProperty()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
@@ -120,8 +130,8 @@ public class QuaternaryDictionaryExtensionsTests
         using var view = dict.CreateView(Sequencer.Default, throttleMs: 10)
             .ToProperty(x => result = x);
 
-        _ = Assert.NotNull(result);
-        Assert.Equal(ThirdEntryKey, result!.Count);
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Count).IsEqualTo(ThirdEntryKey);
     }
 
     /// <summary>Verifies that ReactiveView updates when items are added to the source dictionary.</summary>
@@ -137,8 +147,8 @@ public class QuaternaryDictionaryExtensionsTests
         // Wait for throttle + processing
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        _ = Assert.Single(view.Items);
-        Assert.Contains(view.Items, static kvp => kvp.Key == 1 && kvp.Value == "one");
+        await Assert.That(view.Items).HasSingleItem();
+        await Assert.That(view.Items).Contains(static kvp => kvp.Key == 1 && kvp.Value == "one");
     }
 
     /// <summary>Verifies that ReactiveView updates when items are removed from the source dictionary.</summary>
@@ -156,15 +166,15 @@ public class QuaternaryDictionaryExtensionsTests
         using var view = dict.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
-        Assert.Equal(ThirdEntryKey, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(ThirdEntryKey);
 
         _ = dict.Remove(SecondEntryKey);
 
         // Wait for throttle + processing
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(SecondEntryKey, view.Items.Count);
-        Assert.DoesNotContain(view.Items, static kvp => kvp.Key == SecondEntryKey);
+        await Assert.That(view.Items.Count).IsEqualTo(SecondEntryKey);
+        await Assert.That(view.Items).DoesNotContain(static kvp => kvp.Key == SecondEntryKey);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex updates when new matching items are added.</summary>
@@ -178,14 +188,14 @@ public class QuaternaryDictionaryExtensionsTests
 
         using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>(CityIndexName, "NYC", Sequencer.Default, throttleMs: 50);
 
-        _ = Assert.Single(view.Items);
+        await Assert.That(view.Items).HasSingleItem();
 
         dict.Add(SecondEntryKey, new("Bob", "NYC"));
 
         // Wait for throttle + processing
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(SecondEntryKey, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(SecondEntryKey);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex doesn't include non-matching items when added.</summary>
@@ -199,7 +209,7 @@ public class QuaternaryDictionaryExtensionsTests
 
         using var view = dict.CreateViewBySecondaryIndex<int, TestPerson, string>(CityIndexName, "NYC", Sequencer.Default, throttleMs: 50);
 
-        _ = Assert.Single(view.Items);
+        await Assert.That(view.Items).HasSingleItem();
 
         dict.Add(SecondEntryKey, new("Bob", "LA"));
 
@@ -207,7 +217,7 @@ public class QuaternaryDictionaryExtensionsTests
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
         // Should still be only 1 item (Alice from NYC)
-        _ = Assert.Single(view.Items);
+        await Assert.That(view.Items).HasSingleItem();
     }
 
     /// <summary>Provides TestPerson.</summary>

@@ -5,8 +5,12 @@
 using System;
 using System.IO;
 using System.Runtime.Serialization;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+#else
 using CP.Primitives.Collections;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 using static ReactiveList.Test.TestData;
 
@@ -16,23 +20,25 @@ namespace ReactiveList.Test;
 public class ReactiveListSerializationTests
 {
     /// <summary>ReactiveList should be serializable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReactiveList_ShouldBeSerializable()
+    public async Task ReactiveList_ShouldBeSerializable()
     {
         var list = new ReactiveList<string>();
         list.AddRange(["one", "two", "three"]);
 
         var deserialized = RoundTrip(list);
 
-        _ = deserialized.Count.Should().Be(TestValueThree);
-        _ = deserialized[0].Should().Be("one");
-        _ = deserialized[1].Should().Be("two");
-        _ = deserialized[TestValueTwo].Should().Be("three");
+        await Assert.That(deserialized.Count).IsEqualTo(TestValueThree);
+        await Assert.That(deserialized[0]).IsEqualTo("one");
+        await Assert.That(deserialized[1]).IsEqualTo("two");
+        await Assert.That(deserialized[TestValueTwo]).IsEqualTo("three");
     }
 
     /// <summary>Deserialized ReactiveList should work normally.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void DeserializedReactiveList_ShouldWorkNormally()
+    public async Task DeserializedReactiveList_ShouldWorkNormally()
     {
         var list = new ReactiveList<int>();
         list.AddRange([1, TestValueTwo, TestValueThree]);
@@ -41,22 +47,23 @@ public class ReactiveListSerializationTests
 
         // Test that we can add items
         deserialized.Add(TestValueFour);
-        _ = deserialized.Count.Should().Be(TestValueFour);
+        await Assert.That(deserialized.Count).IsEqualTo(TestValueFour);
 
         // Test that Items property works
-        _ = deserialized.Items.Should().BeEquivalentTo([1, TestValueTwo, TestValueThree, TestValueFour]);
+        await Assert.That(deserialized.Items).IsEquivalentTo([1, TestValueTwo, TestValueThree, TestValueFour]);
 
         // Test that observables work
         var addedItems = Array.Empty<int>();
         using var subscription = deserialized.Added.Subscribe(items => addedItems = [.. items]);
 
         deserialized.Add(TestValueFive);
-        _ = addedItems.Should().BeEquivalentTo([TestValueFive]);
+        await Assert.That(addedItems).IsEquivalentTo([TestValueFive]);
     }
 
     /// <summary>Deserialized ReactiveList should support remove operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void DeserializedReactiveList_ShouldSupportRemoveOperations()
+    public async Task DeserializedReactiveList_ShouldSupportRemoveOperations()
     {
         var list = new ReactiveList<string>();
         list.AddRange(["a", "b", "c"]);
@@ -64,13 +71,14 @@ public class ReactiveListSerializationTests
         var deserialized = RoundTrip(list);
 
         _ = deserialized.Remove("b");
-        _ = deserialized.Count.Should().Be(TestValueTwo);
-        _ = deserialized.Items.Should().BeEquivalentTo(["a", "c"]);
+        await Assert.That(deserialized.Count).IsEqualTo(TestValueTwo);
+        await Assert.That(deserialized.Items).IsEquivalentTo(["a", "c"]);
     }
 
     /// <summary>Deserialized ReactiveList should support clear operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void DeserializedReactiveList_ShouldSupportClearOperations()
+    public async Task DeserializedReactiveList_ShouldSupportClearOperations()
     {
         var list = new ReactiveList<int>();
         list.AddRange([1, TestValueTwo, TestValueThree, TestValueFour, TestValueFive]);
@@ -78,35 +86,37 @@ public class ReactiveListSerializationTests
         var deserialized = RoundTrip(list);
 
         deserialized.Clear();
-        _ = deserialized.Count.Should().Be(0);
-        _ = deserialized.Items.Should().BeEmpty();
+        await Assert.That(deserialized.Count).IsEqualTo(0);
+        await Assert.That(deserialized.Items).IsEmpty();
     }
 
     /// <summary>Empty ReactiveList should be serializable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void EmptyReactiveList_ShouldBeSerializable()
+    public async Task EmptyReactiveList_ShouldBeSerializable()
     {
         var list = new ReactiveList<string>();
 
         var deserialized = RoundTrip(list);
 
-        _ = deserialized.Count.Should().Be(0);
-        _ = deserialized.Items.Should().BeEmpty();
+        await Assert.That(deserialized.Count).IsEqualTo(0);
+        await Assert.That(deserialized.Items).IsEmpty();
     }
 
     /// <summary>ReactiveList with complex types should be serializable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReactiveListWithComplexTypes_ShouldBeSerializable()
+    public async Task ReactiveListWithComplexTypes_ShouldBeSerializable()
     {
         var list = new ReactiveList<TestData> { new("Alice", TestValueThirty), new("Bob", TestValueTwentyFive) };
 
         var deserialized = RoundTrip(list);
 
-        _ = deserialized.Count.Should().Be(TestValueTwo);
-        _ = deserialized[0].Name.Should().Be("Alice");
-        _ = deserialized[0].Age.Should().Be(TestValueThirty);
-        _ = deserialized[1].Name.Should().Be("Bob");
-        _ = deserialized[1].Age.Should().Be(TestValueTwentyFive);
+        await Assert.That(deserialized.Count).IsEqualTo(TestValueTwo);
+        await Assert.That(deserialized[0].Name).IsEqualTo("Alice");
+        await Assert.That(deserialized[0].Age).IsEqualTo(TestValueThirty);
+        await Assert.That(deserialized[1].Name).IsEqualTo("Bob");
+        await Assert.That(deserialized[1].Age).IsEqualTo(TestValueTwentyFive);
     }
 
     /// <summary>Round-trips a value through the .NET Framework serializer.</summary>

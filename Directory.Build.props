@@ -15,6 +15,7 @@
     <PackageTags>list;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageProjectUrl>https://github.com/ChrisPulman/ReactiveList</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ChrisPulman/ReactiveList</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

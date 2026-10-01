@@ -219,53 +219,32 @@ where T : notnull
     /// <param name="n">A cache notification describing the action to apply and the affected item or batch. Cannot be null.</param>
     private void ApplyChange(CacheNotify<T> n)
     {
-        switch (n.Action)
+        if (n.Action is CacheAction.Added)
         {
-            case CacheAction.Added:
-                {
-                    AddItem(n.Item);
-                    break;
-                }
-
-            case CacheAction.Removed:
-                {
-                    if (n.Item is not null)
-                    {
-                        _ = _target.Remove(n.Item);
-                    }
-
-                    break;
-                }
-
-            case CacheAction.Updated or CacheAction.Moved or CacheAction.Refreshed:
-                {
-                    RebuildView();
-                    break;
-                }
-
-            case CacheAction.Cleared:
-                {
-                    _target.Clear();
-                    break;
-                }
-
-            case CacheAction.BatchAdded:
-                {
-                    AddBatch(n.Batch);
-                    break;
-                }
-
-            case CacheAction.BatchRemoved:
-                {
-                    RemoveBatch(n.Batch);
-                    break;
-                }
-
-            default:
-                {
-                    // Ignore invalid enum values to preserve the view's current state.
-                    break;
-                }
+            AddItem(n.Item);
+        }
+        else if (n.Action is CacheAction.Removed)
+        {
+            if (n.Item is not null)
+            {
+                _ = _target.Remove(n.Item);
+            }
+        }
+        else if (n.Action is CacheAction.Updated or CacheAction.Moved or CacheAction.Refreshed)
+        {
+            RebuildView();
+        }
+        else if (n.Action is CacheAction.Cleared)
+        {
+            _target.Clear();
+        }
+        else if (n.Action is CacheAction.BatchAdded)
+        {
+            AddBatch(n.Batch);
+        }
+        else if (n.Action is CacheAction.BatchRemoved)
+        {
+            RemoveBatch(n.Batch);
         }
     }
 

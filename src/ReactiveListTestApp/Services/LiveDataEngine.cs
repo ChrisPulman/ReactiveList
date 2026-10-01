@@ -138,6 +138,18 @@ internal sealed class LiveDataEngine : IDisposable
     /// <summary>Gets a value indicating whether continuous publication is paused.</summary>
     internal bool IsPaused => Volatile.Read(ref _paused);
 
+    /// <summary>Gets the producer completion task, including any publication failure.</summary>
+    internal Task Completion
+    {
+        get
+        {
+            lock (_lifecycleGate)
+            {
+                return _runTask ?? Task.CompletedTask;
+            }
+        }
+    }
+
     /// <summary>Gets the number of raw ticks in the current pooled scratch collection.</summary>
     internal int HotTickCapacityCount => _hotTicks.Count;
 
@@ -147,33 +159,41 @@ internal sealed class LiveDataEngine : IDisposable
     /// <summary>Starts or resumes the continuous producer.</summary>
     internal void Start()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         lock (_lifecycleGate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_runTask is not null)
             {
-                _paused = false;
+                Volatile.Write(ref _paused, false);
                 return;
             }
 
             _cancellation = new();
-            _paused = false;
-            _runTask = Task.Run(() => RunAsync(_cancellation.Token));
+            var cancellationToken = _cancellation.Token;
+            Volatile.Write(ref _paused, false);
+            _runTask = Task.Run(() => RunAsync(cancellationToken));
         }
     }
 
     /// <summary>Switches between continuous generation and a paused state.</summary>
-    internal void TogglePause() => _paused = !_paused;
+    internal void TogglePause()
+    {
+        lock (_lifecycleGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            Volatile.Write(ref _paused, !IsPaused);
+        }
+    }
 
     /// <summary>Generates and aggregates one deterministic-size raw event batch.</summary>
     /// <param name="eventCount">The number of raw events to process.</param>
     /// <returns>The immutable projection frame.</returns>
     internal MarketFrame GenerateFrame(int eventCount)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(eventCount);
         lock (_generationGate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             return GenerateFrameCore(eventCount);
         }
     }
@@ -183,6 +203,7 @@ internal sealed class LiveDataEngine : IDisposable
     {
         lock (_generationGate)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             var initialStates = CreateStates();
             initialStates.CopyTo(_states, 0);
             _hotTicks.Clear();
@@ -223,48 +244,57 @@ internal sealed class LiveDataEngine : IDisposable
     /// <summary>Stops production and releases all owned resources.</summary>
     private void DisposeCore()
     {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
         lock (_lifecycleGate)
         {
-            _cancellation?.Cancel();
-        }
+            lock (_generationGate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
 
-        try
-        {
-            _runTask?.GetAwaiter().GetResult();
+                _disposed = true;
+                _cancellation?.Cancel();
+                _cancellation?.Dispose();
+                _hotTicks.Dispose();
+                _latestByInstrument.Dispose();
+            }
         }
-        catch (OperationCanceledException)
-        {
-        }
-
-        _cancellation?.Dispose();
-        _hotTicks.Dispose();
-        _latestByInstrument.Dispose();
     }
 
     /// <inheritdoc/>
     void IDisposable.Dispose() => DisposeCore();
 
-    /// <summary>Runs the ten-frame-per-second projection clock.</summary>
+    /// <summary>Runs the continuous projection clock.</summary>
     /// <param name="cancellationToken">Stops the producer.</param>
     /// <returns>A task that completes when cancellation is requested.</returns>
     private async Task RunAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(FrameInterval);
-        while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+        using var timer = new PeriodicTimer(FrameInterval, _timeProvider);
+        try
         {
-            if (_paused)
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
-                continue;
-            }
+                lock (_lifecycleGate)
+                {
+                    if (_disposed)
+                    {
+                        return;
+                    }
 
-            var eventCount = Math.Max(1, TargetEventsPerSecond / FramesPerSecond);
-            FrameProduced?.Invoke(this, GenerateFrame(eventCount));
+                    if (IsPaused)
+                    {
+                        continue;
+                    }
+
+                    var eventCount = Math.Max(1, TargetEventsPerSecond / FramesPerSecond);
+                    FrameProduced?.Invoke(this, GenerateFrame(eventCount));
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Cancellation is the normal producer shutdown path.
         }
     }
 

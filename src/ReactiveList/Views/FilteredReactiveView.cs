@@ -26,16 +26,16 @@ where T : notnull
     private readonly State _state;
 
     /// <summary>Relays collection notifications with this facade as the sender.</summary>
-    private NotificationRelay<NotifyCollectionChangedEventArgs>? _collectionChangedRelay;
+    private TypedNotificationRelay<NotifyCollectionChangedEventArgs, NotifyCollectionChangedEventHandler>? _collectionChangedRelay;
 
     /// <summary>Relays property notifications with this facade as the sender.</summary>
-    private NotificationRelay<PropertyChangedEventArgs>? _propertyChangedRelay;
+    private TypedNotificationRelay<PropertyChangedEventArgs, PropertyChangedEventHandler>? _propertyChangedRelay;
 
     /// <summary>Initializes a new instance of the <see cref="FilteredReactiveView{T}"/> class.</summary>
     /// <param name="source">The source reactive list to filter.</param>
     /// <param name="filter">The filter predicate.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
+    /// <param name="throttle">The quiet period before consuming retained source changes; zero dispatches without debounce.</param>
     public FilteredReactiveView(
         IReactiveList<T> source,
         Func<T, bool> filter,
@@ -58,8 +58,8 @@ where T : notnull
 
             lock (_collectionChangedGate)
             {
-                _collectionChangedRelay ??= new(this);
-                if (_collectionChangedRelay.Add(value.Invoke))
+                _collectionChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_collectionChangedRelay.Add(value))
                 {
                     _state.CollectionChanged += _collectionChangedRelay.OnEvent;
                 }
@@ -75,7 +75,7 @@ where T : notnull
 
             lock (_collectionChangedGate)
             {
-                if (_collectionChangedRelay?.Remove(value.Invoke) is true)
+                if (_collectionChangedRelay?.Remove(value) is true)
                 {
                     _state.CollectionChanged -= _collectionChangedRelay.OnEvent;
                 }
@@ -95,8 +95,8 @@ where T : notnull
 
             lock (_propertyChangedGate)
             {
-                _propertyChangedRelay ??= new(this);
-                if (_propertyChangedRelay.Add(value.Invoke))
+                _propertyChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_propertyChangedRelay.Add(value))
                 {
                     _state.PropertyChanged += _propertyChangedRelay.OnEvent;
                 }
@@ -112,7 +112,7 @@ where T : notnull
 
             lock (_propertyChangedGate)
             {
-                if (_propertyChangedRelay?.Remove(value.Invoke) is true)
+                if (_propertyChangedRelay?.Remove(value) is true)
                 {
                     _state.PropertyChanged -= _propertyChangedRelay.OnEvent;
                 }
@@ -196,6 +196,18 @@ where T : notnull
         /// <summary>Synchronizes access to the filtered items collection.</summary>
         private readonly Lock _lock = new();
 
+        /// <summary>Retains every structural delta before scheduler dispatch.</summary>
+        private readonly ViewChangeBuffer<T> _changes;
+
+        /// <summary>Indicates that collection reconciliation is delivering notifications.</summary>
+        private bool _rebuilding;
+
+        /// <summary>Defers a refresh requested by a collection notification handler.</summary>
+        private bool _rebuildRequested;
+
+        /// <summary>Defers explicit live-source snapshots until notification delivery finishes.</summary>
+        private bool _refreshFromSource;
+
         /// <summary>Initializes a new instance of the <see cref="State"/> class without publishing callbacks.</summary>
         /// <param name="source">The source reactive list to filter.</param>
         /// <param name="filter">The filter predicate.</param>
@@ -211,6 +223,7 @@ where T : notnull
             _filter = filter ?? throw new ArgumentNullException(nameof(filter));
             _scheduler = scheduler;
             _throttle = throttle;
+            _changes = new(source);
             Items = new(_filteredItems);
             RebuildView();
         }
@@ -236,11 +249,15 @@ where T : notnull
         internal void Start()
         {
             _filteredItems.CollectionChanged += OnCollectionChanged;
-            var subscription = _source.Stream
-                .ToChangeSets()
-                .Throttle(_throttle)
+            var updates = _source.Stream.ToChangeSets().Map(changes => _changes.Capture(changes, _source.Version));
+            if (_throttle > TimeSpan.Zero)
+            {
+                updates = updates.Throttle(_throttle);
+            }
+
+            var subscription = updates
                 .ObserveOn(_scheduler)
-                .Subscribe(OnSourceChanged);
+                .Subscribe(_ => OnSourceChanged());
 
             _disposables.Add(subscription);
         }
@@ -254,6 +271,7 @@ where T : notnull
         {
             lock (_lock)
             {
+                _refreshFromSource = true;
                 RebuildView();
             }
         }
@@ -262,108 +280,153 @@ where T : notnull
         internal void Dispose() => _disposables.Dispose();
 
         /// <summary>Handles source change notifications.</summary>
-        /// <param name="changes">The changes value.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void OnSourceChanged(ChangeSet<T> changes)
+        private void OnSourceChanged()
         {
             lock (_lock)
             {
-                for (var i = 0; i < changes.Count; i++)
-                {
-                    ProcessChange(changes[i]);
-                }
+                ApplyUpdates();
             }
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
         }
 
-        /// <summary>Processes a source collection change.</summary>
-        /// <param name="change">The change value.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ProcessChange(Change<T> change)
-        {
-            switch (change.Reason)
-            {
-                case ChangeReason.Add:
-                    {
-                        if (_filter(change.Current))
-                        {
-                            _filteredItems.Add(change.Current);
-                        }
-
-                        break;
-                    }
-
-                case ChangeReason.Remove:
-                    {
-                        _ = _filteredItems.Remove(change.Current);
-                        break;
-                    }
-
-                case ChangeReason.Update:
-                    {
-                        UpdateItem(change);
-                        break;
-                    }
-
-                case ChangeReason.Clear:
-                    {
-                        _filteredItems.Clear();
-                        break;
-                    }
-
-                case ChangeReason.Move or ChangeReason.Refresh:
-                    {
-                        RebuildView();
-                        break;
-                    }
-
-                default:
-                    {
-                        break;
-                    }
-            }
-        }
-
-        /// <summary>Updates an item while preserving its filtered position when possible.</summary>
-        /// <param name="change">The update change to apply.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void UpdateItem(Change<T> change)
-        {
-            var previous = change.Previous;
-            var existingIndex = previous is null ? -1 : _filteredItems.IndexOf(previous);
-            var shouldInclude = _filter(change.Current);
-
-            if (existingIndex < 0)
-            {
-                if (!shouldInclude)
-                {
-                    return;
-                }
-
-                _filteredItems.Add(change.Current);
-                return;
-            }
-
-            if (!shouldInclude)
-            {
-                _filteredItems.RemoveAt(existingIndex);
-                return;
-            }
-
-            _filteredItems[existingIndex] = change.Current;
-        }
-
-        /// <summary>Rebuilds the view from the current source state.</summary>
+        /// <summary>Reconciles the current source snapshot without replaying stale structural changes.</summary>
         private void RebuildView()
         {
-            _filteredItems.Clear();
-            foreach (var item in _source)
+            _rebuildRequested = true;
+            ApplyUpdates();
+        }
+
+        /// <summary>Consumes retained deltas and defers reentrant refreshes.</summary>
+        private void ApplyUpdates()
+        {
+            if (_rebuilding)
             {
-                if (_filter(item))
+                return;
+            }
+
+            _rebuilding = true;
+            try
+            {
+                do
+                {
+                    if (_refreshFromSource)
+                    {
+                        _refreshFromSource = false;
+                        _changes.Reset(_source);
+                    }
+
+                    while (_changes.TryTake(out var changes))
+                    {
+                        for (var i = 0; i < changes.Count; i++)
+                        {
+                            var change = changes[i];
+                            _changes.Apply(change);
+                            ProcessChange(change);
+                        }
+                    }
+
+                    if (_rebuildRequested)
+                    {
+                        _rebuildRequested = false;
+                        ReconcileSnapshot();
+                    }
+                }
+                while (_rebuildRequested || _refreshFromSource || _changes.HasPending);
+            }
+            finally
+            {
+                _rebuilding = false;
+            }
+        }
+
+        /// <summary>Preserves incremental membership positions between explicit rebuilds.</summary>
+        /// <param name="change">The consumed source change.</param>
+        private void ProcessChange(Change<T> change)
+        {
+            if (change.Reason is ChangeReason.Add)
+            {
+                if (_filter(change.Current))
+                {
+                    _filteredItems.Add(change.Current);
+                }
+            }
+            else if (change.Reason is ChangeReason.Remove)
+            {
+                var index = ViewChangeBuffer<T>.FindIndex(_filteredItems, change.Current);
+                if (index >= 0)
+                {
+                    _filteredItems.RemoveAt(index);
+                }
+            }
+            else if (change.Reason is ChangeReason.Update)
+            {
+                UpdateItem(change);
+            }
+            else if (change.Reason is ChangeReason.Clear)
+            {
+                _filteredItems.Clear();
+            }
+            else if (change.Reason is ChangeReason.Move or ChangeReason.Refresh)
+            {
+                ReconcileSnapshot();
+            }
+        }
+
+        /// <summary>Updates an item while preserving its existing filtered position.</summary>
+        /// <param name="change">The consumed update.</param>
+        private void UpdateItem(Change<T> change)
+        {
+            var index = change.Previous is null ? -1 : ViewChangeBuffer<T>.FindIndex(_filteredItems, change.Previous);
+            var included = _filter(change.Current);
+            if (index < 0)
+            {
+                if (included)
+                {
+                    _filteredItems.Add(change.Current);
+                }
+
+                return;
+            }
+
+            if (!included)
+            {
+                _filteredItems.RemoveAt(index);
+                return;
+            }
+
+            _filteredItems[index] = change.Current;
+        }
+
+        /// <summary>Preserves source order, duplicate occurrences and reference identity.</summary>
+        private void ReconcileSnapshot()
+        {
+            var index = 0;
+            foreach (var item in _changes.Items)
+            {
+                if (!_filter(item))
+                {
+                    continue;
+                }
+
+                if (index == _filteredItems.Count)
                 {
                     _filteredItems.Add(item);
                 }
+                else if (typeof(T).IsValueType
+                    ? !EqualityComparer<T>.Default.Equals(_filteredItems[index], item)
+                    : !ReferenceEquals(_filteredItems[index], item))
+                {
+                    _filteredItems[index] = item;
+                }
+
+                index++;
+            }
+
+            while (_filteredItems.Count > index)
+            {
+                _filteredItems.RemoveAt(_filteredItems.Count - 1);
             }
         }
 

@@ -28,7 +28,7 @@ where T : notnull
     private readonly State _state;
 
     /// <summary>Relays state notifications while preserving this facade as the event sender.</summary>
-    private NotificationRelay<PropertyChangedEventArgs>? _propertyChangedRelay;
+    private TypedNotificationRelay<PropertyChangedEventArgs, PropertyChangedEventHandler>? _propertyChangedRelay;
 
     /// <summary>Indicates whether this view has been disposed.</summary>
     private bool _disposedValue;
@@ -78,8 +78,8 @@ where T : notnull
 
             lock (_eventGate)
             {
-                _propertyChangedRelay ??= new(this);
-                if (_propertyChangedRelay.Add(value.Invoke))
+                _propertyChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_propertyChangedRelay.Add(value))
                 {
                     _state.PropertyChanged += _propertyChangedRelay.OnEvent;
                 }
@@ -95,7 +95,7 @@ where T : notnull
 
             lock (_eventGate)
             {
-                if (_propertyChangedRelay?.Remove(value.Invoke) == true)
+                if (_propertyChangedRelay?.Remove(value) == true)
                 {
                     _state.PropertyChanged -= _propertyChangedRelay.OnEvent;
                 }
@@ -239,65 +239,36 @@ where T : notnull
         /// <param name="notification">The notification describing the change to apply.</param>
         private void ApplyChange(CacheNotify<T> notification)
         {
-            switch (notification.Action)
+            if (notification.Action is CacheAction.Added)
             {
-                case CacheAction.Added:
-                    {
-                        AddItem(notification.Item);
-                        break;
-                    }
-
-                case CacheAction.Removed:
-                    {
-                        if (notification.Item is not null)
-                        {
-                            _ = _target.Remove(notification.Item);
-                        }
-
-                        break;
-                    }
-
-                case CacheAction.Updated:
-                    {
-                        UpdateItem(notification);
-                        break;
-                    }
-
-                case CacheAction.Moved:
-                    {
-                        // Source-relative positions cannot be mapped reliably when preceding items are filtered out.
-                        break;
-                    }
-
-                case CacheAction.Refreshed:
-                    {
-                        RefreshItem(notification.Item);
-                        break;
-                    }
-
-                case CacheAction.Cleared:
-                    {
-                        _target.Clear();
-                        break;
-                    }
-
-                case CacheAction.BatchOperation or CacheAction.BatchAdded:
-                    {
-                        AddBatch(notification.Batch);
-                        break;
-                    }
-
-                case CacheAction.BatchRemoved:
-                    {
-                        RemoveBatch(notification.Batch);
-                        break;
-                    }
-
-                default:
-                    {
-                        // Ignore invalid enum values to preserve the view's current state.
-                        break;
-                    }
+                AddItem(notification.Item);
+            }
+            else if (notification.Action is CacheAction.Removed)
+            {
+                if (notification.Item is not null)
+                {
+                    _ = _target.Remove(notification.Item);
+                }
+            }
+            else if (notification.Action is CacheAction.Updated)
+            {
+                UpdateItem(notification);
+            }
+            else if (notification.Action is CacheAction.Refreshed)
+            {
+                RefreshItem(notification.Item);
+            }
+            else if (notification.Action is CacheAction.Cleared)
+            {
+                _target.Clear();
+            }
+            else if (notification.Action is CacheAction.BatchOperation or CacheAction.BatchAdded)
+            {
+                AddBatch(notification.Batch);
+            }
+            else if (notification.Action is CacheAction.BatchRemoved)
+            {
+                RemoveBatch(notification.Batch);
             }
         }
 

@@ -4,8 +4,13 @@
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive;
+using CP.Reactive.Collections;
+#else
 using CP.Primitives;
 using CP.Primitives.Collections;
+#endif
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -38,34 +43,37 @@ public class QuaternaryExtensionsTests
     private const string CityIndexName = "ByCity";
 
     /// <summary>Verifies that CreateView returns a view with all items when no filter is applied.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateView_WithoutFilter_ShouldContainAllItems()
+    public async Task CreateView_WithoutFilter_ShouldContainAllItems()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
         using var view = list.CreateView(Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(FifthCollectionValue, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(FifthCollectionValue);
     }
 
     /// <summary>Verifies that CreateView with filter returns only matching items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateView_WithFilter_ShouldContainOnlyMatchingItems()
+    public async Task CreateView_WithFilter_ShouldContainOnlyMatchingItems()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue, FourthCollectionValue, FifthCollectionValue]);
 
         using var view = list.CreateView(static x => x % SecondCollectionValue == 0, Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(SecondCollectionValue, view.Items.Count);
-        Assert.Contains(SecondCollectionValue, view.Items);
-        Assert.Contains(FourthCollectionValue, view.Items);
+        await Assert.That(view.Items.Count).IsEqualTo(SecondCollectionValue);
+        await Assert.That(view.Items).Contains(SecondCollectionValue);
+        await Assert.That(view.Items).Contains(FourthCollectionValue);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex filters items by the secondary index key.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateViewBySecondaryIndex_ShouldFilterByKey()
+    public async Task CreateViewBySecondaryIndex_ShouldFilterByKey()
     {
         using var list = new QuaternaryList<TestPerson>();
         list.AddIndex(CityIndexName, static p => p.City);
@@ -77,13 +85,14 @@ public class QuaternaryExtensionsTests
 
         using var view = list.CreateViewBySecondaryIndex(CityIndexName, "NYC", Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(SecondCollectionValue, view.Items.Count);
-        Assert.All(view.Items, static p => Assert.Equal("NYC", p.City));
+        await Assert.That(view.Items.Count).IsEqualTo(SecondCollectionValue);
+        await Assert.That(view.Items).All(static p => p.City == "NYC");
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex with multiple keys includes items matching any key.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
+    public async Task CreateViewBySecondaryIndex_WithMultipleKeys_ShouldIncludeAllMatches()
     {
         using var list = new QuaternaryList<TestPerson>();
         list.AddIndex(CityIndexName, static p => p.City);
@@ -96,12 +105,13 @@ public class QuaternaryExtensionsTests
 
         using var view = list.CreateViewBySecondaryIndex(CityIndexName, ["NYC", "LA"], Sequencer.Default, throttleMs: 10);
 
-        Assert.Equal(ThirdCollectionValue, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(ThirdCollectionValue);
     }
 
     /// <summary>Verifies that ToProperty sets the property correctly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ToProperty_ShouldSetProperty()
+    public async Task ToProperty_ShouldSetProperty()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, SecondCollectionValue, ThirdCollectionValue]);
@@ -110,8 +120,8 @@ public class QuaternaryExtensionsTests
         using var view = list.CreateView(Sequencer.Default, throttleMs: 10)
             .ToProperty(x => result = x);
 
-        _ = Assert.NotNull(result);
-        Assert.Equal(ThirdCollectionValue, result!.Count);
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Count).IsEqualTo(ThirdCollectionValue);
     }
 
     /// <summary>Verifies that ReactiveView updates when items are added to the source list.</summary>
@@ -127,8 +137,8 @@ public class QuaternaryExtensionsTests
         // Wait for throttle + processing
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        _ = Assert.Single(view.Items);
-        Assert.Contains(AddedCollectionValue, view.Items);
+        await Assert.That(view.Items).HasSingleItem();
+        await Assert.That(view.Items).Contains(AddedCollectionValue);
     }
 
     /// <summary>Verifies that ReactiveView updates when items are removed from the source list.</summary>
@@ -142,15 +152,15 @@ public class QuaternaryExtensionsTests
         using var view = list.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
-        Assert.Equal(ThirdCollectionValue, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(ThirdCollectionValue);
 
         _ = list.Remove(SecondCollectionValue);
 
         // Wait for throttle + processing
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(SecondCollectionValue, view.Items.Count);
-        Assert.DoesNotContain(SecondCollectionValue, view.Items);
+        await Assert.That(view.Items.Count).IsEqualTo(SecondCollectionValue);
+        await Assert.That(view.Items).DoesNotContain(SecondCollectionValue);
     }
 
     /// <summary>Verifies that ReactiveView updates when RemoveRange is called.</summary>
@@ -164,16 +174,16 @@ public class QuaternaryExtensionsTests
         using var view = list.CreateView(Sequencer.Default, throttleMs: 50);
 
         // Initial state
-        Assert.Equal(FifthCollectionValue, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(FifthCollectionValue);
 
         list.RemoveRange([SecondCollectionValue, FourthCollectionValue]);
 
         // Wait for throttle + processing
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(ThirdCollectionValue, view.Items.Count);
-        Assert.DoesNotContain(SecondCollectionValue, view.Items);
-        Assert.DoesNotContain(FourthCollectionValue, view.Items);
+        await Assert.That(view.Items.Count).IsEqualTo(ThirdCollectionValue);
+        await Assert.That(view.Items).DoesNotContain(SecondCollectionValue);
+        await Assert.That(view.Items).DoesNotContain(FourthCollectionValue);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex updates when new matching items are added.</summary>
@@ -187,14 +197,14 @@ public class QuaternaryExtensionsTests
 
         using var view = list.CreateViewBySecondaryIndex(CityIndexName, "NYC", Sequencer.Default, throttleMs: 50);
 
-        _ = Assert.Single(view.Items);
+        await Assert.That(view.Items).HasSingleItem();
 
         list.Add(new("Bob", "NYC"));
 
         // Wait for throttle + processing
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
-        Assert.Equal(SecondCollectionValue, view.Items.Count);
+        await Assert.That(view.Items.Count).IsEqualTo(SecondCollectionValue);
     }
 
     /// <summary>Verifies that CreateViewBySecondaryIndex doesn't include non-matching items when added.</summary>
@@ -208,7 +218,7 @@ public class QuaternaryExtensionsTests
 
         using var view = list.CreateViewBySecondaryIndex(CityIndexName, "NYC", Sequencer.Default, throttleMs: 50);
 
-        _ = Assert.Single(view.Items);
+        await Assert.That(view.Items).HasSingleItem();
 
         list.Add(new("Bob", "LA"));
 
@@ -216,7 +226,7 @@ public class QuaternaryExtensionsTests
         await Task.Delay(ViewUpdateDelayMilliseconds);
 
         // Should still be only 1 item (Alice from NYC)
-        _ = Assert.Single(view.Items);
+        await Assert.That(view.Items).HasSingleItem();
     }
 
     /// <summary>Provides TestPerson.</summary>

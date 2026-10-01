@@ -2,10 +2,11 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net462;net48;net481;net8.0-windows10.0.17763.0;net9.0-windows10.0.17763.0;net10.0-windows10.0.17763.0</TargetFrameworks>
+    <TargetFrameworks>net462;net472;net48;net481;net8.0-windows10.0.17763.0;net9.0-windows10.0.17763.0;net10.0-windows10.0.17763.0;net11.0-windows10.0.17763.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateRuntimeConfigDevFile>true</GenerateRuntimeConfigDevFile>
+    <DefineConstants>$(DefineConstants);REACTIVELIST_REACTIVE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +15,46 @@
 
   <ItemGroup>
     <Compile Include="..\ReactiveList.Test\ModuleInitializerAttribute.cs" Link="ModuleInitializerAttribute.cs" />
+    <!-- Run the same collection, view, and extension contracts against both observable backends. -->
+    <Compile Include="..\ReactiveList.Test\ExpectedSequences.cs" Link="Shared\ExpectedSequences.cs" />
+    <Compile Include="..\ReactiveList.Test\TestSequences.cs" Link="Shared\TestSequences.cs" />
+    <Compile Include="..\ReactiveList.Test\TestData.cs" Link="Shared\TestData.cs" />
+    <Compile Include="..\ReactiveList.Test\CacheActionTests.cs" Link="Shared\CacheActionTests.cs" />
+    <Compile Include="..\ReactiveList.Test\CacheActionHelperTests.cs" Link="Shared\CacheActionHelperTests.cs" />
+    <Compile Include="..\ReactiveList.Test\CacheNotifyTests.cs" Link="Shared\CacheNotifyTests.cs" />
+    <Compile Include="..\ReactiveList.Test\EditableListWrapperPoolTests.cs" Link="Shared\EditableListWrapperPoolTests.cs" />
+    <Compile Include="..\ReactiveList.Test\EditableListWrapperTests.cs" Link="Shared\EditableListWrapperTests.cs" />
+    <Compile Include="..\ReactiveList.Test\PooledBatchTests.cs" Link="Shared\PooledBatchTests.cs" />
+    <Compile Include="..\ReactiveList.Test\QuadCollectionCoverageTests.cs" Link="Shared\QuadCollectionCoverageTests.cs" />
+    <Compile Include="..\ReactiveList.Test\QuaternaryCollectionCoverageTests.cs" Link="Shared\QuaternaryCollectionCoverageTests.cs" />
+    <Compile Include="..\ReactiveList.Test\QuaternaryDictionaryTests.cs" Link="Shared\QuaternaryDictionaryTests.cs" />
+    <Compile Include="..\ReactiveList.Test\QuaternaryListTests.cs" Link="Shared\QuaternaryListTests.cs" />
+    <Compile Include="..\ReactiveList.Test\Reactive2DListTests.cs" Link="Shared\Reactive2DListTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListAddTests.cs" Link="Shared\ReactiveListAddTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListEditTests.cs" Link="Shared\ReactiveListEditTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListMoveTests.cs" Link="Shared\ReactiveListMoveTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListRemoveTests.cs" Link="Shared\ReactiveListRemoveTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListSerializationTests.cs" Link="Shared\ReactiveListSerializationTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListVersionTests.cs" Link="Shared\ReactiveListVersionTests.cs" />
+    <Compile Include="..\ReactiveList.Test\SecondaryIndexTests.cs" Link="Shared\SecondaryIndexTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListConnectTests.cs" Link="Shared\ReactiveListConnectTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListCoverageTests.cs" Link="Shared\ReactiveListCoverageTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListExtensionsTests.cs" Link="Shared\ReactiveListExtensionsTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListExtensionsAdditionalTests.cs" Link="Shared\ReactiveListExtensionsAdditionalTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveListNotificationComplianceTests.cs" Link="Shared\ReactiveListNotificationComplianceTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveViewTests.cs" Link="Shared\ReactiveViewTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ViewToPropertyTests.cs" Link="Shared\ViewToPropertyTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ViewCoverageTests.cs" Link="Shared\ViewCoverageTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ExtensionCoverageTests.cs" Link="Shared\ExtensionCoverageTests.cs" />
+    <Compile Include="..\ReactiveList.Test\QuaternaryExtensionsTests.cs" Link="Shared\QuaternaryExtensionsTests.cs" />
+    <Compile Include="..\ReactiveList.Test\QuaternaryDictionaryExtensionsTests.cs" Link="Shared\QuaternaryDictionaryExtensionsTests.cs" />
+    <Compile Include="..\ReactiveList.Test\QuaternaryExtensionsAdditionalTests.cs" Link="Shared\QuaternaryExtensionsAdditionalTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveContractTests.cs" Link="Shared\ReactiveContractTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveViewNotificationTests.cs" Link="Shared\ReactiveViewNotificationTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ViewFactoryContractTests.cs" Link="Shared\ViewFactoryContractTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ViewChangeBufferTests.cs" Link="Shared\ViewChangeBufferTests.cs" />
+    <Compile Include="..\ReactiveList.Test\ReactiveViewStreamTests.cs" Link="Shared\ReactiveViewStreamTests.cs" />
+    <Compile Include="..\ReactiveList.Test\CoreCoverageTests.cs" Link="Shared\CoreCoverageTests.cs" />
   </ItemGroup>
 
 </Project>
