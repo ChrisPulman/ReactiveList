@@ -304,7 +304,51 @@ jobs:
           fi
           sleep 20
 
-          OTP="$(python3 -c 'import os,hmac,hashlib,base64,struct,time;from urllib.parse import urlparse,parse_qs;q=parse_qs(urlparse(os.environ["CERTUM_OTP_URI"]).query);s=q["secret"][0];digits=int(q.get("digits",["6"])[0]);period=int(q.get("period",["30"])[0]);algo={"SHA1":hashlib.sha1,"SHA256":hashlib.sha256,"SHA512":hashlib.sha512}[q.get("algorithm",["SHA1"])[0].upper()];key=base64.b32decode(s+"="*((8-len(s)%8)%8));h=hmac.new(key,struct.pack(">Q",int(time.time()//period)),algo).digest();o=h[-1]&0xF;print(str((int.from_bytes(h[o:o+4],"big")&0x7fffffff)%(10**digits)).zfill(digits))')"
+          OTP="$(cd "$RUNNER_TEMP" && dotnet run - <<'CS'
+          using System.Buffers.Binary;
+          using System.Globalization;
+          using System.Security.Cryptography;
+          using System.Web;
+
+          var query = HttpUtility.ParseQueryString(new Uri(Environment.GetEnvironmentVariable("CERTUM_OTP_URI")!).Query);
+          var key = Base32(query["secret"]!);
+          var digits = int.Parse(query["digits"] ?? "6", CultureInfo.InvariantCulture);
+          var period = long.Parse(query["period"] ?? "30", CultureInfo.InvariantCulture);
+          var counter = new byte[8];
+          BinaryPrimitives.WriteInt64BigEndian(counter, DateTimeOffset.UtcNow.ToUnixTimeSeconds() / period);
+
+          var hash = (query["algorithm"] ?? "SHA1").ToUpperInvariant() switch
+          {
+              "SHA1" => HMACSHA1.HashData(key, counter),
+              "SHA256" => HMACSHA256.HashData(key, counter),
+              "SHA512" => HMACSHA512.HashData(key, counter),
+              var algorithm => throw new NotSupportedException($"Unsupported TOTP algorithm {algorithm}."),
+          };
+
+          var offset = hash[^1] & 0xF;
+          var code = (BinaryPrimitives.ReadInt32BigEndian(hash.AsSpan(offset)) & 0x7FFFFFFF) % (int)Math.Pow(10, digits);
+          Console.WriteLine(code.ToString(CultureInfo.InvariantCulture).PadLeft(digits, '0'));
+
+          static byte[] Base32(string text)
+          {
+              const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+              List<byte> bytes = [];
+              int buffer = 0, bits = 0;
+              foreach (var character in text.TrimEnd('=').ToUpperInvariant())
+              {
+                  buffer = ((buffer << 5) | alphabet.IndexOf(character)) & 0xFFFF;
+                  bits += 5;
+                  if (bits >= 8)
+                  {
+                      bits -= 8;
+                      bytes.Add((byte)(buffer >> bits));
+                  }
+              }
+
+              return [.. bytes];
+          }
+          CS
+          )"
           echo "::add-mask::$OTP"
 
           WID=""; BX=0; BY=0; BW=0; BH=0
