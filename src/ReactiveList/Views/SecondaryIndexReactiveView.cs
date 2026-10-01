@@ -174,63 +174,47 @@ where TKey : notnull
     {
         lock (_lock)
         {
-            switch (notification.Action)
+            if (notification.Action is CacheAction.Added)
             {
-                case CacheAction.Added:
-                    {
-                        if (notification.Item.Value is not null && _valueMatchesIndex(_source, _indexName, notification.Item.Value, _indexKey))
-                        {
-                            _filteredItems.Add(notification.Item.Value);
-                        }
-
-                        break;
-                    }
-
-                case CacheAction.Removed:
-                    {
-                        if (notification.Item.Value is not null)
-                        {
-                            _ = _filteredItems.Remove(notification.Item.Value);
-                        }
-
-                        break;
-                    }
-
-                case CacheAction.Updated:
-                    {
-                        if (notification.Item.Value is not null)
-                        {
-                            RebuildView();
-                        }
-
-                        break;
-                    }
-
-                case CacheAction.Cleared:
-                    {
-                        _filteredItems.Clear();
-                        break;
-                    }
-
-                case CacheAction.Moved or
-                     CacheAction.Refreshed or
-                     CacheAction.BatchOperation or
-                     CacheAction.BatchAdded or
-                     CacheAction.BatchRemoved:
-                    {
-                        RebuildView();
-                        break;
-                    }
-
-                default:
-                    {
-                        // Ignore invalid enum values to preserve the view's current state.
-                        break;
-                    }
+                AddItem(notification.Item.Value);
+            }
+            else if (notification.Action is CacheAction.Removed)
+            {
+                if (notification.Item.Value is not null)
+                {
+                    _ = _filteredItems.Remove(notification.Item.Value);
+                }
+            }
+            else if (notification.Action is CacheAction.Updated)
+            {
+                if (notification.Item.Value is not null)
+                {
+                    RebuildView();
+                }
+            }
+            else if (notification.Action is CacheAction.Cleared)
+            {
+                _filteredItems.Clear();
+            }
+            else if (CacheActionHelper.RequiresIndexRebuild(notification.Action))
+            {
+                RebuildView();
             }
         }
 
         OnPropertyChanged(nameof(Count));
+    }
+
+    /// <summary>Adds an item when its value matches the selected secondary-index key.</summary>
+    /// <param name="value">The value to consider.</param>
+    private void AddItem(TValue? value)
+    {
+        if (value is null || !_valueMatchesIndex(_source, _indexName, value, _indexKey))
+        {
+            return;
+        }
+
+        _filteredItems.Add(value);
     }
 
     /// <summary>Rebuilds the view from the current source state.</summary>

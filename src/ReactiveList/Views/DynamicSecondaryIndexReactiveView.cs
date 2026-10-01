@@ -385,55 +385,31 @@ where TKey : notnull
         {
             lock (_lock)
             {
-                switch (notification.Action)
+                if (notification.Action is CacheAction.Added)
                 {
-                    case CacheAction.Added:
-                        {
-                            if (notification.Item is not null && ItemMatchesCurrentKeys(notification.Item))
-                            {
-                                _filteredItems.Add(notification.Item);
-                            }
-
-                            break;
-                        }
-
-                    case CacheAction.Removed:
-                        {
-                            if (notification.Item is not null)
-                            {
-                                _ = _filteredItems.Remove(notification.Item);
-                            }
-
-                            break;
-                        }
-
-                    case CacheAction.Updated:
-                        {
-                            UpdateItem(notification);
-                            break;
-                        }
-
-                    case CacheAction.Cleared:
-                        {
-                            _filteredItems.Clear();
-                            break;
-                        }
-
-                    case CacheAction.Moved or
-                         CacheAction.Refreshed or
-                         CacheAction.BatchOperation or
-                         CacheAction.BatchAdded or
-                         CacheAction.BatchRemoved:
-                        {
-                            RebuildView();
-                            break;
-                        }
-
-                    default:
-                        {
-                            // Ignore invalid enum values to preserve the view's current state.
-                            break;
-                        }
+                    if (notification.Item is not null && ItemMatchesCurrentKeys(notification.Item))
+                    {
+                        _filteredItems.Add(notification.Item);
+                    }
+                }
+                else if (notification.Action is CacheAction.Removed)
+                {
+                    if (notification.Item is not null)
+                    {
+                        _ = _filteredItems.Remove(notification.Item);
+                    }
+                }
+                else if (notification.Action is CacheAction.Updated)
+                {
+                    UpdateItem(notification);
+                }
+                else if (notification.Action is CacheAction.Cleared)
+                {
+                    _filteredItems.Clear();
+                }
+                else if (CacheActionHelper.RequiresIndexRebuild(notification.Action))
+                {
+                    RebuildView();
                 }
             }
 

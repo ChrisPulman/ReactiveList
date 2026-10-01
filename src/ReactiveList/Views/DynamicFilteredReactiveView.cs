@@ -37,7 +37,7 @@ where T : notnull
     /// <param name="source">The source reactive list to filter.</param>
     /// <param name="filterObservable">An observable that emits filter predicates.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
+    /// <param name="throttle">The quiet period for predicate changes and retained source updates; zero dispatches without debounce.</param>
     public DynamicFilteredReactiveView(
         IReactiveList<T> source,
         IObservable<Func<T, bool>> filterObservable,
@@ -264,6 +264,18 @@ where T : notnull
         /// <summary>Serializes filter changes and collection updates.</summary>
         private readonly Lock _lock = new();
 
+        /// <summary>Retains every structural delta before scheduler dispatch.</summary>
+        private readonly ViewChangeBuffer<T> _changes;
+
+        /// <summary>Indicates that collection reconciliation is delivering notifications.</summary>
+        private bool _rebuilding;
+
+        /// <summary>Defers a refresh requested by a collection notification handler.</summary>
+        private bool _rebuildRequested;
+
+        /// <summary>Defers explicit live-source snapshots until notification delivery finishes.</summary>
+        private bool _refreshFromSource;
+
         /// <summary>The predicate currently applied to source items.</summary>
         private Func<T, bool> _currentFilter = static _ => true;
 
@@ -275,6 +287,7 @@ where T : notnull
         public State(IReactiveList<T> source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
+            _changes = new(source);
             _filteredItems = [];
             Items = new(_filteredItems);
         }
@@ -299,21 +312,23 @@ where T : notnull
             ISequencer scheduler,
             TimeSpan throttle)
         {
-            // Initialize with current items (no filter initially).
             RebuildView();
 
-            // Subscribe to filter changes before source changes.
-            var filterSubscription = filterObservable
-                .Throttle(throttle)
+            var filters = throttle > TimeSpan.Zero ? filterObservable.Throttle(throttle) : filterObservable;
+            var filterSubscription = filters
                 .ObserveOn(scheduler)
                 .Subscribe(OnFilterChanged);
             _disposables.Add(filterSubscription);
 
-            var sourceSubscription = _source.Stream
-                .ToChangeSets()
-                .Throttle(throttle)
+            var updates = _source.Stream.ToChangeSets().Map(changes => _changes.Capture(changes, _source.Version));
+            if (throttle > TimeSpan.Zero)
+            {
+                updates = updates.Throttle(throttle);
+            }
+
+            var sourceSubscription = updates
                 .ObserveOn(scheduler)
-                .Subscribe(OnSourceChanged);
+                .Subscribe(_ => OnSourceChanged());
             _disposables.Add(sourceSubscription);
         }
 
@@ -346,6 +361,7 @@ where T : notnull
         {
             lock (_lock)
             {
+                _refreshFromSource = true;
                 RebuildView();
             }
 
@@ -368,112 +384,153 @@ where T : notnull
             OnPropertyChanged(nameof(Count));
         }
 
-        /// <summary>Handles source change notifications.</summary>
-        /// <param name="changes">The changes value.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void OnSourceChanged(ChangeSet<T> changes)
+        /// <summary>Reconciles the current source snapshot without replaying stale structural changes.</summary>
+        private void RebuildView()
+        {
+            _rebuildRequested = true;
+            ApplyUpdates();
+        }
+
+        /// <summary>Consumes retained source changes without reading ahead of queued notifications.</summary>
+        private void OnSourceChanged()
         {
             lock (_lock)
             {
-                for (var i = 0; i < changes.Count; i++)
-                {
-                    var change = changes[i];
-                    ProcessChange(change);
-                }
+                ApplyUpdates();
             }
 
             OnPropertyChanged(nameof(Count));
         }
 
-        /// <summary>Processes a source collection change.</summary>
-        /// <param name="change">The change value.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <summary>Consumes retained deltas and defers reentrant refreshes.</summary>
+        private void ApplyUpdates()
+        {
+            if (_rebuilding)
+            {
+                return;
+            }
+
+            _rebuilding = true;
+            try
+            {
+                do
+                {
+                    if (_refreshFromSource)
+                    {
+                        _refreshFromSource = false;
+                        _changes.Reset(_source);
+                    }
+
+                    while (_changes.TryTake(out var changes))
+                    {
+                        for (var i = 0; i < changes.Count; i++)
+                        {
+                            var change = changes[i];
+                            _changes.Apply(change);
+                            ProcessChange(change);
+                        }
+                    }
+
+                    if (_rebuildRequested)
+                    {
+                        _rebuildRequested = false;
+                        ReconcileSnapshot();
+                    }
+                }
+                while (_rebuildRequested || _refreshFromSource || _changes.HasPending);
+            }
+            finally
+            {
+                _rebuilding = false;
+            }
+        }
+
+        /// <summary>Preserves incremental membership positions between predicate rebuilds.</summary>
+        /// <param name="change">The consumed source change.</param>
         private void ProcessChange(Change<T> change)
         {
-            switch (change.Reason)
+            if (change.Reason is ChangeReason.Add)
             {
-                case ChangeReason.Add:
-                    {
-                        if (_currentFilter(change.Current))
-                        {
-                            _filteredItems.Add(change.Current);
-                        }
-
-                        break;
-                    }
-
-                case ChangeReason.Remove:
-                    {
-                        _ = _filteredItems.Remove(change.Current);
-                        break;
-                    }
-
-                case ChangeReason.Update:
-                    {
-                        UpdateItem(change);
-                        break;
-                    }
-
-                case ChangeReason.Clear:
-                    {
-                        _filteredItems.Clear();
-                        break;
-                    }
-
-                case ChangeReason.Move or ChangeReason.Refresh:
-                    {
-                        // For move and refresh, rebuild the view to maintain correct order.
-                        RebuildView();
-                        break;
-                    }
-
-                default:
-                    {
-                        // Ignore invalid enum values to preserve the view's current state.
-                        break;
-                    }
+                if (_currentFilter(change.Current))
+                {
+                    _filteredItems.Add(change.Current);
+                }
+            }
+            else if (change.Reason is ChangeReason.Remove)
+            {
+                var index = ViewChangeBuffer<T>.FindIndex(_filteredItems, change.Current);
+                if (index >= 0)
+                {
+                    _filteredItems.RemoveAt(index);
+                }
+            }
+            else if (change.Reason is ChangeReason.Update)
+            {
+                UpdateItem(change);
+            }
+            else if (change.Reason is ChangeReason.Clear)
+            {
+                _filteredItems.Clear();
+            }
+            else if (change.Reason is ChangeReason.Move or ChangeReason.Refresh)
+            {
+                ReconcileSnapshot();
             }
         }
 
-        /// <summary>Updates an item while preserving its filtered position when possible.</summary>
-        /// <param name="change">The update change to apply.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <summary>Updates an item while preserving its existing filtered position.</summary>
+        /// <param name="change">The consumed update.</param>
         private void UpdateItem(Change<T> change)
         {
-            var previous = change.Previous;
-            var existingIndex = previous is null ? -1 : _filteredItems.IndexOf(previous);
-            var shouldInclude = _currentFilter(change.Current);
-
-            if (existingIndex < 0)
+            var index = change.Previous is null ? -1 : ViewChangeBuffer<T>.FindIndex(_filteredItems, change.Previous);
+            var included = _currentFilter(change.Current);
+            if (index < 0)
             {
-                if (!shouldInclude)
+                if (included)
                 {
-                    return;
+                    _filteredItems.Add(change.Current);
                 }
 
-                _filteredItems.Add(change.Current);
                 return;
             }
 
-            if (!shouldInclude)
+            if (!included)
             {
-                _filteredItems.RemoveAt(existingIndex);
+                _filteredItems.RemoveAt(index);
                 return;
             }
 
-            _filteredItems[existingIndex] = change.Current;
+            _filteredItems[index] = change.Current;
         }
 
-        /// <summary>Rebuilds the view from the current source state.</summary>
-        private void RebuildView()
+        /// <summary>Preserves source order, duplicate occurrences and reference identity.</summary>
+        private void ReconcileSnapshot()
         {
-            _filteredItems.Clear();
-            foreach (var item in _source)
+            var index = 0;
+            foreach (var item in _changes.Items)
             {
-                if (_currentFilter(item))
+                if (!_currentFilter(item))
+                {
+                    continue;
+                }
+
+                if (index == _filteredItems.Count)
                 {
                     _filteredItems.Add(item);
                 }
+                else if (typeof(T).IsValueType
+                    ? !EqualityComparer<T>.Default.Equals(_filteredItems[index], item)
+                    : !ReferenceEquals(_filteredItems[index], item))
+                {
+                    _filteredItems[index] = item;
+                }
+
+                index++;
+            }
+
+            while (_filteredItems.Count > index)
+            {
+                _filteredItems.RemoveAt(_filteredItems.Count - 1);
             }
         }
 

@@ -32,10 +32,10 @@ where TKey : notnull
     private readonly State _state;
 
     /// <summary>Relays collection notifications with this facade as the sender.</summary>
-    private NotificationRelay<NotifyCollectionChangedEventArgs>? _collectionChangedRelay;
+    private TypedNotificationRelay<NotifyCollectionChangedEventArgs, NotifyCollectionChangedEventHandler>? _collectionChangedRelay;
 
     /// <summary>Relays property notifications with this facade as the sender.</summary>
-    private NotificationRelay<PropertyChangedEventArgs>? _propertyChangedRelay;
+    private TypedNotificationRelay<PropertyChangedEventArgs, PropertyChangedEventHandler>? _propertyChangedRelay;
 
     /// <summary>Initializes a new instance of the <see cref="GroupedReactiveView{T, TKey}"/> class.</summary>
     /// <param name="source">The source reactive list to group.</param>
@@ -64,8 +64,8 @@ where TKey : notnull
 
             lock (_collectionChangedGate)
             {
-                _collectionChangedRelay ??= new(this);
-                if (_collectionChangedRelay.Add(value.Invoke))
+                _collectionChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_collectionChangedRelay.Add(value))
                 {
                     _state.CollectionChanged += _collectionChangedRelay.OnEvent;
                 }
@@ -81,7 +81,7 @@ where TKey : notnull
 
             lock (_collectionChangedGate)
             {
-                if (_collectionChangedRelay?.Remove(value.Invoke) is true)
+                if (_collectionChangedRelay?.Remove(value) is true)
                 {
                     _state.CollectionChanged -= _collectionChangedRelay.OnEvent;
                 }
@@ -101,8 +101,8 @@ where TKey : notnull
 
             lock (_propertyChangedGate)
             {
-                _propertyChangedRelay ??= new(this);
-                if (_propertyChangedRelay.Add(value.Invoke))
+                _propertyChangedRelay ??= new(this, static (handler, sender, eventArgs) => handler(sender, eventArgs));
+                if (_propertyChangedRelay.Add(value))
                 {
                     _state.PropertyChanged += _propertyChangedRelay.OnEvent;
                 }
@@ -118,7 +118,7 @@ where TKey : notnull
 
             lock (_propertyChangedGate)
             {
-                if (_propertyChangedRelay?.Remove(value.Invoke) is true)
+                if (_propertyChangedRelay?.Remove(value) is true)
                 {
                     _state.PropertyChanged -= _propertyChangedRelay.OnEvent;
                 }
@@ -339,43 +339,26 @@ where TKey : notnull
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ProcessChange(Change<T> change)
         {
-            switch (change.Reason)
+            if (change.Reason is ChangeReason.Add)
             {
-                case ChangeReason.Add:
-                    {
-                        AddToGroup(change.Current);
-                        break;
-                    }
-
-                case ChangeReason.Remove:
-                    {
-                        RemoveFromGroup(change.Current);
-                        break;
-                    }
-
-                case ChangeReason.Update:
-                    {
-                        UpdateGroup(change);
-                        break;
-                    }
-
-                case ChangeReason.Clear:
-                    {
-                        _groups.Clear();
-                        _groupCollection.Clear();
-                        break;
-                    }
-
-                case ChangeReason.Move or ChangeReason.Refresh:
-                    {
-                        RebuildView();
-                        break;
-                    }
-
-                default:
-                    {
-                        break;
-                    }
+                AddToGroup(change.Current);
+            }
+            else if (change.Reason is ChangeReason.Remove)
+            {
+                RemoveFromGroup(change.Current);
+            }
+            else if (change.Reason is ChangeReason.Update)
+            {
+                UpdateGroup(change);
+            }
+            else if (change.Reason is ChangeReason.Clear)
+            {
+                _groups.Clear();
+                _groupCollection.Clear();
+            }
+            else if (change.Reason is ChangeReason.Move or ChangeReason.Refresh)
+            {
+                RebuildView();
             }
         }
 

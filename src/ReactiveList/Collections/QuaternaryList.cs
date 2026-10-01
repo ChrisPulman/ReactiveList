@@ -456,33 +456,13 @@ public class QuaternaryList<T> : QuaternaryBase<T, T>, IQuaternaryList<T>
         ref Dictionary<T, int>? remove2,
         ref Dictionary<T, int>? remove3)
     {
-        Dictionary<T, int>? counts;
-        switch (shardIndex)
+        var counts = shardIndex switch
         {
-            case 0:
-                {
-                    counts = remove0 ??= [];
-                    break;
-                }
-
-            case 1:
-                {
-                    counts = remove1 ??= [];
-                    break;
-                }
-
-            case ThirdShardIndex:
-                {
-                    counts = remove2 ??= [];
-                    break;
-                }
-
-            default:
-                {
-                    counts = remove3 ??= [];
-                    break;
-                }
-        }
+            0 => remove0 ??= [],
+            1 => remove1 ??= [],
+            ThirdShardIndex => remove2 ??= [],
+            _ => remove3 ??= [],
+        };
 
         counts[item] = counts.TryGetValue(item, out var existing) ? existing + 1 : 1;
     }
