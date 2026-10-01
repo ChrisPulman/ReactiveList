@@ -7,9 +7,14 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+#else
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -65,18 +70,19 @@ public class QuaternaryDictionaryTests
     /// </summary>
     /// <remarks>This test ensures that adding a key-value pair stores the value, updating the value via the
     /// indexer replaces the existing value, and the dictionary maintains the correct count and key presence.</remarks>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AddAndIndexer_ShouldStoreAndUpdateValues()
+    public async Task AddAndIndexer_ShouldStoreAndUpdateValues()
     {
         using var dict = new QuaternaryDictionary<int, string> { { 1, "one" } };
 
-        _ = dict[1].Should().Be("one");
+        await Assert.That(dict[1]).IsEqualTo("one");
 
         dict[1] = "uno";
 
-        _ = dict[1].Should().Be("uno");
-        _ = dict.Count.Should().Be(1);
-        _ = dict.ContainsKey(1).Should().BeTrue();
+        await Assert.That(dict[1]).IsEqualTo("uno");
+        await Assert.That(dict.Count).IsEqualTo(1);
+        await Assert.That(dict.ContainsKey(1)).IsTrue();
     }
 
     /// <summary>
@@ -85,15 +91,16 @@ public class QuaternaryDictionaryTests
     /// </summary>
     /// <remarks>This test ensures that when an attempt is made to add a key that already exists in the
     /// dictionary, TryAdd returns <see langword="false"/> and does not overwrite the existing value.</remarks>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void TryAdd_ShouldPreventDuplicateKeys()
+    public async Task TryAdd_ShouldPreventDuplicateKeys()
     {
         using var dict = new QuaternaryDictionary<int, string>();
 
-        _ = dict.TryAdd(SecondDictionaryKey, "two").Should().BeTrue();
-        _ = dict.TryAdd(SecondDictionaryKey, "dos").Should().BeFalse();
+        await Assert.That(dict.TryAdd(SecondDictionaryKey, "two")).IsTrue();
+        await Assert.That(dict.TryAdd(SecondDictionaryKey, "dos")).IsFalse();
 
-        _ = dict[SecondDictionaryKey].Should().Be("two");
+        await Assert.That(dict[SecondDictionaryKey]).IsEqualTo("two");
     }
 
     /// <summary>
@@ -103,8 +110,9 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that the observable stream associated with the dictionary emits a
     /// CacheAction.Added event when a new entry is added and a CacheAction.Updated event when an existing entry is
     /// updated. It also verifies that the final value for the key reflects the most recent update.</remarks>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AddOrUpdate_ShouldEmitCorrectActions()
+    public async Task AddOrUpdate_ShouldEmitCorrectActions()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         using var reset = new ManualResetEventSlim(false);
@@ -123,9 +131,9 @@ public class QuaternaryDictionaryTests
         dict.AddOrUpdate(ThirdDictionaryKey, "tres");
         dict.AddOrUpdate(ThirdDictionaryKey, ThreeText);
 
-        _ = reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        _ = actions.Should().ContainInOrder(CacheAction.Added, CacheAction.Updated);
-        _ = dict[ThirdDictionaryKey].Should().Be(ThreeText);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(TestSequences.ContainsInOrder(actions, [CacheAction.Added, CacheAction.Updated])).IsTrue();
+        await Assert.That(dict[ThirdDictionaryKey]).IsEqualTo(ThreeText);
     }
 
     /// <summary>
@@ -135,14 +143,15 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that the Remove method returns <see langword="true"/> when an existing key
     /// is removed and <see langword="false"/> when attempting to remove a key that is not present in the
     /// dictionary.</remarks>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Remove_ShouldRemoveExistingAndReturnFalseForMissing()
+    public async Task Remove_ShouldRemoveExistingAndReturnFalseForMissing()
     {
         using var dict = new QuaternaryDictionary<int, string> { { 1, "one" } };
 
-        _ = dict.Remove(1).Should().BeTrue();
-        _ = dict.ContainsKey(1).Should().BeFalse();
-        _ = dict.Remove(1).Should().BeFalse();
+        await Assert.That(dict.Remove(1)).IsTrue();
+        await Assert.That(dict.ContainsKey(1)).IsFalse();
+        await Assert.That(dict.Remove(1)).IsFalse();
     }
 
     /// <summary>
@@ -152,8 +161,9 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that the AddRange method triggers a batch added event on the Stream,
     /// and that the dictionary's Keys and Values properties reflect the newly added items. It also checks that the
     /// batch notification contains all added items and that the dictionary's count is updated accordingly.</remarks>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AddRange_ShouldEmitBatchAndExposeKeysAndValues()
+    public async Task AddRange_ShouldEmitBatchAndExposeKeysAndValues()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         CacheNotify<KeyValuePair<int, string>>? notification = null;
@@ -173,16 +183,16 @@ public class QuaternaryDictionaryTests
 
         dict.AddRange(items);
 
-        _ = reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        _ = notification.Should().NotBeNull();
-        _ = notification!.Action.Should().Be(CacheAction.BatchAdded);
-        _ = notification.Batch.Should().NotBeNull();
-        _ = notification.Batch!.Count.Should().Be(ThirdDictionaryKey);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notification).IsNotNull();
+        await Assert.That(notification!.Action).IsEqualTo(CacheAction.BatchAdded);
+        await Assert.That(notification.Batch).IsNotNull();
+        await Assert.That(notification.Batch!.Count).IsEqualTo(ThirdDictionaryKey);
         notification.Batch.Dispose();
 
-        _ = dict.Count.Should().Be(ThirdDictionaryKey);
-        _ = dict.Keys.Should().BeEquivalentTo([1, SecondDictionaryKey, ThirdDictionaryKey]);
-        _ = dict.Values.Should().BeEquivalentTo(["one", "two", ThreeText]);
+        await Assert.That(dict.Count).IsEqualTo(ThirdDictionaryKey);
+        await Assert.That(dict.Keys).IsEquivalentTo([1, SecondDictionaryKey, ThirdDictionaryKey]);
+        await Assert.That(dict.Values).IsEquivalentTo(["one", "two", ThreeText]);
     }
 
     /// <summary>
@@ -192,8 +202,9 @@ public class QuaternaryDictionaryTests
     /// <remarks>This test ensures that the CopyTo method correctly transfers all key-value pairs to the
     /// target array without omitting or duplicating entries. It also checks that the entries are placed at the correct
     /// position in the array.</remarks>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CopyTo_ShouldCopyAllEntries()
+    public async Task CopyTo_ShouldCopyAllEntries()
     {
         using var dict = new QuaternaryDictionary<int, string> { { 1, "one" }, { SecondDictionaryKey, "two" } };
 
@@ -207,15 +218,16 @@ public class QuaternaryDictionaryTests
             copiedEntries.Add(array[index]);
         }
 
-        _ = copiedEntries.Should().BeEquivalentTo(dict);
+        await Assert.That(copiedEntries).IsEquivalentTo(dict);
     }
 
     /// <summary>Verifies that the value index in a QuaternaryDictionary correctly tracks additions and removals of items.</summary>
     /// <remarks>This test ensures that when items are added to or removed from the dictionary, the associated
     /// value index reflects these changes as expected. It also verifies that clearing the dictionary updates the value
     /// index accordingly.</remarks>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ValueIndex_ShouldTrackAddsAndRemovals()
+    public async Task ValueIndex_ShouldTrackAddsAndRemovals()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddValueIndex(LengthIndexName, static v => v.Length);
@@ -225,35 +237,37 @@ public class QuaternaryDictionaryTests
             new KeyValuePair<int, string>(SecondDictionaryKey, "longvalue")
         ]);
 
-        _ = GetLookup(dict, LengthIndexName, FiveCharacterLength).Should().ContainSingle().Which.Should().Be(ShortValue);
+        await Assert.That(await Assert.That(GetLookup(dict, LengthIndexName, FiveCharacterLength)).HasSingleItem()).IsEqualTo(ShortValue);
 
         _ = dict.Remove(1);
 
-        _ = GetLookup(dict, LengthIndexName, FiveCharacterLength).Should().BeEmpty();
+        await Assert.That(GetLookup(dict, LengthIndexName, FiveCharacterLength)).IsEmpty();
 
         dict.Clear();
 
-        _ = GetLookup(dict, LengthIndexName, NineCharacterLength).Should().BeEmpty();
+        await Assert.That(GetLookup(dict, LengthIndexName, NineCharacterLength)).IsEmpty();
     }
 
     /// <summary>Verifies that the Lookup method returns the correct result for existing and non-existing keys.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Lookup_ShouldReturnCorrectResult()
+    public async Task Lookup_ShouldReturnCorrectResult()
     {
         using var dict = new QuaternaryDictionary<int, string> { { 1, "one" }, { SecondDictionaryKey, "two" } };
 
         var result1 = dict.Lookup(1);
-        _ = result1.HasValue.Should().BeTrue();
-        _ = result1.Value.Should().Be("one");
+        await Assert.That(result1.HasValue).IsTrue();
+        await Assert.That(result1.Value).IsEqualTo("one");
 
         var result2 = dict.Lookup(MissingDictionaryKey);
-        _ = result2.HasValue.Should().BeFalse();
-        _ = result2.Value.Should().BeNull();
+        await Assert.That(result2.HasValue).IsFalse();
+        await Assert.That(result2.Value).IsNull();
     }
 
     /// <summary>Verifies that RemoveKeys removes multiple keys in a batch operation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RemoveKeys_ShouldRemoveMultipleKeysAndEmitBatch()
+    public async Task RemoveKeys_ShouldRemoveMultipleKeysAndEmitBatch()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
@@ -278,18 +292,19 @@ public class QuaternaryDictionaryTests
 
         dict.RemoveKeys([SecondDictionaryKey, FourthDictionaryKey]);
 
-        _ = reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        _ = notification.Should().NotBeNull();
-        _ = dict.Count.Should().Be(SecondDictionaryKey);
-        _ = dict.ContainsKey(SecondDictionaryKey).Should().BeFalse();
-        _ = dict.ContainsKey(FourthDictionaryKey).Should().BeFalse();
-        _ = dict.ContainsKey(1).Should().BeTrue();
-        _ = dict.ContainsKey(ThirdDictionaryKey).Should().BeTrue();
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notification).IsNotNull();
+        await Assert.That(dict.Count).IsEqualTo(SecondDictionaryKey);
+        await Assert.That(dict.ContainsKey(SecondDictionaryKey)).IsFalse();
+        await Assert.That(dict.ContainsKey(FourthDictionaryKey)).IsFalse();
+        await Assert.That(dict.ContainsKey(1)).IsTrue();
+        await Assert.That(dict.ContainsKey(ThirdDictionaryKey)).IsTrue();
     }
 
     /// <summary>Verifies that RemoveMany with a predicate removes matching entries.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RemoveMany_WithPredicate_ShouldRemoveMatchingEntries()
+    public async Task RemoveMany_WithPredicate_ShouldRemoveMatchingEntries()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
@@ -300,16 +315,17 @@ public class QuaternaryDictionaryTests
 
         var removedCount = dict.RemoveMany(static kvp => kvp.Value.Length > 5);
 
-        _ = removedCount.Should().Be(SecondDictionaryKey);
-        _ = dict.Count.Should().Be(1);
-        _ = dict.ContainsKey(1).Should().BeTrue();
-        _ = dict.ContainsKey(SecondDictionaryKey).Should().BeFalse();
-        _ = dict.ContainsKey(ThirdDictionaryKey).Should().BeFalse();
+        await Assert.That(removedCount).IsEqualTo(SecondDictionaryKey);
+        await Assert.That(dict.Count).IsEqualTo(1);
+        await Assert.That(dict.ContainsKey(1)).IsTrue();
+        await Assert.That(dict.ContainsKey(SecondDictionaryKey)).IsFalse();
+        await Assert.That(dict.ContainsKey(ThirdDictionaryKey)).IsFalse();
     }
 
     /// <summary>Verifies that the Edit method allows batch modifications with a single notification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldPerformBatchModificationsWithSingleNotification()
+    public async Task Edit_ShouldPerformBatchModificationsWithSingleNotification()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddRange([
@@ -337,17 +353,18 @@ public class QuaternaryDictionaryTests
             innerDict.Add(TwentiethDictionaryKey, "twenty");
         });
 
-        _ = reset.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        _ = notifications.Should().ContainSingle().Which.Should().Be(CacheAction.BatchOperation);
-        _ = dict.Count.Should().Be(SecondDictionaryKey);
-        _ = dict.ContainsKey(TenthDictionaryKey).Should().BeTrue();
-        _ = dict.ContainsKey(TwentiethDictionaryKey).Should().BeTrue();
-        _ = dict.ContainsKey(1).Should().BeFalse();
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(await Assert.That(notifications).HasSingleItem()).IsEqualTo(CacheAction.BatchOperation);
+        await Assert.That(dict.Count).IsEqualTo(SecondDictionaryKey);
+        await Assert.That(dict.ContainsKey(TenthDictionaryKey)).IsTrue();
+        await Assert.That(dict.ContainsKey(TwentiethDictionaryKey)).IsTrue();
+        await Assert.That(dict.ContainsKey(1)).IsFalse();
     }
 
     /// <summary>Verifies that Edit updates value indices correctly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldUpdateValueIndicesCorrectly()
+    public async Task Edit_ShouldUpdateValueIndicesCorrectly()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddValueIndex(LengthIndexName, static v => v.Length);
@@ -364,14 +381,15 @@ public class QuaternaryDictionaryTests
             innerDict.Add(FourthDictionaryKey, "biggervalue");
         });
 
-        _ = GetLookup(dict, LengthIndexName, FiveCharacterLength).Should().BeEmpty();
-        _ = GetLookup(dict, LengthIndexName, FourthDictionaryKey).Should().ContainSingle().Which.Should().Be("tiny");
-        _ = GetLookup(dict, LengthIndexName, ElevenCharacterLength).Should().ContainSingle().Which.Should().Be("biggervalue");
+        await Assert.That(GetLookup(dict, LengthIndexName, FiveCharacterLength)).IsEmpty();
+        await Assert.That(await Assert.That(GetLookup(dict, LengthIndexName, FourthDictionaryKey)).HasSingleItem()).IsEqualTo("tiny");
+        await Assert.That(await Assert.That(GetLookup(dict, LengthIndexName, ElevenCharacterLength)).HasSingleItem()).IsEqualTo("biggervalue");
     }
 
     /// <summary>Verifies that GetValuesBySecondaryIndex returns matching values.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GetValuesBySecondaryIndex_ShouldReturnMatchingValues()
+    public async Task GetValuesBySecondaryIndex_ShouldReturnMatchingValues()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddValueIndex(LengthIndexName, static v => v.Length);
@@ -384,55 +402,58 @@ public class QuaternaryDictionaryTests
         ]);
 
         var threeCharValues = new List<string>(dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey));
-        _ = threeCharValues.Should().HaveCount(SecondDictionaryKey);
-        _ = threeCharValues.Should().Contain("one");
-        _ = threeCharValues.Should().Contain("two");
+        await Assert.That(threeCharValues).Count().IsEqualTo(SecondDictionaryKey);
+        await Assert.That(threeCharValues).Contains("one");
+        await Assert.That(threeCharValues).Contains("two");
 
         var fiveCharValues = new List<string>(dict.GetValuesBySecondaryIndex(LengthIndexName, FiveCharacterLength));
-        _ = fiveCharValues.Should().ContainSingle().Which.Should().Be(ThreeText);
+        await Assert.That(await Assert.That(fiveCharValues).HasSingleItem()).IsEqualTo(ThreeText);
     }
 
     /// <summary>Verifies that GetValuesBySecondaryIndex returns empty for non-existent index.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GetValuesBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
+    public async Task GetValuesBySecondaryIndex_WithNonExistentIndex_ShouldReturnEmpty()
     {
         using var dict = new QuaternaryDictionary<int, string> { { 1, "one" } };
 
         var result = dict.GetValuesBySecondaryIndex("NonExistent", "key");
-        _ = result.Should().BeEmpty();
+        await Assert.That(result).IsEmpty();
     }
 
     /// <summary>Verifies that ValueMatchesSecondaryIndex returns correct results.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ValueMatchesSecondaryIndex_ShouldReturnCorrectResult()
+    public async Task ValueMatchesSecondaryIndex_ShouldReturnCorrectResult()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddValueIndex(LengthIndexName, static v => v.Length);
         dict.Add(1, "test");
 
-        _ = dict.ValueMatchesSecondaryIndex(LengthIndexName, "test", FourthDictionaryKey).Should().BeTrue();
-        _ = dict.ValueMatchesSecondaryIndex(LengthIndexName, "test", FiveCharacterLength).Should().BeFalse();
-        _ = dict.ValueMatchesSecondaryIndex("NonExistent", "test", FourthDictionaryKey).Should().BeFalse();
+        await Assert.That(dict.ValueMatchesSecondaryIndex(LengthIndexName, "test", FourthDictionaryKey)).IsTrue();
+        await Assert.That(dict.ValueMatchesSecondaryIndex(LengthIndexName, "test", FiveCharacterLength)).IsFalse();
+        await Assert.That(dict.ValueMatchesSecondaryIndex("NonExistent", "test", FourthDictionaryKey)).IsFalse();
     }
 
     /// <summary>Verifies that GetValuesBySecondaryIndex updates after additions and removals.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GetValuesBySecondaryIndex_ShouldUpdateAfterAdditionsAndRemovals()
+    public async Task GetValuesBySecondaryIndex_ShouldUpdateAfterAdditionsAndRemovals()
     {
         using var dict = new QuaternaryDictionary<int, string>();
         dict.AddValueIndex(LengthIndexName, static v => v.Length);
 
         dict.Add(1, "one");
-        _ = dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).Should().ContainSingle().Which.Should().Be("one");
+        await Assert.That(await Assert.That(dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey)).HasSingleItem()).IsEqualTo("one");
 
         dict.Add(SecondDictionaryKey, "two");
-        _ = dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).Should().HaveCount(SecondDictionaryKey);
+        await Assert.That(dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey)).Count().IsEqualTo(SecondDictionaryKey);
 
         _ = dict.Remove(1);
-        _ = dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).Should().ContainSingle().Which.Should().Be("two");
+        await Assert.That(await Assert.That(dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey)).HasSingleItem()).IsEqualTo("two");
 
         dict.Clear();
-        _ = dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey).Should().BeEmpty();
+        await Assert.That(dict.GetValuesBySecondaryIndex(LengthIndexName, ThirdDictionaryKey)).IsEmpty();
     }
 
     /// <summary>Provides GetLookup.</summary>

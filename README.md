@@ -725,15 +725,19 @@ Native AOT compatibility is enabled for compatible modern .NET target frameworks
 
 ## Validation
 
-The V5 dual package configuration has been verified locally with:
+Build all supported target frameworks and run the TUnit suites with:
 
 ```shell
-dotnet restore src\ReactiveList.sln
-dotnet build src\ReactiveList.sln -c Release --no-restore -v quiet
-dotnet test src\ReactiveList.sln -c Release --no-build --no-restore
+dotnet restore src\ReactiveList.slnx
+dotnet build src\ReactiveList.slnx -c Release --no-restore -warnaserror
+dotnet build build\_build.csproj -c Release -warnaserror
+dotnet test --solution src\ReactiveList.slnx -c Release
+dotnet test --solution src\ReactiveList.slnx -c Release --max-parallel-test-modules 2 --coverage --coverage-output-format cobertura --coverage-settings src\coverage.runsettings --results-directory src\TestResults --results-directory-layout per-module
 ```
 
-The full TUnit run passed across the solution with 2,901 tests, 0 failed, and 0 skipped. The targeted MTP Cobertura coverage run reported 100.00% line coverage for the `ReactiveList` package.
+Coverage includes both library variants and the WPF sample, without including third-party dependencies or the test assemblies. Inspect the Cobertura reports in `src\TestResults` for the measured coverage of each production assembly.
+
+The reference full-matrix run passes 9,007 TUnit test executions across 17 framework/project modules, with zero build warnings or errors. Merged production coverage is 98.68% of lines and 94.63% of branches; the WPF sample has 99.69% line coverage. These are measured results, not a claim of complete coverage, and can vary slightly with asynchronous execution.
 
 ## License
 

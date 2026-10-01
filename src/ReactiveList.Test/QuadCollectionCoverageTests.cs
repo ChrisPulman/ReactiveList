@@ -8,8 +8,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+#else
 using CP.Primitives.Collections;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -120,8 +124,9 @@ public class QuadCollectionCoverageTests
     private const int SixteenWayMaximumIndex = 15;
 
     /// <summary>Verifies QuadList indexing, resizing, removal, copy, and enumerator wrapper behavior.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuadList_ShouldSupportMutationAndEnumerationPaths()
+    public async Task QuadList_ShouldSupportMutationAndEnumerationPaths()
     {
         var list = new QuadList<int>();
 
@@ -131,68 +136,69 @@ public class QuadCollectionCoverageTests
             list.Add(value);
         }
 
-        _ = list.Count.Should().Be(QuadListItemCount);
-        _ = list[QuadListMutationIndex].Should().Be(QuadListMutationIndex);
+        await Assert.That(list.Count).IsEqualTo(QuadListItemCount);
+        await Assert.That(list[QuadListMutationIndex]).IsEqualTo(QuadListMutationIndex);
 
         list[QuadListMutationIndex] = QuadListReplacementValue;
-        _ = list[QuadListMutationIndex].Should().Be(QuadListReplacementValue);
-        _ = list.Contains(QuadListReplacementValue).Should().BeTrue();
-        _ = list.IndexOf(QuadListReplacementValue).Should().Be(QuadListMutationIndex);
+        await Assert.That(list[QuadListMutationIndex]).IsEqualTo(QuadListReplacementValue);
+        await Assert.That(list.Contains(QuadListReplacementValue)).IsTrue();
+        await Assert.That(list.IndexOf(QuadListReplacementValue)).IsEqualTo(QuadListMutationIndex);
 
-        _ = list.Remove(QuadListReplacementValue).Should().BeTrue();
-        _ = list.Remove(MissingLookupValue).Should().BeFalse();
+        await Assert.That(list.Remove(QuadListReplacementValue)).IsTrue();
+        await Assert.That(list.Remove(MissingLookupValue)).IsFalse();
         list.RemoveAt(list.Count - 1);
 
         var copied = new int[list.Count + CopyPadding];
         list.CopyTo(copied, 1);
-        _ = copied[1].Should().Be(0);
+        await Assert.That(copied[1]).IsEqualTo(0);
 
         var structEnumerator = list.GetEnumerator();
         var matchingStructEnumerator = list.GetEnumerator();
-        _ = (structEnumerator == matchingStructEnumerator).Should().BeTrue();
-        _ = (structEnumerator != matchingStructEnumerator).Should().BeFalse();
-        _ = structEnumerator.Equals((object)matchingStructEnumerator).Should().BeTrue();
-        _ = structEnumerator.Equals(new object()).Should().BeFalse();
-        _ = structEnumerator.GetHashCode().Should().NotBe(0);
-        _ = structEnumerator.MoveNext().Should().BeTrue();
-        _ = (structEnumerator != matchingStructEnumerator).Should().BeTrue();
-        _ = (structEnumerator == matchingStructEnumerator).Should().BeFalse();
-        _ = structEnumerator.Current.Should().Be(0);
+        await Assert.That(structEnumerator == matchingStructEnumerator).IsTrue();
+        await Assert.That(structEnumerator != matchingStructEnumerator).IsFalse();
+        await Assert.That(structEnumerator.Equals((object)matchingStructEnumerator)).IsTrue();
+        await Assert.That(structEnumerator.Equals(new object())).IsFalse();
+        await Assert.That(structEnumerator.GetHashCode()).IsNotEqualTo(0);
+        await Assert.That(structEnumerator.MoveNext()).IsTrue();
+        await Assert.That(structEnumerator != matchingStructEnumerator).IsTrue();
+        await Assert.That(structEnumerator == matchingStructEnumerator).IsFalse();
+        await Assert.That(structEnumerator.Current).IsEqualTo(0);
         while (structEnumerator.MoveNext())
         {
             _ = structEnumerator.Current;
         }
 
-        _ = structEnumerator.MoveNext().Should().BeFalse();
+        await Assert.That(structEnumerator.MoveNext()).IsFalse();
 
         using var enumerator = ((IEnumerable<int>)list).GetEnumerator();
-        _ = enumerator.MoveNext().Should().BeTrue();
-        _ = enumerator.Current.Should().Be(0);
+        await Assert.That(enumerator.MoveNext()).IsTrue();
+        await Assert.That(enumerator.Current).IsEqualTo(0);
         enumerator.Reset();
-        _ = enumerator.MoveNext().Should().BeTrue();
-        _ = ((IEnumerator)enumerator).Current.Should().Be(0);
+        await Assert.That(enumerator.MoveNext()).IsTrue();
+        await Assert.That(((IEnumerator)enumerator).Current).IsEqualTo(0);
         while (enumerator.MoveNext())
         {
             _ = enumerator.Current;
         }
 
-        _ = enumerator.MoveNext().Should().BeFalse();
+        await Assert.That(enumerator.MoveNext()).IsFalse();
 
         var nonGenericEnumerator = ((IEnumerable)list).GetEnumerator();
-        _ = nonGenericEnumerator.MoveNext().Should().BeTrue();
-        _ = nonGenericEnumerator.Current.Should().Be(0);
+        await Assert.That(nonGenericEnumerator.MoveNext()).IsTrue();
+        await Assert.That(nonGenericEnumerator.Current).IsEqualTo(0);
 
-        _ = list.AsSpan().ToArray().Should().Contain(HighestRemainingValue);
-        _ = list.AsSpan().ToArray().Should().NotContain(RemovedTailValue);
+        await Assert.That(list.AsSpan().ToArray()).Contains(HighestRemainingValue);
+        await Assert.That(list.AsSpan().ToArray()).DoesNotContain(RemovedTailValue);
         list.Clear();
-        _ = list.Count.Should().Be(0);
+        await Assert.That(list.Count).IsEqualTo(0);
         list.Dispose();
         list.Dispose();
     }
 
     /// <summary>Verifies QuadList guard clauses for invalid indexes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuadList_InvalidIndexes_ShouldThrow()
+    public async Task QuadList_InvalidIndexes_ShouldThrow()
     {
         using var list = new QuadList<string> { "first" };
 
@@ -201,87 +207,90 @@ public class QuadCollectionCoverageTests
         Action setTooHigh = () => list[1] = "missing";
         Action removeTooHigh = () => list.RemoveAt(1);
 
-        _ = getNegative.Should().Throw<ArgumentOutOfRangeException>();
-        _ = getTooHigh.Should().Throw<ArgumentOutOfRangeException>();
-        _ = setTooHigh.Should().Throw<ArgumentOutOfRangeException>();
-        _ = removeTooHigh.Should().Throw<ArgumentOutOfRangeException>();
+        await Assert.That(getNegative).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(getTooHigh).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(setTooHigh).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(removeTooHigh).Throws<ArgumentOutOfRangeException>();
     }
 
     /// <summary>Verifies QuadDictionary collision handling, ref updates, free-list reuse, and wrapper enumeration.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuadDictionary_ShouldHandleCollisionsAndRemovedSlots()
+    public async Task QuadDictionary_ShouldHandleCollisionsAndRemovedSlots()
     {
         var dictionary = new QuadDictionary<string, int>(new ConstantHashStringComparer());
 
-        _ = dictionary.TryAdd("one", 1).Should().BeTrue();
-        _ = dictionary.TryAdd("two", SecondDictionaryValue).Should().BeTrue();
-        _ = dictionary.TryAdd("three", InitialDictionaryCount).Should().BeTrue();
-        _ = dictionary.TryAdd("two", DuplicateDictionaryValue).Should().BeFalse();
-        _ = dictionary.Count.Should().Be(InitialDictionaryCount);
+        await Assert.That(dictionary.TryAdd("one", 1)).IsTrue();
+        await Assert.That(dictionary.TryAdd("two", SecondDictionaryValue)).IsTrue();
+        await Assert.That(dictionary.TryAdd("three", InitialDictionaryCount)).IsTrue();
+        await Assert.That(dictionary.TryAdd("two", DuplicateDictionaryValue)).IsFalse();
+        await Assert.That(dictionary.Count).IsEqualTo(InitialDictionaryCount);
 
-        _ = dictionary.Remove("two", out var removedMiddle).Should().BeTrue();
-        _ = removedMiddle.Should().Be(SecondDictionaryValue);
-        _ = dictionary.Remove("three").Should().BeTrue();
-        _ = dictionary.Remove("missing", out var missingValue).Should().BeFalse();
-        _ = missingValue.Should().Be(default(int));
+        await Assert.That(dictionary.Remove("two", out var removedMiddle)).IsTrue();
+        await Assert.That(removedMiddle).IsEqualTo(SecondDictionaryValue);
+        await Assert.That(dictionary.Remove("three")).IsTrue();
+        await Assert.That(dictionary.Remove("missing", out var missingValue)).IsFalse();
+        await Assert.That(missingValue).IsEqualTo(default(int));
 
-        _ = dictionary.TryAdd("four", FourthDictionaryValue).Should().BeTrue();
-        _ = dictionary["one"].Should().Be(1);
+        await Assert.That(dictionary.TryAdd("four", FourthDictionaryValue)).IsTrue();
+        await Assert.That(dictionary["one"]).IsEqualTo(1);
         dictionary["one"] = UpdatedDictionaryValue;
-        _ = dictionary["one"].Should().Be(UpdatedDictionaryValue);
+        await Assert.That(dictionary["one"]).IsEqualTo(UpdatedDictionaryValue);
 
         ref var valueRef = ref dictionary.GetValueRefOrAddDefault("five", out var existed);
-        _ = existed.Should().BeFalse();
+        var initiallyExisted = existed;
         valueRef = FifthDictionaryValue;
 
-        ref var existingRef = ref dictionary.GetValueRefOrAddDefault("five", out existed);
-        _ = existed.Should().BeTrue();
-        _ = existingRef.Should().Be(FifthDictionaryValue);
+        var existingValue = dictionary.GetValueRefOrAddDefault("five", out existed);
+        await Assert.That(initiallyExisted).IsFalse();
+        await Assert.That(existed).IsTrue();
+        await Assert.That(existingValue).IsEqualTo(FifthDictionaryValue);
 
-        _ = dictionary.Keys.Should().BeEquivalentTo(["one", "four", "five"]);
-        _ = dictionary.Values.Should().BeEquivalentTo([UpdatedDictionaryValue, FourthDictionaryValue, FifthDictionaryValue]);
+        await Assert.That(dictionary.Keys).IsEquivalentTo(["one", "four", "five"]);
+        await Assert.That(dictionary.Values).IsEquivalentTo([UpdatedDictionaryValue, FourthDictionaryValue, FifthDictionaryValue]);
 
         var copied = new List<KeyValuePair<string, int>>();
         dictionary.CopyTo(copied);
         var enumerated = new List<KeyValuePair<string, int>>(dictionary);
-        _ = copied.Should().BeEquivalentTo(enumerated);
+        await Assert.That(copied).IsEquivalentTo(enumerated);
 
         var structEnumerator = dictionary.GetEnumerator();
         var matchingStructEnumerator = dictionary.GetEnumerator();
-        _ = (structEnumerator == matchingStructEnumerator).Should().BeTrue();
-        _ = (structEnumerator != matchingStructEnumerator).Should().BeFalse();
-        _ = structEnumerator.Equals((object)matchingStructEnumerator).Should().BeTrue();
-        _ = structEnumerator.Equals(new object()).Should().BeFalse();
-        _ = structEnumerator.GetHashCode().Should().NotBe(0);
-        _ = structEnumerator.TryGetNext(out var first).Should().BeTrue();
-        _ = (structEnumerator != matchingStructEnumerator).Should().BeTrue();
-        _ = (structEnumerator == matchingStructEnumerator).Should().BeFalse();
-        _ = first.Key.Should().NotBeNull();
+        await Assert.That(structEnumerator == matchingStructEnumerator).IsTrue();
+        await Assert.That(structEnumerator != matchingStructEnumerator).IsFalse();
+        await Assert.That(structEnumerator.Equals((object)matchingStructEnumerator)).IsTrue();
+        await Assert.That(structEnumerator.Equals(new object())).IsFalse();
+        await Assert.That(structEnumerator.GetHashCode()).IsNotEqualTo(0);
+        await Assert.That(structEnumerator.TryGetNext(out var first)).IsTrue();
+        await Assert.That(structEnumerator != matchingStructEnumerator).IsTrue();
+        await Assert.That(structEnumerator == matchingStructEnumerator).IsFalse();
+        await Assert.That(first.Key).IsNotNull();
         while (structEnumerator.MoveNext())
         {
             _ = structEnumerator.Current;
         }
 
-        _ = structEnumerator.TryGetNext(out var afterLast).Should().BeFalse();
-        _ = afterLast.Should().Be(default(KeyValuePair<string, int>));
+        await Assert.That(structEnumerator.TryGetNext(out var afterLast)).IsFalse();
+        await Assert.That(afterLast).IsEqualTo(default(KeyValuePair<string, int>));
 
         using var wrapper = ((IEnumerable<KeyValuePair<string, int>>)dictionary).GetEnumerator();
-        _ = wrapper.MoveNext().Should().BeTrue();
-        _ = ((IEnumerator)wrapper).Current.Should().BeOfType<KeyValuePair<string, int>>();
+        await Assert.That(wrapper.MoveNext()).IsTrue();
+        await Assert.That(((IEnumerator)wrapper).Current).IsTypeOf<KeyValuePair<string, int>>();
         wrapper.Reset();
-        _ = wrapper.MoveNext().Should().BeTrue();
+        await Assert.That(wrapper.MoveNext()).IsTrue();
 
         var nonGenericWrapper = ((IEnumerable)dictionary).GetEnumerator();
-        _ = nonGenericWrapper.MoveNext().Should().BeTrue();
-        _ = nonGenericWrapper.Current.Should().BeOfType<KeyValuePair<string, int>>();
+        await Assert.That(nonGenericWrapper.MoveNext()).IsTrue();
+        await Assert.That(nonGenericWrapper.Current).IsTypeOf<KeyValuePair<string, int>>();
 
         dictionary.Dispose();
         dictionary.Dispose();
     }
 
     /// <summary>Verifies QuadDictionary duplicate, missing-key, capacity, resize, and clear behavior.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuadDictionary_ShouldCoverGuardsCapacityAndClear()
+    public async Task QuadDictionary_ShouldCoverGuardsCapacityAndClear()
     {
         using var dictionary = new QuadDictionary<int, string>();
 
@@ -293,10 +302,10 @@ public class QuadCollectionCoverageTests
             dictionary.Add(key, $"value-{key}");
         }
 
-        _ = dictionary.Count.Should().Be(DictionaryPopulationCount);
-        _ = dictionary.ContainsKey(ExistingDictionaryKey).Should().BeTrue();
-        _ = dictionary.TryGetValue(MissingLookupValue, out var missing).Should().BeFalse();
-        _ = missing.Should().BeNull();
+        await Assert.That(dictionary.Count).IsEqualTo(DictionaryPopulationCount);
+        await Assert.That(dictionary.ContainsKey(ExistingDictionaryKey)).IsTrue();
+        await Assert.That(dictionary.TryGetValue(MissingLookupValue, out var missing)).IsFalse();
+        await Assert.That(missing).IsNull();
 
         Action duplicateAdd = () => dictionary.Add(ExistingDictionaryKey, "duplicate");
         Action missingIndexer = () => _ = dictionary[MissingLookupValue];
@@ -304,14 +313,14 @@ public class QuadCollectionCoverageTests
         Action nullKeysTarget = () => dictionary.CopyKeysTo(null!);
         Action nullValuesTarget = () => dictionary.CopyValuesTo(null!);
 
-        _ = duplicateAdd.Should().Throw<ArgumentException>();
-        _ = missingIndexer.Should().Throw<KeyNotFoundException>();
-        _ = nullCopyTarget.Should().Throw<ArgumentNullException>();
-        _ = nullKeysTarget.Should().Throw<ArgumentNullException>().WithParameterName("list");
-        _ = nullValuesTarget.Should().Throw<ArgumentNullException>().WithParameterName("list");
+        await Assert.That(duplicateAdd).Throws<ArgumentException>();
+        await Assert.That(missingIndexer).Throws<KeyNotFoundException>();
+        await Assert.That(nullCopyTarget).Throws<ArgumentNullException>();
+        await Assert.That(nullKeysTarget).Throws<ArgumentNullException>().WithParameterName("list");
+        await Assert.That(nullValuesTarget).Throws<ArgumentNullException>().WithParameterName("list");
 
         dictionary.Clear();
-        _ = dictionary.Count.Should().Be(0);
+        await Assert.That(dictionary.Count).IsEqualTo(0);
         dictionary.Clear();
 
         using var autoResize = new QuadDictionary<int, int>();
@@ -320,19 +329,20 @@ public class QuadCollectionCoverageTests
             autoResize.Add(i, i);
         }
 
-        _ = autoResize.Remove(1).Should().BeTrue();
+        await Assert.That(autoResize.Remove(1)).IsTrue();
         autoResize.EnsureCapacity(AutoResizeCapacity);
-        _ = autoResize.Keys.Should().Contain(AutoResizeLastKey);
+        await Assert.That(autoResize.Keys).Contains(AutoResizeLastKey);
 
         using var nullableKeyDictionary = new QuadDictionary<string?, int>();
-        _ = nullableKeyDictionary.TryAdd(null, 1).Should().BeTrue();
-        _ = nullableKeyDictionary.TryGetValue(null, out var nullKeyValue).Should().BeTrue();
-        _ = nullKeyValue.Should().Be(1);
+        await Assert.That(nullableKeyDictionary.TryAdd(null, 1)).IsTrue();
+        await Assert.That(nullableKeyDictionary.TryGetValue(null, out var nullKeyValue)).IsTrue();
+        await Assert.That(nullKeyValue).IsEqualTo(1);
     }
 
     /// <summary>Verifies pooled batch change tracking including growth and reset on disposal.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void BatchChangeTracker_ShouldTrackGrowAndDispose()
+    public async Task BatchChangeTracker_ShouldTrackGrowAndDispose()
     {
         var tracker = default(BatchChangeTracker<string>);
 
@@ -346,53 +356,58 @@ public class QuadCollectionCoverageTests
             tracker.TrackRemoved($"removed-{i}");
         }
 
-        _ = tracker.HasChanges.Should().BeTrue();
-        _ = tracker.AddedItems.ToArray().Should().StartWith("added-0").And.EndWith("added-23");
-        _ = tracker.RemovedItems.ToArray().Should().StartWith("removed-0").And.EndWith("removed-19");
+        await Assert.That(tracker.HasChanges).IsTrue();
+        await Assert.That(tracker.AddedItems[0]).IsEqualTo("added-0");
+        await Assert.That(tracker.AddedItems[tracker.AddedItems.Length - 1]).IsEqualTo("added-23");
+        await Assert.That(tracker.RemovedItems[0]).IsEqualTo("removed-0");
+        await Assert.That(tracker.RemovedItems[tracker.RemovedItems.Length - 1]).IsEqualTo("removed-19");
 
         tracker.Dispose();
 
-        _ = tracker.HasChanges.Should().BeFalse();
-        _ = tracker.AddedItems.Length.Should().Be(0);
-        _ = tracker.RemovedItems.Length.Should().Be(0);
+        await Assert.That(tracker.HasChanges).IsFalse();
+        await Assert.That(tracker.AddedItems.Length).IsEqualTo(0);
+        await Assert.That(tracker.RemovedItems.Length).IsEqualTo(0);
     }
 
     /// <summary>Verifies ChangeToken value storage and change detection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ChangeToken_ShouldReportVersionChanges()
+    public async Task ChangeToken_ShouldReportVersionChanges()
     {
         var token = new ChangeToken(version: 7, count: 3);
 
-        _ = token.Version.Should().Be(InitialTokenVersion);
-        _ = token.Count.Should().Be(TrackedItemCount);
-        _ = token.HasChanged(InitialTokenVersion).Should().BeFalse();
-        _ = token.HasChanged(NextTokenVersion).Should().BeTrue();
-        _ = token.Should().Be(new ChangeToken(InitialTokenVersion, TrackedItemCount));
+        await Assert.That(token.Version).IsEqualTo(InitialTokenVersion);
+        await Assert.That(token.Count).IsEqualTo(TrackedItemCount);
+        await Assert.That(token.HasChanged(InitialTokenVersion)).IsFalse();
+        await Assert.That(token.HasChanged(NextTokenVersion)).IsTrue();
+        await Assert.That(token).IsEqualTo(new(InitialTokenVersion, TrackedItemCount));
     }
 
     /// <summary>Verifies PooledBuffer list copying and idempotent disposal.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void PooledBuffer_FromList_ShouldExposeCopiedSpanAndDispose()
+    public async Task PooledBuffer_FromList_ShouldExposeCopiedSpanAndDispose()
     {
         var source = new List<string> { "alpha", "beta", "gamma" };
         var buffer = PooledBuffer<string>.FromList(source);
 
-        _ = buffer.Span.ToArray().Should().Equal(source);
+        await Assert.That(buffer.Span.ToArray()).IsEquivalentTo(source, CollectionOrdering.Matching);
 
         buffer.Dispose();
         buffer.Dispose();
     }
 
     /// <summary>Verifies ValueBuffer stack, rent, growth, and disposal paths.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ValueBuffer_ShouldUseStackThenRentedStorage()
+    public async Task ValueBuffer_ShouldUseStackThenRentedStorage()
     {
         Span<int> stack = stackalloc int[2];
         var buffer = new ValueBuffer<int>(in stack);
 
         buffer.Add(1);
         buffer.Add(SecondBufferedValue);
-        _ = buffer.Span.ToArray().Should().Equal(1, SecondBufferedValue);
+        var initialItems = buffer.Span.ToArray();
 
         buffer.Add(ThirdBufferedValue);
         for (var i = 4; i <= ValueBufferFinalCount; i++)
@@ -400,27 +415,31 @@ public class QuadCollectionCoverageTests
             buffer.Add(i);
         }
 
-        _ = buffer.Count.Should().Be(ValueBufferFinalCount);
-        _ = buffer.Span.ToArray().Should().Equal(Enumerable.Range(1, ValueBufferFinalCount));
+        var finalCount = buffer.Count;
+        var finalItems = buffer.Span.ToArray();
+        buffer.Dispose();
+        buffer.Dispose();
 
-        buffer.Dispose();
-        buffer.Dispose();
+        await Assert.That(initialItems).IsEquivalentTo([1, SecondBufferedValue], CollectionOrdering.Matching);
+        await Assert.That(finalCount).IsEqualTo(ValueBufferFinalCount);
+        await Assert.That(finalItems).IsEquivalentTo(Enumerable.Range(1, ValueBufferFinalCount), CollectionOrdering.Matching);
     }
 
     /// <summary>Verifies shard hashing produces stable in-range shard indexes for null, positive, and negative hash codes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ShardHash_ShouldReturnExpectedShardRanges()
+    public async Task ShardHash_ShouldReturnExpectedShardRanges()
     {
-        _ = ShardHash.GetShardIndex<string?>(null, FourWayShardCount).Should().Be(0);
-        _ = ShardHash.GetShardIndex4<string?>(null).Should().Be(0);
+        await Assert.That(ShardHash.GetShardIndex<string?>(null, FourWayShardCount)).IsEqualTo(0);
+        await Assert.That(ShardHash.GetShardIndex4<string?>(null)).IsEqualTo(0);
 
         var positive = new FixedHash(1);
         var negative = new FixedHash(int.MinValue);
 
-        _ = ShardHash.GetShardIndex(positive, EightWayShardCount).Should().BeInRange(0, EightWayMaximumIndex);
-        _ = ShardHash.GetShardIndex(negative, SixteenWayShardCount).Should().BeInRange(0, SixteenWayMaximumIndex);
-        _ = ShardHash.GetShardIndex4(positive).Should().Be(ShardHash.GetShardIndex(positive, FourWayShardCount));
-        _ = ShardHash.GetShardIndex4(negative).Should().BeInRange(0, FourWayMaximumIndex);
+        await Assert.That(ShardHash.GetShardIndex(positive, EightWayShardCount)).IsBetween(0, EightWayMaximumIndex);
+        await Assert.That(ShardHash.GetShardIndex(negative, SixteenWayShardCount)).IsBetween(0, SixteenWayMaximumIndex);
+        await Assert.That(ShardHash.GetShardIndex4(positive)).IsEqualTo(ShardHash.GetShardIndex(positive, FourWayShardCount));
+        await Assert.That(ShardHash.GetShardIndex4(negative)).IsBetween(0, FourWayMaximumIndex);
     }
 
     /// <summary>Provides ConstantHashStringComparer.</summary>

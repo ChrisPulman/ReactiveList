@@ -4,8 +4,12 @@
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 using System;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Core;
+#else
 using CP.Primitives.Core;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -38,23 +42,26 @@ public class CacheActionTests
     private const int DefinedActionCount = 9;
 
     /// <summary>CacheAction should have correct values.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CacheAction_ShouldHaveCorrectValues()
+    public async Task CacheAction_ShouldHaveCorrectValues()
     {
-        _ = ((int)CacheAction.Added).Should().Be(0);
-        _ = ((int)CacheAction.Removed).Should().Be(1);
-        _ = ((int)CacheAction.Updated).Should().Be(UpdatedActionValue);
-        _ = ((int)CacheAction.Moved).Should().Be(MovedActionValue);
-        _ = ((int)CacheAction.Refreshed).Should().Be(RefreshedActionValue);
-        _ = ((int)CacheAction.Cleared).Should().Be(ClearedActionValue);
-        _ = ((int)CacheAction.BatchOperation).Should().Be(BatchOperationActionValue);
-        _ = ((int)CacheAction.BatchAdded).Should().Be(BatchAddedActionValue);
-        _ = ((int)CacheAction.BatchRemoved).Should().Be(BatchRemovedActionValue);
+        CacheAction[] actions =
+#if NET6_0_OR_GREATER
+            Enum.GetValues<CacheAction>();
+#else
+            CreateCacheActionValues();
+#endif
+        var values = Array.ConvertAll(actions, static action => (int)action);
+        await Assert.That(values).IsEquivalentTo(
+            [0, 1, UpdatedActionValue, MovedActionValue, RefreshedActionValue, ClearedActionValue, BatchOperationActionValue, BatchAddedActionValue, BatchRemovedActionValue],
+            CollectionOrdering.Matching);
     }
 
     /// <summary>All CacheAction values should be defined.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CacheAction_AllValuesShouldBeDefined()
+    public async Task CacheAction_AllValuesShouldBeDefined()
     {
         CacheAction[] values =
 #if NET6_0_OR_GREATER
@@ -63,16 +70,16 @@ public class CacheActionTests
             CreateCacheActionValues();
 #endif
 
-        _ = values.Should().HaveCount(DefinedActionCount);
-        _ = values.Should().Contain(CacheAction.Added);
-        _ = values.Should().Contain(CacheAction.Removed);
-        _ = values.Should().Contain(CacheAction.Updated);
-        _ = values.Should().Contain(CacheAction.Moved);
-        _ = values.Should().Contain(CacheAction.Refreshed);
-        _ = values.Should().Contain(CacheAction.Cleared);
-        _ = values.Should().Contain(CacheAction.BatchOperation);
-        _ = values.Should().Contain(CacheAction.BatchAdded);
-        _ = values.Should().Contain(CacheAction.BatchRemoved);
+        await Assert.That(values).Count().IsEqualTo(DefinedActionCount);
+        await Assert.That(values).Contains(CacheAction.Added);
+        await Assert.That(values).Contains(CacheAction.Removed);
+        await Assert.That(values).Contains(CacheAction.Updated);
+        await Assert.That(values).Contains(CacheAction.Moved);
+        await Assert.That(values).Contains(CacheAction.Refreshed);
+        await Assert.That(values).Contains(CacheAction.Cleared);
+        await Assert.That(values).Contains(CacheAction.BatchOperation);
+        await Assert.That(values).Contains(CacheAction.BatchAdded);
+        await Assert.That(values).Contains(CacheAction.BatchRemoved);
     }
 
 #if NETFRAMEWORK

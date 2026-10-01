@@ -6,9 +6,14 @@ using System;
 using System.Buffers;
 using System.ComponentModel;
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Core;
+using CP.Reactive.Views;
+#else
 using CP.Primitives.Core;
 using CP.Primitives.Views;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -23,8 +28,9 @@ public class ReactiveViewTests
     private static readonly TimeSpan NotificationTimeout = TimeSpan.FromSeconds(NotificationTimeoutSeconds);
 
     /// <summary>Constructor should throw when stream is null.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Constructor_WithNullStream_ShouldThrow()
+    public async Task Constructor_WithNullStream_ShouldThrow()
     {
         var act = static () => new ReactiveView<string>(
             null!,
@@ -33,13 +39,13 @@ public class ReactiveViewTests
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        _ = act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("stream");
+        await Assert.That(act).Throws<ArgumentNullException>().WithParameterName("stream");
     }
 
     /// <summary>Constructor should throw when filter is null.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Constructor_WithNullFilter_ShouldThrow()
+    public async Task Constructor_WithNullFilter_ShouldThrow()
     {
         var subject = new Signal<CacheNotify<string>>();
 
@@ -50,13 +56,13 @@ public class ReactiveViewTests
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        _ = act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("filter");
+        await Assert.That(act).Throws<ArgumentNullException>().WithParameterName("filter");
     }
 
     /// <summary>Constructor should load initial snapshot.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Constructor_WithSnapshot_ShouldLoadItems()
+    public async Task Constructor_WithSnapshot_ShouldLoadItems()
     {
         var subject = new Signal<CacheNotify<string>>();
         var snapshot = new[] { "one", "two", TestData.ThreeText };
@@ -68,12 +74,13 @@ public class ReactiveViewTests
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        _ = view.Items.Should().BeEquivalentTo(["one", "two", TestData.ThreeText]);
+        await Assert.That(view.Items).IsEquivalentTo(["one", "two", TestData.ThreeText]);
     }
 
     /// <summary>Constructor should filter snapshot items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Constructor_WithFilter_ShouldFilterSnapshot()
+    public async Task Constructor_WithFilter_ShouldFilterSnapshot()
     {
         var subject = new Signal<CacheNotify<string>>();
         var snapshot = new[] { TestData.AppleText, "banana", TestData.ApricotText, "cherry" };
@@ -85,12 +92,13 @@ public class ReactiveViewTests
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        _ = view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
+        await Assert.That(view.Items).IsEquivalentTo([TestData.AppleText, TestData.ApricotText]);
     }
 
     /// <summary>Constructor with null snapshot should not throw.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Constructor_WithNullSnapshot_ShouldNotThrow()
+    public async Task Constructor_WithNullSnapshot_ShouldNotThrow()
     {
         var subject = new Signal<CacheNotify<string>>();
 
@@ -104,12 +112,13 @@ public class ReactiveViewTests
                 Sequencer.Immediate);
         };
 
-        _ = act.Should().NotThrow();
+        await Assert.That(act).ThrowsNothing();
     }
 
     /// <summary>Items property should be read-only.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Items_ShouldBeReadOnly()
+    public async Task Items_ShouldBeReadOnly()
     {
         var subject = new Signal<CacheNotify<string>>();
 
@@ -120,7 +129,7 @@ public class ReactiveViewTests
             TimeSpan.FromMilliseconds(TestData.TestValueTen),
             Sequencer.Immediate);
 
-        _ = view.Items.Should().BeOfType<System.Collections.ObjectModel.ReadOnlyObservableCollection<string>>();
+        await Assert.That(view.Items).IsTypeOf<System.Collections.ObjectModel.ReadOnlyObservableCollection<string>>();
     }
 
     /// <summary>Added notification should add item to view.</summary>
@@ -141,7 +150,7 @@ public class ReactiveViewTests
 
         await Task.Delay(TestData.TestValueFifty); // Wait for buffer
 
-        _ = view.Items.Should().Contain("newItem");
+        await Assert.That(view.Items).Contains("newItem");
     }
 
     /// <summary>Added notification with filter should only add matching items.</summary>
@@ -163,7 +172,7 @@ public class ReactiveViewTests
 
         await Task.Delay(TestData.TestValueFifty);
 
-        _ = view.Items.Should().BeEquivalentTo(["abcd"]);
+        await Assert.That(view.Items).IsEquivalentTo(["abcd"]);
     }
 
     /// <summary>Removed notification should remove item from view.</summary>
@@ -184,7 +193,7 @@ public class ReactiveViewTests
 
         await Task.Delay(TestData.TestValueFifty);
 
-        _ = view.Items.Should().BeEquivalentTo(["one", TestData.ThreeText]);
+        await Assert.That(view.Items).IsEquivalentTo(["one", TestData.ThreeText]);
     }
 
     /// <summary>Cleared notification should clear view.</summary>
@@ -205,7 +214,7 @@ public class ReactiveViewTests
 
         await Task.Delay(TestData.TestValueFifty);
 
-        _ = view.Items.Should().BeEmpty();
+        await Assert.That(view.Items).IsEmpty();
     }
 
     /// <summary>BatchOperation notification should add batch items.</summary>
@@ -232,7 +241,7 @@ public class ReactiveViewTests
 
         await Task.Delay(TestData.TestValueFifty);
 
-        _ = view.Items.Should().BeEquivalentTo(["item1", "item2", "item3"]);
+        await Assert.That(view.Items).IsEquivalentTo(["item1", "item2", "item3"]);
     }
 
     /// <summary>BatchOperation with filter should only add matching items.</summary>
@@ -259,12 +268,13 @@ public class ReactiveViewTests
 
         await Task.Delay(TestData.TestValueFifty);
 
-        _ = view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
+        await Assert.That(view.Items).IsEquivalentTo([TestData.AppleText, TestData.ApricotText]);
     }
 
     /// <summary>ToProperty should set property.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ToProperty_ShouldSetProperty()
+    public async Task ToProperty_ShouldSetProperty()
     {
         var subject = new Signal<CacheNotify<string>>();
         System.Collections.ObjectModel.ReadOnlyObservableCollection<string>? capturedItems = null;
@@ -278,13 +288,14 @@ public class ReactiveViewTests
 
         var result = view.ToProperty(items => capturedItems = items);
 
-        _ = result.Should().BeSameAs(view);
-        _ = capturedItems.Should().BeSameAs(view.Items);
+        await Assert.That(result).IsSameReferenceAs(view);
+        await Assert.That(capturedItems).IsSameReferenceAs(view.Items);
     }
 
     /// <summary>ToProperty should throw when setter is null.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ToProperty_WithNullSetter_ShouldThrow()
+    public async Task ToProperty_WithNullSetter_ShouldThrow()
     {
         var subject = new Signal<CacheNotify<string>>();
 
@@ -297,13 +308,13 @@ public class ReactiveViewTests
 
         var act = () => view.ToProperty(null!);
 
-        _ = act.Should().Throw<ArgumentNullException>()
-            .WithParameterName("propertySetter");
+        await Assert.That(act).Throws<ArgumentNullException>().WithParameterName("propertySetter");
     }
 
     /// <summary>Dispose should clean up subscription.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Dispose_ShouldCleanUpSubscription()
+    public async Task Dispose_ShouldCleanUpSubscription()
     {
         var subject = new Signal<CacheNotify<string>>();
 
@@ -316,12 +327,13 @@ public class ReactiveViewTests
 
         var act = view.Dispose;
 
-        _ = act.Should().NotThrow();
+        await Assert.That(act).ThrowsNothing();
     }
 
     /// <summary>Multiple dispose should be safe.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Dispose_MultipleCalls_ShouldBeSafe()
+    public async Task Dispose_MultipleCalls_ShouldBeSafe()
     {
         var subject = new Signal<CacheNotify<string>>();
 
@@ -335,7 +347,7 @@ public class ReactiveViewTests
         view.Dispose();
         var act = view.Dispose;
 
-        _ = act.Should().NotThrow();
+        await Assert.That(act).ThrowsNothing();
     }
 
     /// <summary>PropertyChanged should fire when items updated.</summary>
@@ -428,7 +440,7 @@ public class ReactiveViewTests
 
         await Task.Delay(TestData.TestValueFifty);
 
-        _ = view.Items.Should().BeEmpty();
+        await Assert.That(view.Items).IsEmpty();
     }
 
     /// <summary>Removed notification with null item should not throw.</summary>
@@ -451,7 +463,7 @@ public class ReactiveViewTests
             await Task.Delay(TestData.TestValueFifty);
         };
 
-        await act.Should().NotThrowAsync();
+        await Assert.That(act).ThrowsNothing();
     }
 
     /// <summary>Batch notification with null batch should not throw.</summary>
@@ -474,7 +486,7 @@ public class ReactiveViewTests
             await Task.Delay(TestData.TestValueFifty);
         };
 
-        await act.Should().NotThrowAsync();
+        await Assert.That(act).ThrowsNothing();
     }
 
     /// <summary>View should buffer multiple notifications.</summary>
@@ -533,7 +545,7 @@ public class ReactiveViewTests
 
         await Task.Delay(TestData.TestValueFifty);
 
-        _ = view.Items.Should().BeEquivalentTo(["original"]);
+        await Assert.That(view.Items).IsEquivalentTo(["original"]);
     }
 
     /// <summary>Waits for an asynchronous view notification without relying on a scheduler-sensitive fixed delay.</summary>

@@ -4,8 +4,12 @@
 
 using System;
 using System.Buffers;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Core;
+#else
 using CP.Primitives.Core;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -35,8 +39,9 @@ public class PooledBatchTests
     private const int LargeArrayCapacity = 100;
 
     /// <summary>Constructor should initialize Items and Count.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Constructor_ShouldInitializeProperties()
+    public async Task Constructor_ShouldInitializeProperties()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
         array[0] = 1;
@@ -45,13 +50,14 @@ public class PooledBatchTests
 
         using var batch = new PooledBatch<int>(array, TripleCount);
 
-        _ = batch.Items.Should().BeSameAs(array);
-        _ = batch.Count.Should().Be(TripleCount);
+        await Assert.That(batch.Items).IsSameReferenceAs(array);
+        await Assert.That(batch.Count).IsEqualTo(TripleCount);
     }
 
     /// <summary>Items should be accessible before dispose.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Items_BeforeDispose_ShouldBeAccessible()
+    public async Task Items_BeforeDispose_ShouldBeAccessible()
     {
         var array = ArrayPool<string>.Shared.Rent(DefaultBatchCount);
         array[0] = "hello";
@@ -59,36 +65,39 @@ public class PooledBatchTests
 
         using var batch = new PooledBatch<string>(array, PairCount);
 
-        _ = batch.Items[0].Should().Be("hello");
-        _ = batch.Items[1].Should().Be("world");
+        await Assert.That(batch.Items[0]).IsEqualTo("hello");
+        await Assert.That(batch.Items[1]).IsEqualTo("world");
     }
 
     /// <summary>Count should reflect actual item count.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Count_ShouldReflectActualItemCount()
+    public async Task Count_ShouldReflectActualItemCount()
     {
         var array = ArrayPool<double>.Shared.Rent(LargeArrayCapacity);
 
         using var batch = new PooledBatch<double>(array, ArbitraryBatchCount);
 
-        _ = batch.Count.Should().Be(ArbitraryBatchCount);
+        await Assert.That(batch.Count).IsEqualTo(ArbitraryBatchCount);
     }
 
     /// <summary>Dispose should return array to pool.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Dispose_ShouldReturnArrayToPool()
+    public async Task Dispose_ShouldReturnArrayToPool()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
         var batch = new PooledBatch<int>(array, DefaultBatchCount);
 
         var act = batch.Dispose;
 
-        _ = act.Should().NotThrow();
+        await Assert.That(act).ThrowsNothing();
     }
 
     /// <summary>Multiple dispose calls should be safe.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Dispose_MultipleCalls_ShouldBeSafe()
+    public async Task Dispose_MultipleCalls_ShouldBeSafe()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
         var batch = new PooledBatch<int>(array, DefaultBatchCount);
@@ -96,42 +105,45 @@ public class PooledBatchTests
         batch.Dispose();
         var act = batch.Dispose;
 
-        _ = act.Should().NotThrow();
+        await Assert.That(act).ThrowsNothing();
     }
 
     /// <summary>Record equality should work correctly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RecordEquality_ShouldWorkCorrectly()
+    public async Task RecordEquality_ShouldWorkCorrectly()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
         var batch1 = new PooledBatch<int>(array, DefaultBatchCount);
         var batch2 = new PooledBatch<int>(array, DefaultBatchCount);
 
-        _ = batch1.Should().Be(batch2);
-        _ = (batch1 == batch2).Should().BeTrue();
+        await Assert.That(batch1).IsEqualTo(batch2);
+        await Assert.That(batch1 == batch2).IsTrue();
 
         // Clean up
         batch1.Dispose();
     }
 
     /// <summary>Record inequality should work for different counts.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RecordInequality_DifferentCounts_ShouldNotBeEqual()
+    public async Task RecordInequality_DifferentCounts_ShouldNotBeEqual()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
         var batch1 = new PooledBatch<int>(array, DefaultBatchCount);
         var batch2 = new PooledBatch<int>(array, ArrayCapacity);
 
-        _ = batch1.Should().NotBe(batch2);
-        _ = (batch1 != batch2).Should().BeTrue();
+        await Assert.That(batch1).IsNotEqualTo(batch2);
+        await Assert.That(batch1 != batch2).IsTrue();
 
         // Clean up - only one dispose needed since same array
         batch1.Dispose();
     }
 
     /// <summary>PooledBatch should work with reference types.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void PooledBatch_WithReferenceTypes_ShouldWork()
+    public async Task PooledBatch_WithReferenceTypes_ShouldWork()
     {
         var array = ArrayPool<string>.Shared.Rent(DefaultBatchCount);
         array[0] = "test";
@@ -139,42 +151,45 @@ public class PooledBatchTests
 
         using var batch = new PooledBatch<string>(array, PairCount);
 
-        _ = batch.Items[0].Should().Be("test");
-        _ = batch.Items[1].Should().Be("data");
-        _ = batch.Count.Should().Be(PairCount);
+        await Assert.That(batch.Items[0]).IsEqualTo("test");
+        await Assert.That(batch.Items[1]).IsEqualTo("data");
+        await Assert.That(batch.Count).IsEqualTo(PairCount);
     }
 
     /// <summary>PooledBatch with zero count should be valid.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void PooledBatch_WithZeroCount_ShouldBeValid()
+    public async Task PooledBatch_WithZeroCount_ShouldBeValid()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
 
         using var batch = new PooledBatch<int>(array, 0);
 
-        _ = batch.Count.Should().Be(0);
-        _ = batch.Items.Should().NotBeNull();
+        await Assert.That(batch.Count).IsEqualTo(0);
+        await Assert.That(batch.Items).IsNotNull();
     }
 
     /// <summary>PooledBatch should support with expression.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void PooledBatch_WithExpression_ShouldWork()
+    public async Task PooledBatch_WithExpression_ShouldWork()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
         var batch1 = new PooledBatch<int>(array, DefaultBatchCount);
 
         var batch2 = batch1 with { Count = UpdatedBatchCount };
 
-        _ = batch2.Items.Should().BeSameAs(array);
-        _ = batch2.Count.Should().Be(UpdatedBatchCount);
+        await Assert.That(batch2.Items).IsSameReferenceAs(array);
+        await Assert.That(batch2.Count).IsEqualTo(UpdatedBatchCount);
 
         // Clean up
         batch1.Dispose();
     }
 
     /// <summary>GetHashCode should be consistent.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GetHashCode_ShouldBeConsistent()
+    public async Task GetHashCode_ShouldBeConsistent()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
         var batch = new PooledBatch<int>(array, DefaultBatchCount);
@@ -182,21 +197,22 @@ public class PooledBatchTests
         var hash1 = batch.GetHashCode();
         var hash2 = batch.GetHashCode();
 
-        _ = hash1.Should().Be(hash2);
+        await Assert.That(hash1).IsEqualTo(hash2);
 
         batch.Dispose();
     }
 
     /// <summary>ToString should return meaningful representation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ToString_ShouldReturnMeaningfulRepresentation()
+    public async Task ToString_ShouldReturnMeaningfulRepresentation()
     {
         var array = ArrayPool<int>.Shared.Rent(ArrayCapacity);
         using var batch = new PooledBatch<int>(array, DefaultBatchCount);
 
         var result = batch.ToString();
 
-        _ = result.Should().Contain("PooledBatch");
-        _ = result.Should().Contain("5");
+        await Assert.That(result).Contains("PooledBatch");
+        await Assert.That(result).Contains("5");
     }
 }

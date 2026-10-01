@@ -48,6 +48,7 @@ jobs:
             --configuration Release \
             --coverage \
             --coverage-output-format cobertura \
+            --coverage-settings coverage.runsettings \
             --results-directory ./TestResults
 
       - name: Upload coverage

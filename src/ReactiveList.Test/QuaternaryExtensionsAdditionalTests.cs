@@ -6,11 +6,19 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive;
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+using CP.Reactive.Views;
+#else
 using CP.Primitives;
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
-using FluentAssertions;
+using CP.Primitives.Views;
+#endif
 using ReactiveUI.Primitives.Signals;
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -115,28 +123,28 @@ public class QuaternaryExtensionsAdditionalTests
 
         // Verify index works directly first
         var directLookup = new List<Employee>(list.GetItemsBySecondaryIndex(DepartmentIndexName, EngineeringDepartment));
-        _ = directLookup.Count.Should().Be(ExpectedPairCount, "direct index lookup should find 2 Engineering employees");
+        await Assert.That(directLookup.Count).IsEqualTo(ExpectedPairCount).Because("direct index lookup should find 2 Engineering employees");
 
         // Verify ItemMatchesSecondaryIndex works
         var alice = FindEmployeeByName(list, AliceName);
-        _ = list.ItemMatchesSecondaryIndex(DepartmentIndexName, alice, EngineeringDepartment).Should().BeTrue("Alice should match Engineering");
-        _ = list.ItemMatchesSecondaryIndex(DepartmentIndexName, alice, SalesDepartment).Should().BeFalse("Alice should not match Sales");
+        await Assert.That(list.ItemMatchesSecondaryIndex(DepartmentIndexName, alice, EngineeringDepartment)).IsTrue().Because("Alice should match Engineering");
+        await Assert.That(list.ItemMatchesSecondaryIndex(DepartmentIndexName, alice, SalesDepartment)).IsFalse().Because("Alice should not match Sales");
 
         // Verify filter logic works directly on list
         var keysToMatch = new HashSet<string>([EngineeringDepartment]);
         var filteredByFilter = FilterBySecondaryIndex(list, keysToMatch);
-        _ = filteredByFilter.Count.Should().Be(ExpectedPairCount, "filter applied to list should find 2 Engineering employees");
+        await Assert.That(filteredByFilter.Count).IsEqualTo(ExpectedPairCount).Because("filter applied to list should find 2 Engineering employees");
 
         // Test DynamicReactiveView with a simple direct filter first
         var simpleFilterSubject = new BehaviorSignal<Func<Employee, bool>>(static e => e.Department == EngineeringDepartment);
-        using var simpleView = new CP.Primitives.Views.DynamicReactiveView<Employee>(list, simpleFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
-        _ = simpleView.Items.Count.Should().Be(ExpectedPairCount, "DynamicReactiveView with simple filter should work");
+        using var simpleView = new DynamicReactiveView<Employee>(list, simpleFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
+        await Assert.That(simpleView.Items.Count).IsEqualTo(ExpectedPairCount).Because("DynamicReactiveView with simple filter should work");
 
         // Test DynamicReactiveView with ItemMatchesSecondaryIndex filter directly
         var indexFilterSubject = new BehaviorSignal<Func<Employee, bool>>(
             item => list.ItemMatchesSecondaryIndex(DepartmentIndexName, item, EngineeringDepartment));
-        using var indexView = new CP.Primitives.Views.DynamicReactiveView<Employee>(list, indexFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
-        _ = indexView.Items.Count.Should().Be(ExpectedPairCount, "DynamicReactiveView with ItemMatchesSecondaryIndex filter should work");
+        using var indexView = new DynamicReactiveView<Employee>(list, indexFilterSubject, TimeSpan.Zero, Sequencer.Immediate);
+        await Assert.That(indexView.Items.Count).IsEqualTo(ExpectedPairCount).Because("DynamicReactiveView with ItemMatchesSecondaryIndex filter should work");
 
         var departmentFilter = new BehaviorSignal<string[]>([EngineeringDepartment]);
 
@@ -145,21 +153,21 @@ public class QuaternaryExtensionsAdditionalTests
         await Task.Delay(InitialViewDelayMilliseconds);
 
         // Initial state - only Engineering
-        _ = view.Items.Count.Should().Be(ExpectedPairCount);
-        _ = AllEmployeesBelongTo(view.Items, EngineeringDepartment).Should().BeTrue();
+        await Assert.That(view.Items.Count).IsEqualTo(ExpectedPairCount);
+        await Assert.That(AllEmployeesBelongTo(view.Items, EngineeringDepartment)).IsTrue();
 
         // Change to Sales
         departmentFilter.OnNext([SalesDepartment]);
         await Task.Delay(FilterUpdateDelayMilliseconds);
 
-        _ = view.Items.Count.Should().Be(ExpectedPairCount);
-        _ = AllEmployeesBelongTo(view.Items, SalesDepartment).Should().BeTrue();
+        await Assert.That(view.Items.Count).IsEqualTo(ExpectedPairCount);
+        await Assert.That(AllEmployeesBelongTo(view.Items, SalesDepartment)).IsTrue();
 
         // Change to multiple departments
         departmentFilter.OnNext([EngineeringDepartment, MarketingDepartment]);
         await Task.Delay(FilterUpdateDelayMilliseconds);
 
-        _ = view.Items.Count.Should().Be(ExpectedTripleCount);
+        await Assert.That(view.Items.Count).IsEqualTo(ExpectedTripleCount);
     }
 
     /// <summary>Tests that CreateViewBySecondaryIndex with observable keys handles empty key array.</summary>
@@ -182,31 +190,33 @@ public class QuaternaryExtensionsAdditionalTests
         using var view = list.CreateDynamicViewBySecondaryIndex(DepartmentIndexName, departmentFilter, Sequencer.Immediate, 0);
         await Task.Delay(InitialViewDelayMilliseconds);
 
-        _ = view.Items.Count.Should().Be(1);
+        await Assert.That(view.Items.Count).IsEqualTo(1);
 
         // Change to empty array
         departmentFilter.OnNext([]);
         await Task.Delay(FilterUpdateDelayMilliseconds);
 
         // Assert - no items match empty filter
-        _ = view.Items.Count.Should().Be(0);
+        await Assert.That(view.Items.Count).IsEqualTo(0);
     }
 
     /// <summary>Tests that CreateViewBySecondaryIndex throws for null list.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateViewBySecondaryIndex_ThrowsForNullList()
+    public async Task CreateViewBySecondaryIndex_ThrowsForNullList()
     {
         // Arrange
         QuaternaryList<Employee>? nullList = null;
 
         // Act & Assert
         var act = () => nullList!.CreateViewBySecondaryIndex(DepartmentIndexName, EngineeringDepartment, Sequencer.Immediate);
-        _ = act.Should().Throw<ArgumentNullException>();
+        await Assert.That(act).Throws<ArgumentNullException>();
     }
 
     /// <summary>Tests that CreateViewBySecondaryIndex throws for null index name.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateViewBySecondaryIndex_ThrowsForNullIndexName()
+    public async Task CreateViewBySecondaryIndex_ThrowsForNullIndexName()
     {
         // Arrange
         using var list = new QuaternaryList<Employee>();
@@ -214,7 +224,7 @@ public class QuaternaryExtensionsAdditionalTests
 
         // Act & Assert
         var act = () => list.CreateViewBySecondaryIndex(null!, EngineeringDepartment, Sequencer.Immediate);
-        _ = act.Should().Throw<ArgumentNullException>();
+        await Assert.That(act).Throws<ArgumentNullException>();
     }
 
     /// <summary>Tests that views handle rapid key changes gracefully.</summary>
@@ -245,7 +255,7 @@ public class QuaternaryExtensionsAdditionalTests
         await Task.Delay(CoalescingDelayMilliseconds);
 
         // Assert - final state should be Sales and Marketing
-        _ = view.Items.Count.Should().Be(ExpectedPairCount);
+        await Assert.That(view.Items.Count).IsEqualTo(ExpectedPairCount);
     }
 
     /// <summary>Tests a real-world scenario of filtering employees by multiple criteria.</summary>
@@ -283,21 +293,21 @@ public class QuaternaryExtensionsAdditionalTests
         await Task.Delay(FilterUpdateDelayMilliseconds);
 
         // Assert initial state
-        _ = filteredView.Items.Count.Should().Be(ExpectedTripleCount);
-        _ = AllEmployeesBelongTo(filteredView.Items, EngineeringDepartment).Should().BeTrue();
+        await Assert.That(filteredView.Items.Count).IsEqualTo(ExpectedTripleCount);
+        await Assert.That(AllEmployeesBelongTo(filteredView.Items, EngineeringDepartment)).IsTrue();
 
         // User selects SalesDepartment department
         selectedDepartments.OnNext([SalesDepartment]);
         await Task.Delay(SelectionUpdateDelayMilliseconds);
 
-        _ = filteredView.Items.Count.Should().Be(ExpectedPairCount);
-        _ = AllEmployeesBelongTo(filteredView.Items, SalesDepartment).Should().BeTrue();
+        await Assert.That(filteredView.Items.Count).IsEqualTo(ExpectedPairCount);
+        await Assert.That(AllEmployeesBelongTo(filteredView.Items, SalesDepartment)).IsTrue();
 
         // User selects multiple departments
         selectedDepartments.OnNext([EngineeringDepartment, MarketingDepartment]);
         await Task.Delay(SelectionUpdateDelayMilliseconds);
 
-        _ = filteredView.Items.Count.Should().Be(ExpectedFiveItems);
+        await Assert.That(filteredView.Items.Count).IsEqualTo(ExpectedFiveItems);
     }
 
     /// <summary>Tests dictionary CreateViewBySecondaryIndex with single key.</summary>
@@ -319,8 +329,8 @@ public class QuaternaryExtensionsAdditionalTests
         await Task.Delay(InitialViewDelayMilliseconds);
 
         // Assert
-        _ = view.Items.Count.Should().Be(ExpectedPairCount);
-        _ = AllOrdersHaveStatus(view.Items, PendingStatus).Should().BeTrue();
+        await Assert.That(view.Items.Count).IsEqualTo(ExpectedPairCount);
+        await Assert.That(AllOrdersHaveStatus(view.Items, PendingStatus)).IsTrue();
     }
 
     /// <summary>Tests dictionary CreateViewBySecondaryIndex with multiple keys via extension method.</summary>
@@ -341,8 +351,8 @@ public class QuaternaryExtensionsAdditionalTests
         await Task.Delay(InitialViewDelayMilliseconds);
 
         // Assert
-        _ = view.Items.Count.Should().Be(ExpectedPairCount);
-        _ = GetOrderStatuses(view.Items).Should().BeEquivalentTo([PendingStatus, ShippedStatus]);
+        await Assert.That(view.Items.Count).IsEqualTo(ExpectedPairCount);
+        await Assert.That(GetOrderStatuses(view.Items)).IsEquivalentTo([PendingStatus, ShippedStatus]);
     }
 
     /// <summary>Tests dictionary CreateViewBySecondaryIndex with observable keys.</summary>
@@ -364,19 +374,20 @@ public class QuaternaryExtensionsAdditionalTests
         using var view = QuaternaryExtensions.CreateDynamicViewBySecondaryIndex(dict, StatusIndexName, statusFilter, Sequencer.Immediate, 0);
         await Task.Delay(InitialViewDelayMilliseconds);
 
-        _ = view.Items.Count.Should().Be(1);
+        await Assert.That(view.Items.Count).IsEqualTo(1);
 
         // Change filter
         statusFilter.OnNext([ShippedStatus, DeliveredStatus]);
         await Task.Delay(FilterUpdateDelayMilliseconds);
 
         // Assert
-        _ = view.Items.Count.Should().Be(ExpectedPairCount);
+        await Assert.That(view.Items.Count).IsEqualTo(ExpectedPairCount);
     }
 
     /// <summary>Tests that DynamicSecondaryIndexReactiveView initializes correctly with direct construction.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void DynamicSecondaryIndexReactiveView_DirectConstruction_InitializesCorrectly()
+    public async Task DynamicSecondaryIndexReactiveView_DirectConstruction_InitializesCorrectly()
     {
         // Arrange
         using var list = new QuaternaryList<Employee>();
@@ -390,12 +401,12 @@ public class QuaternaryExtensionsAdditionalTests
 
         // Verify direct lookup works
         var directLookup = new List<Employee>(list.GetItemsBySecondaryIndex(DepartmentIndexName, EngineeringDepartment));
-        _ = directLookup.Count.Should().Be(ExpectedPairCount, "direct index lookup should find 2 Engineering employees");
+        await Assert.That(directLookup.Count).IsEqualTo(ExpectedPairCount).Because("direct index lookup should find 2 Engineering employees");
 
         // Create the view directly (not through extension method)
         var keysObservable = new BehaviorSignal<string[]>([EngineeringDepartment]);
 
-        using var view = new CP.Primitives.Views.DynamicSecondaryIndexReactiveView<Employee, string>(
+        using var view = new DynamicSecondaryIndexReactiveView<Employee, string>(
             list,
             DepartmentIndexName,
             keysObservable,
@@ -403,12 +414,13 @@ public class QuaternaryExtensionsAdditionalTests
             TimeSpan.Zero);
 
         // Assert - should have items immediately after construction
-        _ = view.Items.Count.Should().Be(ExpectedPairCount, "view should have 2 items immediately after construction");
+        await Assert.That(view.Items.Count).IsEqualTo(ExpectedPairCount).Because("view should have 2 items immediately after construction");
     }
 
     /// <summary>Tests that CreateDynamicViewBySecondaryIndex extension method works same as direct construction.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CreateDynamicViewBySecondaryIndex_ExtensionMethod_WorksCorrectly()
+    public async Task CreateDynamicViewBySecondaryIndex_ExtensionMethod_WorksCorrectly()
     {
         // Arrange
         using var list = new QuaternaryList<Employee>();
@@ -425,12 +437,13 @@ public class QuaternaryExtensionsAdditionalTests
         using var extView = list.CreateDynamicViewBySecondaryIndex(DepartmentIndexName, keysObservable, Sequencer.Immediate, 0);
 
         // Assert - should have items immediately after construction
-        _ = extView.Items.Count.Should().Be(ExpectedPairCount, "extension method should produce view with 2 items");
+        await Assert.That(extView.Items.Count).IsEqualTo(ExpectedPairCount).Because("extension method should produce view with 2 items");
     }
 
     /// <summary>Tests that secondary-index stream filters keep clear notifications for view reset semantics.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void FilterBySecondaryIndex_ClearNotifications_ShouldPassThroughAllOverloads()
+    public async Task FilterBySecondaryIndex_ClearNotifications_ShouldPassThroughAllOverloads()
     {
         using var list = new QuaternaryList<Employee>();
         list.AddIndex(DepartmentIndexName, static employee => employee.Department);
@@ -447,8 +460,8 @@ public class QuaternaryExtensionsAdditionalTests
 
         listStream.OnNext(new(CacheAction.Cleared, default!));
 
-        _ = listSingle.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
-        _ = listMultiple.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
+        await Assert.That((await Assert.That(listSingle).HasSingleItem()).Action).IsEqualTo(CacheAction.Cleared);
+        await Assert.That((await Assert.That(listMultiple).HasSingleItem()).Action).IsEqualTo(CacheAction.Cleared);
 
         using var dict = new QuaternaryDictionary<string, OrderInfo>();
         dict.AddValueIndex(StatusIndexName, static order => order.Status);
@@ -465,8 +478,8 @@ public class QuaternaryExtensionsAdditionalTests
 
         dictStream.OnNext(new(CacheAction.Cleared, default));
 
-        _ = dictSingle.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
-        _ = dictMultiple.Should().ContainSingle().Which.Action.Should().Be(CacheAction.Cleared);
+        await Assert.That((await Assert.That(dictSingle).HasSingleItem()).Action).IsEqualTo(CacheAction.Cleared);
+        await Assert.That((await Assert.That(dictMultiple).HasSingleItem()).Action).IsEqualTo(CacheAction.Cleared);
     }
 
     /// <summary>Finds an employee by name without allocating a LINQ iterator.</summary>

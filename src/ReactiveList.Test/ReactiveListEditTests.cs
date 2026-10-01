@@ -3,8 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+#else
 using CP.Primitives.Collections;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -13,8 +17,9 @@ namespace ReactiveList.Test;
 public class ReactiveListEditTests
 {
     /// <summary>Edit should allow batch add operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowBatchAddOperations()
+    public async Task Edit_ShouldAllowBatchAddOperations()
     {
         ReactiveList<string> fixture = [];
 
@@ -25,15 +30,16 @@ public class ReactiveListEditTests
             list.Add(TestData.ThreeText);
         });
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be("two");
-        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo("two");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow batch remove operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowBatchRemoveOperations()
+    public async Task Edit_ShouldAllowBatchRemoveOperations()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText, "four"];
 
@@ -43,14 +49,15 @@ public class ReactiveListEditTests
             _ = list.Remove("four");
         });
 
-        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow mixed operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowMixedOperations()
+    public async Task Edit_ShouldAllowMixedOperations()
     {
         ReactiveList<string> fixture = ["one", "two"];
 
@@ -61,16 +68,17 @@ public class ReactiveListEditTests
             list.Add("four");
         });
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture.Should().Contain("two");
-        _ = fixture.Should().Contain(TestData.ThreeText);
-        _ = fixture.Should().Contain("four");
-        _ = fixture.Should().NotContain("one");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture).Contains("two");
+        await Assert.That(fixture).Contains(TestData.ThreeText);
+        await Assert.That(fixture).Contains("four");
+        await Assert.That(fixture).DoesNotContain("one");
     }
 
     /// <summary>Edit should allow clear and repopulate.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowClearAndRepopulate()
+    public async Task Edit_ShouldAllowClearAndRepopulate()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
@@ -81,26 +89,27 @@ public class ReactiveListEditTests
             list.Add("beta");
         });
 
-        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
-        _ = fixture[0].Should().Be("alpha");
-        _ = fixture[1].Should().Be("beta");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(fixture[0]).IsEqualTo("alpha");
+        await Assert.That(fixture[1]).IsEqualTo("beta");
     }
 
     /// <summary>Edit should throw when action is null.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldThrowWhenActionIsNull()
+    public async Task Edit_ShouldThrowWhenActionIsNull()
     {
         ReactiveList<string> fixture = [];
 
         var action = () => fixture.Edit(null!);
 
-        _ = action.Should().Throw<ArgumentNullException>()
-            .WithParameterName("editAction");
+        await Assert.That(action).Throws<ArgumentNullException>().WithParameterName("editAction");
     }
 
     /// <summary>Edit should raise property changed once for count.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldRaisePropertyChanged()
+    public async Task Edit_ShouldRaisePropertyChanged()
     {
         ReactiveList<string> fixture = [];
         var countChanges = 0;
@@ -127,55 +136,59 @@ public class ReactiveListEditTests
             list.Add(TestData.ThreeText);
         });
 
-        _ = countChanges.Should().Be(1);
-        _ = itemArrayChanges.Should().Be(1);
+        await Assert.That(countChanges).IsEqualTo(1);
+        await Assert.That(itemArrayChanges).IsEqualTo(1);
     }
 
     /// <summary>Edit should allow insert at index.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowInsertAtIndex()
+    public async Task Edit_ShouldAllowInsertAtIndex()
     {
         ReactiveList<string> fixture = ["one", TestData.ThreeText];
 
         fixture.Edit(static list => list.Insert(1, "two"));
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be("two");
-        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo("two");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow remove at index.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowRemoveAtIndex()
+    public async Task Edit_ShouldAllowRemoveAtIndex()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Edit(static list => list.RemoveAt(1));
 
-        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Edit should allow add range.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowAddRange()
+    public async Task Edit_ShouldAllowAddRange()
     {
         ReactiveList<string> fixture = ["one"];
 
         fixture.Edit(static list => list.AddRange(["two", TestData.ThreeText, "four"]));
 
-        _ = fixture.Count.Should().Be(TestData.TestValueFour);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be("two");
-        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
-        _ = fixture[TestData.TestValueThree].Should().Be("four");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueFour);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo("two");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo(TestData.ThreeText);
+        await Assert.That(fixture[TestData.TestValueThree]).IsEqualTo("four");
     }
 
     /// <summary>Edit should allow replace operation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowReplaceOperation()
+    public async Task Edit_ShouldAllowReplaceOperation()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
@@ -186,15 +199,16 @@ public class ReactiveListEditTests
             list.Insert(index, "TWO");
         });
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be("TWO");
-        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo("TWO");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Edit should work with complex types.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldWorkWithComplexTypes()
+    public async Task Edit_ShouldWorkWithComplexTypes()
     {
         ReactiveList<TestData> fixture = [];
 
@@ -204,41 +218,44 @@ public class ReactiveListEditTests
             list.Add(new("Bob", TestData.TestValueThirty));
         });
 
-        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
-        _ = fixture[0].Name.Should().Be("Alice");
-        _ = fixture[1].Name.Should().Be("Bob");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(fixture[0].Name).IsEqualTo("Alice");
+        await Assert.That(fixture[1].Name).IsEqualTo("Bob");
     }
 
     /// <summary>Edit should handle empty action gracefully.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldHandleEmptyActionGracefully()
+    public async Task Edit_ShouldHandleEmptyActionGracefully()
     {
         ReactiveList<string> fixture = ["one", "two"];
 
         fixture.Edit(static _ => { });
 
-        _ = fixture.Count.Should().Be(TestData.TestValueTwo);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be("two");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo("two");
     }
 
     /// <summary>Edit should allow move operation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowMoveOperation()
+    public async Task Edit_ShouldAllowMoveOperation()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Edit(static list => list.Move(0, TestData.TestValueTwo));
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be("two");
-        _ = fixture[1].Should().Be(TestData.ThreeText);
-        _ = fixture[TestData.TestValueTwo].Should().Be("one");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo("two");
+        await Assert.That(fixture[1]).IsEqualTo(TestData.ThreeText);
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo("one");
     }
 
     /// <summary>Edit should allow multiple operations in sequence.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Edit_ShouldAllowMultipleOperationsInSequence()
+    public async Task Edit_ShouldAllowMultipleOperationsInSequence()
     {
         ReactiveList<int> fixture = [];
 
@@ -254,7 +271,7 @@ public class ReactiveListEditTests
             list.Move(TestData.TestValueFour, 1); // Move 5 to position 1
         });
 
-        _ = fixture.Count.Should().Be(TestData.TestValueFive);
-        _ = fixture.Should().ContainInOrder(0, TestData.TestValueFive, 1, TestData.TestValueTwo, TestData.TestValueFour);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueFive);
+        await Assert.That(TestSequences.ContainsInOrder(fixture, [0, TestData.TestValueFive, 1, TestData.TestValueTwo, TestData.TestValueFour])).IsTrue();
     }
 }

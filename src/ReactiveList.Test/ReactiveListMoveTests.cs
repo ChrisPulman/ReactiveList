@@ -3,8 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+#else
 using CP.Primitives.Collections;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -13,128 +17,134 @@ namespace ReactiveList.Test;
 public class ReactiveListMoveTests
 {
     /// <summary>Move should reorder item forward in list.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldReorderItemForwardInList()
+    public async Task Move_ShouldReorderItemForwardInList()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText, "four"];
 
         fixture.Move(0, TestData.TestValueTwo);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueFour);
-        _ = fixture[0].Should().Be("two");
-        _ = fixture[1].Should().Be(TestData.ThreeText);
-        _ = fixture[TestData.TestValueTwo].Should().Be("one");
-        _ = fixture[TestData.TestValueThree].Should().Be("four");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueFour);
+        await Assert.That(fixture[0]).IsEqualTo("two");
+        await Assert.That(fixture[1]).IsEqualTo(TestData.ThreeText);
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo("one");
+        await Assert.That(fixture[TestData.TestValueThree]).IsEqualTo("four");
     }
 
     /// <summary>Move should reorder item backward in list.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldReorderItemBackwardInList()
+    public async Task Move_ShouldReorderItemBackwardInList()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText, "four"];
 
         fixture.Move(TestData.TestValueThree, 1);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueFour);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be("four");
-        _ = fixture[TestData.TestValueTwo].Should().Be("two");
-        _ = fixture[TestData.TestValueThree].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueFour);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo("four");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo("two");
+        await Assert.That(fixture[TestData.TestValueThree]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Move should handle moving to first position.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldHandleMovingToFirstPosition()
+    public async Task Move_ShouldHandleMovingToFirstPosition()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Move(TestData.TestValueTwo, 0);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be(TestData.ThreeText);
-        _ = fixture[1].Should().Be("one");
-        _ = fixture[TestData.TestValueTwo].Should().Be("two");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo(TestData.ThreeText);
+        await Assert.That(fixture[1]).IsEqualTo("one");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo("two");
     }
 
     /// <summary>Move should handle moving to last position.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldHandleMovingToLastPosition()
+    public async Task Move_ShouldHandleMovingToLastPosition()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Move(0, TestData.TestValueTwo);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be("two");
-        _ = fixture[1].Should().Be(TestData.ThreeText);
-        _ = fixture[TestData.TestValueTwo].Should().Be("one");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo("two");
+        await Assert.That(fixture[1]).IsEqualTo(TestData.ThreeText);
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo("one");
     }
 
     /// <summary>Move should do nothing when same index.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldDoNothingWhenSameIndex()
+    public async Task Move_ShouldDoNothingWhenSameIndex()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Move(1, 1);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be("one");
-        _ = fixture[1].Should().Be("two");
-        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo("one");
+        await Assert.That(fixture[1]).IsEqualTo("two");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Move should throw when old index is negative.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldThrowWhenOldIndexIsNegative()
+    public async Task Move_ShouldThrowWhenOldIndexIsNegative()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         var action = () => fixture.Move(-1, 1);
 
-        _ = action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("oldIndex");
+        await Assert.That(action).Throws<ArgumentOutOfRangeException>().WithParameterName("oldIndex");
     }
 
     /// <summary>Move should throw when old index exceeds count.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldThrowWhenOldIndexExceedsCount()
+    public async Task Move_ShouldThrowWhenOldIndexExceedsCount()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         var action = () => fixture.Move(TestData.TestValueThree, 1);
 
-        _ = action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("oldIndex");
+        await Assert.That(action).Throws<ArgumentOutOfRangeException>().WithParameterName("oldIndex");
     }
 
     /// <summary>Move should throw when new index is negative.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldThrowWhenNewIndexIsNegative()
+    public async Task Move_ShouldThrowWhenNewIndexIsNegative()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         var action = () => fixture.Move(1, -1);
 
-        _ = action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("newIndex");
+        await Assert.That(action).Throws<ArgumentOutOfRangeException>().WithParameterName("newIndex");
     }
 
     /// <summary>Move should throw when new index exceeds count.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldThrowWhenNewIndexExceedsCount()
+    public async Task Move_ShouldThrowWhenNewIndexExceedsCount()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         var action = () => fixture.Move(1, TestData.TestValueThree);
 
-        _ = action.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("newIndex");
+        await Assert.That(action).Throws<ArgumentOutOfRangeException>().WithParameterName("newIndex");
     }
 
     /// <summary>Move should raise property changed for item array.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldRaisePropertyChangedForItemArray()
+    public async Task Move_ShouldRaisePropertyChangedForItemArray()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
         var propertyNames = string.Empty;
@@ -142,12 +152,13 @@ public class ReactiveListMoveTests
 
         fixture.Move(0, TestData.TestValueTwo);
 
-        _ = propertyNames.Should().Contain("Item[]");
+        await Assert.That(propertyNames).Contains("Item[]");
     }
 
     /// <summary>Move should work with complex types.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldWorkWithComplexTypes()
+    public async Task Move_ShouldWorkWithComplexTypes()
     {
         ReactiveList<TestData> fixture =
         [
@@ -158,37 +169,39 @@ public class ReactiveListMoveTests
 
         fixture.Move(TestData.TestValueTwo, 0);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Name.Should().Be("Charlie");
-        _ = fixture[1].Name.Should().Be("Alice");
-        _ = fixture[TestData.TestValueTwo].Name.Should().Be("Bob");
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0].Name).IsEqualTo("Charlie");
+        await Assert.That(fixture[1].Name).IsEqualTo("Alice");
+        await Assert.That(fixture[TestData.TestValueTwo].Name).IsEqualTo("Bob");
     }
 
     /// <summary>Move should handle adjacent positions forward.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldHandleAdjacentPositionsForward()
+    public async Task Move_ShouldHandleAdjacentPositionsForward()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Move(0, 1);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be("two");
-        _ = fixture[1].Should().Be("one");
-        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo("two");
+        await Assert.That(fixture[1]).IsEqualTo("one");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo(TestData.ThreeText);
     }
 
     /// <summary>Move should handle adjacent positions backward.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Move_ShouldHandleAdjacentPositionsBackward()
+    public async Task Move_ShouldHandleAdjacentPositionsBackward()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
 
         fixture.Move(1, 0);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
-        _ = fixture[0].Should().Be("two");
-        _ = fixture[1].Should().Be("one");
-        _ = fixture[TestData.TestValueTwo].Should().Be(TestData.ThreeText);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(fixture[0]).IsEqualTo("two");
+        await Assert.That(fixture[1]).IsEqualTo("one");
+        await Assert.That(fixture[TestData.TestValueTwo]).IsEqualTo(TestData.ThreeText);
     }
 }

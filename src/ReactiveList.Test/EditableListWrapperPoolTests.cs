@@ -6,8 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Core;
+#else
 using CP.Primitives.Core;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -28,8 +32,9 @@ public class EditableListWrapperPoolTests
     private const int FifthFixtureValue = 5;
 
     /// <summary>Tests that Rent returns a new wrapper when pool is empty.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Rent_ReturnsNewWrapperWhenPoolEmpty()
+    public async Task Rent_ReturnsNewWrapperWhenPoolEmpty()
     {
         // Arrange
         EditableListWrapperPool<int>.Clear();
@@ -39,13 +44,14 @@ public class EditableListWrapperPoolTests
         using var wrapper = EditableListWrapperPool.Rent(list);
 
         // Assert
-        _ = wrapper.Should().NotBeNull();
-        _ = wrapper.Count.Should().Be(ThirdFixtureValue);
+        await Assert.That(wrapper).IsNotNull();
+        await Assert.That(wrapper.Count).IsEqualTo(ThirdFixtureValue);
     }
 
     /// <summary>Tests that Return adds wrapper to pool.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Return_AddsWrapperToPool()
+    public async Task Return_AddsWrapperToPool()
     {
         // Arrange
         EditableListWrapperPool<int>.Clear();
@@ -56,12 +62,13 @@ public class EditableListWrapperPoolTests
         wrapper.Dispose();
 
         // Assert
-        _ = EditableListWrapperPool<int>.CurrentPoolSize.Should().Be(1);
+        await Assert.That(EditableListWrapperPool<int>.CurrentPoolSize).IsEqualTo(1);
     }
 
     /// <summary>Tests that Rent reuses wrapper from pool.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Rent_ReusesWrapperFromPool()
+    public async Task Rent_ReusesWrapperFromPool()
     {
         // Arrange
         EditableListWrapperPool<int>.Clear();
@@ -75,16 +82,17 @@ public class EditableListWrapperPoolTests
         var wrapper2 = EditableListWrapperPool.Rent(list2);
 
         // Assert
-        _ = wrapper2.Should().BeSameAs(wrapper1);
-        _ = wrapper2.Count.Should().Be(SecondFixtureValue);
-        _ = EditableListWrapperPool<int>.CurrentPoolSize.Should().Be(0);
+        await Assert.That(wrapper2).IsSameReferenceAs(wrapper1);
+        await Assert.That(wrapper2.Count).IsEqualTo(SecondFixtureValue);
+        await Assert.That(EditableListWrapperPool<int>.CurrentPoolSize).IsEqualTo(0);
 
         wrapper2.Dispose();
     }
 
     /// <summary>Tests that wrapper operations work correctly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void PooledWrapper_OperationsWork()
+    public async Task PooledWrapper_OperationsWork()
     {
         // Arrange
         var list = new List<int>();
@@ -92,27 +100,28 @@ public class EditableListWrapperPoolTests
 
         // Act & Assert
         wrapper.Add(1);
-        _ = wrapper.Count.Should().Be(1);
+        await Assert.That(wrapper.Count).IsEqualTo(1);
 
         wrapper.AddRange([SecondFixtureValue, ThirdFixtureValue, FourthFixtureValue]);
-        _ = wrapper.Count.Should().Be(FourthFixtureValue);
+        await Assert.That(wrapper.Count).IsEqualTo(FourthFixtureValue);
 
         wrapper.Insert(0, 0);
-        _ = wrapper[0].Should().Be(0);
+        await Assert.That(wrapper[0]).IsEqualTo(0);
 
         _ = wrapper.Remove(SecondFixtureValue);
-        _ = wrapper.Contains(SecondFixtureValue).Should().BeFalse();
+        await Assert.That(wrapper.Contains(SecondFixtureValue)).IsFalse();
 
         wrapper.RemoveAt(0);
-        _ = wrapper.Count.Should().Be(ThirdFixtureValue);
+        await Assert.That(wrapper.Count).IsEqualTo(ThirdFixtureValue);
 
         wrapper.Clear();
-        _ = wrapper.Count.Should().Be(0);
+        await Assert.That(wrapper.Count).IsEqualTo(0);
     }
 
     /// <summary>Tests that wrapper syncs with observable collection.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void PooledWrapper_SyncsWithObservableCollection()
+    public async Task PooledWrapper_SyncsWithObservableCollection()
     {
         // Arrange
         var list = new List<int>();
@@ -125,12 +134,13 @@ public class EditableListWrapperPoolTests
         wrapper.Add(ThirdFixtureValue);
 
         // Assert
-        _ = observable.Should().BeEquivalentTo([1, SecondFixtureValue, ThirdFixtureValue]);
+        await Assert.That(observable).IsEquivalentTo([1, SecondFixtureValue, ThirdFixtureValue]);
     }
 
     /// <summary>Tests that disposed wrapper throws when used.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void PooledWrapper_ThrowsAfterDispose()
+    public async Task PooledWrapper_ThrowsAfterDispose()
     {
         // Arrange
         var list = new List<int> { 1, SecondFixtureValue, ThirdFixtureValue };
@@ -139,12 +149,13 @@ public class EditableListWrapperPoolTests
 
         // Act & Assert
         var action = () => wrapper.Add(FourthFixtureValue);
-        _ = action.Should().Throw<ObjectDisposedException>();
+        await Assert.That(action).Throws<ObjectDisposedException>();
     }
 
     /// <summary>Tests that MaxPoolSize limits pool growth.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void MaxPoolSize_LimitsPoolGrowth()
+    public async Task MaxPoolSize_LimitsPoolGrowth()
     {
         // Arrange
         EditableListWrapperPool<int>.Clear();
@@ -165,8 +176,8 @@ public class EditableListWrapperPoolTests
             w3.Dispose();
 
             // Assert - only 2 should be pooled
-            _ = EditableListWrapperPool<int>.CurrentPoolSize.Should().BeGreaterThanOrEqualTo(0);
-            _ = EditableListWrapperPool<int>.CurrentPoolSize.Should().BeLessThanOrEqualTo(SecondFixtureValue);
+            await Assert.That(EditableListWrapperPool<int>.CurrentPoolSize).IsGreaterThanOrEqualTo(0);
+            await Assert.That(EditableListWrapperPool<int>.CurrentPoolSize).IsLessThanOrEqualTo(SecondFixtureValue);
         }
         finally
         {
@@ -176,8 +187,9 @@ public class EditableListWrapperPoolTests
     }
 
     /// <summary>Tests that IResettable.Reset clears wrapper state.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void IResettable_Reset_ClearsState()
+    public async Task IResettable_Reset_ClearsState()
     {
         // Arrange
         var list = new List<int> { 1, SecondFixtureValue, ThirdFixtureValue };
@@ -187,7 +199,7 @@ public class EditableListWrapperPoolTests
         ((IResettable)wrapper).Reset();
 
         // Assert
-        _ = wrapper.Count.Should().Be(0);
+        await Assert.That(wrapper.Count).IsEqualTo(0);
     }
 }
 #endif

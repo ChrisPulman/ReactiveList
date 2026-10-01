@@ -13,10 +13,15 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+#else
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
-using FluentAssertions;
+#endif
 using ReactiveUI.Primitives.Signals;
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -122,15 +127,16 @@ public class QuaternaryCollectionCoverageTests
     }
 
     /// <summary>Verifies QuaternaryList empty, enumerable, list, and secondary-index batch paths.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryList_BatchOverloads_ShouldMaintainItemsIndexesAndVersion()
+    public async Task QuaternaryList_BatchOverloads_ShouldMaintainItemsIndexesAndVersion()
     {
         using var list = new QuaternaryList<int>();
         var initialVersion = list.Version;
 
         list.AddRange([]);
-        _ = list.Count.Should().Be(0);
-        _ = list.Version.Should().Be(initialVersion);
+        await Assert.That(list.Count).IsEqualTo(0);
+        await Assert.That(list.Version).IsEqualTo(initialVersion);
 
         list.AddIndex(ParityIndexName, static item => item % CollectionValueTwo);
         list.AddRange(Yield(0, 1, CollectionValueTwo, CollectionValueThree, CollectionValueFour));
@@ -143,16 +149,17 @@ public class QuaternaryCollectionCoverageTests
         list.RemoveRange([]);
         list.RemoveRange([CollectionValueTwo]);
 
-        _ = list.Count.Should().Be(CollectionValueFour);
-        _ = list.Should().BeEquivalentTo([0, CollectionValueFour, ModuloBucketCount, CollectionValueEleven]);
-        _ = list.GetItemsBySecondaryIndex(ParityIndexName, 0).Should().BeEquivalentTo([0, CollectionValueFour, ModuloBucketCount]);
-        _ = list.GetItemsBySecondaryIndex(ParityIndexName, 1).Should().ContainSingle().Which.Should().Be(CollectionValueEleven);
-        _ = list.Version.Should().BeGreaterThan(initialVersion);
+        await Assert.That(list.Count).IsEqualTo(CollectionValueFour);
+        await Assert.That(list).IsEquivalentTo([0, CollectionValueFour, ModuloBucketCount, CollectionValueEleven]);
+        await Assert.That(list.GetItemsBySecondaryIndex(ParityIndexName, 0)).IsEquivalentTo([0, CollectionValueFour, ModuloBucketCount]);
+        await Assert.That(await Assert.That(list.GetItemsBySecondaryIndex(ParityIndexName, 1)).HasSingleItem()).IsEqualTo(CollectionValueEleven);
+        await Assert.That(list.Version).IsGreaterThan(initialVersion);
     }
 
     /// <summary>Verifies QuaternaryList parallel array and list paths for large batch adds and removals.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryList_LargeBatchOverloads_ShouldUseParallelPaths()
+    public async Task QuaternaryList_LargeBatchOverloads_ShouldUseParallelPaths()
     {
         using var list = new QuaternaryList<int>();
         list.AddIndex("Mod10", static item => item % ModuloBucketCount);
@@ -161,69 +168,76 @@ public class QuaternaryCollectionCoverageTests
         list.AddRange(firstBatch);
         list.RemoveRange(FilterToArray(firstBatch, static item => item % CollectionValueThree == 0));
 
-        _ = list.Count.Should().BeGreaterThan(MinimumRetainedItems);
-        _ = list.Contains(0).Should().BeFalse();
-        _ = list.Contains(1).Should().BeTrue();
+        await Assert.That(list.Count).IsGreaterThan(MinimumRetainedItems);
+        await Assert.That(list.Contains(0)).IsFalse();
+        await Assert.That(list.Contains(1)).IsTrue();
 
         var secondBatch = CreateRangeList(LargeBatchSize, LargeBatchSize);
         list.AddRange(secondBatch);
         list.RemoveRange(FilterToList(secondBatch, static item => item % CollectionValueTwo == 0));
 
-        _ = list.Contains(LargeBatchSize).Should().BeFalse();
-        _ = list.Contains(FirstRetainedKey).Should().BeTrue();
-        _ = list.GetItemsBySecondaryIndex("Mod10", 1).Should().Contain(FirstRetainedKey);
+        await Assert.That(list.Contains(LargeBatchSize)).IsFalse();
+        await Assert.That(list.Contains(FirstRetainedKey)).IsTrue();
+        await Assert.That(list.GetItemsBySecondaryIndex("Mod10", 1)).Contains(FirstRetainedKey);
 
         var countBeforeMissingRemove = list.Count;
         list.RemoveRange([DefinitelyMissingValue]);
-        _ = list.Count.Should().Be(countBeforeMissingRemove);
+        await Assert.That(list.Count).IsEqualTo(countBeforeMissingRemove);
     }
 
     /// <summary>Verifies QuaternaryList parallel paths when all items land in one shard, plus RemoveMany buffer growth.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryList_SingleShardParallelBatchesAndRemoveManyGrowth_ShouldMaintainIndexes()
+    public async Task QuaternaryList_SingleShardParallelBatchesAndRemoveManyGrowth_ShouldMaintainIndexes()
     {
         using var list = new QuaternaryList<ConstantShardItem>();
         list.AddIndex(ParityIndexName, static item => item.Id % CollectionValueTwo);
 
         var arrayBatch = CreateConstantShardItems(0, ParallelBatchSize);
         list.AddRange(arrayBatch);
-        _ = list.GetItemsBySecondaryIndex(ParityIndexName, 0).Should().HaveCount(ExpectedParityItems);
+        await Assert.That(list.GetItemsBySecondaryIndex(ParityIndexName, 0)).Count().IsEqualTo(ExpectedParityItems);
         list.RemoveRange(arrayBatch);
-        _ = list.Count.Should().Be(0);
+        await Assert.That(list.Count).IsEqualTo(0);
 
         var listBatch = new List<ConstantShardItem>(CreateConstantShardItems(ParallelBatchSize, ParallelBatchSize));
         list.AddRange(listBatch);
-        _ = list.GetItemsBySecondaryIndex(ParityIndexName, 1).Should().HaveCount(ExpectedParityItems);
+        await Assert.That(list.GetItemsBySecondaryIndex(ParityIndexName, 1)).Count().IsEqualTo(ExpectedParityItems);
         list.RemoveRange(listBatch);
-        _ = list.Count.Should().Be(0);
+        await Assert.That(list.Count).IsEqualTo(0);
 
         list.AddRange(CreateConstantShardItems(FinalBatchStart, FinalBatchSize));
-        _ = list.RemoveMany(static _ => true).Should().Be(FinalBatchSize);
-        _ = list.Count.Should().Be(0);
-        _ = list.GetItemsBySecondaryIndex(ParityIndexName, 0).Should().BeEmpty();
+        await Assert.That(list.RemoveMany(static _ => true)).IsEqualTo(FinalBatchSize);
+        await Assert.That(list.Count).IsEqualTo(0);
+        await Assert.That(list.GetItemsBySecondaryIndex(ParityIndexName, 0)).IsEmpty();
     }
 
     /// <summary>Verifies the collection contract exposed by QuaternaryList batch edits.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryList_EditWrapper_ShouldExposeCollectionMembers()
+    public async Task QuaternaryList_EditWrapper_ShouldExposeCollectionMembers()
     {
         using var list = new QuaternaryList<int>();
         list.AddIndex(ParityIndexName, static item => item % CollectionValueTwo);
         list.AddRange([1, CollectionValueTwo, CollectionValueThree]);
 
-        list.Edit(static editor =>
+        var initialCount = 0;
+        var isReadOnly = true;
+        var containsSecond = false;
+        var copy = new int[3];
+        int[] initialItems = [];
+        var removedFirst = false;
+        var removedMissing = true;
+        var enumeratorHasMore = true;
+        var nonGenericHasItems = false;
+        list.Edit(editor =>
         {
-            _ = editor.Count.Should().Be(CollectionValueThree);
-            _ = editor.IsReadOnly.Should().BeFalse();
-            _ = editor.Contains(CollectionValueTwo).Should().BeTrue();
-
-            var copy = new int[3];
+            initialCount = editor.Count;
+            isReadOnly = editor.IsReadOnly;
+            containsSecond = editor.Contains(CollectionValueTwo);
             editor.CopyTo(copy, 0);
-            _ = copy.Should().BeEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
-            _ = editor.Should().BeEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
-
-            _ = editor.Remove(1).Should().BeTrue();
-            _ = editor.Remove(MissingCollectionValue).Should().BeFalse();
+            initialItems = new List<int>(editor).ToArray();
+            removedFirst = editor.Remove(1);
+            removedMissing = editor.Remove(MissingCollectionValue);
             editor.Add(CollectionValueFour);
 
             editor.Add(CollectionValueFive);
@@ -235,34 +249,46 @@ public class QuaternaryCollectionCoverageTests
                 _ = editorEnumerator.Current;
             }
 
-            _ = editorEnumerator.MoveNext().Should().BeFalse();
-            _ = ((IEnumerable)editor).GetEnumerator().MoveNext().Should().BeTrue();
+            enumeratorHasMore = editorEnumerator.MoveNext();
+            nonGenericHasItems = ((IEnumerable)editor).GetEnumerator().MoveNext();
         });
 
-        _ = list.Should().BeEquivalentTo([CollectionValueTwo, CollectionValueThree, CollectionValueFour, CollectionValueFive, CollectionValueSix]);
-        _ = list.GetItemsBySecondaryIndex(ParityIndexName, 0).Should().BeEquivalentTo([CollectionValueTwo, CollectionValueFour, CollectionValueSix]);
+        await Assert.That(initialCount).IsEqualTo(CollectionValueThree);
+        await Assert.That(isReadOnly).IsFalse();
+        await Assert.That(containsSecond).IsTrue();
+        await Assert.That(copy).IsEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
+        await Assert.That(initialItems).IsEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
+        await Assert.That(removedFirst).IsTrue();
+        await Assert.That(removedMissing).IsFalse();
+        await Assert.That(enumeratorHasMore).IsFalse();
+        await Assert.That(nonGenericHasItems).IsTrue();
+        await Assert.That(list).IsEquivalentTo([CollectionValueTwo, CollectionValueThree, CollectionValueFour, CollectionValueFive, CollectionValueSix]);
+        await Assert.That(list.GetItemsBySecondaryIndex(ParityIndexName, 0)).IsEquivalentTo([CollectionValueTwo, CollectionValueFour, CollectionValueSix]);
 
         using var noIndexList = new QuaternaryList<int>();
         noIndexList.AddRange([1, CollectionValueTwo]);
-        noIndexList.Edit(static editor => _ = editor.Remove(1).Should().BeTrue());
-        _ = noIndexList.Should().ContainSingle().Which.Should().Be(CollectionValueTwo);
+        var noIndexRemoved = false;
+        noIndexList.Edit(editor => noIndexRemoved = editor.Remove(1));
+        await Assert.That(noIndexRemoved).IsTrue();
+        await Assert.That(await Assert.That(noIndexList).HasSingleItem()).IsEqualTo(CollectionValueTwo);
     }
 
     /// <summary>Verifies QuaternaryList snapshot and index guard paths.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryList_SnapshotAndInvalidIndexes_ShouldBehaveAsExpected()
+    public async Task QuaternaryList_SnapshotAndInvalidIndexes_ShouldBehaveAsExpected()
     {
         var list = new QuaternaryList<int>();
         list.AddRange([0, CollectionValueFour, CollectionValueEight, 1]);
 
-        _ = list.Snapshot().Should().BeEquivalentTo(list.ToArray());
+        await Assert.That(list.Snapshot()).IsEquivalentTo(list.ToArray());
         using var enumerator = ((IEnumerable<int>)list).GetEnumerator();
         while (enumerator.MoveNext())
         {
             _ = enumerator.Current;
         }
 
-        _ = enumerator.MoveNext().Should().BeFalse();
+        await Assert.That(enumerator.MoveNext()).IsFalse();
 
         var nonGenericEnumerator = ((IEnumerable)list).GetEnumerator();
         while (nonGenericEnumerator.MoveNext())
@@ -270,23 +296,24 @@ public class QuaternaryCollectionCoverageTests
             _ = nonGenericEnumerator.Current;
         }
 
-        _ = nonGenericEnumerator.MoveNext().Should().BeFalse();
+        await Assert.That(nonGenericEnumerator.MoveNext()).IsFalse();
 
         Action negativeIndex = () => _ = list[-1];
         Action tooHighIndex = () => _ = list[MissingCollectionValue];
         Action setter = () => list[0] = ReplacementValue;
 
-        _ = negativeIndex.Should().Throw<ArgumentOutOfRangeException>();
-        _ = tooHighIndex.Should().Throw<ArgumentOutOfRangeException>();
-        _ = setter.Should().Throw<NotSupportedException>();
+        await Assert.That(negativeIndex).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(tooHighIndex).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(setter).Throws<NotSupportedException>();
 
         list.Dispose();
         list.Dispose();
     }
 
     /// <summary>Verifies QuaternaryBase dispatches legacy collection changes through a captured synchronization context.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryBase_CollectionChanged_ShouldUseCapturedSynchronizationContext()
+    public async Task QuaternaryBase_CollectionChanged_ShouldUseCapturedSynchronizationContext()
     {
         var previousContext = SynchronizationContext.Current;
         var context = new ImmediateSynchronizationContext();
@@ -306,9 +333,9 @@ public class QuaternaryCollectionCoverageTests
 
             list.Add(ReplacementValue);
 
-            _ = reset.Wait(TimeSpan.FromSeconds(CollectionValueTwo)).Should().BeTrue();
-            _ = context.PostCount.Should().BeGreaterThan(0);
-            _ = action.Should().Be(NotifyCollectionChangedAction.Reset);
+            await Assert.That(reset.Wait(TimeSpan.FromSeconds(CollectionValueTwo))).IsTrue();
+            await Assert.That(context.PostCount).IsGreaterThan(0);
+            await Assert.That(action).IsEqualTo(NotifyCollectionChangedAction.Reset);
         }
         finally
         {
@@ -317,14 +344,15 @@ public class QuaternaryCollectionCoverageTests
     }
 
     /// <summary>Verifies QuaternaryDictionary empty, enumerable, list, secondary-index, and view creation paths.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryDictionary_BatchOverloadsAndViews_ShouldMaintainIndexes()
+    public async Task QuaternaryDictionary_BatchOverloadsAndViews_ShouldMaintainIndexes()
     {
         using var dictionary = new QuaternaryDictionary<int, string>();
         var initialVersion = dictionary.Version;
 
         dictionary.AddRange([]);
-        _ = dictionary.Version.Should().Be(initialVersion);
+        await Assert.That(dictionary.Version).IsEqualTo(initialVersion);
 
         dictionary.AddRange(Yield<KeyValuePair<int, string>>(
             new(1, "one"),
@@ -334,7 +362,7 @@ public class QuaternaryCollectionCoverageTests
         dictionary.AddRange(EmptyPairs);
 
         using var view = dictionary.CreateViewBySecondaryIndex(LengthIndexName, CollectionValueThree, Sequencer.Immediate, throttleMs: 1);
-        _ = view.Count.Should().Be(CollectionValueTwo);
+        await Assert.That(view.Count).IsEqualTo(CollectionValueTwo);
 
         dictionary.AddRange([
             new(CollectionValueFour, "four"),
@@ -350,25 +378,26 @@ public class QuaternaryCollectionCoverageTests
         dictionary.RemoveKeys([CollectionValueFour]);
         dictionary.RemoveKeys(MissingKeys);
 
-        _ = dictionary.Count.Should().Be(CollectionValueFour);
-        _ = dictionary.ContainsKey(1).Should().BeFalse();
-        _ = dictionary.ContainsKey(CollectionValueFour).Should().BeFalse();
-        _ = dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueThree).Should().BeEquivalentTo(["two", "six"]);
-        _ = dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour).Should().ContainSingle().Which.Should().Be("five");
+        await Assert.That(dictionary.Count).IsEqualTo(CollectionValueFour);
+        await Assert.That(dictionary.ContainsKey(1)).IsFalse();
+        await Assert.That(dictionary.ContainsKey(CollectionValueFour)).IsFalse();
+        await Assert.That(dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueThree)).IsEquivalentTo(["two", "six"]);
+        await Assert.That(await Assert.That(dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour)).HasSingleItem()).IsEqualTo("five");
         dictionary.AddRange(ReplacementPairs);
         dictionary.AddRange([new(CollectionValueTwo, "deux")]);
-        _ = dictionary[CollectionValueTwo].Should().Be("deux");
+        await Assert.That(dictionary[CollectionValueTwo]).IsEqualTo("deux");
 
         Action missingIndex = () => dictionary.CreateViewBySecondaryIndex(nameof(Missing), CollectionValueThree, Sequencer.Immediate);
         Action incompatibleIndex = () => dictionary.CreateViewBySecondaryIndex(LengthIndexName, ThreeText, Sequencer.Immediate);
 
-        _ = missingIndex.Should().Throw<InvalidOperationException>();
-        _ = incompatibleIndex.Should().Throw<InvalidOperationException>();
+        await Assert.That(missingIndex).Throws<InvalidOperationException>();
+        await Assert.That(incompatibleIndex).Throws<InvalidOperationException>();
     }
 
     /// <summary>Verifies QuaternaryDictionary parallel array and list paths for large batch adds and key removals.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryDictionary_LargeBatchOverloads_ShouldUseParallelPaths()
+    public async Task QuaternaryDictionary_LargeBatchOverloads_ShouldUseParallelPaths()
     {
         using var dictionary = new QuaternaryDictionary<int, string>();
         dictionary.AddValueIndex(LengthIndexName, static value => value.Length);
@@ -378,23 +407,24 @@ public class QuaternaryCollectionCoverageTests
         dictionary.AddRange(firstBatch);
         dictionary.RemoveKeys(CreateRangeArray(0, RemovedInitialKeys));
 
-        _ = dictionary.Count.Should().Be(ExpectedRemainingItems);
-        _ = dictionary.ContainsKey(0).Should().BeFalse();
-        _ = dictionary.ContainsKey(LastRetainedKey).Should().BeTrue();
+        await Assert.That(dictionary.Count).IsEqualTo(ExpectedRemainingItems);
+        await Assert.That(dictionary.ContainsKey(0)).IsFalse();
+        await Assert.That(dictionary.ContainsKey(LastRetainedKey)).IsTrue();
 
         var secondBatch = new List<KeyValuePair<int, string>>(CreateIntStringPairs(LargeBatchSize, LargeBatchSize));
 
         dictionary.AddRange(secondBatch);
         dictionary.RemoveKeys(ExtractEvenKeys(secondBatch));
 
-        _ = dictionary.ContainsKey(LargeBatchSize).Should().BeFalse();
-        _ = dictionary.ContainsKey(FirstRetainedKey).Should().BeTrue();
-        _ = dictionary.GetValuesBySecondaryIndex(LengthIndexName, "value-1101".Length).Should().Contain("value-1101");
+        await Assert.That(dictionary.ContainsKey(LargeBatchSize)).IsFalse();
+        await Assert.That(dictionary.ContainsKey(FirstRetainedKey)).IsTrue();
+        await Assert.That(dictionary.GetValuesBySecondaryIndex(LengthIndexName, "value-1101".Length)).Contains("value-1101");
     }
 
     /// <summary>Verifies QuaternaryDictionary parallel paths when all keys land in one shard, plus RemoveMany buffer growth.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryDictionary_SingleShardParallelBatchesAndRemoveManyGrowth_ShouldMaintainIndexes()
+    public async Task QuaternaryDictionary_SingleShardParallelBatchesAndRemoveManyGrowth_ShouldMaintainIndexes()
     {
         using var dictionary = new QuaternaryDictionary<ConstantShardKey, string>();
         dictionary.AddValueIndex(LengthIndexName, static value => value.Length);
@@ -402,31 +432,32 @@ public class QuaternaryCollectionCoverageTests
         var arrayBatch = CreateConstantShardPairs(0, ParallelBatchSize);
 
         dictionary.AddRange(arrayBatch);
-        _ = dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueTwo).Should().Contain("v0");
+        await Assert.That(dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueTwo)).Contains("v0");
         dictionary.RemoveKeys(ExtractKeys(arrayBatch));
-        _ = dictionary.Count.Should().Be(0);
+        await Assert.That(dictionary.Count).IsEqualTo(0);
 
         var listBatch = new List<KeyValuePair<ConstantShardKey, string>>(CreateConstantShardPairs(ParallelBatchSize, ParallelBatchSize));
 
         dictionary.AddRange(listBatch);
-        _ = dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour).Should().Contain("v300");
+        await Assert.That(dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour)).Contains("v300");
         dictionary.RemoveKeys(listBatch.ConvertAll(static pair => pair.Key));
-        _ = dictionary.Count.Should().Be(0);
+        await Assert.That(dictionary.Count).IsEqualTo(0);
 
         dictionary.AddRange(CreateConstantShardPairs(FinalBatchStart, FinalBatchSize));
 
-        _ = dictionary.RemoveMany(static _ => true).Should().Be(FinalBatchSize);
-        _ = dictionary.Count.Should().Be(0);
-        _ = dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour).Should().BeEmpty();
+        await Assert.That(dictionary.RemoveMany(static _ => true)).IsEqualTo(FinalBatchSize);
+        await Assert.That(dictionary.Count).IsEqualTo(0);
+        await Assert.That(dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueFour)).IsEmpty();
 
         dictionary.Add(new(MissingKeyOrIndex), "v999");
-        _ = dictionary.RemoveMany(static _ => false).Should().Be(0);
-        _ = dictionary.Count.Should().Be(1);
+        await Assert.That(dictionary.RemoveMany(static _ => false)).IsEqualTo(0);
+        await Assert.That(dictionary.Count).IsEqualTo(1);
     }
 
     /// <summary>Verifies QuaternaryDictionary edit wrapper members and index maintenance.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryDictionary_EditWrapper_ShouldExposeDictionaryMembers()
+    public async Task QuaternaryDictionary_EditWrapper_ShouldExposeDictionaryMembers()
     {
         using var dictionary = new QuaternaryDictionary<int, string>();
         dictionary.AddValueIndex(LengthIndexName, static value => value.Length);
@@ -436,58 +467,40 @@ public class QuaternaryCollectionCoverageTests
             new(CollectionValueThree, ThreeText)
         ]);
 
-        dictionary.Edit(editor =>
-        {
-            _ = editor.Count.Should().Be(CollectionValueThree);
-            _ = editor.IsReadOnly.Should().BeFalse();
-            _ = editor.Keys.Should().BeEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
-            _ = editor.Values.Should().BeEquivalentTo(["one", "two", ThreeText]);
-            _ = editor[1].Should().Be("one");
+        var state = new DictionaryEditorSnapshot();
+        dictionary.Edit(editor => CaptureDictionaryEditor(editor, state));
 
-            editor[1] = "ONE";
-            editor[CollectionValueFour] = "four";
-            editor.Add(CollectionValueFive, "five");
-            editor.Add(new(CollectionValueSix, "six"));
-
-            _ = editor.ContainsKey(CollectionValueSix).Should().BeTrue();
-            _ = editor.TryGetValue(CollectionValueSix, out var six).Should().BeTrue();
-            _ = six.Should().Be("six");
-            _ = editor.Contains(Pair(CollectionValueSix, "six")).Should().BeTrue();
-
-            var copy = new KeyValuePair<int, string>[editor.Count];
-            editor.CopyTo(copy, 0);
-            _ = copy.Should().Contain(Pair(CollectionValueSix, "six"));
-
-            _ = ((IEnumerable)editor).GetEnumerator().MoveNext().Should().BeTrue();
-            var editorEnumerator = editor.GetEnumerator();
-            while (editorEnumerator.MoveNext())
-            {
-                _ = editorEnumerator.Current;
-            }
-
-            _ = editorEnumerator.MoveNext().Should().BeFalse();
-            _ = editor.Remove(Pair(CollectionValueFive, "wrong")).Should().BeFalse();
-            _ = editor.Remove(Pair(CollectionValueFive, "five")).Should().BeTrue();
-            _ = editor.Remove(MissingCollectionValue).Should().BeFalse();
-
-            Action missingKey = () => _ = editor[MissingCollectionValue];
-            _ = missingKey.Should().Throw<KeyNotFoundException>();
-        });
-
-        _ = dictionary.Should().Contain(Pair(1, "ONE"));
-        _ = dictionary.Should().Contain(Pair(CollectionValueFour, "four"));
-        _ = dictionary.Should().Contain(Pair(CollectionValueSix, "six"));
-        _ = dictionary.ContainsKey(CollectionValueFive).Should().BeFalse();
-        _ = dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueThree).Should().BeEquivalentTo(["ONE", "two", "six"]);
+        await Assert.That(state.Count).IsEqualTo(CollectionValueThree);
+        await Assert.That(state.IsReadOnly).IsFalse();
+        await Assert.That(state.Keys).IsEquivalentTo([1, CollectionValueTwo, CollectionValueThree]);
+        await Assert.That(state.Values).IsEquivalentTo(["one", "two", ThreeText]);
+        await Assert.That(state.FirstValue).IsEqualTo("one");
+        await Assert.That(state.ContainsSixKey).IsTrue();
+        await Assert.That(state.FoundSix).IsTrue();
+        await Assert.That(state.Six).IsEqualTo("six");
+        await Assert.That(state.ContainsSixPair).IsTrue();
+        await Assert.That(state.Copy).Contains(Pair(CollectionValueSix, "six"));
+        await Assert.That(state.NonGenericHasItems).IsTrue();
+        await Assert.That(state.EnumeratorHasMore).IsFalse();
+        await Assert.That(state.RemovedWrongPair).IsFalse();
+        await Assert.That(state.RemovedPair).IsTrue();
+        await Assert.That(state.RemovedMissing).IsFalse();
+        await Assert.That(state.MissingKeyError).IsTypeOf<KeyNotFoundException>();
+        await Assert.That(dictionary).Contains(Pair(1, "ONE"));
+        await Assert.That(dictionary).Contains(Pair(CollectionValueFour, "four"));
+        await Assert.That(dictionary).Contains(Pair(CollectionValueSix, "six"));
+        await Assert.That(dictionary.ContainsKey(CollectionValueFive)).IsFalse();
+        await Assert.That(dictionary.GetValuesBySecondaryIndex(LengthIndexName, CollectionValueThree)).IsEquivalentTo(["ONE", "two", "six"]);
     }
 
     /// <summary>Verifies QuaternaryDictionary guard paths and legacy collection changed update notifications.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryDictionary_GuardsAndCollectionChanged_ShouldBehaveAsExpected()
+    public async Task QuaternaryDictionary_GuardsAndCollectionChanged_ShouldBehaveAsExpected()
     {
         using var dictionary = new QuaternaryDictionary<int, string> { { 1, "one" } };
-        _ = dictionary.Contains(Pair(1, "uno")).Should().BeFalse();
-        _ = dictionary.Remove(Pair(1, "uno")).Should().BeFalse();
+        await Assert.That(dictionary.Contains(Pair(1, "uno"))).IsFalse();
+        await Assert.That(dictionary.Remove(Pair(1, "uno"))).IsFalse();
 
         Action duplicate = () => dictionary.Add(1, "duplicate");
         Action missingIndexer = () => _ = dictionary[MissingCollectionValue];
@@ -496,12 +509,12 @@ public class QuaternaryCollectionCoverageTests
         Action nullRemoveMany = () => dictionary.RemoveMany(null!);
         Action nullEdit = () => dictionary.Edit(null!);
 
-        _ = duplicate.Should().Throw<ArgumentException>();
-        _ = missingIndexer.Should().Throw<KeyNotFoundException>();
-        _ = nullCopy.Should().Throw<ArgumentNullException>();
-        _ = nullRemoveKeys.Should().Throw<ArgumentNullException>();
-        _ = nullRemoveMany.Should().Throw<ArgumentNullException>();
-        _ = nullEdit.Should().Throw<ArgumentNullException>();
+        await Assert.That(duplicate).Throws<ArgumentException>();
+        await Assert.That(missingIndexer).Throws<KeyNotFoundException>();
+        await Assert.That(nullCopy).Throws<ArgumentNullException>();
+        await Assert.That(nullRemoveKeys).Throws<ArgumentNullException>();
+        await Assert.That(nullRemoveMany).Throws<ArgumentNullException>();
+        await Assert.That(nullEdit).Throws<ArgumentNullException>();
 
         using var reset = new ManualResetEventSlim(false);
         NotifyCollectionChangedAction? action = null;
@@ -514,13 +527,14 @@ public class QuaternaryCollectionCoverageTests
 
         dictionary[1] = "ONE";
 
-        _ = reset.Wait(TimeSpan.FromSeconds(CollectionValueTwo)).Should().BeTrue();
-        _ = action.Should().Be(NotifyCollectionChangedAction.Reset);
+        await Assert.That(reset.Wait(TimeSpan.FromSeconds(CollectionValueTwo))).IsTrue();
+        await Assert.That(action).IsEqualTo(NotifyCollectionChangedAction.Reset);
     }
 
     /// <summary>Verifies protected QuaternaryBase batch helpers and null guard paths through a minimal harness.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryBase_BatchHelpers_ShouldEmitAndValidateArguments()
+    public async Task QuaternaryBase_BatchHelpers_ShouldEmitAndValidateArguments()
     {
         using var harness = new QuaternaryBaseHarness();
         var received = new List<CacheNotify<int>>();
@@ -529,18 +543,16 @@ public class QuaternaryCollectionCoverageTests
         harness.EmitDirect([1, CollectionValueTwo]);
         harness.EmitAddedFromList([CollectionValueThree, CollectionValueFour]);
         harness.EmitRemovedFromList([CollectionValueFive, CollectionValueSix]);
-        _ = SpinWait.SpinUntil(() => received.Count >= 3, TimeSpan.FromSeconds(CollectionValueTwo)).Should().BeTrue();
+        await Assert.That(SpinWait.SpinUntil(() => received.Count >= 3, TimeSpan.FromSeconds(CollectionValueTwo))).IsTrue();
 
-        _ = ExtractActions(received)
-            .Should().Equal(CacheAction.BatchOperation, CacheAction.BatchAdded, CacheAction.BatchRemoved);
-        _ = ExtractBatchCounts(received)
-            .Should().Equal(CollectionValueTwo, CollectionValueTwo, CollectionValueTwo);
+        await Assert.That(ExtractActions(received)).IsEquivalentTo([CacheAction.BatchOperation, CacheAction.BatchAdded, CacheAction.BatchRemoved], CollectionOrdering.Matching);
+        await Assert.That(ExtractBatchCounts(received)).IsEquivalentTo([CollectionValueTwo, CollectionValueTwo, CollectionValueTwo], CollectionOrdering.Matching);
 
         Action nullAdded = () => harness.EmitAddedFromList(null!);
         Action nullRemoved = () => harness.EmitRemovedFromList(null!);
 
-        _ = nullAdded.Should().Throw<ArgumentNullException>().WithParameterName("items");
-        _ = nullRemoved.Should().Throw<ArgumentNullException>().WithParameterName("items");
+        await Assert.That(nullAdded).Throws<ArgumentNullException>().WithParameterName("items");
+        await Assert.That(nullRemoved).Throws<ArgumentNullException>().WithParameterName("items");
 
         foreach (var notification in received)
         {
@@ -549,8 +561,9 @@ public class QuaternaryCollectionCoverageTests
     }
 
     /// <summary>Verifies QuaternaryBase no-observer fast paths and legacy collection changed mappings.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryBase_NoObserverAndLegacyCollectionChangedBranches_ShouldExecute()
+    public async Task QuaternaryBase_NoObserverAndLegacyCollectionChangedBranches_ShouldExecute()
     {
         using var noObserverHarness = new QuaternaryBaseHarness();
         NotifyCollectionChangedEventHandler? nullHandler = null;
@@ -570,12 +583,10 @@ public class QuaternaryCollectionCoverageTests
         harness.EmitSingle(CacheAction.Removed, CollectionValueFour);
         harness.EmitSingle(CacheAction.Moved, CollectionValueFive);
 
-        _ = SpinWait.SpinUntil(() => actions.Count >= 4, TimeSpan.FromSeconds(CollectionValueTwo)).Should().BeTrue();
-        _ = actions.Should().Equal(
-            NotifyCollectionChangedAction.Reset,
-            NotifyCollectionChangedAction.Reset,
-            NotifyCollectionChangedAction.Reset,
-            NotifyCollectionChangedAction.Reset);
+        await Assert.That(SpinWait.SpinUntil(() => actions.Count >= 4, TimeSpan.FromSeconds(CollectionValueTwo))).IsTrue();
+        NotifyCollectionChangedAction[] expectedActions =
+            [NotifyCollectionChangedAction.Reset, NotifyCollectionChangedAction.Reset, NotifyCollectionChangedAction.Reset, NotifyCollectionChangedAction.Reset];
+        await Assert.That(actions).IsEquivalentTo(expectedActions, CollectionOrdering.Matching);
     }
 
     /// <summary>Verifies private event processor edge cases that have no stable public timing path.</summary>
@@ -633,7 +644,7 @@ public class QuaternaryCollectionCoverageTests
 
             _ = InvokePrivate(legacyHarness, "InvokeLegacyINCC", new CacheNotify<int>(CacheAction.Cleared, default));
 
-            _ = actions.Should().Contain(NotifyCollectionChangedAction.Reset);
+            await Assert.That(actions).Contains(NotifyCollectionChangedAction.Reset);
         }
 
         using var startedRaceHarness = new QuaternaryBaseHarness();
@@ -649,6 +660,47 @@ public class QuaternaryCollectionCoverageTests
         }
 
         await ensureTask;
+    }
+
+    /// <summary>Captures editor results before the synchronous edit scope closes.</summary>
+    /// <param name="editor">The editor under test.</param>
+    /// <param name="state">The captured results.</param>
+    private static void CaptureDictionaryEditor(IDictionary<int, string> editor, DictionaryEditorSnapshot state)
+    {
+        state.Count = editor.Count;
+        state.IsReadOnly = editor.IsReadOnly;
+        state.Keys = new List<int>(editor.Keys).ToArray();
+        state.Values = new List<string>(editor.Values).ToArray();
+        state.FirstValue = editor[1];
+        editor[1] = "ONE";
+        editor[CollectionValueFour] = "four";
+        editor.Add(CollectionValueFive, "five");
+        editor.Add(new(CollectionValueSix, "six"));
+        state.ContainsSixKey = editor.ContainsKey(CollectionValueSix);
+        state.FoundSix = editor.TryGetValue(CollectionValueSix, out var six);
+        state.Six = six;
+        state.ContainsSixPair = editor.Contains(Pair(CollectionValueSix, "six"));
+        state.Copy = new KeyValuePair<int, string>[editor.Count];
+        editor.CopyTo(state.Copy, 0);
+        state.NonGenericHasItems = ((IEnumerable)editor).GetEnumerator().MoveNext();
+        var enumerator = editor.GetEnumerator();
+        while (enumerator.MoveNext())
+        {
+            _ = enumerator.Current;
+        }
+
+        state.EnumeratorHasMore = enumerator.MoveNext();
+        state.RemovedWrongPair = editor.Remove(Pair(CollectionValueFive, "wrong"));
+        state.RemovedPair = editor.Remove(Pair(CollectionValueFive, "five"));
+        state.RemovedMissing = editor.Remove(MissingCollectionValue);
+        try
+        {
+            _ = editor[MissingCollectionValue];
+        }
+        catch (KeyNotFoundException exception)
+        {
+            state.MissingKeyError = exception;
+        }
     }
 
     /// <summary>Creates an integer-string key-value pair.</summary>
@@ -879,6 +931,58 @@ public class QuaternaryCollectionCoverageTests
         }
 
         throw new MissingFieldException(target.GetType().FullName, fieldName);
+    }
+
+    /// <summary>Stores editor observations until they can be asserted asynchronously.</summary>
+    private sealed class DictionaryEditorSnapshot
+    {
+        /// <summary>Gets or sets the initial count.</summary>
+        public int Count { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether the editor is read-only.</summary>
+        public bool IsReadOnly { get; set; }
+
+        /// <summary>Gets or sets the initial keys.</summary>
+        public int[] Keys { get; set; } = [];
+
+        /// <summary>Gets or sets the initial values.</summary>
+        public string[] Values { get; set; } = [];
+
+        /// <summary>Gets or sets the first value.</summary>
+        public string? FirstValue { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether the sixth key exists.</summary>
+        public bool ContainsSixKey { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether lookup succeeded.</summary>
+        public bool FoundSix { get; set; }
+
+        /// <summary>Gets or sets the lookup result.</summary>
+        public string? Six { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether the sixth pair exists.</summary>
+        public bool ContainsSixPair { get; set; }
+
+        /// <summary>Gets or sets the copied pairs.</summary>
+        public KeyValuePair<int, string>[] Copy { get; set; } = [];
+
+        /// <summary>Gets or sets a value indicating whether non-generic enumeration has items.</summary>
+        public bool NonGenericHasItems { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether enumeration has more items.</summary>
+        public bool EnumeratorHasMore { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether removing a mismatched pair succeeded.</summary>
+        public bool RemovedWrongPair { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether removing the matching pair succeeded.</summary>
+        public bool RemovedPair { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether removing a missing key succeeded.</summary>
+        public bool RemovedMissing { get; set; }
+
+        /// <summary>Gets or sets the missing-key exception.</summary>
+        public Exception? MissingKeyError { get; set; }
     }
 
     /// <summary>Provides ImmediateSynchronizationContext.</summary>

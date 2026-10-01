@@ -10,11 +10,17 @@ using System.Linq;
 using System.Runtime.InteropServices;
 #endif
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive;
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+#else
 using CP.Primitives;
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
-using FluentAssertions;
+#endif
 using ReactiveList.Test;
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Tests;
@@ -26,8 +32,9 @@ namespace ReactiveList.Tests;
 public class ReactiveListExtensionsAdditionalTests
 {
     /// <summary>Tests that OnUpdate returns previous and current values when items are updated.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnUpdate_ReturnsPreviousAndCurrentValues()
+    public async Task OnUpdate_ReturnsPreviousAndCurrentValues()
     {
         // Arrange
         using var list = new ReactiveList<string>();
@@ -42,14 +49,15 @@ public class ReactiveListExtensionsAdditionalTests
         list.Update(TestData.OriginalText, "updated");
 
         // Assert - Previous should contain the original value
-        _ = updates.Should().HaveCount(1);
-        _ = updates[0].Previous.Should().Be(TestData.OriginalText);
-        _ = updates[0].Current.Should().Be("updated");
+        await Assert.That(updates).Count().IsEqualTo(1);
+        await Assert.That(updates[0].Previous).IsEqualTo(TestData.OriginalText);
+        await Assert.That(updates[0].Current).IsEqualTo("updated");
     }
 
     /// <summary>Tests that OnUpdate does not emit for add operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnUpdate_DoesNotEmitForAddOperations()
+    public async Task OnUpdate_DoesNotEmitForAddOperations()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -65,12 +73,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueThree);
 
         // Assert
-        _ = updateCount.Should().Be(0);
+        await Assert.That(updateCount).IsEqualTo(0);
     }
 
     /// <summary>Tests that OnUpdate handles multiple sequential updates with previous values.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnUpdate_HandlesMultipleSequentialUpdates()
+    public async Task OnUpdate_HandlesMultipleSequentialUpdates()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -87,18 +96,19 @@ public class ReactiveListExtensionsAdditionalTests
         list.Update(TestData.TestValueOneHundred, TestData.TestValueOneThousand);
 
         // Assert - Previous should contain the actual previous value
-        _ = updates.Should().HaveCount(TestData.TestValueThree);
-        _ = updates[0].Previous.Should().Be(1);
-        _ = updates[0].Current.Should().Be(TestData.TestValueTen);
-        _ = updates[1].Previous.Should().Be(TestData.TestValueTen);
-        _ = updates[1].Current.Should().Be(TestData.TestValueOneHundred);
-        _ = updates[TestData.TestValueTwo].Previous.Should().Be(TestData.TestValueOneHundred);
-        _ = updates[TestData.TestValueTwo].Current.Should().Be(TestData.TestValueOneThousand);
+        await Assert.That(updates).Count().IsEqualTo(TestData.TestValueThree);
+        await Assert.That(updates[0].Previous).IsEqualTo(1);
+        await Assert.That(updates[0].Current).IsEqualTo(TestData.TestValueTen);
+        await Assert.That(updates[1].Previous).IsEqualTo(TestData.TestValueTen);
+        await Assert.That(updates[1].Current).IsEqualTo(TestData.TestValueOneHundred);
+        await Assert.That(updates[TestData.TestValueTwo].Previous).IsEqualTo(TestData.TestValueOneHundred);
+        await Assert.That(updates[TestData.TestValueTwo].Current).IsEqualTo(TestData.TestValueOneThousand);
     }
 
     /// <summary>Tests that OnMove returns item and indices when items are moved.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnMove_ReturnsItemAndIndices()
+    public async Task OnMove_ReturnsItemAndIndices()
     {
         // Arrange
         using var list = new ReactiveList<string>();
@@ -113,15 +123,16 @@ public class ReactiveListExtensionsAdditionalTests
         list.Move(0, TestData.TestValueThree); // Move "a" from index 0 to index 3
 
         // Assert
-        _ = moves.Should().HaveCount(1);
-        _ = moves[0].Item.Should().Be("a");
-        _ = moves[0].OldIndex.Should().Be(0);
-        _ = moves[0].NewIndex.Should().Be(TestData.TestValueThree);
+        await Assert.That(moves).Count().IsEqualTo(1);
+        await Assert.That(moves[0].Item).IsEqualTo("a");
+        await Assert.That(moves[0].OldIndex).IsEqualTo(0);
+        await Assert.That(moves[0].NewIndex).IsEqualTo(TestData.TestValueThree);
     }
 
     /// <summary>Tests that OnMove does not emit for add or remove operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnMove_DoesNotEmitForAddRemove()
+    public async Task OnMove_DoesNotEmitForAddRemove()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -137,12 +148,13 @@ public class ReactiveListExtensionsAdditionalTests
         _ = list.Remove(1);
 
         // Assert
-        _ = moveCount.Should().Be(0);
+        await Assert.That(moveCount).IsEqualTo(0);
     }
 
     /// <summary>Tests that OnMove handles multiple move operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void OnMove_HandlesMultipleMoves()
+    public async Task OnMove_HandlesMultipleMoves()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -158,12 +170,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.Move(TestData.TestValueThree, 0); // Move 1 back to start (it's now at index 3)
 
         // Assert
-        _ = moves.Should().HaveCount(TestData.TestValueTwo);
+        await Assert.That(moves).Count().IsEqualTo(TestData.TestValueTwo);
     }
 
     /// <summary>Tests that FilterDynamic filters items based on dynamic predicate.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void FilterDynamic_FiltersBasedOnDynamicPredicate()
+    public async Task FilterDynamic_FiltersBasedOnDynamicPredicate()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -188,7 +201,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueThree);
 
         // Assert
-        _ = receivedItems.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
+        await Assert.That(receivedItems).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
         // Act - change filter to only even numbers
         receivedItems.Clear();
@@ -197,12 +210,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueFive);
 
         // Assert - only even number should be received
-        _ = receivedItems.Should().BeEquivalentTo([TestData.TestValueFour]);
+        await Assert.That(receivedItems).IsEquivalentTo([TestData.TestValueFour]);
     }
 
     /// <summary>Tests that FilterDynamic always passes removed items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void FilterDynamic_AlwaysPassesRemovedItems()
+    public async Task FilterDynamic_AlwaysPassesRemovedItems()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -227,12 +241,13 @@ public class ReactiveListExtensionsAdditionalTests
         _ = list.Remove(TestData.TestValueThree); // should still emit remove
 
         // Assert
-        _ = removedItems.Should().Contain(TestData.TestValueThree);
+        await Assert.That(removedItems).Contains(TestData.TestValueThree);
     }
 
     /// <summary>Tests that FilterDynamic passes Cleared notifications.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void FilterDynamic_PassesClearedNotifications()
+    public async Task FilterDynamic_PassesClearedNotifications()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -256,7 +271,7 @@ public class ReactiveListExtensionsAdditionalTests
         list.Clear();
 
         // Assert
-        _ = clearReceived.Should().BeTrue();
+        await Assert.That(clearReceived).IsTrue();
     }
 
     /// <summary>Tests that CreateView without filter contains all items.</summary>
@@ -273,8 +288,8 @@ public class ReactiveListExtensionsAdditionalTests
         await Task.Delay(TestData.TestValueFifty);
 
         // Assert
-        _ = view.Count.Should().Be(TestData.TestValueFive);
-        _ = view.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
+        await Assert.That(view.Count).IsEqualTo(TestData.TestValueFive);
+        await Assert.That(view).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive]);
     }
 
     /// <summary>Tests that CreateView without filter updates when source changes.</summary>
@@ -294,7 +309,7 @@ public class ReactiveListExtensionsAdditionalTests
         await Task.Delay(TestData.TestValueFifty);
 
         // Assert
-        _ = view.Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
+        await Assert.That(view).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -320,19 +335,19 @@ public class ReactiveListExtensionsAdditionalTests
         await Task.Delay(TestData.TestValueFifty);
 
         // Initial - all items
-        _ = view.Items.Count.Should().Be(TestData.TestValueFive);
+        await Assert.That(view.Items.Count).IsEqualTo(TestData.TestValueFive);
 
         // Search for "a"
         searchQuery.OnNext("a");
         await Task.Delay(TestData.TestValueOneHundred);
 
-        _ = view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText, "avocado"]);
+        await Assert.That(view.Items).IsEquivalentTo([TestData.AppleText, TestData.ApricotText, "avocado"]);
 
         // Search for "ap"
         searchQuery.OnNext("ap");
         await Task.Delay(TestData.TestValueOneHundred);
 
-        _ = view.Items.Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
+        await Assert.That(view.Items).IsEquivalentTo([TestData.AppleText, TestData.ApricotText]);
     }
 
     /// <summary>Tests that CreateView with query observable updates when source changes.</summary>
@@ -353,27 +368,28 @@ public class ReactiveListExtensionsAdditionalTests
             0);
 
         await Task.Delay(TestData.TestValueFifty);
-        _ = view.Items.Should().BeEquivalentTo([TestData.TestValueThree]);
+        await Assert.That(view.Items).IsEquivalentTo([TestData.TestValueThree]);
 
         // Act - add item that passes filter
         list.Add(TestData.TestValueFive);
         await Task.Delay(TestData.TestValueOneHundred);
 
         // Assert
-        _ = view.Items.Should().BeEquivalentTo([TestData.TestValueThree, TestData.TestValueFive]);
+        await Assert.That(view.Items).IsEquivalentTo([TestData.TestValueThree, TestData.TestValueFive]);
 
         // Act - change threshold
         thresholdQuery.OnNext(TestData.TestValueFour);
         await Task.Delay(TestData.TestValueOneHundred);
 
         // Assert
-        _ = view.Items.Should().BeEquivalentTo([TestData.TestValueFive]);
+        await Assert.That(view.Items).IsEquivalentTo([TestData.TestValueFive]);
     }
 #endif
 
     /// <summary>Tests that GroupByChanges groups items by key selector.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GroupByChanges_GroupsItemsByKeySelector()
+    public async Task GroupByChanges_GroupsItemsByKeySelector()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -405,15 +421,16 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueFour);
 
         // Assert
-        _ = groups.Should().ContainKey("odd");
-        _ = groups.Should().ContainKey("even");
-        _ = groups["odd"].Should().BeEquivalentTo([1, TestData.TestValueThree]);
-        _ = groups["even"].Should().BeEquivalentTo([TestData.TestValueTwo, TestData.TestValueFour]);
+        await Assert.That(groups).ContainsKey("odd");
+        await Assert.That(groups).ContainsKey("even");
+        await Assert.That(groups["odd"]).IsEquivalentTo([1, TestData.TestValueThree]);
+        await Assert.That(groups["even"]).IsEquivalentTo([TestData.TestValueTwo, TestData.TestValueFour]);
     }
 
     /// <summary>Tests that GroupByChanges handles string keys.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GroupByChanges_HandlesStringKeys()
+    public async Task GroupByChanges_HandlesStringKeys()
     {
         // Arrange
         using var list = new ReactiveList<string>();
@@ -445,14 +462,15 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.CherryText);
 
         // Assert
-        _ = groups['a'].Should().BeEquivalentTo([TestData.AppleText, TestData.ApricotText]);
-        _ = groups['b'].Should().BeEquivalentTo([TestData.BananaText]);
-        _ = groups['c'].Should().BeEquivalentTo([TestData.CherryText]);
+        await Assert.That(groups['a']).IsEquivalentTo([TestData.AppleText, TestData.ApricotText]);
+        await Assert.That(groups['b']).IsEquivalentTo([TestData.BananaText]);
+        await Assert.That(groups['c']).IsEquivalentTo([TestData.CherryText]);
     }
 
     /// <summary>Tests that GroupingByChanges creates proper groupings.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GroupingByChanges_CreatesProperGroupings()
+    public async Task GroupingByChanges_CreatesProperGroupings()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -466,12 +484,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
 
         // Assert - each add creates a separate changeset, which creates groupings
-        _ = groupings.Should().HaveCountGreaterThan(0);
+        await Assert.That(groupings).Count(static count => count.IsGreaterThan(0));
     }
 
     /// <summary>Tests that GroupingByChanges handles batch operations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GroupingByChanges_HandlesBatchAdd()
+    public async Task GroupingByChanges_HandlesBatchAdd()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -485,16 +504,17 @@ public class ReactiveListExtensionsAdditionalTests
         list.AddRange([TestData.TestValueFive, TestData.TestValueFifteen, TestData.TestValueTwentyFive, TestData.TestValueSeven, TestData.TestValueSeventeen]);
 
         // Assert
-        _ = groupings.Should().HaveCountGreaterThan(0);
+        await Assert.That(groupings).Count(static count => count.IsGreaterThan(0));
         var keys = GetDistinctKeys(groupings);
-        _ = keys.Should().Contain(0); // 5, 7
-        _ = keys.Should().Contain(1); // 15, 17
-        _ = keys.Should().Contain(TestData.TestValueTwo); // 25
+        await Assert.That(keys).Contains(0); // 5, 7
+        await Assert.That(keys).Contains(1); // 15, 17
+        await Assert.That(keys).Contains(TestData.TestValueTwo); // 25
     }
 
     /// <summary>Tests that AutoRefresh emits refresh when property changes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AutoRefresh_EmitsRefreshWhenPropertyChanges()
+    public async Task AutoRefresh_EmitsRefreshWhenPropertyChanges()
     {
         // Arrange
         using var list = new ReactiveList<NotifyingItem>();
@@ -512,12 +532,13 @@ public class ReactiveListExtensionsAdditionalTests
         item.Name = "Updated";
 
         // Assert
-        _ = refreshCount.Should().Be(1);
+        await Assert.That(refreshCount).IsEqualTo(1);
     }
 
     /// <summary>Tests that AutoRefresh does not emit for unrelated property changes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AutoRefresh_DoesNotEmitForUnrelatedPropertyChanges()
+    public async Task AutoRefresh_DoesNotEmitForUnrelatedPropertyChanges()
     {
         // Arrange
         using var list = new ReactiveList<NotifyingItem>();
@@ -535,12 +556,13 @@ public class ReactiveListExtensionsAdditionalTests
         item.Value = TestData.TestValueOneHundred; // Change different property
 
         // Assert
-        _ = refreshCount.Should().Be(0);
+        await Assert.That(refreshCount).IsEqualTo(0);
     }
 
     /// <summary>Tests that AutoRefresh without property name watches all property changes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void AutoRefresh_WithoutPropertyName_WatchesAllProperties()
+    public async Task AutoRefresh_WithoutPropertyName_WatchesAllProperties()
     {
         // Arrange
         using var list = new ReactiveList<NotifyingItem>();
@@ -559,12 +581,13 @@ public class ReactiveListExtensionsAdditionalTests
         item.Value = TestData.TestValueTwo;
 
         // Assert - should get refresh for both property changes
-        _ = refreshCount.Should().Be(TestData.TestValueTwo);
+        await Assert.That(refreshCount).IsEqualTo(TestData.TestValueTwo);
     }
 
     /// <summary>Tests that Connect returns observable of change sets.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Connect_ReturnsObservableOfChangeSets()
+    public async Task Connect_ReturnsObservableOfChangeSets()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -579,25 +602,27 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueThree);
 
         // Assert
-        _ = changeSets.Should().HaveCount(TestData.TestValueThree);
-        _ = GetCurrentItems(changeSets).Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
+        await Assert.That(changeSets).Count().IsEqualTo(TestData.TestValueThree);
+        await Assert.That(GetCurrentItems(changeSets)).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
     }
 
     /// <summary>Tests that Connect throws for null source.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Connect_ThrowsForNullSource()
+    public async Task Connect_ThrowsForNullSource()
     {
         // Arrange
         IReactiveSource<int>? nullSource = null;
 
         // Act & Assert
         var act = () => nullSource!.Connect();
-        _ = act.Should().Throw<ArgumentNullException>();
+        await Assert.That(act).Throws<ArgumentNullException>();
     }
 
     /// <summary>Tests that WhereItems filters notifications by predicate.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void WhereItems_FiltersNotificationsByPredicate()
+    public async Task WhereItems_FiltersNotificationsByPredicate()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -622,12 +647,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueTen);
 
         // Assert - only items > 5 should be received
-        _ = receivedItems.Should().BeEquivalentTo([TestData.TestValueSeven, TestData.TestValueTen]);
+        await Assert.That(receivedItems).IsEquivalentTo([TestData.TestValueSeven, TestData.TestValueTen]);
     }
 
     /// <summary>Tests that WhereItems passes Cleared notifications.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void WhereItems_PassesClearedNotifications()
+    public async Task WhereItems_PassesClearedNotifications()
     {
         // Arrange
         using var list = new ReactiveList<string>();
@@ -650,12 +676,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.Clear();
 
         // Assert
-        _ = clearedReceived.Should().BeTrue();
+        await Assert.That(clearedReceived).IsTrue();
     }
 
     /// <summary>Tests that WhereItems passes BatchOperation notifications.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void WhereItems_PassesBatchOperations()
+    public async Task WhereItems_PassesBatchOperations()
     {
         // Arrange
         using var list = new ReactiveList<string>();
@@ -678,12 +705,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.AddRange(["short", "medium", "verylongtext", "x"]);
 
         // Assert
-        _ = batchReceived.Should().BeTrue();
+        await Assert.That(batchReceived).IsTrue();
     }
 
     /// <summary>Tests that WhereItems correctly filters value types including zero.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void WhereItems_HandlesValueTypesIncludingZero()
+    public async Task WhereItems_HandlesValueTypesIncludingZero()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -709,12 +737,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueTen); // Should be included
 
         // Assert - 0 should be correctly included
-        _ = receivedItems.Should().BeEquivalentTo([0, TestData.TestValueFive, TestData.TestValueTen]);
+        await Assert.That(receivedItems).IsEquivalentTo([0, TestData.TestValueFive, TestData.TestValueTen]);
     }
 
     /// <summary>Tests that SortBy sorts change sets by key selector.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void SortBy_SortsChangeSetsByKeySelector()
+    public async Task SortBy_SortsChangeSetsByKeySelector()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -735,12 +764,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.AddRange([TestData.TestValueFive, 1, TestData.TestValueThree, TestData.TestValueTwo, TestData.TestValueFour]);
 
         // Assert
-        _ = sortedItems.Should().BeInAscendingOrder();
+        await Assert.That(sortedItems).IsInOrder();
     }
 
     /// <summary>Tests that SortBy handles string sorting.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void SortBy_HandlesStringSorting()
+    public async Task SortBy_HandlesStringSorting()
     {
         // Arrange
         using var list = new ReactiveList<string>();
@@ -761,12 +791,13 @@ public class ReactiveListExtensionsAdditionalTests
         list.AddRange(["elephant", "cat", "dog", "bird"]);
 
         // Assert
-        _ = GetLengths(sortedItems).Should().BeInAscendingOrder();
+        await Assert.That(GetLengths(sortedItems)).IsInOrder();
     }
 
     /// <summary>Tests that SelectChanges transforms to different type maintaining change metadata.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void SelectChanges_TransformsToDifferentType()
+    public async Task SelectChanges_TransformsToDifferentType()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -781,14 +812,15 @@ public class ReactiveListExtensionsAdditionalTests
         list.Add(TestData.TestValueTwo);
 
         // Assert
-        _ = transformedSets.Should().HaveCount(TestData.TestValueTwo);
-        _ = transformedSets[0][0].Current.Should().Be("Value:1");
-        _ = transformedSets[1][0].Current.Should().Be("Value:2");
+        await Assert.That(transformedSets).Count().IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(transformedSets[0][0].Current).IsEqualTo("Value:1");
+        await Assert.That(transformedSets[1][0].Current).IsEqualTo("Value:2");
     }
 
     /// <summary>Tests that SelectChanges preserves change reason.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void SelectChanges_PreservesChangeReason()
+    public async Task SelectChanges_PreservesChangeReason()
     {
         // Arrange
         using var list = new ReactiveList<int>();
@@ -810,9 +842,9 @@ public class ReactiveListExtensionsAdditionalTests
         _ = list.Remove(TestData.TestValueTwo);
 
         // Assert
-        _ = reasons.Should().Contain(ChangeReason.Add);
-        _ = reasons.Should().Contain(ChangeReason.Update);
-        _ = reasons.Should().Contain(ChangeReason.Remove);
+        await Assert.That(reasons).Contains(ChangeReason.Add);
+        await Assert.That(reasons).Contains(ChangeReason.Update);
+        await Assert.That(reasons).Contains(ChangeReason.Remove);
     }
 
     /// <summary>Collects distinct grouping keys without allocating a LINQ pipeline.</summary>

@@ -8,9 +8,14 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+using CP.Reactive.Views;
+#else
 using CP.Primitives.Collections;
 using CP.Primitives.Views;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -19,8 +24,9 @@ namespace ReactiveList.Test;
 public class ReactiveListNotificationComplianceTests
 {
     /// <summary>Indexer replacement should be one replace notification and should not report a count change.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void IndexerSet_ShouldEmitSingleReplaceAndNoCountPropertyChange()
+    public async Task IndexerSet_ShouldEmitSingleReplaceAndNoCountPropertyChange()
     {
         using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         var collectionEvents = new List<NotifyCollectionChangedEventArgs>();
@@ -30,9 +36,9 @@ public class ReactiveListNotificationComplianceTests
 
         list[1] = TestData.TestValueTwenty;
 
-        _ = list.Should().Equal(1, TestData.TestValueTwenty, TestData.TestValueThree);
-        _ = collectionEvents.Should().ContainSingle();
-        _ = collectionEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Replace);
+        await Assert.That(list).IsEquivalentTo([1, TestData.TestValueTwenty, TestData.TestValueThree], CollectionOrdering.Matching);
+        await Assert.That(collectionEvents).HasSingleItem();
+        await Assert.That(collectionEvents[0].Action).IsEqualTo(NotifyCollectionChangedAction.Replace);
         var oldItems = collectionEvents[0].OldItems ?? throw new InvalidOperationException("Replace notification did not include old items.");
         var newItems = collectionEvents[0].NewItems ?? throw new InvalidOperationException("Replace notification did not include new items.");
         var oldValues = new List<int>(oldItems.Count);
@@ -47,14 +53,15 @@ public class ReactiveListNotificationComplianceTests
             newValues.Add((int)item!);
         }
 
-        _ = oldValues.Should().Equal(TestData.TestValueTwo);
-        _ = newValues.Should().Equal(TestData.TestValueTwenty);
-        _ = propertyNames.Should().Equal(TestData.IndexerPropertyName);
+        await Assert.That(oldValues).IsEquivalentTo([TestData.TestValueTwo], CollectionOrdering.Matching);
+        await Assert.That(newValues).IsEquivalentTo([TestData.TestValueTwenty], CollectionOrdering.Matching);
+        await Assert.That(propertyNames).IsEquivalentTo(ExpectedSequences.IndexerPropertyNames, CollectionOrdering.Matching);
     }
 
     /// <summary>Bulk operations on the UI-facing Items collection should coalesce to one collection notification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void BulkOperations_ShouldRaiseSingleItemsCollectionChangedNotification()
+    public async Task BulkOperations_ShouldRaiseSingleItemsCollectionChangedNotification()
     {
         using var list = new ReactiveList<int>();
         var itemEvents = new List<NotifyCollectionChangedEventArgs>();
@@ -63,23 +70,24 @@ public class ReactiveListNotificationComplianceTests
         var values = new[] { 1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour };
         list.AddRange(values.AsSpan());
 
-        _ = itemEvents.Should().ContainSingle();
-        _ = itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
+        await Assert.That(itemEvents).HasSingleItem();
+        await Assert.That(itemEvents[0].Action).IsEqualTo(NotifyCollectionChangedAction.Reset);
 
         itemEvents.Clear();
         list.Remove([1, TestData.TestValueThree]);
-        _ = itemEvents.Should().ContainSingle();
-        _ = itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
+        await Assert.That(itemEvents).HasSingleItem();
+        await Assert.That(itemEvents[0].Action).IsEqualTo(NotifyCollectionChangedAction.Reset);
 
         itemEvents.Clear();
         _ = list.RemoveMany(static item => item > 0);
-        _ = itemEvents.Should().ContainSingle();
-        _ = itemEvents[0].Action.Should().Be(NotifyCollectionChangedAction.Reset);
+        await Assert.That(itemEvents).HasSingleItem();
+        await Assert.That(itemEvents[0].Action).IsEqualTo(NotifyCollectionChangedAction.Reset);
     }
 
     /// <summary>ReplaceAll to empty should not suppress tracking for the following notification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReplaceAllToEmpty_ShouldNotSuppressNextNotification()
+    public async Task ReplaceAllToEmpty_ShouldNotSuppressNextNotification()
     {
         using var list = new ReactiveList<string>(["seed"]);
         var snapshots = new List<string[]>();
@@ -88,14 +96,15 @@ public class ReactiveListNotificationComplianceTests
         list.ReplaceAll([]);
         list.Add("next");
 
-        _ = list.ItemsAdded.Should().Equal("next");
-        _ = list.ItemsChanged.Should().Equal("next");
-        _ = snapshots[snapshots.Count - 1].Should().Equal("next");
+        await Assert.That(list.ItemsAdded).IsEquivalentTo(["next"], CollectionOrdering.Matching);
+        await Assert.That(list.ItemsChanged).IsEquivalentTo(["next"], CollectionOrdering.Matching);
+        await Assert.That(snapshots[snapshots.Count - 1]).IsEquivalentTo(["next"], CollectionOrdering.Matching);
     }
 
     /// <summary>Dynamic views should not block construction when no initial filter has been published.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void DynamicReactiveView_WithColdFilterSubject_ShouldConstructImmediately()
+    public async Task DynamicReactiveView_WithColdFilterSubject_ShouldConstructImmediately()
     {
         using var source = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree]);
         using var filters = new Signal<Func<int, bool>>();
@@ -106,9 +115,9 @@ public class ReactiveListNotificationComplianceTests
             TimeSpan.Zero,
             Sequencer.Immediate);
 
-        _ = view.Items.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
+        await Assert.That(view.Items).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], CollectionOrdering.Matching);
         filters.OnNext(static item => item > 1);
-        _ = view.Items.Should().Equal(TestData.TestValueTwo, TestData.TestValueThree);
+        await Assert.That(view.Items).IsEquivalentTo([TestData.TestValueTwo, TestData.TestValueThree], CollectionOrdering.Matching);
     }
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
@@ -131,15 +140,16 @@ public class ReactiveListNotificationComplianceTests
             Sequencer.Immediate,
             TimeSpan.Zero);
 
-        _ = view.Items.Should().BeEmpty();
+        await Assert.That(view.Items).IsEmpty();
         keys.OnNext(["north"]);
         await Task.Delay(TestData.TestValueTwentyFive);
-        _ = view.Items.Should().ContainSingle().Which.Should().Be(north);
+        await Assert.That(await Assert.That(view.Items).HasSingleItem()).IsEqualTo(north);
     }
 
     /// <summary>Quaternary collections should raise INPC notifications for UI-bound count/indexer properties.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryCollections_ShouldRaisePropertyChangedForMutations()
+    public async Task QuaternaryCollections_ShouldRaisePropertyChangedForMutations()
     {
         using var list = new QuaternaryList<int>();
         var listProperties = new List<string?>();
@@ -147,8 +157,8 @@ public class ReactiveListNotificationComplianceTests
 
         list.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
 
-        _ = listProperties.Should().Contain(nameof(list.Count));
-        _ = listProperties.Should().Contain(TestData.IndexerPropertyName);
+        await Assert.That(listProperties).Contains(nameof(list.Count));
+        await Assert.That(listProperties).Contains(TestData.IndexerPropertyName);
 
         using var dictionary = new QuaternaryDictionary<int, string>();
         var dictionaryProperties = new List<string?>();
@@ -156,26 +166,28 @@ public class ReactiveListNotificationComplianceTests
 
         dictionary.AddRange([new KeyValuePair<int, string>(1, "one")]);
 
-        _ = dictionaryProperties.Should().Contain(nameof(dictionary.Count));
-        _ = dictionaryProperties.Should().Contain(TestData.IndexerPropertyName);
+        await Assert.That(dictionaryProperties).Contains(nameof(dictionary.Count));
+        await Assert.That(dictionaryProperties).Contains(TestData.IndexerPropertyName);
     }
 
     /// <summary>Optimized quaternary list range removal should preserve multiset semantics for duplicate values.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryList_RemoveRange_ShouldRemoveOnlyRequestedDuplicateCount()
+    public async Task QuaternaryList_RemoveRange_ShouldRemoveOnlyRequestedDuplicateCount()
     {
         using var list = new QuaternaryList<int>();
         list.AddRange([1, 1, 1, TestData.TestValueTwo, TestData.TestValueThree]);
 
         list.RemoveRange([1, 1, TestData.TestValueFour]);
 
-        _ = list.Count.Should().Be(TestData.TestValueThree);
-        _ = list.ToArray().Should().BeEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
+        await Assert.That(list.Count).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(list.ToArray()).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree]);
     }
 
     /// <summary>Dictionary range operations should keep count exact for overwrites and no-op removals.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void QuaternaryDictionary_RangeOperations_ShouldMaintainCountAndSkipNoOpRemoveNotification()
+    public async Task QuaternaryDictionary_RangeOperations_ShouldMaintainCountAndSkipNoOpRemoveNotification()
     {
         using var dictionary = new QuaternaryDictionary<int, string>();
         var notifications = 0;
@@ -194,21 +206,21 @@ public class ReactiveListNotificationComplianceTests
             new KeyValuePair<int, string>(TestData.TestValueTwo, "two")
         ]);
 
-        _ = dictionary.Count.Should().Be(TestData.TestValueTwo);
-        _ = received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        _ = notifications.Should().Be(1);
+        await Assert.That(dictionary.Count).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(received.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notifications).IsEqualTo(1);
 
         received.Reset();
         dictionary.RemoveKeys([TestData.TestValueNinetyNine]);
-        _ = dictionary.Count.Should().Be(TestData.TestValueTwo);
-        _ = received.Wait(TimeSpan.FromMilliseconds(TestData.TestValueFifty)).Should().BeFalse();
-        _ = notifications.Should().Be(1);
+        await Assert.That(dictionary.Count).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(received.Wait(TimeSpan.FromMilliseconds(TestData.TestValueFifty))).IsFalse();
+        await Assert.That(notifications).IsEqualTo(1);
 
         received.Reset();
         dictionary.RemoveKeys([1]);
-        _ = dictionary.Count.Should().Be(1);
-        _ = received.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue();
-        _ = notifications.Should().Be(TestData.TestValueTwo);
+        await Assert.That(dictionary.Count).IsEqualTo(1);
+        await Assert.That(received.Wait(TimeSpan.FromSeconds(1))).IsTrue();
+        await Assert.That(notifications).IsEqualTo(TestData.TestValueTwo);
     }
 #endif
 

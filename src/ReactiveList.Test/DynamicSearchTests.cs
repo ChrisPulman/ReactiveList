@@ -370,7 +370,7 @@ public class DynamicSearchTests
             return false;
         }
 
-        return string.IsNullOrWhiteSpace(query) ? true : c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase)
+        return string.IsNullOrWhiteSpace(query) || c.LastName.Contains(query, StringComparison.OrdinalIgnoreCase)
                || c.Email.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 

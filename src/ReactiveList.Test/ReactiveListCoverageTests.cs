@@ -8,9 +8,14 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
+#if REACTIVELIST_REACTIVE
+using CP.Reactive.Collections;
+using CP.Reactive.Core;
+#else
 using CP.Primitives.Collections;
 using CP.Primitives.Core;
-using FluentAssertions;
+#endif
+using TUnit.Assertions;
 using TUnit.Core;
 
 namespace ReactiveList.Test;
@@ -19,8 +24,9 @@ namespace ReactiveList.Test;
 public class ReactiveListCoverageTests
 {
     /// <summary>Reactive observables and collection metadata should reflect list changes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ObservablePropertiesAndMetadata_ShouldReflectChanges()
+    public async Task ObservablePropertiesAndMetadata_ShouldReflectChanges()
     {
         ReactiveList<string> fixture = [];
         var changed = new List<string[]>();
@@ -31,11 +37,11 @@ public class ReactiveListCoverageTests
         using var currentSubscription = fixture.CurrentItems.Subscribe(items => AddSnapshot(current, items));
         using var removedSubscription = fixture.Removed.Subscribe(items => AddSnapshot(removed, items));
 
-        _ = fixture.IsDisposed.Should().BeFalse();
-        _ = fixture.IsFixedSize.Should().BeFalse();
-        _ = fixture.IsReadOnly.Should().BeFalse();
-        _ = fixture.IsSynchronized.Should().BeFalse();
-        _ = fixture.SyncRoot.Should().BeSameAs(fixture);
+        await Assert.That(fixture.IsDisposed).IsFalse();
+        await Assert.That(fixture.IsFixedSize).IsFalse();
+        await Assert.That(fixture.IsReadOnly).IsFalse();
+        await Assert.That(fixture.IsSynchronized).IsFalse();
+        await Assert.That(fixture.SyncRoot).IsSameReferenceAs(fixture);
 
         fixture.Add("one");
         fixture.Update("one", "uno");
@@ -47,40 +53,41 @@ public class ReactiveListCoverageTests
             changedItems.AddRange(snapshot);
         }
 
-        _ = changedItems.Should().Contain(["one", "uno"]);
-        _ = current.Should().NotBeEmpty();
-        _ = current[current.Count - 1].Should().BeEmpty();
-        _ = removed.Should().ContainSingle()
-            .Which.Should().Equal("uno");
+        await Assert.That(changedItems).Contains("one");
+        await Assert.That(changedItems).Contains("uno");
+        await Assert.That(current).IsNotEmpty();
+        await Assert.That(current[current.Count - 1]).IsEmpty();
+        await Assert.That(await Assert.That(removed).HasSingleItem()).IsEquivalentTo(["uno"], CollectionOrdering.Matching);
     }
 
     /// <summary>Explicit non-generic collection APIs should validate and mutate consistently.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void NonGenericCollectionMembers_ShouldValidateAndMutate()
+    public async Task NonGenericCollectionMembers_ShouldValidateAndMutate()
     {
         ReactiveList<string> fixture = ["one", "two"];
         var list = (IList)fixture;
 
-        _ = list[0].Should().Be("one");
+        await Assert.That(list[0]).IsEqualTo("one");
         list[0] = "zero";
-        _ = fixture[0].Should().Be("zero");
+        await Assert.That(fixture[0]).IsEqualTo("zero");
 
-        _ = list.Add(TestData.ThreeText).Should().Be(TestData.TestValueTwo);
+        await Assert.That(list.Add(TestData.ThreeText)).IsEqualTo(TestData.TestValueTwo);
         list.Insert(1, "inserted");
-        _ = list.Contains("two").Should().BeTrue();
-        _ = list.Contains(TestData.TestValueFortyTwo).Should().BeFalse();
-        _ = list.IndexOf(TestData.ThreeText).Should().Be(TestData.TestValueThree);
-        _ = list.IndexOf(TestData.TestValueFortyTwo).Should().Be(-1);
+        await Assert.That(list.Contains("two")).IsTrue();
+        await Assert.That(list.Contains(TestData.TestValueFortyTwo)).IsFalse();
+        await Assert.That(list.IndexOf(TestData.ThreeText)).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(list.IndexOf(TestData.TestValueFortyTwo)).IsEqualTo(-1);
         list.Remove("inserted");
         list.Remove(TestData.TestValueFortyTwo);
 
         var objects = new object[fixture.Count];
         ((ICollection)fixture).CopyTo(objects, 0);
-        _ = objects.Should().Equal("zero", "two", TestData.ThreeText);
+        await Assert.That(objects).IsEquivalentTo(ExpectedSequences.CopiedItems, CollectionOrdering.Matching);
 
         var typed = new string[fixture.Count];
         ((ICollection)fixture).CopyTo(typed, 0);
-        _ = typed.Should().Equal("zero", "two", TestData.ThreeText);
+        await Assert.That(typed).IsEquivalentTo(["zero", "two", TestData.ThreeText], CollectionOrdering.Matching);
 
         Action addWrongType = () => list.Add(TestData.TestValueFortyTwo);
         Action insertWrongType = () => list.Insert(0, TestData.TestValueFortyTwo);
@@ -95,56 +102,53 @@ public class ReactiveListCoverageTests
             ((ICollection)invalidFixture).CopyTo(new string[1], 0);
         };
 
-        _ = addWrongType.Should().Throw<InvalidCastException>();
-        _ = insertWrongType.Should().Throw<InvalidCastException>();
-        _ = copyNull.Should().Throw<ArgumentNullException>()
-            .WithParameterName(TestData.ArrayParameterName);
-        _ = copyMultiDimensional.Should().Throw<ArgumentException>()
-            .WithParameterName(TestData.ArrayParameterName);
-        _ = copyNonZeroLowerBound.Should().Throw<ArgumentException>()
-            .WithParameterName(TestData.ArrayParameterName);
-        _ = copyNegativeIndex.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName(TestData.IndexParameterName);
-        _ = copyTooSmall.Should().Throw<ArgumentException>()
-            .WithParameterName(TestData.ArrayParameterName);
-        _ = copyInvalidArrayType.Should().Throw<ArgumentException>();
+        await Assert.That(addWrongType).Throws<InvalidCastException>();
+        await Assert.That(insertWrongType).Throws<InvalidCastException>();
+        await Assert.That(copyNull).Throws<ArgumentNullException>().WithParameterName(TestData.ArrayParameterName);
+        await Assert.That(copyMultiDimensional).Throws<ArgumentException>().WithParameterName(TestData.ArrayParameterName);
+        await Assert.That(copyNonZeroLowerBound).Throws<ArgumentException>().WithParameterName(TestData.ArrayParameterName);
+        await Assert.That(copyNegativeIndex).Throws<ArgumentOutOfRangeException>().WithParameterName(TestData.IndexParameterName);
+        await Assert.That(copyTooSmall).Throws<ArgumentException>().WithParameterName(TestData.ArrayParameterName);
+        await Assert.That(copyInvalidArrayType).Throws<ArgumentException>();
 
         list.Clear();
-        _ = fixture.Count.Should().Be(0);
+        await Assert.That(fixture.Count).IsEqualTo(0);
     }
 
     /// <summary>Generic explicit members and empty batch branches should be no-ops.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void GenericExplicitMembersAndEmptyBatches_ShouldBehaveConsistently()
+    public async Task GenericExplicitMembersAndEmptyBatches_ShouldBehaveConsistently()
     {
         using ReactiveList<int> emptyFromEnumerable = new([]);
         ReactiveList<int> fixture = [1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour];
         var genericCollection = (ICollection<int>)fixture;
         var genericList = (IList<int>)fixture;
 
-        _ = emptyFromEnumerable.Count.Should().Be(0);
-        _ = genericList.IndexOf(TestData.TestValueThree).Should().Be(TestData.TestValueTwo);
-        _ = ((IList)fixture).IndexOf(null).Should().Be(-1);
-        _ = ((IList)fixture).Contains(null).Should().BeFalse();
+        await Assert.That(emptyFromEnumerable.Count).IsEqualTo(0);
+        await Assert.That(genericList.IndexOf(TestData.TestValueThree)).IsEqualTo(TestData.TestValueTwo);
+        await Assert.That(((IList)fixture).IndexOf(null)).IsEqualTo(-1);
+        await Assert.That(((IList)fixture).Contains(null)).IsFalse();
 
         fixture.AddRange(Array.Empty<int>());
         fixture.InsertRange(TestData.TestValueTwo, []);
         fixture.Remove([]);
         fixture.RemoveRange(0, 0);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueFour);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueFour);
 
         genericList.RemoveAt(0);
         ((IList)fixture).RemoveAt(0);
-        _ = fixture.Should().Equal(TestData.TestValueThree, TestData.TestValueFour);
+        await Assert.That(fixture).IsEquivalentTo([TestData.TestValueThree, TestData.TestValueFour], CollectionOrdering.Matching);
 
         genericCollection.Clear();
-        _ = fixture.Count.Should().Be(0);
+        await Assert.That(fixture.Count).IsEqualTo(0);
     }
 
     /// <summary>Reactive2DList guard branches should validate outer indexes and null row values.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void Reactive2DList_Guards_ShouldValidateOuterIndexesAndNullRows()
+    public async Task Reactive2DList_Guards_ShouldValidateOuterIndexesAndNullRows()
     {
         Reactive2DList<string> grid = [["a"]];
 
@@ -152,79 +156,78 @@ public class ReactiveListCoverageTests
         Action addSingleBadOuter = () => grid.AddToInner(-1, "b");
         Action insertNullItem = () => grid.Insert(0, (string)null!);
 
-        _ = addManyBadOuter.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("outerIndex");
-        _ = addSingleBadOuter.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("outerIndex");
-        _ = insertNullItem.Should().Throw<ArgumentNullException>()
-            .WithParameterName("item");
+        await Assert.That(addManyBadOuter).Throws<ArgumentOutOfRangeException>().WithParameterName("outerIndex");
+        await Assert.That(addSingleBadOuter).Throws<ArgumentOutOfRangeException>().WithParameterName("outerIndex");
+        await Assert.That(insertNullItem).Throws<ArgumentNullException>().WithParameterName("item");
     }
 
 #if NET6_0_OR_GREATER
 
     /// <summary>Span and memory helpers should copy snapshots and validate destination size.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void SpanAndMemoryHelpers_ShouldCopySnapshotsAndValidateDestination()
+    public async Task SpanAndMemoryHelpers_ShouldCopySnapshotsAndValidateDestination()
     {
         ReactiveList<int> fixture = [1, TestData.TestValueTwo, TestData.TestValueThree];
 
-        _ = fixture.ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
-        _ = fixture.AsSpan().ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
-        _ = fixture.AsMemory().ToArray().Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
+        await Assert.That(fixture.ToArray()).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], CollectionOrdering.Matching);
+        await Assert.That(fixture.AsSpan().ToArray()).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], CollectionOrdering.Matching);
+        await Assert.That(fixture.AsMemory().ToArray()).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], CollectionOrdering.Matching);
 
         var destination = new int[3];
         fixture.CopyTo(destination.AsSpan());
-        _ = destination.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree);
+        await Assert.That(destination).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree], CollectionOrdering.Matching);
 
         Action copyTooSmall = () => fixture.CopyTo(new int[2].AsSpan());
-        _ = copyTooSmall.Should().Throw<ArgumentException>()
-            .WithParameterName("destination");
+        await Assert.That(copyTooSmall).Throws<ArgumentException>().WithParameterName(nameof(destination));
 
         fixture.AddRange(ReadOnlySpan<int>.Empty);
-        _ = fixture.Count.Should().Be(TestData.TestValueThree);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThree);
 
         int[] values = [TestData.TestValueFour, TestData.TestValueFive];
         fixture.AddRange(values.AsSpan());
-        _ = fixture.Should().Equal(1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive);
+        await Assert.That(fixture).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive], CollectionOrdering.Matching);
     }
 #endif
 
 #if NET6_0_OR_GREATER || NETFRAMEWORK
 
     /// <summary>ClearWithoutDeallocation should support silent and notifying branches.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ClearWithoutDeallocation_ShouldSupportSilentAndNotifyingBranches()
+    public async Task ClearWithoutDeallocation_ShouldSupportSilentAndNotifyingBranches()
     {
         ReactiveList<int> fixture = [];
         var propertyNames = new List<string?>();
         fixture.PropertyChanged += (sender, args) => propertyNames.Add(args.PropertyName);
 
         fixture.ClearWithoutDeallocation(notifyChange: false);
-        _ = propertyNames.Should().BeEmpty();
+        await Assert.That(propertyNames).IsEmpty();
 
         fixture.ClearWithoutDeallocation();
-        _ = propertyNames.Should().Equal(nameof(fixture.Count), "Item[]");
+        await Assert.That(propertyNames).IsEquivalentTo(new string?[] { nameof(fixture.Count), "Item[]" }, CollectionOrdering.Matching);
 
         fixture.AddRange([1, TestData.TestValueTwo, TestData.TestValueThree]);
         propertyNames.Clear();
         fixture.ClearWithoutDeallocation(notifyChange: false);
 
-        _ = fixture.Count.Should().Be(0);
-        _ = fixture.Items.Should().BeEmpty();
-        _ = propertyNames.Should().BeEmpty();
+        await Assert.That(fixture.Count).IsEqualTo(0);
+        await Assert.That(fixture.Items).IsEmpty();
+        await Assert.That(propertyNames).IsEmpty();
 
         fixture.AddRange([TestData.TestValueFour, TestData.TestValueFive]);
         fixture.ClearWithoutDeallocation();
 
-        _ = fixture.Count.Should().Be(0);
-        _ = fixture.ItemsRemoved.Should().Equal(TestData.TestValueFour, TestData.TestValueFive);
-        _ = fixture.ItemsChanged.Should().Equal(TestData.TestValueFour, TestData.TestValueFive);
+        await Assert.That(fixture.Count).IsEqualTo(0);
+        await Assert.That(fixture.ItemsRemoved).IsEquivalentTo([TestData.TestValueFour, TestData.TestValueFive], CollectionOrdering.Matching);
+        await Assert.That(fixture.ItemsChanged).IsEquivalentTo([TestData.TestValueFour, TestData.TestValueFive], CollectionOrdering.Matching);
     }
 #endif
 
     /// <summary>Removal APIs should validate ranges and report only removed items.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void RemovalBranches_ShouldValidateRangesAndReportRemovedItems()
+    public async Task RemovalBranches_ShouldValidateRangesAndReportRemovedItems()
     {
         ReactiveList<int> fixture = [.. Enumerable.Range(0, TestData.TestValueForty)];
         var removed = new List<int[]>();
@@ -232,34 +235,30 @@ public class ReactiveListCoverageTests
 
         fixture.Remove([1, TestData.TestValueOneHundred, TestData.TestValueThree]);
 
-        _ = fixture.Count.Should().Be(TestData.TestValueThirtyEight);
-        _ = removed.Should().ContainSingle()
-            .Which.Should().Equal(1, TestData.TestValueThree);
+        await Assert.That(fixture.Count).IsEqualTo(TestData.TestValueThirtyEight);
+        await Assert.That(await Assert.That(removed).HasSingleItem()).IsEquivalentTo([1, TestData.TestValueThree], CollectionOrdering.Matching);
 
         Action removeManyNull = () => fixture.RemoveMany(null!);
         Action removeAtInvalid = () => fixture.RemoveAt(-1);
         Action removeRangeBadIndex = () => fixture.RemoveRange(-1, 1);
         Action removeRangeBadCount = () => fixture.RemoveRange(0, fixture.Count + 1);
 
-        _ = removeManyNull.Should().Throw<ArgumentNullException>()
-            .WithParameterName("predicate");
-        _ = removeAtInvalid.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName(TestData.IndexParameterName);
-        _ = removeRangeBadIndex.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName(TestData.IndexParameterName);
-        _ = removeRangeBadCount.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("count");
+        await Assert.That(removeManyNull).Throws<ArgumentNullException>().WithParameterName("predicate");
+        await Assert.That(removeAtInvalid).Throws<ArgumentOutOfRangeException>().WithParameterName(TestData.IndexParameterName);
+        await Assert.That(removeRangeBadIndex).Throws<ArgumentOutOfRangeException>().WithParameterName(TestData.IndexParameterName);
+        await Assert.That(removeRangeBadCount).Throws<ArgumentOutOfRangeException>().WithParameterName("count");
 
         fixture.RemoveRange(0, TestData.TestValueTwo);
         var removedCount = fixture.RemoveMany(static _ => true);
 
-        _ = removedCount.Should().Be(TestData.TestValueThirtySix);
-        _ = fixture.Count.Should().Be(0);
+        await Assert.That(removedCount).IsEqualTo(TestData.TestValueThirtySix);
+        await Assert.That(fixture.Count).IsEqualTo(0);
     }
 
     /// <summary>CollectionChanged should use specific actions for single changes and reset for batches.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void CollectionChanged_ShouldUseSpecificActionsForSingleChangesAndResetForBatches()
+    public async Task CollectionChanged_ShouldUseSpecificActionsForSingleChangesAndResetForBatches()
     {
         ReactiveList<string> fixture = ["one", "two", TestData.ThreeText];
         var events = new List<NotifyCollectionChangedEventArgs>();
@@ -276,20 +275,19 @@ public class ReactiveListCoverageTests
             actions.Add(eventArgs.Action);
         }
 
-        _ = actions.Should().Equal(
-            NotifyCollectionChangedAction.Add,
-            NotifyCollectionChangedAction.Remove,
-            NotifyCollectionChangedAction.Move,
-            NotifyCollectionChangedAction.Reset);
-        _ = events[0].NewStartingIndex.Should().Be(TestData.TestValueThree);
-        _ = events[1].OldStartingIndex.Should().Be(TestData.TestValueThree);
-        _ = events[TestData.TestValueTwo].OldStartingIndex.Should().Be(0);
-        _ = events[TestData.TestValueTwo].NewStartingIndex.Should().Be(1);
+        NotifyCollectionChangedAction[] expectedActions =
+            [NotifyCollectionChangedAction.Add, NotifyCollectionChangedAction.Remove, NotifyCollectionChangedAction.Move, NotifyCollectionChangedAction.Reset];
+        await Assert.That(actions).IsEquivalentTo(expectedActions, CollectionOrdering.Matching);
+        await Assert.That(events[0].NewStartingIndex).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(events[1].OldStartingIndex).IsEqualTo(TestData.TestValueThree);
+        await Assert.That(events[TestData.TestValueTwo].OldStartingIndex).IsEqualTo(0);
+        await Assert.That(events[TestData.TestValueTwo].NewStartingIndex).IsEqualTo(1);
     }
 
     /// <summary>ReplaceAll should emit old and new batches when either side is populated.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void ReplaceAll_ShouldEmitOldAndNewBatchesWhenPresent()
+    public async Task ReplaceAll_ShouldEmitOldAndNewBatchesWhenPresent()
     {
         ReactiveList<string> fixture = [];
         var actions = new List<CacheAction>();
@@ -302,29 +300,30 @@ public class ReactiveListCoverageTests
         fixture.ReplaceAll(["one", "two"]);
         fixture.ReplaceAll([]);
 
-        _ = fixture.Count.Should().Be(0);
-        _ = actions.Should().Equal(CacheAction.BatchAdded, CacheAction.BatchRemoved);
+        await Assert.That(fixture.Count).IsEqualTo(0);
+        await Assert.That(actions).IsEquivalentTo([CacheAction.BatchAdded, CacheAction.BatchRemoved], CollectionOrdering.Matching);
     }
 
     /// <summary>Subscribe should delegate to CurrentItems and Dispose should release resources.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public void SubscribeAndDispose_ShouldUseCurrentItemsAndReleaseResources()
+    public async Task SubscribeAndDispose_ShouldUseCurrentItemsAndReleaseResources()
     {
         ReactiveList<int> fixture = [];
         var observer = new RecordingObserver<int>();
         using var subscription = fixture.Subscribe(observer);
 
         fixture.Add(TestData.TestValueTen);
-        _ = observer.Snapshots.Should().HaveCountGreaterThanOrEqualTo(TestData.TestValueTwo);
-        _ = observer.Snapshots[observer.Snapshots.Count - 1].Should().Equal(TestData.TestValueTen);
+        await Assert.That(observer.Snapshots).Count(static count => count.IsGreaterThanOrEqualTo(TestData.TestValueTwo));
+        await Assert.That(observer.Snapshots[observer.Snapshots.Count - 1]).IsEquivalentTo([TestData.TestValueTen], CollectionOrdering.Matching);
 
         fixture.Dispose();
 
-        _ = fixture.IsDisposed.Should().BeTrue();
+        await Assert.That(fixture.IsDisposed).IsTrue();
 
         using var disposeHarness = new DisposeHarness<int>();
         disposeHarness.DisposeWithoutManagedResources();
-        _ = disposeHarness.IsDisposed.Should().BeFalse();
+        await Assert.That(disposeHarness.IsDisposed).IsFalse();
     }
 
     /// <summary>Public notification paths should preserve stream behavior and handle empty batch no-ops.</summary>
@@ -346,8 +345,7 @@ public class ReactiveListCoverageTests
         fixture.AddRange((IEnumerable<int>)Array.Empty<int>());
 
         Action setInvalidIndex = () => fixture[0] = 1;
-        _ = setInvalidIndex.Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName(TestData.IndexParameterName);
+        await Assert.That(setInvalidIndex).Throws<ArgumentOutOfRangeException>().WithParameterName(TestData.IndexParameterName);
 
         await TUnit.Assertions.Assert.That(stream.Count).IsEqualTo(0);
         await TUnit.Assertions.Assert.That(changed.Count).IsEqualTo(0);
