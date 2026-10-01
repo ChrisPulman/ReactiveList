@@ -177,7 +177,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         ArgumentNullException.ThrowIfNull(timeProvider);
         _timeProvider = timeProvider;
         _engine = new(timeProvider);
-        _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+        var applicationDispatcher = Application.Current?.Dispatcher;
+        if (applicationDispatcher is { HasShutdownStarted: false, HasShutdownFinished: false }
+            && applicationDispatcher.CheckAccess())
+        {
+            _dispatcher = applicationDispatcher;
+        }
+        else
+        {
+            _dispatcher = Dispatcher.CurrentDispatcher;
+        }
+
         _frameHandler = (_, frame) => ApplyFrame(frame);
         var sequencer = new DispatcherSequencer(_dispatcher, DispatcherPriority.Background);
 
