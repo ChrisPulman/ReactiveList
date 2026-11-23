@@ -236,16 +236,13 @@ jobs:
   sign:
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: release
     permissions:
       contents: read
-    container:
-      image: ghcr.io/reactiveui/certum-signer:latest
     env:
-      CERTUM_USER_ID: ${{ secrets.CERTUM_USER_ID }}
-      CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
-      CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
+      SAFESIGN_VERSION: '1.2.0'
     steps:
       - name: Download unsigned packages
         uses: actions/download-artifact@v8
@@ -253,176 +250,47 @@ jobs:
           name: unsigned-nuget
           path: signed
 
-      - name: Resolve prebuilt SimplySign paths
-        shell: bash
-        run: |
-          set -euo pipefail
-          : "${SS_DIST:?prebuilt image must set SS_DIST}"
-          {
-            echo "SS_DIST=$SS_DIST"
-            echo "SS_START=$(find "$SS_DIST/" -name 'SimplySignDesktop_start' -type f | head -1)"
-            echo "SS_EXE=$(find "$SS_DIST/" -name 'SimplySignDesktop' -type f | head -1)"
-            echo "SS_PKCS11=$(find "$SS_DIST/" -name 'SimplySignPKCS*.so' | head -1)"
-          } >> "$GITHUB_ENV"
+      - name: Setup .NET for signing
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: '10.0.x'
 
-      - name: Start headless display
+      - name: Install SafeSign
         shell: bash
-        run: |
-          set -euo pipefail
-          Xvfb :99 -screen 0 1280x1024x24 >"$RUNNER_TEMP/xvfb.log" 2>&1 &
-          sleep 3
-          mkdir -p "$HOME/.fluxbox"
-          printf 'session.screen0.rootCommand: /bin/true\n' > "$HOME/.fluxbox/init"
-          DISPLAY=:99 fluxbox >"$RUNNER_TEMP/fluxbox.log" 2>&1 &
-          sleep 2
-          DISPLAY=:99 xdpyinfo >/dev/null && echo "X display :99 up"
+        run: dotnet tool install SafeSign --version "$SAFESIGN_VERSION" --tool-path "$RUNNER_TEMP/safesign" --add-source https://api.nuget.org/v3/index.json
 
-      - name: Connect SimplySign
+      - name: Sign and verify packages with SafeSign
         shell: bash
         env:
-          DISPLAY: ':99'
+          CERTUM_USER_ID: ${{ secrets.CERTUM_USER_ID }}
+          CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
+          CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
         run: |
           set -euo pipefail
-          : "${CERTUM_USER_ID:?map the CERTUM_USER_ID secret into the job env}"
-          : "${CERTUM_OTP_URI:?map the CERTUM_OTP_URI secret into the job env}"
-
-          export USER="${USER:-root}"
-          cp "$SS_DIST/SimplySignDesktop.xml" "$HOME/" 2>/dev/null || true
-          mkdir -p "$HOME/.config"
-          {
-            echo "[General]"
-            echo "CacheUserIdAtLogon=Yes"
-            echo "ShowLogonDialogAfterApplicationStartup=Yes"
-            echo "ShowLogonDialogWhenAnyAppRequestsAccess=Yes"
-          } > "$HOME/.config/Unknown Organization.conf"
-
-          export LD_LIBRARY_PATH="$SS_DIST:${LD_LIBRARY_PATH:-}"
-          if [ -n "${SS_START:-}" ]; then
-            "$SS_START" >"$RUNNER_TEMP/simplysign.log" 2>&1 &
-          else
-            "$SS_EXE" >"$RUNNER_TEMP/simplysign.log" 2>&1 &
-          fi
-          sleep 20
-
-          OTP="$(cd "$RUNNER_TEMP" && dotnet run - <<'CS'
-          using System.Buffers.Binary;
-          using System.Globalization;
-          using System.Security.Cryptography;
-          using System.Web;
-
-          var query = HttpUtility.ParseQueryString(new Uri(Environment.GetEnvironmentVariable("CERTUM_OTP_URI")!).Query);
-          var key = Base32(query["secret"]!);
-          var digits = int.Parse(query["digits"] ?? "6", CultureInfo.InvariantCulture);
-          var period = long.Parse(query["period"] ?? "30", CultureInfo.InvariantCulture);
-          var counter = new byte[8];
-          BinaryPrimitives.WriteInt64BigEndian(counter, DateTimeOffset.UtcNow.ToUnixTimeSeconds() / period);
-
-          var hash = (query["algorithm"] ?? "SHA1").ToUpperInvariant() switch
-          {
-              "SHA1" => HMACSHA1.HashData(key, counter),
-              "SHA256" => HMACSHA256.HashData(key, counter),
-              "SHA512" => HMACSHA512.HashData(key, counter),
-              var algorithm => throw new NotSupportedException($"Unsupported TOTP algorithm {algorithm}."),
-          };
-
-          var offset = hash[^1] & 0xF;
-          var code = (BinaryPrimitives.ReadInt32BigEndian(hash.AsSpan(offset)) & 0x7FFFFFFF) % (int)Math.Pow(10, digits);
-          Console.WriteLine(code.ToString(CultureInfo.InvariantCulture).PadLeft(digits, '0'));
-
-          static byte[] Base32(string text)
-          {
-              const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-              List<byte> bytes = [];
-              int buffer = 0, bits = 0;
-              foreach (var character in text.TrimEnd('=').ToUpperInvariant())
-              {
-                  buffer = ((buffer << 5) | alphabet.IndexOf(character)) & 0xFFFF;
-                  bits += 5;
-                  if (bits >= 8)
-                  {
-                      bits -= 8;
-                      bytes.Add((byte)(buffer >> bits));
-                  }
-              }
-
-              return [.. bytes];
-          }
-          CS
-          )"
-          echo "::add-mask::$OTP"
-
-          WID=""; BX=0; BY=0; BW=0; BH=0
-          for attempt in $(seq 1 30); do
-            best=0; WID=""
-            for w in $(xdotool search --name '' 2>/dev/null); do
-              nm="$(xdotool getwindowname "$w" 2>/dev/null || true)"
-              case "$nm" in *implySign*) ;; *) continue ;; esac
-              eval "$(xdotool getwindowgeometry --shell "$w" 2>/dev/null)"
-              area=$(( ${WIDTH:-0} * ${HEIGHT:-0} ))
-              if [ "$area" -gt "$best" ]; then best=$area; WID=$w; BX=${X:-0}; BY=${Y:-0}; BW=${WIDTH:-0}; BH=${HEIGHT:-0}; fi
-            done
-            [ "${BW:-0}" -ge 400 ] && [ "${BH:-0}" -ge 300 ] && { echo "login window $WID ${BW}x${BH} (attempt $attempt)"; break; }
-            WID=""; sleep 2
-          done
-
-          [ -z "$WID" ] && { echo "::error::SimplySign login window did not appear"; cat "$RUNNER_TEMP/simplysign.log" || true; exit 1; }
-          xdotool windowactivate --sync "$WID" || xdotool windowactivate "$WID" || true
-          xdotool windowraise "$WID" || true
-          sleep 1
-
-          xdotool mousemove $((BX + BW/2)) $((BY + BH*39/100)) click 1; sleep 1
-          xdotool type --clearmodifiers --delay 50 "$CERTUM_USER_ID"
-          xdotool key Tab; sleep 1
-          xdotool type --clearmodifiers --delay 50 "$OTP"
-          xdotool mousemove $((BX + BW/2)) $((BY + BH*76/100)) click 1
-          sleep 8
-
-          best=0
-          for w in $(xdotool search --name '' 2>/dev/null); do
-            nm="$(xdotool getwindowname "$w" 2>/dev/null || true)"
-            case "$nm" in *implySign*) ;; *) continue ;; esac
-            eval "$(xdotool getwindowgeometry --shell "$w" 2>/dev/null)"
-            area=$(( ${WIDTH:-0} * ${HEIGHT:-0} ))
-            if [ "$area" -gt "$best" ]; then best=$area; WID=$w; BX=${X:-0}; BY=${Y:-0}; BW=${WIDTH:-0}; BH=${HEIGHT:-0}; fi
-          done
-          xdotool windowactivate --sync "$WID" || true
-          xdotool mousemove $((BX + BW/2)) $((BY + BH*94/100)) click 1
-          sleep 3
-
-          timeout 60 pkcs11-tool --module "$SS_PKCS11" -L
-
-      - name: Sign packages with jsign
-        shell: bash
-        run: |
-          set -euo pipefail
-          : "${CERTUM_CERT_FINGERPRINT:?map the CERTUM_CERT_FINGERPRINT secret into the job env}"
-
-          JAR="${JSIGN_JAR:-$RUNNER_TEMP/jsign.jar}"
-          if [ ! -s "$JAR" ]; then
-            curl -fsSL -o "$JAR" "https://repo1.maven.org/maven2/net/jsign/jsign/7.4/jsign-7.4.jar"
-          fi
-
-          CONF="$RUNNER_TEMP/sunpkcs11.conf"
-          {
-            echo "name = SimplySign"
-            echo "library = $SS_PKCS11"
-            echo "slotListIndex = 0"
-          } > "$CONF"
+          : "${CERTUM_USER_ID:?map the CERTUM_USER_ID secret into the signing step env}"
+          : "${CERTUM_OTP_URI:?map the CERTUM_OTP_URI secret into the signing step env}"
+          : "${CERTUM_CERT_FINGERPRINT:?map the CERTUM_CERT_FINGERPRINT secret into the signing step env}"
 
           expected_fingerprint="$(printf '%s' "$CERTUM_CERT_FINGERPRINT" | tr -d '[:space:]:')"
           if [[ ! "$expected_fingerprint" =~ ^[[:xdigit:]]{64}$ ]]; then
             echo "::error::CERTUM_CERT_FINGERPRINT must be the signer certificate SHA256 fingerprint."
             exit 1
           fi
+          export CERTUM_CERT_FINGERPRINT="$expected_fingerprint"
 
           shopt -s nullglob
           pkgs=( signed/*.nupkg )
           [ "${#pkgs[@]}" -gt 0 ] || { echo "::error::no packages matched: signed/*.nupkg"; exit 1; }
 
+          "$RUNNER_TEMP/safesign/safesign" sign "${pkgs[@]}" \
+            --provider certum \
+            --hash SHA256 \
+            --timestamp-url http://time.certum.pl \
+            --description "ReactiveList" \
+            --description-url https://github.com/ChrisPulman/ReactiveList
+
           for pkg in "${pkgs[@]}"; do
-            echo "::group::sign $pkg"
-            java -jar "$JAR" --storetype PKCS11 --keystore "$CONF" --storepass "" \
-              --alg SHA-256 --tsmode RFC3161 --tsaurl "http://time.certum.pl" --replace "$pkg"
+            echo "::group::verify $pkg"
             dotnet nuget verify "$pkg" --all --certificate-fingerprint "$expected_fingerprint" --verbosity detailed
             echo "::endgroup::"
           done
