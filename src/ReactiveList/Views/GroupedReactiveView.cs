@@ -41,7 +41,7 @@ where TKey : notnull
     /// <param name="source">The source reactive list to group.</param>
     /// <param name="keySelector">A function to extract the grouping key.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
+    /// <param name="throttle">The throttle duration for updates. Zero disables throttling; updates still use the specified scheduler.</param>
     public GroupedReactiveView(
         IReactiveList<T> source,
         Func<T, TKey> keySelector,
@@ -272,9 +272,13 @@ where TKey : notnull
         internal void Start()
         {
             _groupCollection.CollectionChanged += OnCollectionChanged;
-            var subscription = _source.Stream
-                .ToChangeSets()
-                .Throttle(_throttle)
+            var updates = _source.Stream.ToChangeSets();
+            if (_throttle != TimeSpan.Zero)
+            {
+                updates = updates.Throttle(_throttle);
+            }
+
+            var subscription = updates
                 .ObserveOn(_scheduler)
                 .Subscribe(OnSourceChanged);
 

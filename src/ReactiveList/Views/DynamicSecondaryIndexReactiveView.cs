@@ -44,7 +44,7 @@ where TKey : notnull
     /// <param name="indexName">The name of the secondary index.</param>
     /// <param name="keysObservable">An observable of key arrays to filter by.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
+    /// <param name="throttle">The throttle duration for updates. Zero disables throttling; updates still use the specified scheduler.</param>
     public DynamicSecondaryIndexReactiveView(
         QuaternaryList<T> source,
         string indexName,
@@ -323,7 +323,7 @@ where TKey : notnull
                 .DisposeWith(_disposables);
 
             _ = _source.Stream
-                .Throttle(throttle)
+                .ThrottleNotifications(throttle)
                 .ObserveOn(scheduler)
                 .Subscribe(OnSourceChanged)
                 .DisposeWith(_disposables);
