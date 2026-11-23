@@ -1,29 +1,31 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <ReactiveUIPrimitivesVersion>10.2.3</ReactiveUIPrimitivesVersion>
+    <RoslynAnalyzers>5.2.0</RoslynAnalyzers>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="CP.Nuke.BuildTools" Version="3.0.2" />
     <PackageVersion Include="CrissCross.WPF.UI" Version="5.0.0" />
-    <PackageVersion Include="DynamicData" Version="9.4.33" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
+    <PackageVersion Include="DynamicData" Version="9.5.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="MinVer" Version="8.0.0" />
     <PackageVersion Include="Nuke.Common" Version="10.1.0" />
-    <PackageVersion Include="ReactiveUI.Primitives" Version="9.0.0" />
-    <PackageVersion Include="ReactiveUI.Primitives.Reactive" Version="9.0.0" />
-    <PackageVersion Include="ReactiveUI.Primitives.Wpf" Version="9.0.0" />
-    <PackageVersion Include="Roslynator.Analyzers" Version="5.0.0" />
-    <PackageVersion Include="StyleSharp.Analyzers" Version="5.1.2" />
-    <PackageVersion Include="PerformanceSharp.Analyzers" Version="5.1.2" />
-    <PackageVersion Include="SecuritySharp.Analyzers" Version="5.1.2" />
+    <PackageVersion Include="ReactiveUI.Primitives" Version="$(ReactiveUIPrimitivesVersion)" />
+    <PackageVersion Include="ReactiveUI.Primitives.Reactive" Version="$(ReactiveUIPrimitivesVersion)" />
+    <PackageVersion Include="ReactiveUI.Primitives.Wpf" Version="$(ReactiveUIPrimitivesVersion)" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="5.0.1" />
+    <PackageVersion Include="StyleSharp.Analyzers" Version="$(RoslynAnalyzers)" />
+    <PackageVersion Include="PerformanceSharp.Analyzers" Version="$(RoslynAnalyzers)" />
+    <PackageVersion Include="SecuritySharp.Analyzers" Version="$(RoslynAnalyzers)" />
     <PackageVersion Include="System.Buffers" Version="4.6.1" />
     <PackageVersion Include="System.Memory" Version="4.6.3" />
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.14" />
-    <PackageVersion Include="System.Threading.Channels" Version="10.0.12" />
-    <PackageVersion Include="TUnit" Version="1.73.19" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="11.0.0" />
+    <PackageVersion Include="System.Threading.Channels" Version="11.0.0" />
+    <PackageVersion Include="TUnit" Version="1.87.12" />
   </ItemGroup>
 </Project>

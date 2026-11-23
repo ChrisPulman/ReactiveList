@@ -11,7 +11,7 @@
     <Nullable>enable</Nullable>
     <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Compatibility with .NET 8, .NET 9, .NET 10, .NET 11, and .NET Framework 4.6.2, 4.7.2, 4.8, and 4.8.1.</PackageReleaseNotes>
+    <PackageReleaseNotes>Compatibility with .NET 10, .NET 11, and .NET Framework 4.7, 4.7.1, 4.7.2, 4.8, and 4.8.1.</PackageReleaseNotes>
     <PackageTags>list;rx;reactive;extensions;observable;LINQ;net;netstandard</PackageTags>
     <EnableNETAnalyzers>True</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
@@ -27,8 +27,8 @@
     <!-- Include PDB in the built .nupkg -->
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <IncludePackageReferencesDuringMarkupCompilation>true</IncludePackageReferencesDuringMarkupCompilation>
-    <CoreTargetFrameworks>net8.0;net9.0;net10.0;net11.0</CoreTargetFrameworks>
-    <WinTargetFrameworks>net462;net472;net48;net481;net8.0-windows10.0.19041.0;net9.0-windows10.0.19041.0;net10.0-windows10.0.19041.0;net11.0-windows10.0.19041.0</WinTargetFrameworks>
+    <CoreTargetFrameworks>net10.0;net11.0</CoreTargetFrameworks>
+    <WinTargetFrameworks>net47;net471;net472;net48;net481;net10.0-windows;net11.0-windows;net10.0-windows10.0.19041.0;net11.0-windows10.0.19041.0</WinTargetFrameworks>
   </PropertyGroup>
   <PropertyGroup Condition="$([MSBuild]::IsOsPlatform('Windows'))">
     <CoreTargetFrameworks>$(CoreTargetFrameworks);$(WinTargetFrameworks)</CoreTargetFrameworks>
