@@ -72,6 +72,7 @@ public class DynamicSearchTests
 
         // Setup search pipeline that rebuilds when search text changes
         using var subscription = searchText
+            .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -124,6 +125,7 @@ public class DynamicSearchTests
         var processedQuery = CreateCompletion<string>();
 
         using var subscription = searchText
+            .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -170,6 +172,7 @@ public class DynamicSearchTests
         var processedQuery = CreateCompletion<string>();
 
         using var subscription = searchText
+            .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -213,6 +216,7 @@ public class DynamicSearchTests
         var processedQuery = CreateCompletion<string>();
 
         using var subscription = searchText
+            .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -263,6 +267,7 @@ public class DynamicSearchTests
 
         // Subscribe to search text changes
         using var searchSubscription = searchText
+            .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
@@ -324,6 +329,7 @@ public class DynamicSearchTests
         var processedQuery = CreateCompletion<string>();
 
         using var subscription = searchText
+            .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(SearchThrottleMilliseconds))
             .ObserveOn(Sequencer.Immediate)
             .Subscribe(query =>
