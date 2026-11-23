@@ -87,7 +87,7 @@ where TKey : notnull
     /// <param name="indexName">The name of the secondary index.</param>
     /// <param name="indexKey">The key value to filter on.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
+    /// <param name="throttle">The throttle duration for updates. Zero disables throttling; updates still use the specified scheduler.</param>
     /// <returns>A new <see cref="SecondaryIndexReactiveView{TKey, TValue}"/> bound to the specified index key.</returns>
     public static SecondaryIndexReactiveView<TKey, TValue> Create<TIndexKey>(
         QuaternaryDictionary<TKey, TValue> source,
@@ -157,7 +157,7 @@ where TKey : notnull
 
         // Subscribe to changes
         var subscription = _source.Stream
-            .Throttle(throttle)
+            .ThrottleNotifications(throttle)
             .ObserveOn(scheduler)
             .Subscribe(OnSourceChanged);
 

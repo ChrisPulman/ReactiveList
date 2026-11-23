@@ -552,6 +552,25 @@ Common view members:
 | `DynamicSecondaryIndexReactiveView<T, TKey>` | Live list secondary-index view with observable keys. |
 | `DynamicSecondaryIndexDictionaryReactiveView<TKey, TValue>` | Live dictionary secondary-index view with observable keys. |
 
+### Disabling Throttling
+
+For sorted, grouped, and secondary-index views, pass `throttleMs: 0` (or `TimeSpan.Zero` when constructing a view directly) to bypass throttling completely. Overloads without an interval retain the default 50 ms throttle. Scheduler dispatch remains enabled: use `Sequencer.Immediate` for synchronous updates, or your UI sequencer to marshal updates to the UI thread.
+
+```csharp
+using var list = new ReactiveList<int>([1, 2, 3, 4]);
+using var sorted = list.SortBy(Comparer<int>.Default, Sequencer.Immediate, throttleMs: 0);
+
+list.Edit(items =>
+{
+    _ = items.Remove(2);
+    items.Add(5);
+});
+
+// sorted.Items is now [1, 3, 4, 5], without a delay or Refresh().
+```
+
+For `ReactiveList.Reactive`, use `ImmediateScheduler.Instance` instead of `Sequencer.Immediate`. Disabling view throttling does not make an asynchronous source synchronous; quaternary collection streams retain their channel-based delivery.
+
 ### View Examples
 
 ```csharp

@@ -426,6 +426,88 @@ public class ViewCoverageTests
 
 #if NET8_0_OR_GREATER || NETFRAMEWORK
 
+    /// <summary>Zero throttling applies every consecutive notification to indexed dictionary views.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task SecondaryIndexReactiveView_ZeroThrottle_ReflectsSequentialChanges()
+    {
+        var north = new ViewItem(1, TestConstants.NorthRegion);
+        var nextNorth = new ViewItem(TestConstants.TestValueTwo, TestConstants.NorthRegion);
+        var south = new ViewItem(TestConstants.TestValueThree, TestConstants.SouthRegion);
+        using var dictionary = new QuaternaryDictionary<int, ViewItem>();
+        dictionary.AddValueIndex(TestConstants.RegionPropertyName, static item => item.Region);
+        dictionary.Add(1, north);
+        using var dictionaryView = SecondaryIndexReactiveView<int, ViewItem>.Create(
+            dictionary,
+            TestConstants.RegionPropertyName,
+            TestConstants.NorthRegion,
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+        var dictionaryUpdates = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dictionaryNotifications = 0;
+        dictionaryView.PropertyChanged += (_, _) =>
+        {
+            dictionaryNotifications++;
+            if (dictionaryNotifications != TestConstants.TestValueThree)
+            {
+                return;
+            }
+
+            _ = dictionaryUpdates.TrySetResult(true);
+        };
+
+        _ = dictionary.Remove(1);
+        dictionary.Add(TestConstants.TestValueTwo, nextNorth);
+        dictionary.Add(TestConstants.TestValueThree, south);
+
+        var dictionaryCompletion = await Task.WhenAny(dictionaryUpdates.Task, Task.Delay(TimeSpan.FromSeconds(TestConstants.TestValueFive)));
+        await Assert.That(dictionaryCompletion).IsSameReferenceAs(dictionaryUpdates.Task);
+        await Assert.That(dictionaryView.Items).IsEquivalentTo([nextNorth], CollectionOrdering.Matching);
+    }
+
+    /// <summary>Zero throttling applies every consecutive notification to dynamic indexed list views.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DynamicSecondaryIndexReactiveView_ZeroThrottle_ReflectsSequentialChanges()
+    {
+        var north = new ViewItem(1, TestConstants.NorthRegion);
+        var nextNorth = new ViewItem(TestConstants.TestValueTwo, TestConstants.NorthRegion);
+        var south = new ViewItem(TestConstants.TestValueThree, TestConstants.SouthRegion);
+        using var list = new QuaternaryList<ViewItem>();
+        list.AddIndex(TestConstants.RegionPropertyName, static item => item.Region);
+        list.Add(north);
+        using var keys = new BehaviorSignal<string[]>([TestConstants.NorthRegion]);
+        using var listView = new DynamicSecondaryIndexReactiveView<ViewItem, string>(
+            list,
+            TestConstants.RegionPropertyName,
+            keys,
+            Sequencer.Immediate,
+            TimeSpan.Zero);
+        var listUpdates = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var listNotifications = 0;
+        listView.PropertyChanged += (_, _) =>
+        {
+            listNotifications++;
+            if (listNotifications != TestConstants.TestValueThree)
+            {
+                return;
+            }
+
+            _ = listUpdates.TrySetResult(true);
+        };
+
+        _ = list.Remove(north);
+        list.Add(nextNorth);
+        list.Add(south);
+
+        var listCompletion = await Task.WhenAny(listUpdates.Task, Task.Delay(TimeSpan.FromSeconds(TestConstants.TestValueFive)));
+        await Assert.That(listCompletion).IsSameReferenceAs(listUpdates.Task);
+        await Assert.That(listView.Items).IsEquivalentTo([nextNorth], CollectionOrdering.Matching);
+
+        keys.OnNext([TestConstants.SouthRegion]);
+        await Assert.That(listView.Items).IsEquivalentTo([south], CollectionOrdering.Matching);
+    }
+
     /// <summary>Secondary-index dictionary views should remove values when updates leave the index.</summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]

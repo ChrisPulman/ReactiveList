@@ -35,7 +35,7 @@ where T : notnull
     /// <param name="source">The source reactive list to sort.</param>
     /// <param name="comparer">The comparer for sorting items.</param>
     /// <param name="scheduler">The scheduler for dispatching updates.</param>
-    /// <param name="throttle">The throttle duration for updates.</param>
+    /// <param name="throttle">The throttle duration for updates. Zero disables throttling; updates still use the specified scheduler.</param>
     public SortedReactiveView(
         IReactiveList<T> source,
         IComparer<T> comparer,
@@ -236,9 +236,13 @@ where T : notnull
         internal void Start()
         {
             _sortedItems.CollectionChanged += OnCollectionChanged;
-            var subscription = _source.Stream
-                .ToChangeSets()
-                .Throttle(_throttle)
+            var updates = _source.Stream.ToChangeSets();
+            if (_throttle != TimeSpan.Zero)
+            {
+                updates = updates.Throttle(_throttle);
+            }
+
+            var subscription = updates
                 .ObserveOn(_scheduler)
                 .Subscribe(OnSourceChanged);
 

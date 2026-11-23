@@ -665,7 +665,7 @@ public static class ReactiveListExtensions
         /// <summary>Creates a sorted view of the reactive list that updates automatically when the source changes.</summary>
         /// <param name="comparer">The comparer to use for sorting.</param>
         /// <param name="scheduler">Optional scheduler for dispatching updates. Defaults to CurrentThreadScheduler.</param>
-        /// <param name="throttleMs">Throttle interval in milliseconds. Defaults to 50ms.</param>
+        /// <param name="throttleMs">Throttle interval in milliseconds. Zero disables throttling; updates use the specified scheduler.</param>
         /// <returns>A sorted view that stays synchronized with the source.</returns>
         public SortedReactiveView<T> SortBy(
             IComparer<T> comparer,
@@ -753,7 +753,7 @@ public static class ReactiveListExtensions
         /// <param name="keySelector">A function to extract the sort key.</param>
         /// <param name="descending">Whether to sort in descending order.</param>
         /// <param name="scheduler">Optional scheduler for dispatching updates. Defaults to CurrentThreadScheduler.</param>
-        /// <param name="throttleMs">Throttle interval in milliseconds. Defaults to 50ms.</param>
+        /// <param name="throttleMs">Throttle interval in milliseconds. Zero disables throttling; updates use the specified scheduler.</param>
         /// <returns>A sorted view that stays synchronized with the source.</returns>
         public SortedReactiveView<T> SortBy<TKey>(
             Func<T, TKey> keySelector,
@@ -813,7 +813,7 @@ public static class ReactiveListExtensions
         /// <typeparam name="TKey">The type of the grouping key.</typeparam>
         /// <param name="keySelector">A function to extract the key for grouping.</param>
         /// <param name="scheduler">Optional scheduler for dispatching updates. Defaults to CurrentThreadScheduler.</param>
-        /// <param name="throttleMs">Throttle interval in milliseconds. Defaults to 50ms.</param>
+        /// <param name="throttleMs">Throttle interval in milliseconds. Zero disables throttling; updates use the specified scheduler.</param>
         /// <returns>A grouped view that stays synchronized with the source.</returns>
         public GroupedReactiveView<T, TKey> GroupBy<TKey>(
             Func<T, TKey> keySelector,

@@ -248,6 +248,87 @@ public class ReactiveListExtensionsTests
             .IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFive, TestData.TestValueEight, TestData.TestValueNine], CollectionOrdering.Matching);
     }
 
+    /// <summary>Zero throttling applies every sequential edit before Edit returns.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task SortBy_ZeroThrottle_ReflectsSequentialEdits()
+    {
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
+        using var view = list.SortBy(Comparer<int>.Default, Sequencer.Immediate, throttleMs: 0);
+
+        list.Edit(static items =>
+        {
+            _ = items.Remove(TestData.TestValueTwo);
+            items.Add(TestData.TestValueFive);
+        });
+
+        await Assert.That(view.Items).IsEquivalentTo([1, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive], CollectionOrdering.Matching);
+
+        list.Edit(static items =>
+        {
+            items.Clear();
+            items.Add(TestData.TestValueThree);
+            items.Add(1);
+            items.Add(1);
+        });
+
+        await Assert.That(view.Items).IsEquivalentTo([1, 1, TestData.TestValueThree], CollectionOrdering.Matching);
+
+        list.Update(TestData.TestValueThree, TestData.TestValueTwo);
+        list.Add(TestData.TestValueFour);
+        _ = list.Remove(1);
+
+        await Assert.That(view.Items).IsEquivalentTo([1, TestData.TestValueTwo, TestData.TestValueFour], CollectionOrdering.Matching);
+    }
+
+    /// <summary>Key-selector sorting honors zero throttling in both directions.</summary>
+    /// <param name="descending">Whether the view is sorted in descending order.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task SortBy_ZeroThrottle_KeySelectorReflectsSequentialEdits(bool descending)
+    {
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
+        using var view = list.SortBy(static item => item, descending, Sequencer.Immediate, throttleMs: 0);
+
+        list.Edit(static items =>
+        {
+            _ = items.Remove(TestData.TestValueTwo);
+            items.Add(TestData.TestValueFive);
+        });
+
+        int[] expected = descending
+            ? [TestData.TestValueFive, TestData.TestValueFour, TestData.TestValueThree, 1]
+            : [1, TestData.TestValueThree, TestData.TestValueFour, TestData.TestValueFive];
+        await Assert.That(view.Items).IsEquivalentTo(expected, CollectionOrdering.Matching);
+    }
+
+    /// <summary>Zero throttling retains every sequential change to group membership.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task GroupBy_ZeroThrottle_ReflectsSequentialEdits()
+    {
+        using var list = new ReactiveList<int>([1, TestData.TestValueTwo, TestData.TestValueThree, TestData.TestValueFour]);
+        using var view = list.GroupBy(static item => item % TestData.TestValueTwo, Sequencer.Immediate, throttleMs: 0);
+
+        list.Edit(static items =>
+        {
+            _ = items.Remove(TestData.TestValueTwo);
+            items.Add(TestData.TestValueFive);
+        });
+
+        await Assert.That(view[0]).IsEquivalentTo([TestData.TestValueFour]);
+        await Assert.That(view[1]).IsEquivalentTo([1, TestData.TestValueThree, TestData.TestValueFive]);
+
+        list.Clear();
+        list.Add(TestData.TestValueTwo);
+        list.Add(TestData.TestValueFour);
+
+        await Assert.That(view.Count).IsEqualTo(1);
+        await Assert.That(view[0]).IsEquivalentTo([TestData.TestValueTwo, TestData.TestValueFour]);
+    }
+
     /// <summary>Tests that SortBy with key selector creates a sorted view.</summary>
     /// <returns>A task representing the async test.</returns>
     [Test]
